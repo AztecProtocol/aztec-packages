@@ -20,13 +20,13 @@ function test {
   }
   export -f test_box
 
-  HASH=$(cache_content_hash ../noir/.rebuild_patterns* \
-    ../noir-projects/.rebuild_patterns \
-    ../{avm-transpiler,l1-contracts,yarn-project}/.rebuild_patterns \
+  hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns)
 
-  if test_should_run "boxes-test-$HASH"; then
+  if test_should_run "boxes-test-$hash"; then
     parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
+    cache_upload_flag boxes-test-$hash
   fi
 }
 
@@ -45,6 +45,6 @@ case "$cmd" in
     test
     ;;
   *)
-    echo "Unknown command: $CMD"
+    echo "Unknown command: $cmd"
     exit 1
 esac

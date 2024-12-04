@@ -10,22 +10,20 @@ BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 FLOW=${FLOW:-prove_and_verify}
 RECURSIVE=${RECURSIVE:-false}
-# We get little performance benefit over 16 cores (in fact it can be worse).
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
-FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
+flow_script=$(realpath ./flows/${FLOW}.sh)
+nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
 
 export BIN CRS_PATH RECURSIVE HARDWARE_CONCURRENCY VERBOSE
 
 echo -n "Testing $TEST_NAME... "
+cd ./acir_tests/$TEST_NAME
 
-cd ../../noir/noir-repo/test_programs/execution_success/$TEST_NAME
-
-if [ "$COMPILE" -eq 1 ]; then
+if [ "$COMPILE" -ne 0 ]; then
   echo -n "compiling... "
   export RAYON_NUM_THREADS=4
   rm -rf target
-  nargo=../../../target/release/nargo
   set +e
   compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)
   result=$?
@@ -37,7 +35,7 @@ if [ "$COMPILE" -eq 1 ]; then
   fi
   mv ./target/$TEST_NAME.json ./target/program.json
   mv ./target/$TEST_NAME.gz ./target/witness.gz
-  if [ "$COMPILE_ONLY" -eq 1 ]; then
+  if [ "$COMPILE" -eq 2 ]; then
     echo "done."
     exit 0
   fi
@@ -50,7 +48,7 @@ fi
 
 set +e
 start=$SECONDS
-output=$($FLOW_SCRIPT 2>&1)
+output=$($flow_script 2>&1)
 result=$?
 end=$SECONDS
 duration=$((end - start))

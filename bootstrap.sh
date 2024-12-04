@@ -5,7 +5,7 @@
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output.
 export DENOISE=1
@@ -117,13 +117,6 @@ case "$CMD" in
     echo "Cleaning complete"
     exit 0
   ;;
-  "full")
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  ;;
-  "fast")
-    export USE_CACHE=1
-  ;;
   "check")
     check_toolchains
     echo "Toolchains look good! 🎉"
@@ -138,6 +131,7 @@ case "$CMD" in
   "test-cache")
     # Spin up ec2 instance and bootstrap.
     scripts/tests/bootstrap/test-cache
+    exit
     ;;
   "image-aztec")
     github_group "image-aztec"
@@ -176,8 +170,11 @@ case "$CMD" in
     github_endgroup
     exit
   ;;
+  ""|"fast"|"full"|"test"|"ci")
+    # Drop through. bootstrap_source has set flags.
+  ;;
   *)
-    echo "usage: $0 <clean|full|fast|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
@@ -210,7 +207,7 @@ for project in "${PROJECTS[@]}"; do
   echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $project && ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh $CMD)
   echo
   echo
 done

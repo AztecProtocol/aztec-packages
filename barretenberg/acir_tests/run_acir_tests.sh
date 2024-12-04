@@ -17,24 +17,8 @@ RECURSIVE=${RECURSIVE:-false}
 
 export BIN CRS_PATH VERBOSE RECURSIVE HARDWARE_CONCURRENCY
 
-# Convert them to array
-# There are no issues with the tests below but as they check proper handling of dependencies or circuits that are part of a workspace
-# running these require extra gluecode so they are skipped for the purpose of this script
-skip_array=(diamond_deps_0 workspace workspace_default_member)
-
-# TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-skip_array+=(regression_5045)
-
-# These honk tests just started failing...
-skip_array+=(verify_honk_proof double_verify_honk_proof)
-
 if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
-  TEST_NAMES=$(cd ../../noir/noir-repo/test_programs/execution_success; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
-fi
-
-TEST_NAMES=($(printf '%s\n' "${TEST_NAMES[@]}" | grep -vFxf <(printf '%s\n' "${skip_array[@]}") || true))
-if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
-  exit 0
+  TEST_NAMES=$(cd ./acir_tests; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
 fi
 
 jobs=$(($(nproc) / HARDWARE_CONCURRENCY))

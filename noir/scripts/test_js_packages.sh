@@ -3,15 +3,15 @@ set -eu
 
 cd $(dirname "$0")/../noir-repo
 
-./.github/scripts/wasm-bindgen-install.sh
-./.github/scripts/playwright-install.sh
+# ./.github/scripts/wasm-bindgen-install.sh
+# ./.github/scripts/playwright-install.sh
 
 # Set build data manually.
 export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
 export GIT_DIRTY=false
 export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
-cargo build --release
+# cargo build --release
 
 yarn
 yarn build

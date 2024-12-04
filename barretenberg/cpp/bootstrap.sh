@@ -1,79 +1,92 @@
 #!/usr/bin/env bash
-# Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cleanup() {
-    BG_PIDS=$(jobs -p)
-    if [[ -n "$BG_PIDS" ]]; then
-        kill $BG_PIDS 2>/dev/null
-        wait $BG_PIDS 2>/dev/null
-    fi
-}
-trap cleanup EXIT
-
-CMD=${1:-}
-
-github_group "bb cpp build"
-
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -ffdx
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
-  fi
-fi
+cmd=${1:-}
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  OS=macos
+  os=macos
 elif [[ "$OSTYPE" == "linux-gnu" ]]; then
-  OS=linux
+  os=linux
 elif [[ "$OSTYPE" == "linux-musl" ]]; then
-  OS=linux
+  os=linux
 else
   echo "Unknown OS: $OSTYPE"
   exit 1
 fi
 
-# Attempt to just pull artefacts from CI and exit on success.
-if [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh ; then
-  # This ensures the build later will no-op
-  export HAD_CACHE=1
-fi
-
-# Pick native toolchain file.
-ARCH=$(uname -m)
-if [ "$OS" == "macos" ]; then
-  PRESET=default
+# Pick native toolchain.
+if [ "$os" == "macos" ]; then
+  preset=default
 else
   if [ "$(which clang++-16)" != "" ]; then
-    PRESET=clang16
+    preset=clang16
   else
-    PRESET=default
+    preset=default
   fi
 fi
 
-PIC_PRESET="$PRESET-pic"
+pic_preset="$preset-pic"
 
-# Remove cmake cache files.
-rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
+hash=$(cache_content_hash .rebuild_patterns)
 
-(cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
+function build_native {
+  if ! cache_download barretenberg-release-$hash.tar.gz; then
+    rm -f build/CMakeCache.txt
+    echo "Building with preset: $preset"
+    cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --build --preset $preset --target bb
+    cache_upload barretenberg-release-$hash.tar.gz build/bin
+  fi
 
-HASH=$(cache_content_hash .rebuild_patterns)
+  (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
+  if ! cache_download barretenberg-release-world-state-$hash.tar.gz; then
+    rm -f build-pic/CMakeCache.txt
+    cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --build --preset $pic_preset --target world_state_napi
+    # TODO: How about no? Barretenberg knows nothing of yarn-project. Copy this from yarn-project.
+    # copy the world_state_napi build artifact over to the world state in yarn-project
+    # mkdir -p ../../yarn-project/world-state/build/
+    # cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
+    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib
+  fi
+}
 
-function test_native {
-  if test_should_run barretenberg-test-$HASH; then
-    cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-    cmake --build --preset $PRESET
+function build_wasm {
+  if ! cache_download barretenberg-wasm-$hash.tar.gz; then
+    rm -f build-wasm/CMakeCache.txt
+    cmake --preset wasm
+    cmake --build --preset wasm
+    cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
+  fi
+}
+
+function build_wasm_threads {
+  if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
+    rm -f build-wasm-threads/CMakeCache.txt
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
+    cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
+  fi
+}
+
+function build {
+  github_group "bb cpp build"
+  export preset pic_preset hash
+  export -f build_native build_wasm build_wasm_threads
+  parallel --line-buffered -v --tag --memfree 8g denoise {} ::: build_native build_wasm build_wasm_threads
+  github_endgroup
+}
+
+function test {
+  if test_should_run barretenberg-test-$hash; then
+    github_group "bb test"
+    echo "Building tests..."
+    denoise cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert "&&" cmake --build --preset $preset
 
     # Download ignition transcripts.
-    github_group "download ignition"
-    (cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh)
-    github_endgroup
-
+    echo "Downloading srs..."
+    denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
     if [ ! -d ./srs_db/grumpkin ]; then
       # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
       # If tests require more points, the parameter can be increased here. Note: IPA requires
@@ -81,50 +94,28 @@ function test_native {
       cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
     fi
 
+    echo "Testing..."
     (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
-    cache_upload_flag barretenberg-test-$HASH
+    cache_upload_flag barretenberg-test-$hash
+    github_endgroup
   fi
 }
-function build_native {
-  echo "#################################"
-  echo "# Building with preset: $PRESET"
-  echo "# When running cmake directly, remember to use: --build --preset $PRESET"
-  echo "#################################"
-  # Build bb with standard preset and world_state_napi with Position Independent code variant
-  cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --build --preset $PRESET --target bb
-  cmake --build --preset $PIC_PRESET --target world_state_napi
-  # copy the world_state_napi build artifact over to the world state in yarn-project
-  mkdir -p ../../yarn-project/world-state/build/
-  cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 
-  cache_upload barretenberg-preset-release-$HASH.tar.gz build/bin
-  cache_upload barretenberg-preset-release-world-state-$HASH.tar.gz build-pic/lib
-  test_native
-}
-
-function build_wasm {
-  cmake --preset wasm
-  cmake --build --preset wasm
-  cache_upload barretenberg-preset-wasm-$HASH.tar.gz build-wasm/bin
-}
-
-function build_wasm_threads {
-  cmake --preset wasm-threads
-  cmake --build --preset wasm-threads
-  cache_upload barretenberg-preset-wasm-threads-$HASH.tar.gz build-wasm-threads/bin
-}
-
-export PRESET PIC_PRESET HASH HAD_CACHE ci3
-export -f build_native build_wasm build_wasm_threads test_native
-
-
-if [ "${HAD_CACHE:-0}" -eq 0 ]; then
-  parallel --line-buffered -v --tag --memfree 8g denoise {} ::: build_native build_wasm build_wasm_threads
-else
-  # We don't need to build, so run tests (only native tests exists currently)
-  test_native
-fi
-
-github_endgroup
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+esac

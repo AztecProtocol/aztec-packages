@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-CMD=${1:-}
-
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  fi
-fi
+cmd=${1:-}
 
 github_group "noir-projects build"
 
@@ -26,9 +19,9 @@ export -f prep
 denoise prep
 
 parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
-  "denoise ./mock-protocol-circuits/bootstrap.sh $CMD" \
-  "denoise ./noir-protocol-circuits/bootstrap.sh $CMD" \
-  "denoise ./noir-contracts/bootstrap.sh $CMD"
+  "denoise ./mock-protocol-circuits/bootstrap.sh $cmd" \
+  "denoise ./noir-protocol-circuits/bootstrap.sh $cmd" \
+  "denoise ./noir-contracts/bootstrap.sh $cmd"
 
 github_endgroup
 
