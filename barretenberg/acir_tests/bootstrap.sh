@@ -91,12 +91,8 @@ case "$cmd" in
     (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
     ;;
   ""|"fast"|"full")
-    build
     ;;
-  "test")
-    test
-    ;;
-  "ci")
+  "test"|"ci")
     build
     test
     ;;

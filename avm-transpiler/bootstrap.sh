@@ -9,7 +9,7 @@ function build {
   artifact=avm-transpiler-$(cache_content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
   if ! cache_download $artifact; then
     denoise ./scripts/bootstrap_native.sh
-    cache_upload $artifact target
+    cache_upload $artifact target/release
   fi
   github_endgroup
 }
