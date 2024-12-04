@@ -34,7 +34,7 @@ fi
 # Construct the full instance type. We use m6a/m7g currently.
 if [ "$ARCH" == "x86_64" ]; then
   MACHINE_TYPE="m6a"
-  AMI="ami-04d8422a9ba4de80f"
+  AMI="ami-052a1e16394277fdf"
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
   AMI="ami-0d8a9b0419ddb331a"
@@ -59,7 +59,8 @@ launch_spec=$(cat <<EOF
     {
       "DeviceName": "/dev/sda1",
       "Ebs": {
-        "VolumeSize": 64
+        "VolumeSize": 64,
+        "VolumeType": "gp3"
       }
     }
   ]
@@ -71,7 +72,7 @@ EOF
 temp_file=$(mktemp)
 echo "$launch_spec" > "$temp_file"
 
->&2 echo "Requesting $INSTANCE_TYPE spot instance (cpus: $CPUS) (bid: $PRICE)..."
+>&2 echo "Requesting $INSTANCE_TYPE spot instance (name: $NAME) (cpus: $CPUS) (bid: $PRICE)..."
 SIR=$(aws ec2 request-spot-instances \
   --spot-price "$PRICE" \
   --instance-count 1 \
@@ -130,4 +131,4 @@ while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>
   fi
   sleep 1
 done
-echo $IP:$SIR
+echo $IP:$SIR:$IID

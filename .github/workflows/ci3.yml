@@ -69,4 +69,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_LOG: 1
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}-test-cache ./ci.sh ec2 test-cache
+          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}-test-cache ./ci.sh ec2 "./bootstrap.sh test-cache"
