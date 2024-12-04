@@ -63,7 +63,7 @@ export class PublicTxSimulator {
     private realAvmProvingRequests: boolean = true,
     private doMerkleOperations: boolean = false,
   ) {
-    this.log = createLogger(`aztec:public_tx_simulator`);
+    this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 

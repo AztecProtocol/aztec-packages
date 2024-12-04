@@ -18,7 +18,7 @@ export class AnvilTestWatcher {
 
   private filledRunningPromise?: RunningPromise;
 
-  private logger: Logger = createLogger(`aztec:utils:watcher`);
+  private logger: Logger = createLogger(`aztecjs:utils:watcher`);
 
   constructor(
     private cheatcodes: EthCheatCodes,

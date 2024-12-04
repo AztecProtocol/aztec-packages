@@ -93,7 +93,7 @@ export class FullProverTest {
     coinbase: EthAddress,
     private realProofs = true,
   ) {
-    this.logger = createLogger(`aztec:full_prover_test:${testName}`);
+    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,

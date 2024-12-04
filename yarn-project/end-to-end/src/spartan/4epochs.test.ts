@@ -14,7 +14,7 @@ const config = setupEnvironment(process.env);
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 
-  const logger = createLogger(`aztec:spartan:4epochs`);
+  const logger = createLogger(`e2e:spartan:4epochs`);
   const l1Config = getL1ContractsConfigEnvVars();
 
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs

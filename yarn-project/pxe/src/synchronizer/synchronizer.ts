@@ -31,7 +31,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>> = {},
     logSuffix?: string,
   ) {
-    this.log = createLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
+    this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
     this.blockStream = this.createBlockStream(config);
   }
 

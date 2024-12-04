@@ -12,7 +12,7 @@ const config = setupEnvironment(process.env);
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
-  const logger = createLogger(`aztec:spartan-test:transfer`);
+  const logger = createLogger(`e2e:spartan-test:transfer`);
   const MINT_AMOUNT = 20n;
 
   const ROUNDS = 5n;

@@ -72,7 +72,7 @@ export async function createNode(
 
   return await AztecNodeService.createAndSync(validatorConfig, {
     telemetry: telemetryClient,
-    logger: createLogger(`aztec:node-${tcpPort}`),
+    logger: createLogger(`node:${tcpPort}`),
   });
 }
 

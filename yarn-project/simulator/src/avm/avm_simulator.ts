@@ -54,7 +54,7 @@ export class AvmSimulator {
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
-    this.log = createLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+    this.log = createLogger(`simulator:avm:core(f:${context.environment.functionSelector.toString()})`);
     // TODO(palla/log): Should tallies be printed on debug, or only on trace?
     if (this.log.isLevelEnabled('debug')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
