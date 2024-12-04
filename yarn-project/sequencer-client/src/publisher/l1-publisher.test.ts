@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/circuit-types';
-import { EthAddress, Fr } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
   type L1TxRequest,
@@ -16,7 +16,6 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type GetTransactionReceiptReturnType,
-  type Kzg,
   type PrivateKeyAccount,
   type TransactionReceipt,
   encodeFunctionData,
@@ -31,6 +30,7 @@ interface MockPublicClient {
   getTransactionReceipt: ({ hash }: { hash: '0x${string}' }) => Promise<GetTransactionReceiptReturnType>;
   getBlock(): Promise<{ timestamp: bigint }>;
   getTransaction: ({ hash }: { hash: '0x${string}' }) => Promise<{ input: `0x${string}`; hash: `0x${string}` }>;
+  estimateGas: ({ to, data }: { to: '0x${string}'; data: '0x${string}' }) => Promise<bigint>;
 }
 
 interface MockL1TxUtils {
@@ -70,6 +70,7 @@ class MockRollupContract {
 
 describe('L1Publisher', () => {
   let rollupContractRead: MockProxy<MockRollupContractRead>;
+  let rollupContractWrite: MockProxy<MockRollupContractWrite>;
   let rollupContract: MockRollupContract;
 
   let publicClient: MockProxy<MockPublicClient>;
@@ -85,6 +86,8 @@ describe('L1Publisher', () => {
   let body: Buffer;
 
   let publisher: L1Publisher;
+
+  const GAS_GUESS = 300_000n;
 
   beforeEach(() => {
     l2Block = L2Block.random(42);
@@ -102,8 +105,9 @@ describe('L1Publisher', () => {
       logs: [],
     } as unknown as GetTransactionReceiptReturnType;
 
+    rollupContractWrite = mock<MockRollupContractWrite>();
     rollupContractRead = mock<MockRollupContractRead>();
-    rollupContract = new MockRollupContract(rollupContractRead);
+    rollupContract = new MockRollupContract(rollupContractWrite, rollupContractRead);
 
     publicClient = mock<MockPublicClient>();
     l1TxUtils = mock<MockL1TxUtils>();
@@ -111,9 +115,7 @@ describe('L1Publisher', () => {
       l1RpcUrl: `http://127.0.0.1:8545`,
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
-      l1Contracts: {
-        rollupAddress: rollupContract.address,
-      },
+      l1Contracts: { rollupAddress: EthAddress.ZERO.toString() },
       l1PublishRetryIntervalMS: 1,
       ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
       ...defaultL1TxUtilsConfig,
@@ -138,11 +140,13 @@ describe('L1Publisher', () => {
 
   it('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    walletClient.sendTransaction.mockResolvedValueOnce(proposeTxHash);
+    rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
 
     const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(true);
+
+    const kzg = Blob.getViemKzgInstance();
 
     const blobs = Blob.getBlobs(l2Block.body.toBlobFields());
 
@@ -169,6 +173,7 @@ describe('L1Publisher', () => {
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
+      { blobs: blobs.map(b => b.data), kzg, maxFeePerBlobGas: 10000000000n },
     );
   });
 

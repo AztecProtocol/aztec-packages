@@ -129,6 +129,12 @@ export interface L1TxRequest {
   value?: bigint;
 }
 
+export interface L1BlobInputs {
+  blobs: Uint8Array[];
+  kzg: any;
+  maxFeePerBlobGas: bigint;
+}
+
 interface GasPrice {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
@@ -158,6 +164,7 @@ export class L1TxUtils {
   public async sendTransaction(
     request: L1TxRequest,
     _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
+    _blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
@@ -171,8 +178,10 @@ export class L1TxUtils {
 
     const gasPrice = await this.getGasPrice(gasConfig);
 
+    const blobInputs = _blobInputs || {};
     const txHash = await this.walletClient.sendTransaction({
       ...request,
+      ...blobInputs,
       gas: gasLimit,
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
@@ -197,9 +206,11 @@ export class L1TxUtils {
     initialTxHash: Hex,
     params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig>,
+    _blobInputs?: L1BlobInputs,
   ): Promise<TransactionReceipt> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
+    const blobInputs = _blobInputs || {};
 
     // Retry a few times, in case the tx is not yet propagated.
     const tx = await retry<GetTransactionReturnType>(
@@ -286,6 +297,7 @@ export class L1TxUtils {
 
           currentTxHash = await this.walletClient.sendTransaction({
             ...request,
+            ...blobInputs,
             nonce,
             gas: params.gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
@@ -320,9 +332,10 @@ export class L1TxUtils {
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
     gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
+    blobInputs?: L1BlobInputs,
   ): Promise<TransactionReceipt> {
-    const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig);
-    return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig);
+    const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig, blobInputs);
+    return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig, blobInputs);
   }
 
   /**
