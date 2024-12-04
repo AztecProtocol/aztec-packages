@@ -137,11 +137,11 @@ impl Context {
                 }
             }
 
-            rc_tracker.track_inc_rcs_to_remove(*instruction_id, function);
+            // rc_tracker.track_inc_rcs_to_remove(*instruction_id, function);
         }
 
-        self.instructions_to_remove.extend(rc_tracker.get_non_mutated_arrays());
-        self.instructions_to_remove.extend(rc_tracker.rc_pairs_to_remove);
+        // self.instructions_to_remove.extend(rc_tracker.get_non_mutated_arrays());
+        // self.instructions_to_remove.extend(rc_tracker.rc_pairs_to_remove);
 
         // If there are some instructions that might trigger an out of bounds error,
         // first add constrain checks. Then run the DIE pass again, which will remove those
