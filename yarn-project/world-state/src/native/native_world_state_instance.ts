@@ -200,7 +200,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['notesCount'] = body.paddedNoteHashes.length;
         data['nullifiersCount'] = body.paddedNullifiers.length;
         data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.batchesOfPublicDataWrites.reduce((acc, batch) => acc + batch.length, 0);
+        data['publicDataWritesCount'] = body.publicDataWrites.length;
       }
 
       this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);

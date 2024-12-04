@@ -91,21 +91,11 @@ fn validate_arrays_malformed_public_call_stack_fails() {
 }
 
 #[test(should_fail_with = "invalid array")]
-fn validate_arrays_malformed_note_encrypted_logs_hashes() {
+fn validate_arrays_malformed_private_logs() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_log_hashes(1);
-    unshift_empty_item(&mut builder.private_call.note_encrypted_logs_hashes);
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "invalid array")]
-fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_encrypted_log_hashes(1);
-    unshift_empty_item(&mut builder.private_call.encrypted_logs_hashes);
+    builder.private_call.append_private_logs(1);
+    unshift_empty_item(&mut builder.private_call.private_logs);
 
     builder.validate();
 }

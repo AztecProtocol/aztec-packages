@@ -1,7 +1,7 @@
 terraform {
-  backend "s3" {
+  backend "gcs" {
     bucket = "aztec-terraform"
-    region = "eu-west-2"
+    prefix = "terraform/state"
   }
   required_providers {
     helm = {

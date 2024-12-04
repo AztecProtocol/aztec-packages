@@ -1,9 +1,9 @@
 import {
   type ProverAgentApi,
   type ProvingJob,
+  type ProvingJobInputs,
+  type ProvingJobResultsMap,
   type ProvingJobSource,
-  type ProvingRequest,
-  type ProvingRequestResultFor,
   ProvingRequestType,
   type ServerCircuitProver,
   makeProvingRequestResult,
@@ -11,6 +11,8 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
+
+import { InlineProofStore } from '../proving_broker/proof_store.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
@@ -27,6 +29,7 @@ export class ProverAgent implements ProverAgentApi {
     }
   >();
   private runningPromise?: RunningPromise;
+  private proofInputsDatabase = new InlineProofStore();
 
   constructor(
     /** The prover implementation to defer jobs to */
@@ -101,12 +104,12 @@ export class ProverAgent implements ProverAgentApi {
             const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
             this.inFlightPromises.set(job.id, {
               id: job.id,
-              type: job.request.type,
+              type: job.type,
               promise,
             });
           } catch (err) {
             this.log.warn(
-              `Error processing job! type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
+              `Error processing job! type=${ProvingRequestType[job.type]}: ${err}. ${(err as Error).stack}`,
             );
           }
         } catch (err) {
@@ -130,28 +133,24 @@ export class ProverAgent implements ProverAgentApi {
     this.log.info('Agent stopped');
   }
 
-  private async work<TRequest extends ProvingRequest>(
-    jobSource: ProvingJobSource,
-    job: ProvingJob<TRequest>,
-  ): Promise<void> {
+  private async work(jobSource: ProvingJobSource, job: ProvingJob): Promise<void> {
     try {
-      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
-      const type: TRequest['type'] = job.request.type;
-      const [time, result] = await elapsed(this.getProof(job.request));
+      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
+      const type = job.type;
+      const inputs = await this.proofInputsDatabase.getProofInput(job.inputsUri);
+      const [time, result] = await elapsed(this.getProof(inputs));
       if (this.#isRunning()) {
         this.log.verbose(`Processed proving job id=${job.id} type=${ProvingRequestType[type]} duration=${time}ms`);
         await jobSource.resolveProvingJob(job.id, makeProvingRequestResult(type, result));
       } else {
         this.log.verbose(
-          `Dropping proving job id=${job.id} type=${
-            ProvingRequestType[job.request.type]
-          } duration=${time}ms: agent stopped`,
+          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.type]} duration=${time}ms: agent stopped`,
         );
       }
     } catch (err) {
-      const type = ProvingRequestType[job.request.type];
+      const type = ProvingRequestType[job.type];
       if (this.#isRunning()) {
-        if (job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
+        if (job.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
           this.log.warn(`Expected error processing VM proving job id=${job.id} type=${type}: ${err}`);
         } else {
           this.log.error(`Error processing proving job id=${job.id} type=${type}: ${err}`, err);
@@ -164,10 +163,7 @@ export class ProverAgent implements ProverAgentApi {
     }
   }
 
-  private getProof<TRequest extends ProvingRequest>(
-    request: TRequest,
-  ): Promise<ProvingRequestResultFor<TRequest['type']>['result']>;
-  private getProof(request: ProvingRequest): Promise<ProvingRequestResultFor<typeof type>['result']> {
+  private getProof(request: ProvingJobInputs): Promise<ProvingJobResultsMap[ProvingRequestType]> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {

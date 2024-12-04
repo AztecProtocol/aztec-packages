@@ -1,0 +1,11 @@
+FinaliseWithdrawTest
+├── given status is not exiting
+│   └── it revert
+└── given status is exiting
+    ├── given time is before unlock
+    │   └── it revert
+    └── given time is after unlock
+        ├── it deletes the exit
+        ├── it deletes the operator info
+        ├── it transfer funds to recipient
+        └── it emits a {WithdrawFinalised} event

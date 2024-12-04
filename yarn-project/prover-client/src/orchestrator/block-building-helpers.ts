@@ -492,41 +492,30 @@ async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWr
     ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
 
-  const lowPublicDataWritesPreimages = [];
-  const lowPublicDataWritesMembershipWitnesses = [];
-  const publicDataWritesSiblingPaths = [];
+  const { lowLeavesWitnessData, insertionWitnessData } = await db.sequentialInsert(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    allPublicDataWrites.map(write => {
+      if (write.isEmpty()) {
+        throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
+      }
+      return write.toBuffer();
+    }),
+  );
 
-  for (const write of allPublicDataWrites) {
-    if (write.isEmpty()) {
-      throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
-    }
-
-    // TODO(Alvaro) write a specialized function for this? Internally add_or_update_value uses batch insertion anyway
-    const { lowLeavesWitnessData, newSubtreeSiblingPath } = await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [write.toBuffer()],
-      // TODO(#3675) remove oldValue from update requests
-      0,
-    );
-
-    if (lowLeavesWitnessData === undefined) {
-      throw new Error(`Could not craft public data batch insertion proofs`);
-    }
-
-    const [lowLeafWitness] = lowLeavesWitnessData;
-    lowPublicDataWritesPreimages.push(lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage);
-    lowPublicDataWritesMembershipWitnesses.push(
-      MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        lowLeafWitness.index,
-        assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
-      ),
-    );
-
-    const insertionSiblingPath = newSubtreeSiblingPath.toFields();
+  const lowPublicDataWritesPreimages = lowLeavesWitnessData.map(
+    lowLeafWitness => lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage,
+  );
+  const lowPublicDataWritesMembershipWitnesses = lowLeavesWitnessData.map(lowLeafWitness =>
+    MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
+      lowLeafWitness.index,
+      assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+    ),
+  );
+  const publicDataWritesSiblingPaths = insertionWitnessData.map(w => {
+    const insertionSiblingPath = w.siblingPath.toFields();
     assertLength(insertionSiblingPath, PUBLIC_DATA_TREE_HEIGHT);
-
-    publicDataWritesSiblingPaths.push(insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>);
-  }
+    return insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>;
+  });
 
   return {
     lowPublicDataWritesPreimages,
