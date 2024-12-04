@@ -94,9 +94,9 @@ spec:
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bot.pxeProverEnabled }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bot.proverRealProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: BOT_MAX_CONSECUTIVE_ERRORS
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY

@@ -5,7 +5,8 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./Base.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
-import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {HeaderLib, Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
@@ -33,7 +34,7 @@ contract DecodersTest is DecoderBase {
     // Header
     {
       DecoderBase.DecodedHeader memory referenceHeader = data.block.decodedHeader;
-      HeaderLib.Header memory header = headerHelper.decode(data.block.header);
+      Header memory header = headerHelper.decode(data.block.header);
 
       // GlobalVariables
       {

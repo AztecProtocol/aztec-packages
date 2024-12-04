@@ -21,9 +21,11 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
+  using stdStorage for StdStorage;
 
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
@@ -77,7 +79,7 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber));
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);

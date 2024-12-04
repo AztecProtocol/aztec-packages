@@ -157,9 +157,9 @@ spec:
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
