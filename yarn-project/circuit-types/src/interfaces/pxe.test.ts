@@ -326,6 +326,11 @@ class MockPXE implements PXE {
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {}
+
+  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   addAuthWitness(authWitness: AuthWitness): Promise<void> {
     expect(authWitness).toBeInstanceOf(AuthWitness);
     return Promise.resolve();
