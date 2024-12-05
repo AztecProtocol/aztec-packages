@@ -3,8 +3,13 @@
 # PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
 set -eux
 
-LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export WALLET_DATA_DIRECTORY="${LOCATION}/up_quick_start"
+export WALLET_DATA_DIRECTORY=$(mktemp -d)/up_quick_start
+
+function on_exit {
+  echo "Cleaning up $WALLET_DATA_DIRECTORY..."
+  rm -rf $WALLET_DATA_DIRECTORY
+}
+trap on_exit EXIT
 
 aztec-wallet() {
   node --no-warnings ../cli-wallet/dest/bin/index.js "$@"

@@ -21,7 +21,7 @@ function build {
 
   # Regenerate verify_honk_proof recursive input.
   # cd ./acir_tests/assert_statement
-  # $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof
+  # $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursion
 
   # Download ignition up front to ensure no race conditions at runtime.
   # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
