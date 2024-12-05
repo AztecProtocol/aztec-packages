@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733411994207,
+  "lastUpdate": 1733442141224,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a0551ee9fca242a02774fd07bf8156a3a74dae3a",
-          "message": "feat: Single commitment key allocation in CIVC (#9974)\n\nPreviously we allocated the BN254 commitment key freely (I counted 11\r\ntimes in one small ClientIVC test). This is unnecessary and could lead\r\nto memory fragmentation. This PR implements size functions on a\r\n`TraceSetting` object and, when structured traces are used, allocates\r\nthe commitment key at CIVC construction time. It passes this along to\r\ndependent classes via a shared pointer.\r\n\r\nI didn't handle the case of Grumpkin since it's not an issue.\r\n\r\nI was curious to validate the effect in the browser directly through the\r\nbrowser app in the ivc-integration test suite. Though it's tangential, I\r\nupdated that app to display console logs on the page for easy sharing.",
-          "timestamp": "2024-11-21T08:57:43-05:00",
-          "tree_id": "483642b72c9e587a714008949e48a0fd7b54ec14",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a0551ee9fca242a02774fd07bf8156a3a74dae3a"
-        },
-        "date": 1732199531287,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28304.92136800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26604.122187999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5032.973944999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4754.9806180000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84196.89280100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84196893000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15303.561639,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15303562000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3079279038,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3079279038 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141076910,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141076910 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 136619531,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136619531 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c00ebdd60373aa579587b03eeb4b44ada0bb1155",
+          "message": "chore: Don't generate proofs of verifier circuits in test (#10405)\n\nTo test circuit logic we don't need to generate proofs. Running the\r\ncircuit checker is much faster and more memory efficient.",
+          "timestamp": "2024-12-05T17:57:13-05:00",
+          "tree_id": "e94aaf1fa39980a216322498a3bdbbd07e09f686",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c00ebdd60373aa579587b03eeb4b44ada0bb1155"
+        },
+        "date": 1733442134012,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 26150.069204999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23990.022216 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5112.618403999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4769.290175 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86459.831842,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86459832000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15274.610086999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15274610000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2907878008,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2907878008 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147869487,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147869487 ns\nthreads: 1"
           }
         ]
       }
