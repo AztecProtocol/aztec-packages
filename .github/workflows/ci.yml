@@ -34,7 +34,7 @@ env:
   RUNNER_CONCURRENCY: 0
 jobs:
   configure:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     # Required permissions.
     permissions:

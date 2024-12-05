@@ -146,7 +146,7 @@ runs:
     - name: Docker Login
       uses: ./.github/run-on-builder
       with:
-        run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+        run: echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
     - name: Run On Builder
       if: ${{ inputs.run }}
       uses: ./.github/run-on-builder
