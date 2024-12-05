@@ -112,8 +112,9 @@ ci-noir-bb:
   WAIT
     BUILD ./noir/+examples
     BUILD ./noir/+test
-    BUILD ./barretenberg/cpp/+bench
     BUILD ./barretenberg/cpp/+preset-gcc
+    # Currently done on its own runner
+    # BUILD ./barretenberg/cpp/+bench
   END
   # Currently done on its own runner
   # WAIT
@@ -123,6 +124,7 @@ ci-noir-bb:
     BUILD ./barretenberg/acir_tests/+test
     BUILD ./barretenberg/acir_tests/+bench
   END
+
 
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:

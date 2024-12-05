@@ -140,6 +140,7 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
+    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.barretenberg == 'true' || github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -158,6 +159,7 @@ jobs:
   ci-rest:
     needs: [ci-noir-bb, configure]
     runs-on: ubuntu-latest
+    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
       bench_list: ${{ steps.bench_list.outputs.list }}
@@ -224,7 +226,7 @@ jobs:
   #         runner_type: ${{ steps.runner_type.outputs.type }}
   #         builder_type: builder-x86
   #         builder_images_to_copy: ./bootstrap.sh image-e2e
-  #         builder_command: ./bootstrap.sh image-e2e
+  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
   #         run: |
   #           set -eux
   #           cd ./yarn-project/end-to-end/
@@ -261,7 +263,7 @@ jobs:
   #         # if they fail to copy, it will try to build them on the tester and fail
   #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
   #         # command to produce the images in case they don't exist
-  #         builder_command: ./bootstrap.sh image-e2e
+  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
   #         tester_ttl: 40
   #         run: |
   #           set -eux
@@ -344,16 +346,9 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: "Native Prover Tests"
-        uses: ./.github/ensure-tester
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
-        # note: tester by default times out at 30, would need to delay shutdwon for more
-        timeout-minutes: 30
-        with:
-          runner_type: 128core-tester-x86
-          run: |
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
+        run: |
+          export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
+          ./ci.sh ec2 "./barretenberg/cpp/bootstrap.sh ci"
 
   # bb-js-test:
   #   needs: [bootstrap-noir-bb, configure]
@@ -562,7 +557,7 @@ jobs:
   #         # if they fail to copy, it will try to build them on the tester and fail
   #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
   #         # command to produce the images in case they don't exist
-  #         builder_command: ./bootstrap.sh image-e2e
+  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
   #         tester_ttl: 60
   #         run: |
   #           cd yarn-project/end-to-end
@@ -618,7 +613,7 @@ jobs:
   #         # if they fail to copy, it will try to build them on the tester and fail
   #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
   #         # command to produce the images in case they don't exist
-  #         builder_command: ./bootstrap.sh image-e2e
+  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
   #         tester_ttl: ${{ matrix.config.timeout }}
   #         run: |
   #           cd yarn-project/end-to-end
