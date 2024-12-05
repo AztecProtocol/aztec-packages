@@ -141,8 +141,7 @@ class ClientIVCAPI : public API {
         ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
         // Accumulate the entire program stack into the IVC
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once
-        // databus has been integrated into noir kernel programs
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel
         bool is_kernel = false;
         for (Program& program : folding_stack) {
             // Construct a bberg circuit from the acir representation then accumulate it into the IVC
