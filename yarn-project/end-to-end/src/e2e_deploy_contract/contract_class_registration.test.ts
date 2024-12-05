@@ -49,7 +49,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
-    registrationTxReceipt = await registerContractClass(wallet, artifact).then(c => c.send().wait());
+    registrationTxReceipt = await registerContractClass(wallet, artifact, false).then(c => c.send().wait());
     contractClass = getContractClassFromArtifact(artifact);
 
     // TODO(#10007) Remove this call. Node should get the bytecode from the event broadcast.
@@ -58,6 +58,14 @@ describe('e2e_deploy_contract contract class registration', () => {
   });
 
   describe('registering a contract class', () => {
+    it('optionally emits public bytecode', async () => {
+      const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact, true).then(c =>
+        c.send().wait(),
+      );
+      const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
+      expect(logs.logs.length).toEqual(1);
+    });
+
     // TODO(#10007) Remove this test. We should always broadcast public bytecode.
     it('bypasses broadcast if exceeds bytecode limit for event size', async () => {
       const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });

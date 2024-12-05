@@ -1,10 +1,9 @@
 #!/bin/bash
 set -eu
 
-
 # Pass the bootnode url as an argument
 # Ask the bootnode for l1 contract addresses
-output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $1)
+output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info --node-url $1)
 
 echo "$output"
 
@@ -25,9 +24,8 @@ governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0
 INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
 private_key=$(jq -r ".[$INDEX]" /app/config/keys.json)
 
-
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts/contracts.env
+cat <<EOF >/shared/contracts/contracts.env
 export BOOTSTRAP_NODES=$boot_node_enr
 export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address

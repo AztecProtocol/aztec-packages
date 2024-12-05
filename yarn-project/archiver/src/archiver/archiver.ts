@@ -922,28 +922,28 @@ class ArchiverStoreHelper
   }
 
   async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
-    return [
+    const opResults = await Promise.all([
       this.store.addLogs(blocks.map(block => block.data)),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-      ...(await Promise.all(
-        blocks.map(async block => {
-          const contractClassLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
-            .flatMap(txLog => txLog.unrollLogs());
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
-          const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-          return (
-            await Promise.all([
-              this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
-              this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
-              this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
-            ])
-          ).every(Boolean);
-        }),
-      )),
+      ...blocks.map(async block => {
+        const contractClassLogs = block.data.body.txEffects
+          .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
+          .flatMap(txLog => txLog.unrollLogs());
+        // ContractInstanceDeployed event logs are broadcast in privateLogs.
+        const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        return (
+          await Promise.all([
+            this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
+            this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
+            this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
+          ])
+        ).every(Boolean);
+      }),
       this.store.addNullifiers(blocks.map(block => block.data)),
       this.store.addBlocks(blocks),
-    ].every(Boolean);
+    ]);
+
+    return opResults.every(Boolean);
   }
 
   async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
@@ -955,22 +955,29 @@ class ArchiverStoreHelper
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
     const blocks = await this.getBlocks(from - blocksToUnwind + 1, blocksToUnwind);
 
-    return [
+    const opResults = await Promise.all([
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-      ...(await Promise.all(
-        blocks.map(async block => {
-          const contractClassLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
-            .flatMap(txLog => txLog.unrollLogs());
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
-          const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-          await this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete);
-          await this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete);
-        }),
-      )),
+      ...blocks.map(async block => {
+        const contractClassLogs = block.data.body.txEffects
+          .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
+          .flatMap(txLog => txLog.unrollLogs());
+
+        // ContractInstanceDeployed event logs are broadcast in privateLogs.
+        const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+
+        return (
+          await Promise.all([
+            this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete),
+            this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete),
+          ])
+        ).every(Boolean);
+      }),
+
       this.store.deleteLogs(blocks.map(b => b.data)),
       this.store.unwindBlocks(from, blocksToUnwind),
-    ].every(Boolean);
+    ]);
+
+    return opResults.every(Boolean);
   }
 
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {

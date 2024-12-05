@@ -195,9 +195,9 @@ Observe that \f$ G \f$ has several important properties
 - The coefficients of \f$ G \f$ are independent and uniformly distributed.
 - Evaluations of \f$ G \f$ at \f$ \vec \ell \in \{0,1\}^d\f$ and related Sumcheck Round Univariates are efficiently computable.
 
-The first two properties imply that the evaluations of Sumcheck Round Univariates for \f$G\f$  are independent and uniformly distributed. We call them Libra Round Univarites.
+The first two properties imply that the evaluations of Sumcheck Round Univariates for \f$G\f$  are independent and uniformly distributed. We call them Libra Round Univariates.
 
-Consider Round Univariates for \f$ \tilde{F} + \texttt{libra_challenge}\cdot G\f$ which are the sums of the Sumcheck Round Univariates for \f$ \tilde{F} \f$ and Libra Round Univarites multiplied by the challenge.
+Consider Round Univariates for \f$ \tilde{F} + \texttt{libra_challenge}\cdot G\f$ which are the sums of the Sumcheck Round Univariates for \f$ \tilde{F} \f$ and Libra Round Univariates multiplied by the challenge.
 The fact that the degrees of Libra Round Univariates are big enough (i.e. \f$ \tilde{D}\geq D \f$) and that their evaluations are random imply that the evaluations \f$ \tilde{S}^i(0),\ldots,\tilde{S}^i(\tilde D)\f$ defined in [Compute Round Univariates](#ComputeRoundUnivariates) are now masked by the evaluations of Libra Round Univariates. These evaluations are described explicitly [below](#LibraRoundUnivariates).
 
 ### Example {#LibraPolynomialExample}
