@@ -122,6 +122,42 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   }
 
   /**
+   * @notice  Get the committee for a given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee for the given timestamp
+   */
+  function getCommitteeAt(Timestamp _ts)
+    external
+    view
+    override(ILeonidas)
+    returns (address[] memory)
+  {
+    return store.getCommitteeAt(getEpochAt(_ts), TARGET_COMMITTEE_SIZE);
+  }
+
+  /**
+   * @notice  Get the sample seed for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sample seed for
+   *
+   * @return The sample seed for the given timestamp
+   */
+  function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
+    return store.getSampleSeed(getEpochAt(_ts));
+  }
+
+  /**
+   * @notice  Get the sample seed for the current epoch
+   *
+   * @return The sample seed for the current epoch
+   */
+  function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
+    return store.getSampleSeed(getCurrentEpoch());
+  }
+
+  /**
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
    *          - Set the seed for the epoch
@@ -275,42 +311,6 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function getEpochAtSlot(Slot _slotNumber) public view override(ILeonidas) returns (Epoch) {
     return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
-  }
-
-  /**
-   * @notice  Get the committee for a given timestamp
-   *
-   * @param _ts - The timestamp to get the committee for
-   *
-   * @return The committee for the given timestamp
-   */
-  function getCommitteeAt(Timestamp _ts)
-    external
-    view
-    override(ILeonidas)
-    returns (address[] memory)
-  {
-    return store.getCommitteeAt(getEpochAt(_ts), TARGET_COMMITTEE_SIZE);
-  }
-
-  /**
-   * @notice  Get the sample seed for a given timestamp
-   *
-   * @param _ts - The timestamp to get the sample seed for
-   *
-   * @return The sample seed for the given timestamp
-   */
-  function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
-    return store.getSampleSeed(getEpochAt(_ts));
-  }
-
-  /**
-   * @notice  Get the sample seed for the current epoch
-   *
-   * @return The sample seed for the current epoch
-   */
-  function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
-    return store.getSampleSeed(getCurrentEpoch());
   }
 
   /**
