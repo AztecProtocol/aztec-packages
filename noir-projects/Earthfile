@@ -67,4 +67,3 @@ public-functions-report:
   RUN cd noir-contracts && node ./scripts/publicFunctionsSizeReport.js ./target/
 
   SAVE ARTIFACT ./noir-contracts/public_functions_report.json public_functions_report.json
-yarn add ethers

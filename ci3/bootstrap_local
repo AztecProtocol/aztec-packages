@@ -15,14 +15,15 @@ source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
 cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 
-if ! git diff --quiet; then
-  echo "There are local changes to tracked files."
-  exit 1
-fi
+# if ! git diff --quiet; then
+#   echo "There are local changes to tracked files."
+#   exit 1
+# fi
 
-# Only add -ti if stdin is a tty.
-interactive_args=$( [ -t 0 ] && echo "-ti" )
-docker run --name aztec_build $interactive_args --rm \
+interactive_args=""
+# Only add -ti and a name if we are not in CI.
+[ "${CI:-0}" = "0" ] && interactive_args="--name aztec_build -ti"
+docker run $interactive_args --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \

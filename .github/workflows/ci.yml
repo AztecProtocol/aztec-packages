@@ -156,25 +156,25 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci +bootstrap-noir-bb
 
+  # bootstrap:
+  #   needs: [bootstrap-noir-bb, configure]
+  #   runs-on: ${{ needs.configure.outputs.username }}-x86
+  #   outputs:
+  #     e2e_list: ${{ steps.e2e_list.outputs.list }}
+  #     bench_list: ${{ steps.bench_list.outputs.list }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ env.GIT_COMMIT }}" }
+  #     - uses: ./.github/ci-setup-action
+  #       with:
+  #         concurrency_key: bootstrap
+  #     # prepare images locally, tagged by commit hash
+  #     - name: "Build"
+  #       timeout-minutes: 40
+  #       run: earthly-ci +bootstrap
+
   bootstrap:
     needs: [bootstrap-noir-bb, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
-      bench_list: ${{ steps.bench_list.outputs.list }}
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: bootstrap
-      # prepare images locally, tagged by commit hash
-      - name: "Build"
-        timeout-minutes: 40
-        run: earthly-ci +bootstrap
-
-  bootstrap-images:
-    needs: [bootstrap, configure]
     # NOTE: we don't skip this job here instead using if's below to avoid gotcha if dependent jobs have their own if's
     runs-on: ${{ needs.configure.outputs.username }}-x86
     outputs:
@@ -216,7 +216,7 @@ jobs:
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
-    needs: [bootstrap-images, configure]
+    needs: [bootstrap, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
@@ -251,7 +251,7 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [bootstrap-images, configure]
+    needs: [bootstrap, configure]
     if: needs.build.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
     runs-on: ubuntu-20.04
     strategy:
@@ -764,7 +764,7 @@ jobs:
           concurrency_key: boxes
       - name: Box test
         timeout-minutes: 40
-        run: ./bootstrap.sh test-boxes
+        run: CI=1 ./bootstrap.sh test-boxes
 
   protocol-circuits-gates-report:
     needs: [bootstrap, configure]
