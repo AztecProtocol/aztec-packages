@@ -12,7 +12,7 @@ validator:
   external: true
 
 bootNode:
-  debug: "aztec:*,-aztec:avm_simulator:*,-aztec:world-state:database,discv5:*,-JsonProxy:*"
+  debug: "discv5:*"
   validator:
     disabled: true
 

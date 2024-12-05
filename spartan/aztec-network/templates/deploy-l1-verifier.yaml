@@ -62,8 +62,6 @@ spec:
           env:
             - name: NODE_NO_WARNINGS
               value: "1"
-            - name: DEBUG
-              value: "aztec:*"
             - name: LOG_LEVEL
               value: "debug"
             - name: L1_CHAIN_ID
