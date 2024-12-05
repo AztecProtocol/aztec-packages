@@ -78,7 +78,12 @@ runs:
         ec2_security_group_id: sg-0ccd4e5df0dcca0c9
         ec2_key_name: "build-instance"
         ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
-
+    # This disambiguates from 'tester'
+    - name: Set BUILDER_SPOT_IP and BUILDER_SPOT_KEY
+      shell: bash
+      run: |
+        echo "BUILDER_SPOT_IP=${SPOT_IP}" >> $GITHUB_ENV
+        echo "BUILDER_SPOT_KEY=${SPOT_KEY}" >> $GITHUB_ENV
     # Set up a context for this run
     - name: Copy Repo to Builder
       shell: bash

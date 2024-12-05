@@ -168,11 +168,11 @@ async function startWithGithubRunners(config: ActionConfig) {
   }
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
-  core.info("Logging BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use.");
-  await standardSpawn("bash", ["-c", `echo BUILDER_SPOT_IP=${ip} >> $GITHUB_ENV`]);
+  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+  await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
     "-c",
-    `echo BUILDER_SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
+    `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
   ]);
   return true;
 }
