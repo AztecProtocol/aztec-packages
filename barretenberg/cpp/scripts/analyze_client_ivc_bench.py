@@ -18,11 +18,27 @@ to_keep = [
     "construct_circuits(t)",
     "DeciderProvingKey(Circuit&)(t)",
     "ProtogalaxyProver::prove(t)",
-    "Decider::construct_proof(t)",
-    "ECCVMProver(CircuitBuilder&)(t)",
-    "ECCVMProver::construct_proof(t)",
-    "TranslatorProver::construct_proof(t)",
-    "Goblin::merge(t)"
+    "oink_constructor(t)",
+    "execute_preamble_round(t)",
+    "execute_wire_commitments_round(t)",
+"execute_sorted_list_accumulator_round(t)",
+"execute_log_derivative_inverse_round(t)",
+"compute_logderivative_inverses(t)",
+"execute_grand_product_computation_round(t)",
+"compute_grand_product_polynomial(t)",
+"MegaFlavor::get_row(t)",
+"logderivative relation(t)",
+"databus relation(t)",
+"fr::batch_invert(t)",
+"thish(t)",
+"and thish(t)",
+"chunk1(t)",
+"chunk2(t)"
+    # "Decider::construct_proof(t)",
+    # "ECCVMProver(CircuitBuilder&)(t)",
+    # "ECCVMProver::construct_proof(t)",
+    # "TranslatorProver::construct_proof(t)",
+    # "Goblin::merge(t)"
 ]
 
 with open(PREFIX / IVC_BENCH_JSON, "r") as read_file:

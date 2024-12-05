@@ -212,6 +212,7 @@ template <class Curve> class CommitmentKey {
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
 
+        // Compute the number of non-zero coefficients in the polynomial
         size_t total_num_scalars = 0;
         for (const auto& range : active_ranges) {
             total_num_scalars += range.second - range.first;

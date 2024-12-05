@@ -226,35 +226,41 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      */
     template <size_t bus_idx, typename Polynomials>
-    static void compute_logderivative_inverse(Polynomials& polynomials,
-                                              auto& relation_parameters,
-                                              const size_t circuit_size)
+    static void compute_logderivative_inverse(
+        Polynomials& polynomials,
+        auto& relation_parameters,
+        const size_t circuit_size,
+        [[maybe_unused]] const std::vector<std::pair<size_t, size_t>>& active_block_ranges)
     {
+        PROFILE_THIS_NAME("databus relation");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
         bool is_read = false;
         bool nonzero_read_count = false;
-        for (size_t i = 0; i < circuit_size; ++i) {
-            // Determine if the present row contains a databus operation
-            auto q_busread = polynomials.q_busread[i];
-            if constexpr (bus_idx == 0) { // calldata
-                is_read = q_busread == 1 && polynomials.q_l[i] == 1;
-                nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
-            }
-            if constexpr (bus_idx == 1) { // secondary_calldata
-                is_read = q_busread == 1 && polynomials.q_r[i] == 1;
-                nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
-            }
-            if constexpr (bus_idx == 2) { // return data
-                is_read = q_busread == 1 && polynomials.q_o[i] == 1;
-                nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
-            }
-            // We only compute the inverse if this row contains a read gate or data that has been read
-            if (is_read || nonzero_read_count) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                auto value = compute_read_term<FF>(row, relation_parameters) *
-                             compute_write_term<FF, bus_idx>(row, relation_parameters);
-                inverse_polynomial.at(i) = value;
+        {
+            PROFILE_THIS_NAME("chunk2");
+            for (size_t i = 0; i < circuit_size; ++i) {
+                // Determine if the present row contains a databus operation
+                auto q_busread = polynomials.q_busread[i];
+                if constexpr (bus_idx == 0) { // calldata
+                    is_read = q_busread == 1 && polynomials.q_l[i] == 1;
+                    nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
+                }
+                if constexpr (bus_idx == 1) { // secondary_calldata
+                    is_read = q_busread == 1 && polynomials.q_r[i] == 1;
+                    nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
+                }
+                if constexpr (bus_idx == 2) { // return data
+                    is_read = q_busread == 1 && polynomials.q_o[i] == 1;
+                    nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
+                }
+                // We only compute the inverse if this row contains a read gate or data that has been read
+                if (is_read || nonzero_read_count) {
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+                    auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                    auto value = compute_read_term<FF>(row, relation_parameters) *
+                                 compute_write_term<FF, bus_idx>(row, relation_parameters);
+                    inverse_polynomial.at(i) = value;
+                }
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row

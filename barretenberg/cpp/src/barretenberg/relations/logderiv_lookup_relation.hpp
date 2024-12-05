@@ -153,20 +153,38 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Polynomials>
     static void compute_logderivative_inverse(Polynomials& polynomials,
                                               auto& relation_parameters,
-                                              const size_t circuit_size)
+                                              [[maybe_unused]] const size_t circuit_size,
+                                              const std::vector<std::pair<size_t, size_t>>& active_ranges)
     {
+        PROFILE_THIS_NAME("logderivative relation");
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
-        for (size_t i = 0; i < circuit_size; ++i) {
-            // We only compute the inverse if this row contains a lookup gate or data that has been looked up
-            if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                auto value = compute_read_term<FF, 0>(row, relation_parameters) *
-                             compute_write_term<FF, 0>(row, relation_parameters);
-                inverse_polynomial.at(i) = value;
+        {
+            PROFILE_THIS_NAME("chunk1");
+            // for (const auto& [first, second] : active_ranges) {
+            //     for (size_t i = first; i < second; i++) {
+            //         if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
+            //             // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+            //             auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+            //             auto value = compute_read_term<FF, 0>(row, relation_parameters) *
+            //                          compute_write_term<FF, 0>(row, relation_parameters);
+            //             inverse_polynomial.at(i) = value;
+            //         }
+            //     }
+            // }
+
+            for (size_t i = 0; i < circuit_size; ++i) {
+                // We only compute the inverse if this row contains a lookup gate or data that has been looked up
+                if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+                    auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                    auto value = compute_read_term<FF, 0>(row, relation_parameters) *
+                                 compute_write_term<FF, 0>(row, relation_parameters);
+                    inverse_polynomial.at(i) = value;
+                }
             }
         }
+
         // Compute inverse polynomial I in place by inverting the product at each row
         FF::batch_invert(inverse_polynomial.coeffs());
     };
