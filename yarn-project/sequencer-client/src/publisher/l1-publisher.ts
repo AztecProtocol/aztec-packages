@@ -307,8 +307,13 @@ export class L1Publisher {
   }
 
   public async getProofClaim(): Promise<EpochProofClaim | undefined> {
-    const [epochToProve, basisPointFee, bondAmount, bondProviderHex, proposerClaimantHex] =
-      await this.rollupContract.read.proofClaim();
+    const {
+      epochToProve,
+      basisPointFee,
+      bondAmount,
+      bondProvider: bondProviderHex,
+      proposerClaimant: proposerClaimantHex,
+    } = await this.rollupContract.read.getProofClaim();
 
     const bondProvider = EthAddress.fromString(bondProviderHex);
     const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
@@ -636,7 +641,7 @@ export class L1Publisher {
     const { fromBlock, toBlock, publicInputs, proof } = args;
 
     // Check that the block numbers match the expected epoch to be proven
-    const [pending, proven] = await this.rollupContract.read.tips();
+    const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.read.getTips();
     if (proven !== BigInt(fromBlock) - 1n) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
     }

@@ -6,7 +6,7 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -20,7 +20,9 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  ProposeArgs, OracleInput, ProposeLib
+} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -48,7 +50,7 @@ contract SpartaTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
-  SignatureLib.Signature internal emptySignature;
+  Signature internal emptySignature;
   mapping(address validator => uint256 privateKey) internal privateKeys;
   mapping(address => bool) internal _seenValidators;
   mapping(address => bool) internal _seenCommittee;
@@ -199,7 +201,7 @@ contract SpartaTest is DecoderBase {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
+      Signature[] memory signatures = new Signature[](_signatureCount);
 
       bytes32 digest = ProposeLib.digest(args);
       for (uint256 i = 0; i < _signatureCount; i++) {
@@ -239,7 +241,7 @@ contract SpartaTest is DecoderBase {
         return;
       }
     } else {
-      SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+      Signature[] memory signatures = new Signature[](0);
       rollup.propose(args, signatures, full.block.body);
     }
 
@@ -298,13 +300,13 @@ contract SpartaTest is DecoderBase {
   function createSignature(address _signer, bytes32 _digest)
     internal
     view
-    returns (SignatureLib.Signature memory)
+    returns (Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-    return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
+    return Signature({isEmpty: false, v: v, r: r, s: s});
   }
 }

@@ -33,8 +33,9 @@ const bbup = program
         try {
           const output = execSync("nargo --version", { encoding: "utf-8" });
           resolvedNoirVersion = output.match(
-            /nargo version = (\d+\.\d+\.\d+)/
+            /nargo version = (\d+\.\d+\.\d+(-\w+\.\d+)?)/
           )![1];
+          console.log(resolvedNoirVersion);
           spinner.stopAndPersist({
             text: `Resolved noir version ${resolvedNoirVersion} from nargo`,
             symbol: logSymbols.success,

@@ -2,16 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
-import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {ILeonidas, EpochData, LeonidasStorage} from "@aztec/core/interfaces/ILeonidas.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {LeonidasLib} from "@aztec/core/libraries/LeonidasLib/LeonidasLib.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
 } from "@aztec/core/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 /**
@@ -30,23 +28,10 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
  */
 contract Leonidas is Ownable, TimeFns, ILeonidas {
   using EnumerableSet for EnumerableSet.AddressSet;
-  using SignatureLib for SignatureLib.Signature;
-  using MessageHashUtils for bytes32;
+  using LeonidasLib for LeonidasStorage;
 
   using SlotLib for Slot;
   using EpochLib for Epoch;
-
-  /**
-   * @notice  The data structure for an epoch
-   * @param committee - The validator set for the epoch
-   * @param sampleSeed - The seed used to sample the validator set of the epoch
-   * @param nextSeed - The seed used to influence the NEXT epoch
-   */
-  struct EpochData {
-    address[] committee;
-    uint256 sampleSeed;
-    uint256 nextSeed;
-  }
 
   // The target number of validators in a committee
   // @todo #8021
@@ -55,14 +40,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   // The time that the contract was deployed
   Timestamp public immutable GENESIS_TIME;
 
-  // An enumerable set of validators that are up to date
-  EnumerableSet.AddressSet private validatorSet;
-
-  // A mapping to snapshots of the validator set
-  mapping(Epoch => EpochData) public epochs;
-
-  // The last stored randao value, same value as `seed` in the last inserted epoch
-  uint256 private lastSeed;
+  LeonidasStorage private store;
 
   constructor(
     address _ares,
@@ -103,7 +81,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function removeValidator(address _validator) external override(ILeonidas) onlyOwner {
     setupEpoch();
-    validatorSet.remove(_validator);
+    store.validatorSet.remove(_validator);
   }
 
   /**
@@ -121,7 +99,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     override(ILeonidas)
     returns (address[] memory)
   {
-    return epochs[_epoch].committee;
+    return store.epochs[_epoch].committee;
   }
 
   /**
@@ -129,7 +107,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
-    return _getCommitteeAt(Timestamp.wrap(block.timestamp));
+    return store.getCommitteeAt(getCurrentEpoch(), TARGET_COMMITTEE_SIZE);
   }
 
   /**
@@ -140,7 +118,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The validator set
    */
   function getValidators() external view override(ILeonidas) returns (address[] memory) {
-    return validatorSet.values();
+    return store.validatorSet.values();
   }
 
   /**
@@ -155,13 +133,13 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function setupEpoch() public override(ILeonidas) {
     Epoch epochNumber = getCurrentEpoch();
-    EpochData storage epoch = epochs[epochNumber];
+    EpochData storage epoch = store.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
-      epoch.sampleSeed = _getSampleSeed(epochNumber);
-      epoch.nextSeed = lastSeed = _computeNextSeed(epochNumber);
+      epoch.sampleSeed = store.getSampleSeed(epochNumber);
+      epoch.nextSeed = store.lastSeed = _computeNextSeed(epochNumber);
 
-      epoch.committee = _sampleValidators(epoch.sampleSeed);
+      epoch.committee = store.sampleValidators(epoch.sampleSeed, TARGET_COMMITTEE_SIZE);
     }
   }
 
@@ -171,7 +149,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The number of validators in the validator set
    */
   function getValidatorCount() public view override(ILeonidas) returns (uint256) {
-    return validatorSet.length();
+    return store.validatorSet.length();
   }
 
   /**
@@ -180,7 +158,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The number of validators in the validator set
    */
   function getValidatorAt(uint256 _index) public view override(ILeonidas) returns (address) {
-    return validatorSet.at(_index);
+    return store.validatorSet.at(_index);
   }
 
   /**
@@ -191,7 +169,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return True if the address is in the validator set, false otherwise
    */
   function isValidator(address _validator) public view override(ILeonidas) returns (bool) {
-    return validatorSet.contains(_validator);
+    return store.validatorSet.contains(_validator);
   }
 
   /**
@@ -261,31 +239,9 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The address of the proposer
    */
   function getProposerAt(Timestamp _ts) public view override(ILeonidas) returns (address) {
-    Epoch epochNumber = getEpochAt(_ts);
     Slot slot = getSlotAt(_ts);
-
-    EpochData storage epoch = epochs[epochNumber];
-
-    // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
-    if (epoch.sampleSeed != 0) {
-      uint256 committeeSize = epoch.committee.length;
-      if (committeeSize == 0) {
-        return address(0);
-      }
-
-      return
-        epoch.committee[_computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize)];
-    }
-
-    // Allow anyone if there is no validator set
-    if (validatorSet.length() == 0) {
-      return address(0);
-    }
-
-    // Emulate a sampling of the validators
-    uint256 sampleSeed = _getSampleSeed(epochNumber);
-    address[] memory committee = _sampleValidators(sampleSeed);
-    return committee[_computeProposerIndex(epochNumber, slot, sampleSeed, committee.length)];
+    Epoch epochNumber = getEpochAtSlot(slot);
+    return store.getProposerAt(slot, epochNumber, TARGET_COMMITTEE_SIZE);
   }
 
   /**
@@ -326,29 +282,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @param _validator - The validator to add
    */
   function _addValidator(address _validator) internal {
-    validatorSet.add(_validator);
-  }
-
-  function _getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
-    Epoch epochNumber = getEpochAt(_ts);
-    EpochData storage epoch = epochs[epochNumber];
-
-    if (epoch.sampleSeed != 0) {
-      uint256 committeeSize = epoch.committee.length;
-      if (committeeSize == 0) {
-        return new address[](0);
-      }
-      return epoch.committee;
-    }
-
-    // Allow anyone if there is no validator set
-    if (validatorSet.length() == 0) {
-      return new address[](0);
-    }
-
-    // Emulate a sampling of the validators
-    uint256 sampleSeed = _getSampleSeed(epochNumber);
-    return _sampleValidators(sampleSeed);
+    store.validatorSet.add(_validator);
   }
 
   /**
@@ -369,57 +303,12 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function _validateLeonidas(
     Slot _slot,
-    SignatureLib.Signature[] memory _signatures,
+    Signature[] memory _signatures,
     bytes32 _digest,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    Timestamp ts = getTimestampForSlot(_slot);
-    address proposer = getProposerAt(ts);
-
-    // @todo Consider getting rid of this option.
-    // If the proposer is open, we allow anyone to propose without needing any signatures
-    if (proposer == address(0)) {
-      return;
-    }
-
-    // @todo We should allow to provide a signature instead of needing the proposer to broadcast.
-    require(proposer == msg.sender, Errors.Leonidas__InvalidProposer(proposer, msg.sender));
-
-    // @note  This is NOT the efficient way to do it, but it is a very convenient way for us to do it
-    //        that allows us to reduce the number of code paths. Also when changed with optimistic for
-    //        pleistarchus, this will be changed, so we can live with it.
-
-    if (_flags.ignoreSignatures) {
-      return;
-    }
-
-    address[] memory committee = _getCommitteeAt(ts);
-
-    uint256 needed = committee.length * 2 / 3 + 1;
-    require(
-      _signatures.length >= needed,
-      Errors.Leonidas__InsufficientAttestationsProvided(needed, _signatures.length)
-    );
-
-    // Validate the attestations
-    uint256 validAttestations = 0;
-
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    for (uint256 i = 0; i < _signatures.length; i++) {
-      SignatureLib.Signature memory signature = _signatures[i];
-      if (signature.isEmpty) {
-        continue;
-      }
-
-      // The verification will throw if invalid
-      signature.verify(committee[i], digest);
-      validAttestations++;
-    }
-
-    require(
-      validAttestations >= needed,
-      Errors.Leonidas__InsufficientAttestations(needed, validAttestations)
-    );
+    Epoch epochNumber = getEpochAtSlot(_slot);
+    store.validateLeonidas(_slot, epochNumber, _signatures, _digest, _flags, TARGET_COMMITTEE_SIZE);
   }
 
   /**
@@ -434,83 +323,5 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    */
   function _computeNextSeed(Epoch _epoch) private view returns (uint256) {
     return uint256(keccak256(abi.encode(_epoch, block.prevrandao)));
-  }
-
-  /**
-   * @notice  Samples a validator set for a specific epoch
-   *
-   * @dev     Only used internally, should never be called for anything but the "next" epoch
-   *          Allowing us to always use `lastSeed`.
-   *
-   * @return The validators for the given epoch
-   */
-  function _sampleValidators(uint256 _seed) private view returns (address[] memory) {
-    uint256 validatorSetSize = validatorSet.length();
-    if (validatorSetSize == 0) {
-      return new address[](0);
-    }
-
-    // If we have less validators than the target committee size, we just return the full set
-    if (validatorSetSize <= TARGET_COMMITTEE_SIZE) {
-      return validatorSet.values();
-    }
-
-    uint256[] memory indicies =
-      SampleLib.computeCommitteeClever(TARGET_COMMITTEE_SIZE, validatorSetSize, _seed);
-
-    address[] memory committee = new address[](TARGET_COMMITTEE_SIZE);
-    for (uint256 i = 0; i < TARGET_COMMITTEE_SIZE; i++) {
-      committee[i] = validatorSet.at(indicies[i]);
-    }
-    return committee;
-  }
-
-  /**
-   * @notice  Get the sample seed for an epoch
-   *
-   * @dev     This should behave as walking past the line, but it does not currently do that.
-   *          If there are entire skips, e.g., 1, 2, 5 and we then go back and try executing
-   *          for 4 we will get an invalid value because we will read lastSeed which is from 5.
-   *
-   * @dev     The `_epoch` will never be 0 nor in the future
-   *
-   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the last epoch
-   *          setup.
-   *
-   * @return The sample seed for the epoch
-   */
-  function _getSampleSeed(Epoch _epoch) private view returns (uint256) {
-    if (Epoch.unwrap(_epoch) == 0) {
-      return type(uint256).max;
-    }
-    uint256 sampleSeed = epochs[_epoch].sampleSeed;
-    if (sampleSeed != 0) {
-      return sampleSeed;
-    }
-
-    sampleSeed = epochs[_epoch - Epoch.wrap(1)].nextSeed;
-    if (sampleSeed != 0) {
-      return sampleSeed;
-    }
-
-    return lastSeed;
-  }
-
-  /**
-   * @notice  Computes the index of the committee member that acts as proposer for a given slot
-   *
-   * @param _epoch - The epoch to compute the proposer index for
-   * @param _slot - The slot to compute the proposer index for
-   * @param _seed - The seed to use for the computation
-   * @param _size - The size of the committee
-   *
-   * @return The index of the proposer
-   */
-  function _computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
-    private
-    pure
-    returns (uint256)
-  {
-    return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 }

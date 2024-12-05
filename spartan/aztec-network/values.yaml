@@ -33,9 +33,13 @@ aztec:
   slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 16 # how many L2 slots in an epoch
   epochProofClaimWindow: 13 # in L2 slots
+  realProofs: false
 
 bootNode:
+<<<<<<< HEAD
   seqPublisherPrivateKey: ""
+=======
+>>>>>>> master
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
@@ -49,7 +53,6 @@ bootNode:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
-  realProofs: false
   validator:
     disabled: true
   p2p:
@@ -127,7 +130,10 @@ proverNode:
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+<<<<<<< HEAD
   realProofs: false
+=======
+>>>>>>> master
   proverAgent:
     count: 0
     pollIntervalMs: 1000
@@ -149,9 +155,7 @@ proverNode:
   viemPollingInterval: 1000
 
 pxe:
-  proverEnabled: false
   logLevel: "debug"
-  proverEnable: false
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   replicas: 1
   service:
@@ -180,8 +184,6 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  pxeProverEnabled: false
-  proverRealProofs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -235,12 +237,29 @@ proverAgent:
     spotEnabled: false
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+<<<<<<< HEAD
   realProofs: false
+=======
+>>>>>>> master
   bb:
     hardwareConcurrency: ""
   nodeSelector: {}
   resources: {}
   pollInterval: 200
+
+proverBroker:
+  service:
+    nodePort: 8084
+  enabled: true
+  replicas: 1
+  jobTimeoutMs: 30000
+  pollIntervalMs: 1000
+  jobMaxRetries: 3
+  dataDirectory: ""
+  logLevel: "debug"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  nodeSelector: {}
+  resources: {}
 
 proverBroker:
   service:
