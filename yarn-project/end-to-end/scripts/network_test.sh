@@ -39,9 +39,15 @@ if [ -z "${NAMESPACE:-}" ]; then
   exit 1
 fi
 
-if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" ||
-  ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+# Always check for the aztec image
+if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG"; then
+  echo "Aztec Docker image not found. It needs to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG."
+  exit 1
+fi
+
+# Only check for end-to-end image if a test is specified
+if [ -n "$TEST" ] && ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
+  echo "End-to-end Docker image not found. It needs to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
   exit 1
 fi
 
@@ -72,7 +78,6 @@ function show_status_until_pxe_ready() {
   done
 }
 
-# Handle and check chaos mesh setup
 handle_network_shaping() {
   if [ -n "${CHAOS_VALUES:-}" ]; then
     echo "Checking chaos-mesh setup..."
@@ -105,22 +110,8 @@ handle_network_shaping() {
     echo "Aztec Chaos Scenarios applied successfully"
     return 0
   fi
-
-  echo "Deploying network shaping configuration..."
-  if ! helm upgrade --install network-shaping "$REPO/spartan/network-shaping/" \
-    --namespace chaos-mesh \
-    --values "$REPO/spartan/network-shaping/values/$CHAOS_VALUES" \
-    --set global.targetNamespace="$NAMESPACE" \
-    --wait \
-    --timeout=5m; then
-    echo "Error: failed to deploy network shaping configuration!"
-    return 1
-  fi
-
-  echo "Network shaping configuration applied successfully"
   return 0
 }
-
 copy_stern_to_log
 show_status_until_pxe_ready &
 
