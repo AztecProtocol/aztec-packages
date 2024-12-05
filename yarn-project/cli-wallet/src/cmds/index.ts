@@ -158,7 +158,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
     .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
-    .addOption(createTypeOption(false))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
@@ -183,10 +182,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       rpcUrl,
       from: parsedFromAddress,
       alias,
-      type,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
     const wallet = await getWalletWithScopes(account, db);
     const artifactPath = await artifactPathPromise;
 
@@ -231,7 +229,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
-    .addOption(createTypeOption(false))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
 
@@ -252,7 +249,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       cancel,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
     const wallet = await getWalletWithScopes(account, db);
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
@@ -438,7 +435,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createTypeOption(false))
     .addOption(
       createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
     )
@@ -453,12 +449,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         rpcUrl,
         type,
         secretKey,
-        publicKey,
         alias,
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       const witness = await createAuthwit(wallet, functionName, caller, args, artifactPath, contractAddress, log);
@@ -485,7 +480,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createTypeOption(false))
     .action(async (functionName, caller, _options, command) => {
       const { authorizeAction } = await import('./authorize_action.js');
       const options = command.optsWithGlobals();
@@ -497,11 +491,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         rpcUrl,
         type,
         secretKey,
-        publicKey,
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
@@ -521,17 +514,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createTypeOption(false))
     .addOption(
       createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
     )
     .action(async (authwit, authorizer, _options, command) => {
       const { addAuthwit } = await import('./add_authwit.js');
       const options = command.optsWithGlobals();
-      const { from: parsedFromAddress, rpcUrl, type, secretKey, publicKey } = options;
+      const { from: parsedFromAddress, rpcUrl, secretKey } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
       await addAuthwit(wallet, authwit, authorizer, log);
       await addScopeToWallet(wallet, authorizer, db);
@@ -592,13 +584,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createTypeOption(false))
     .addOption(FeeOpts.paymentMethodOption().default('method=none'))
     .action(async (txHash, options) => {
       const { cancelTx } = await import('./cancel_tx.js');
-      const { from: parsedFromAddress, rpcUrl, type, secretKey, publicKey, payment } = options;
+      const { from: parsedFromAddress, rpcUrl, secretKey, payment } = options;
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
       const txData = db?.retrieveTxData(txHash);
@@ -609,6 +600,26 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
 
       await cancelTx(wallet, txData, paymentMethod, log);
+    });
+
+  program
+    .command('register-contact')
+    .description(
+      "Registers a contact's address in the wallet, so the note synching process will look for notes sent by them",
+    )
+    .argument('<address>', 'The address of the contact to register', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(pxeOption)
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .action(async (address, options) => {
+      const { registerContact } = await import('./register_contact.js');
+      const { from: parsedFromAddress, rpcUrl, secretKey } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+      const wallet = await getWalletWithScopes(account, db);
+
+      await registerContact(wallet, address, log);
     });
 
   return program;
