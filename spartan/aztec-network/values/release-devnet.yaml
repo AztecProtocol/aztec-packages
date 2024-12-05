@@ -21,6 +21,14 @@ bootNode:
   validator:
     disabled: true
 
+# use small provers to produce fake proofs
+proverAgent:
+  replicas: 1
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "1"
+
 bot:
   followChain: "PENDING"
   enabled: true
@@ -32,3 +40,12 @@ network:
 images:
   aztec:
     pullPolicy: Always
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false # devnet does not use real proofs
+
+jobs:
+  deployL1Verifier:
+    enable: false
