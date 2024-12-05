@@ -163,4 +163,5 @@ interface IRollup {
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
+  function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32, bytes32);
 }

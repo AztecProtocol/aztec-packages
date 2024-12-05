@@ -417,6 +417,19 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   /**
+   * @notice  Validate blob transactions against given inputs.
+   * @dev     Only exists here for gas estimation.
+   */
+  function validateBlobs(bytes calldata _blobsInput)
+    external
+    view
+    override(IRollup)
+    returns (bytes32, bytes32)
+  {
+    return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
+  }
+
+  /**
    * @notice  Get the next epoch that can be claimed
    * @dev     Will revert if the epoch has already been claimed or if there is no epoch to prove
    */

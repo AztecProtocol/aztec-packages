@@ -110,7 +110,6 @@ library HeaderLib {
 
   /**
    * @notice Decodes the header
-   * @dev Marked as public to reduce Rollup.sol contract size
    * @param _header - The header calldata
    * @return The decoded header
    */

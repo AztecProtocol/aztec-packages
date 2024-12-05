@@ -56,7 +56,6 @@ library MerkleLib {
   /**
    * @notice Computes the minimum and maximum path size of an unbalanced tree.
    * @dev Follows structure of rollup circuits by greedy filling subtrees.
-   * @dev Marked as public to reduce Rollup.sol contract size
    * @param _numTxs - The number of txs to form into subtrees.
    * @return (min, max) - The min and max path sizes.
    */

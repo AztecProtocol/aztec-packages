@@ -28,7 +28,6 @@ library BlobLib {
    * Input bytes:
    * input[:1] - num blobs in block
    * input[1:] - 192 * num blobs of the above _blobInput
-   * @dev Marked as public to reduce Rollup.sol contract size
    * @param _blobsInput - The above bytes to verify a blob
    */
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)

@@ -401,7 +401,7 @@ export async function enableValidatorDynamicBootNode(
       'validator.dynamicBootNode': 'true',
     },
     valuesFile: undefined,
-    timeout: '10m',
+    timeout: '15m',
     reuseValues: true,
   });
 

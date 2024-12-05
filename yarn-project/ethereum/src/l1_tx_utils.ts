@@ -401,9 +401,23 @@ export class L1TxUtils {
   /**
    * Estimates gas and adds buffer
    */
-  public async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: L1TxUtilsConfig): Promise<bigint> {
+  public async estimateGas(
+    account: Account,
+    request: L1TxRequest,
+    _gasConfig?: L1TxUtilsConfig,
+    _blobInputs?: L1BlobInputs,
+  ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
-    const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+    let initialEstimate = 0n;
+    // Viem does not allow blobs to be sent via public client's estimate gas, so any estimation will fail.
+    // Strangely, the only way to get gas and send blobs is prepareTransactionRequest().
+    // See: https://github.com/wevm/viem/issues/2075
+    if (_blobInputs) {
+      initialEstimate = (await this.walletClient.prepareTransactionRequest({ account, ...request, ..._blobInputs }))
+        .gas;
+    } else {
+      initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+    }
 
     // Add buffer based on either fixed amount or percentage
     const withBuffer = initialEstimate + (initialEstimate * (gasConfig.gasLimitBufferPercentage ?? 0n)) / 100n;

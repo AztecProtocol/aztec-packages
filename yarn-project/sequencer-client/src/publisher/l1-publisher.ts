@@ -170,6 +170,9 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
+  // @note - with blobs, the below estimate seems too large.
+  // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
+  // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
@@ -805,17 +808,32 @@ export class L1Publisher {
     }
   }
 
-  private prepareProposeTx(encodedData: L1ProcessArgs) {
-    // NB: Viem does not allow state overrides or blobs in estimate gas calls, so any est gas call will fail
-    // TODO(Miranda): as of the most recent version, viem now allows state overrides. TODO: incoporate
-    const proposeGas = 300000n;
+  private async prepareProposeTx(encodedData: L1ProcessArgs) {
+    const kzg = Blob.getViemKzgInstance();
+    const blobEvaluationGas = await this.l1TxUtils.estimateGas(
+      this.account,
+      {
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'validateBlobs',
+          args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
+        }),
+      },
+      {},
+      {
+        blobs: encodedData.blobs.map(b => b.data),
+        kzg,
+        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
+      },
+    );
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since
     //        viem will use the current state to simulate against, which means that
     //        we will fail estimation in the case where we are simulating for the
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
-    const gasGuesstimate = proposeGas + L1Publisher.PROPOSE_GAS_GUESS;
+    const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -879,7 +897,7 @@ export class L1Publisher {
     }
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = this.prepareProposeTx(encodedData);
+      const { args, gas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'propose',
@@ -896,7 +914,7 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.data),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS}
+          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
       return {
@@ -925,7 +943,7 @@ export class L1Publisher {
       this.log.info(inspect(quote.payload));
 
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = this.prepareProposeTx(encodedData);
+      const { args, gas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'proposeAndClaim',
@@ -940,7 +958,7 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.data),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS}
+          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
 
