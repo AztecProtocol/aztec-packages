@@ -8,6 +8,8 @@ inputs:
     required: false
   runner_type:
     required: true
+  username:
+    required: false
   run:
     # command to run once builder/tester available
     required: false
@@ -17,6 +19,8 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
+    - name: CI Setup
+      uses: ./.github/ci-setup-action
     - name: Select Instance Type and AMI
       id: select_instance
       shell: bash
@@ -24,6 +28,10 @@ runs:
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
         echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
+        if [ -n "${{ inputs.username }}" ]; then
+          USERNAME="${{ inputs.username }}"
+        fi
+        # Otherwise expect in env
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types, aws chooses for us based on capacity
@@ -135,8 +143,12 @@ runs:
           else
             echo "Chron jobs already configured."
           fi
-
+    - name: Docker Login
+      uses: ./.github/run-on-builder
+      with:
+        run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
     - name: Run On Builder
+      if: ${{ inputs.run }}
       uses: ./.github/run-on-builder
       with:
         run: ${{ inputs.run }}

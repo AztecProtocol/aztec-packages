@@ -103,11 +103,13 @@ bootstrap-aztec-faucet:
     yarn-project/**/src
   SAVE ARTIFACT /usr/src /usr/src
 
-# Simulates CI with chunks that use resources
-ci:
-  # dependencies
+# Simulates noir+bb CI with chunks that use resources
+ci-noir-bb:
   WAIT
+    # dependency for rest
     BUILD +bootstrap-noir-bb
+  END
+  WAIT
     BUILD ./noir/+examples
     BUILD ./noir/+test
     BUILD ./barretenberg/cpp/+bench
@@ -121,6 +123,11 @@ ci:
     BUILD ./barretenberg/acir_tests/+bench
   END
   WAIT
+
+# Simulates non-noir non-bb CI with chunks that use resources
+ci-rest:
+  WAIT
+    # dependency for rest
     BUILD +bootstrap
   END
   WAIT
