@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733323531494,
+  "lastUpdate": 1733404406368,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4129e27e5ed202786ea79da801d5e308d14a5f7d",
-          "message": "feat: IPA accumulators setup for Rollup (#10040)\n\nCreates a new flavor, UltraRollupFlavor, that handles IPA accumulators.\r\nCurrently unused in the rollup, but will be used there.\r\n\r\nAdds IPA claim to builder, pk, vk, so that the verifier knows where to\r\nlook to extract the IPA claim from. Modifies the UltraRecursiveVerifier\r\nto extract out the IPA claim from the public inputs and return it.\r\n\r\nAlso modifies native verifier to check the IPA claim and proof.",
-          "timestamp": "2024-11-20T13:43:46-05:00",
-          "tree_id": "f9db57ca6c94632a82db5a0c79f8054f2b6a62a4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4129e27e5ed202786ea79da801d5e308d14a5f7d"
-        },
-        "date": 1732129840838,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29441.20985800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27476.003819999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5669.810498999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5293.613365 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85387.507711,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85387509000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15490.587575000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15490589000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3141482823,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3141482823 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144542351,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144542351 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 140944261,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140944261 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "427cf594ec9ca4b472ec5d4a249c7b49805c78e2",
+          "message": "chore: parallelise inverse polynomial construction for lookup relations (#10413)\n\nBenchmark were showing that oink is the second most expensive round in\r\nPG after combiner. On top of that one component where we see\r\ndiscrepancies when increasing the ambient trace size is logderivative\r\ninverses construction. A step towards improving this is parallelising\r\nthe construction of inverse polynomials (which is linear). Also the\r\ninverses can be committed to with `commit_sparse` which shows a slight\r\nimprovement as well.\r\nBEFORE\r\n```\r\nCLIENT_IVC_BENCH_STRUCTURE(2^19)\r\n\r\nClientIVCBench/Full/6      29146 ms        27299 ms\r\nProtogalaxyProver::prove(t)            16265    58.29%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    5624    34.58%\r\n\r\n\r\nEXAMPLE_20(2^20)\r\n\r\nClientIVCBench/Full/6      37145 ms        34235 ms\r\nProtogalaxyProver::prove(t)            21283    60.75%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    8818    41.43%\r\nCOMMIT::lookup_inverses(t)        406     9.82%\r\n```\r\n\r\nAFTER\r\n```\r\nCLIENT_IVC_BENCH_STRUCTURE(2^19)\r\n\r\nClientIVCBench/Full/6      27351 ms        25477 ms \r\nProtogalaxyProver::prove(t)            14627    55.72%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    4030    27.55%\r\n\r\n\r\nEXAMPLE_20(2^20)\r\nClientIVCBench/Full/6      33852 ms        30893 ms   \r\nProtogalaxyProver::prove(t)            18250    56.97%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    5526    30.28%\r\nCOMMIT::lookup_inverses(t)        301     7.43%\r\n```",
+          "timestamp": "2024-12-05T12:15:35Z",
+          "tree_id": "1e148d2fba9c8aea7b0a4ace84927fd45f915316",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/427cf594ec9ca4b472ec5d4a249c7b49805c78e2"
+        },
+        "date": 1733404399309,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25513.040267999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23644.438496 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4582.814206000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4319.2583030000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91484.2179,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91484218000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16490.637163,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16490638000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2819528647,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2819528647 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136637592,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136637592 ns\nthreads: 1"
           }
         ]
       }
