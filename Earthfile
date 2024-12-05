@@ -115,9 +115,10 @@ ci-noir-bb:
     BUILD ./barretenberg/cpp/+bench
     BUILD ./barretenberg/cpp/+preset-gcc
   END
-  WAIT
-    BUILD ./barretenberg/cpp+test --jobs=32
-  END
+  # Currently done on its own runner
+  # WAIT
+  #   BUILD ./barretenberg/cpp+test --jobs=32
+  # END
   WAIT
     BUILD ./barretenberg/acir_tests/+test
     BUILD ./barretenberg/acir_tests/+bench

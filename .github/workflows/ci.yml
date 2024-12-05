@@ -333,45 +333,27 @@ jobs:
   #       env:
   #         AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-  # bb-gcc:
-  #   needs: [base-images, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.barretenberg-cpp == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     # Only allow one memory-hunger prover test to use this runner
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         # must be globally unique for build x runner
-  #         concurrency_key: bb-gcc
-  #     - name: "Ensure GCC Builds"
-  #       working-directory: ./barretenberg/cpp/
-  #       timeout-minutes: 40
-  #       # limit our parallelism to half our cores
-  #       run: earthly-ci --no-output +preset-gcc
-
-  # # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
-  # # ran on own runner for resource reasons (memory x cpu intensive)
-  # bb-native-tests:
-  #   runs-on: ubuntu-20.04
-  #   needs: [base-images, configure]
-  #   if: needs.configure.outputs.barretenberg-cpp == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: "Native Prover Tests"
-  #       uses: ./.github/ensure-tester
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       # note: tester by default times out at 30, would need to delay shutdwon for more
-  #       timeout-minutes: 30
-  #       with:
-  #         runner_type: 128core-tester-x86
-  #         run: |
-  #           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-  #           scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
+  # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
+  # ran on own runner for resource reasons (memory x cpu intensive)
+  bb-native-tests:
+    runs-on: ubuntu-latest
+    needs: [base-images, configure]
+    if: needs.configure.outputs.barretenberg-cpp == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: "Native Prover Tests"
+        uses: ./.github/ensure-tester
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        # note: tester by default times out at 30, would need to delay shutdwon for more
+        timeout-minutes: 30
+        with:
+          runner_type: 128core-tester-x86
+          run: |
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci --exec-stats --no-output --no-cache ./barretenberg/cpp+test --hardware_concurrency=32
 
   # bb-js-test:
   #   needs: [bootstrap-noir-bb, configure]
