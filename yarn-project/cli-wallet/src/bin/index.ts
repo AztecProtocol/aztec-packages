@@ -90,7 +90,7 @@ async function main() {
     .hook('preSubcommand', async command => {
       const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
       if (!remotePxe) {
-        userLog('Using local PXE service');
+        debugLogger.info('Using local PXE service');
         await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
       }
       db.init(AztecLmdbStore.open(dataDir));
