@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
@@ -15,7 +16,7 @@ library BlobLib {
    *
    * @return uint256 - The blob base fee
    */
-  function getBlobBaseFee(address _vmAddress) public view returns (uint256) {
+  function getBlobBaseFee(address _vmAddress) internal view returns (uint256) {
     if (_vmAddress.code.length > 0) {
       return Vm(_vmAddress).getBlobBaseFee();
     }
@@ -31,7 +32,7 @@ library BlobLib {
    * @param _blobsInput - The above bytes to verify a blob
    */
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
-    public
+    internal
     view
     returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
   {
@@ -51,8 +52,10 @@ library BlobLib {
       //  * input[64:96]   - y
       //  * input[96:144]  - commitment C
       // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
+      blobPublicInputs = abi.encodePacked(
+        blobPublicInputs,
+        _blobsInput[blobInputStart + 32:blobInputStart + 32 + Constants.BLOB_PUBLIC_INPUTS_BYTES]
+      );
     }
     // Return the hash of all z, y, and Cs, so we can use them in proof verification later
     blobPublicInputsHash = sha256(blobPublicInputs);
@@ -89,24 +92,5 @@ library BlobLib {
     // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
     (bool success,) = address(0x0a).staticcall(_blobInput);
     require(success, Errors.Rollup__InvalidBlobProof(blobHash));
-  }
-
-  /**
-   * @notice  Converts a BLS12 field element from bytes32 to a nr BigNum type
-   * The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
-   * firstLimb = last 15 bytes;
-   * secondLimb = bytes 2 -> 17;
-   * thirdLimb = first 2 bytes;
-   * Used when verifying epoch proofs to gather blob specific public inputs.
-   * @param _input - The field in bytes32
-   */
-  function bytes32ToBigNum(bytes32 _input)
-    internal
-    pure
-    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
-  {
-    firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
-    secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
-    thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
   }
 }

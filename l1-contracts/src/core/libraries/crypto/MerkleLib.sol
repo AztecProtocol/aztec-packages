@@ -12,45 +12,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  */
 library MerkleLib {
   /**
-   * @notice Computes the minimum and maximum path size of an unbalanced tree.
-   * @dev Follows structure of rollup circuits by greedy filling subtrees.
-   * @dev Marked as public to reduce Rollup.sol contract size
-   * @param _numTxs - The number of txs to form into subtrees.
-   * @return (min, max) - The min and max path sizes.
-   */
-  function computeMinMaxPathLength(uint256 _numTxs) public pure returns (uint256, uint256) {
-    uint256 numTxs = _numTxs < 2 ? 2 : _numTxs;
-    uint256 numSubtrees = 0;
-    uint256 currentSubtreeSize = 1;
-    uint256 currentSubtreeHeight = 0;
-    uint256 firstSubtreeHeight;
-    uint256 finalSubtreeHeight;
-    while (numTxs != 0) {
-      // If size & txs == 0, the subtree doesn't exist for this number of txs
-      if (currentSubtreeSize & numTxs == 0) {
-        currentSubtreeSize <<= 1;
-        currentSubtreeHeight++;
-        continue;
-      }
-      // Assign the smallest rightmost subtree height
-      if (numSubtrees == 0) finalSubtreeHeight = currentSubtreeHeight;
-      // Assign the largest leftmost subtree height
-      if (numTxs - currentSubtreeSize == 0) firstSubtreeHeight = currentSubtreeHeight;
-      numTxs -= currentSubtreeSize;
-      currentSubtreeSize <<= 1;
-      currentSubtreeHeight++;
-      numSubtrees++;
-    }
-    if (numSubtrees == 1) {
-      // We have a balanced tree
-      return (firstSubtreeHeight, firstSubtreeHeight);
-    }
-    uint256 min = finalSubtreeHeight + numSubtrees - 1;
-    uint256 max = firstSubtreeHeight + 1;
-    return (min, max);
-  }
-
-  /**
    * @notice Verifies the membership of a leaf and path against an expected root.
    * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
    * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
@@ -90,6 +51,45 @@ library MerkleLib {
       subtreeRoot == _expectedRoot,
       Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index)
     );
+  }
+
+  /**
+   * @notice Computes the minimum and maximum path size of an unbalanced tree.
+   * @dev Follows structure of rollup circuits by greedy filling subtrees.
+   * @dev Marked as public to reduce Rollup.sol contract size
+   * @param _numTxs - The number of txs to form into subtrees.
+   * @return (min, max) - The min and max path sizes.
+   */
+  function computeMinMaxPathLength(uint256 _numTxs) internal pure returns (uint256, uint256) {
+    uint256 numTxs = _numTxs < 2 ? 2 : _numTxs;
+    uint256 numSubtrees = 0;
+    uint256 currentSubtreeSize = 1;
+    uint256 currentSubtreeHeight = 0;
+    uint256 firstSubtreeHeight;
+    uint256 finalSubtreeHeight;
+    while (numTxs != 0) {
+      // If size & txs == 0, the subtree doesn't exist for this number of txs
+      if (currentSubtreeSize & numTxs == 0) {
+        currentSubtreeSize <<= 1;
+        currentSubtreeHeight++;
+        continue;
+      }
+      // Assign the smallest rightmost subtree height
+      if (numSubtrees == 0) finalSubtreeHeight = currentSubtreeHeight;
+      // Assign the largest leftmost subtree height
+      if (numTxs - currentSubtreeSize == 0) firstSubtreeHeight = currentSubtreeHeight;
+      numTxs -= currentSubtreeSize;
+      currentSubtreeSize <<= 1;
+      currentSubtreeHeight++;
+      numSubtrees++;
+    }
+    if (numSubtrees == 1) {
+      // We have a balanced tree
+      return (firstSubtreeHeight, firstSubtreeHeight);
+    }
+    uint256 min = finalSubtreeHeight + numSubtrees - 1;
+    uint256 max = firstSubtreeHeight + 1;
+    return (min, max);
   }
 
   /**

@@ -1090,6 +1090,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testSubmitProofNonExistantBlock() public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", false);
     DecoderBase.Data memory data = load("empty_block_1").block;
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
 
     BlockLog memory blockLog = rollup.getBlock(0);
     bytes32 wrong = bytes32(uint256(0xdeadbeef));
@@ -1099,7 +1100,14 @@ contract RollupTest is DecoderBase, TimeFns {
       )
     );
     _submitEpochProof(
-      rollup, 1, wrong, data.archive, blockLog.blockHash, data.blockHash, bytes32(0), new bytes(112)
+      rollup,
+      1,
+      wrong,
+      data.archive,
+      blockLog.blockHash,
+      data.blockHash,
+      bytes32(0),
+      blobPublicInputs
     );
 
     // TODO: Reenable when we setup proper initial block hash
@@ -1113,6 +1121,7 @@ contract RollupTest is DecoderBase, TimeFns {
     _testBlock("empty_block_1", false);
 
     DecoderBase.Data memory data = load("empty_block_1").block;
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
     bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
 
     BlockLog memory blockLog = rollup.getBlock(0);
@@ -1127,7 +1136,7 @@ contract RollupTest is DecoderBase, TimeFns {
       blockLog.blockHash,
       data.blockHash,
       bytes32(0),
-      new bytes(112)
+      blobPublicInputs
     );
   }
 
@@ -1135,6 +1144,7 @@ contract RollupTest is DecoderBase, TimeFns {
     _testBlock("empty_block_1", false);
 
     DecoderBase.Data memory data = load("empty_block_1").block;
+    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
     bytes32 wrongBlockHash = bytes32(uint256(0xdeadbeef));
 
     BlockLog memory blockLog = rollup.getBlock(0);
@@ -1151,7 +1161,7 @@ contract RollupTest is DecoderBase, TimeFns {
       blockLog.blockHash,
       wrongBlockHash,
       bytes32(0),
-      new bytes(112)
+      blobPublicInputs
     );
   }
 
@@ -1165,7 +1175,7 @@ contract RollupTest is DecoderBase, TimeFns {
 
     BlockLog memory blockLog = rollup.getBlock(0);
     bytes32 actualBlobPublicInputsHash =
-      rollup.blobPublicInputsHashes(data.decodedHeader.globalVariables.blockNumber);
+      rollup.getBlobPublicInputsHash(data.decodedHeader.globalVariables.blockNumber);
     bytes32 wrongBlobPublicInputsHash = this.getBlobPublicInputsHash(blobPublicInputs);
     vm.expectRevert(
       abi.encodeWithSelector(

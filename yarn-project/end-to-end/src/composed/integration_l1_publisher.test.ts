@@ -435,7 +435,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const blobPublicInputsHash = await rollup.read.getBlobPublicInputsHash([BigInt(i + 1)]);
         const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
         expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 
@@ -547,7 +547,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const blobPublicInputsHash = await rollup.read.blobPublicInputsHashes([BigInt(i + 1)]);
+        const blobPublicInputsHash = await rollup.read.getBlobPublicInputsHash([BigInt(i + 1)]);
         const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
         expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 

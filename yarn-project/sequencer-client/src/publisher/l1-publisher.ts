@@ -34,7 +34,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { BlobLibAbi, GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ExtRollupLibAbi, GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -596,7 +596,7 @@ export class L1Publisher {
     try {
       // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
       // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
-      const checkBlobSlot = 20n;
+      const checkBlobSlot = 7n;
       await this.publicClient.simulateContract({
         ...args,
         account: this.walletClient.account,
@@ -625,13 +625,13 @@ export class L1Publisher {
       });
       return undefined;
     } catch (simulationErr: any) {
-      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use BlobLibAbi to get the error msg.
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use ExtRollupLibAbi to get the error msg.
       const contractErr =
         simulationErr.name === 'ContractFunctionExecutionError'
           ? simulationErr
           : getContractError(simulationErr as BaseError, {
               args: [],
-              abi: BlobLibAbi,
+              abi: ExtRollupLibAbi,
               functionName: args.functionName,
               address: args.address,
               sender: this.account.address,
@@ -807,6 +807,7 @@ export class L1Publisher {
 
   private prepareProposeTx(encodedData: L1ProcessArgs) {
     // NB: Viem does not allow state overrides or blobs in estimate gas calls, so any est gas call will fail
+    // TODO(Miranda): as of the most recent version, viem now allows state overrides. TODO: incoporate
     const proposeGas = 300000n;
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since

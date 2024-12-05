@@ -44,8 +44,11 @@ struct L1GasOracleValues {
   Slot slotOfChange;
 }
 
+// The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
+// TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
   mapping(uint256 blockNumber => BlockLog log) blocks;
+  mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
   ChainTips tips;
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
@@ -93,6 +96,7 @@ interface IRollup {
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
     bytes calldata _body,
+    bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
   ) external;
 
@@ -145,6 +149,7 @@ interface IRollup {
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
+  function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
   function getEpochToProve() external view returns (Epoch);
   function getClaimableEpoch() external view returns (Epoch);
   function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)

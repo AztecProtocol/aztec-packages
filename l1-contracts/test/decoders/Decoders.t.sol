@@ -5,8 +5,7 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./Base.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
-import {HeaderLib, Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.

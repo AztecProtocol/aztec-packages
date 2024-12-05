@@ -172,6 +172,7 @@ library Constants {
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES = 36;
   uint256 internal constant SPONGE_BLOB_LENGTH = 11;
   uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
+  uint256 internal constant BLOB_PUBLIC_INPUTS_BYTES = 112;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
   uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 3;
   uint256 internal constant SCOPED_L2_TO_L1_MESSAGE_LENGTH = 4;

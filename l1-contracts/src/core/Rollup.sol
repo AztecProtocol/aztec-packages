@@ -20,7 +20,6 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
-import {BlobLib} from "@aztec/core/libraries/BlobLib.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -78,6 +77,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   bool public immutable IS_FOUNDRY_TEST;
+  // @note  Always true, exists to override to false for testing only
+  bool public checkBlob = true;
 
   uint256 public immutable CLAIM_DURATION_IN_L2_SLOTS;
   uint256 public immutable L1_BLOCK_AT_GENESIS;
@@ -88,13 +89,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
   IRewardDistributor public immutable REWARD_DISTRIBUTOR;
   IERC20 public immutable ASSET;
-
-  // The below public inputs are filled when proposing a block, then used to verify an epoch proof.
-  // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
-  // TODO(Miranda): move to rollupstore
-  mapping(uint256 blockNumber => bytes32) public blobPublicInputsHashes;
-  // @note  Always true, exists to override to false for testing only
-  bool public checkBlob = true;
 
   RollupStore internal rollupStore;
 
@@ -150,7 +144,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee(VM_ADDRESS)}),
+      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)}),
       slotOfChange: LIFETIME
     });
     for (uint256 i = 0; i < _validators.length; i++) {
@@ -233,6 +227,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
     bytes calldata _body,
+    bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_args, _signatures, _body, _blobInput);
@@ -344,10 +339,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
+    bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view override(IRollup) returns (bytes32[] memory) {
     return ExtRollupLib.getEpochProofPublicInputs(
-      rollupStore, _epochSize, _args, _fees, _aggregationObject
+      rollupStore, _epochSize, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 
@@ -487,7 +483,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (bytes32 blobsHash, bytes32 blobPublicInputsHash) = BlobLib.validateBlobs(_blobInput, checkBlob);
+    (bytes32 blobsHash, bytes32 blobPublicInputsHash) =
+      ExtRollupLib.validateBlobs(_blobInput, checkBlob);
 
     // Decode and validate header
     Header memory header = ExtRollupLib.decodeHeader(_args.header);
@@ -512,7 +509,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       rollupStore.blocks[blockNumber] = _toBlockLog(_args, blockNumber, components.congestionCost);
     }
 
-    blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
+    rollupStore.blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     {
@@ -566,7 +563,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     rollupStore.l1GasOracleValues.pre = rollupStore.l1GasOracleValues.post;
     rollupStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee(VM_ADDRESS)});
+      L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)});
     rollupStore.l1GasOracleValues.slotOfChange = slot + LAG;
   }
 
@@ -587,7 +584,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     override(IRollup)
     returns (L1FeeData memory)
   {
-    return getSlotAt(_timestamp) < rollupStore.l1GasOracleValues.slotOfChange ? rollupStore.l1GasOracleValues.pre : rollupStore.l1GasOracleValues.post;
+    return getSlotAt(_timestamp) < rollupStore.l1GasOracleValues.slotOfChange
+      ? rollupStore.l1GasOracleValues.pre
+      : rollupStore.l1GasOracleValues.post;
   }
 
   /**
@@ -696,6 +695,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return rollupStore.blocks[_blockNumber];
   }
 
+  function getBlobPublicInputsHash(uint256 _blockNumber)
+    public
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return rollupStore.blobPublicInputsHashes[_blockNumber];
+  }
+
   function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
     require(
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
@@ -729,7 +737,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @return bytes32 - The archive root of the block
    */
   function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
-    return _blockNumber <= rollupStore.tips.pendingBlockNumber ? rollupStore.blocks[_blockNumber].archive : bytes32(0);
+    return _blockNumber <= rollupStore.tips.pendingBlockNumber
+      ? rollupStore.blocks[_blockNumber].archive
+      : bytes32(0);
   }
 
   function canPrune() public view override(IRollup) returns (bool) {
@@ -864,7 +874,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   // Helper to avoid stack too deep
-  // TODO(Miranda) move to lib
   function _toBlockLog(ProposeArgs calldata _args, uint256 _blockNumber, uint256 _congestionCost)
     internal
     view
