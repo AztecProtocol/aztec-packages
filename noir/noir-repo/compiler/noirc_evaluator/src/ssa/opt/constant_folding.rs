@@ -285,7 +285,7 @@ impl<'brillig> Context<'brillig> {
                 &mut side_effects_enabled_var,
             );
         }
-        self.block_queue.extend(dfg[block].successors());
+        self.block_queue.extend(function.dfg[block].successors());
     }
 
     fn fold_constants_into_instruction(
