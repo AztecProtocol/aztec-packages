@@ -1,5 +1,6 @@
-import { type EpochConstants, getTimestampRangeForEpoch } from '@aztec/archiver/epoch';
+// eslint-disable-next-line no-restricted-imports
 import { type DebugLogger, retryUntil } from '@aztec/aztec.js';
+import { type EpochConstants, getTimestampRangeForEpoch } from '@aztec/circuit-types';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 
