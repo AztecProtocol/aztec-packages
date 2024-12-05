@@ -24,6 +24,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        virtual ~VerificationKey() = default;
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
@@ -59,6 +60,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
          */
         std::vector<FF> to_field_elements() const
         {
+            info("in to_field_elements for ultra rollup flavor");
             using namespace bb::field_conversion;
 
             auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
@@ -74,7 +76,9 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
             serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
             serialize_to_field_buffer(this->contains_ipa_claim, elements);
-            serialize_to_field_buffer(this->ipa_claim_public_input_indices, elements);
+            for (uint32_t idx : this->ipa_claim_public_input_indices) {
+                serialize_to_field_buffer(idx, elements);
+            }
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);

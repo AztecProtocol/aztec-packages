@@ -159,6 +159,8 @@ async function generateVKData(
       : "vk_as_fields_ultra_rollup_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
+  console.log("VK AS FIELDS CMD: ", vkAsFieldsCommand);
+
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {
       if (err) {
