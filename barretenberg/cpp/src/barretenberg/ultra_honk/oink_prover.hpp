@@ -19,6 +19,7 @@
 // clang-format on
 #include <utility>
 
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {
@@ -40,16 +41,20 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::shared_ptr<DeciderPK> proving_key;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
+    ExecutionTraceUsageTracker trace_usage_tracker;
+
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     OinkProver(std::shared_ptr<DeciderPK> proving_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
-               std::string domain_separator = "")
+               std::string domain_separator = "",
+               const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
         : proving_key(proving_key)
         , transcript(transcript)
         , domain_separator(std::move(domain_separator))
+        , trace_usage_tracker(trace_usage_tracker)
     {}
 
     void prove();

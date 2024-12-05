@@ -227,11 +227,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      */
     template <size_t bus_idx, typename Polynomials>
-    static void compute_logderivative_inverse(
-        Polynomials& polynomials,
-        auto& relation_parameters,
-        const size_t circuit_size,
-        [[maybe_unused]] const std::vector<std::pair<size_t, size_t>>& active_block_ranges)
+    static void compute_logderivative_inverse(Polynomials& polynomials,
+                                              auto& relation_parameters,
+                                              const size_t circuit_size)
     {
         PROFILE_THIS_NAME("databus relation");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);

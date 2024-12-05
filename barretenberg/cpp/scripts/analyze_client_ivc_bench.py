@@ -25,7 +25,7 @@ to_keep = [
 "execute_log_derivative_inverse_round(t)",
 "compute_logderivative_inverses(t)",
 "execute_grand_product_computation_round(t)",
-"compute_grand_product_polynomial(t)",
+"compute_grand_product(t)",
 "MegaFlavor::get_row(t)",
 "logderivative relation(t)",
 "databus relation(t)",

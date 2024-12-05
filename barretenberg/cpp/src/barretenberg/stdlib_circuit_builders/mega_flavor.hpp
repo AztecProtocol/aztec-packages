@@ -496,19 +496,19 @@ class MegaFlavor {
 
             // Compute inverses for conventional lookups
             LogDerivLookupRelation<FF>::compute_logderivative_inverse(
-                this->polynomials, relation_parameters, this->circuit_size, this->active_block_ranges);
+                this->polynomials, relation_parameters, this->circuit_size);
 
             // Compute inverses for calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
-                this->polynomials, relation_parameters, this->circuit_size, this->active_block_ranges);
+                this->polynomials, relation_parameters, this->circuit_size);
 
             // Compute inverses for secondary_calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
-                this->polynomials, relation_parameters, this->circuit_size, this->active_block_ranges);
+                this->polynomials, relation_parameters, this->circuit_size);
 
             // Compute inverses for return data reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/2>(
-                this->polynomials, relation_parameters, this->circuit_size, this->active_block_ranges);
+                this->polynomials, relation_parameters, this->circuit_size);
         }
 
         /**
@@ -519,7 +519,6 @@ class MegaFlavor {
          */
         void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
-            PROFILE_THIS_NAME("compute_grand_product_polynomial");
             relation_parameters.public_input_delta = compute_public_input_delta<MegaFlavor>(this->public_inputs,
                                                                                             relation_parameters.beta,
                                                                                             relation_parameters.gamma,
