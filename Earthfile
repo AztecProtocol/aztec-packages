@@ -123,7 +123,6 @@ ci-noir-bb:
     BUILD ./barretenberg/acir_tests/+test
     BUILD ./barretenberg/acir_tests/+bench
   END
-  WAIT
 
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:
