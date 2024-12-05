@@ -45,7 +45,6 @@ Verbose logging on Aztec nodes should be enabled by default using the following 
 
 - `LOG_JSON=1`
 - `LOG_LEVEL=debug`
-- `DEBUG=discv5*,aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*`
 
 Deployments are initiated from CI by manually running the (_name pending_) workflow.
 

@@ -61,6 +61,7 @@ export default {
       fs: false,
       path: false,
       url: false,
+      tty: false,
       worker_threads: false,
       buffer: require.resolve('buffer/'),
       util: require.resolve('util/'),
