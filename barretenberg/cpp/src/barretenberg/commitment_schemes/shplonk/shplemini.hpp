@@ -29,12 +29,12 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::vector<bb::Univariate<FF, LENGTH>>& libra_univariates = {},
-                              const std::vector<FF>& libra_evaluations = {},
+                              const FF& libra_evaluation = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool has_zk = !libra_evaluations.empty();
+        const bool has_zk = !(libra_evaluation == FF{ 0 });
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -47,7 +47,7 @@ template <typename Curve> class ShpleminiProver_ {
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
         size_t idx = 0;
-        for (auto [libra_univariate, libra_evaluation] : zip_view(libra_univariates, libra_evaluations)) {
+        for (auto libra_univariate : libra_univariates) {
             OpeningClaim new_claim;
             new_claim.polynomial = Polynomial(libra_univariate);
             new_claim.opening_pair.challenge = multilinear_challenge[idx];
@@ -135,7 +135,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
         RefSpan<Commitment> libra_univariate_commitments = {},
-        const std::vector<Fr>& libra_univariate_evaluations = {},
+        const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
 
@@ -152,7 +152,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batched_evaluation = Fr{ 0 };
 
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool has_zk = !libra_univariate_evaluations.empty();
+        const bool has_zk = !(libra_univariate_evaluation == Fr{ 0 });
         Commitment hiding_polynomial_commitment;
         if (has_zk) {
             hiding_polynomial_commitment =
@@ -298,7 +298,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             add_zk_data(commitments,
                         scalars,
                         libra_univariate_commitments,
-                        libra_univariate_evaluations,
+                        libra_univariate_evaluation,
                         multivariate_challenge,
                         shplonk_batching_challenge,
                         shplonk_evaluation_challenge);
@@ -597,7 +597,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     static void add_zk_data(std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
                             RefSpan<Commitment> libra_univariate_commitments,
-                            const std::vector<Fr>& libra_univariate_evaluations,
+                            const Fr& libra_univariate_evaluation,
                             const std::vector<Fr>& multivariate_challenge,
                             const Fr& shplonk_batching_challenge,
                             const Fr& shplonk_evaluation_challenge)
@@ -628,8 +628,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
         // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to
         // the constant term
-        for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :
-             zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
+        for (const auto [libra_univariate_commitment, denominator] :
+             zip_view(libra_univariate_commitments, denominators)) {
             commitments.push_back(std::move(libra_univariate_commitment));
             Fr scaling_factor = denominator * shplonk_challenge_power;
             scalars.push_back((-scaling_factor));

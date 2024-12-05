@@ -258,12 +258,14 @@ template <typename Flavor> class SumcheckProver {
         }
         // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
         // transcript.
+        FF libra_evaluation{ 0 };
+
         if constexpr (Flavor::HasZK) {
-            for (size_t idx = 0; idx < multivariate_d; idx++) {
-                const FF& libra_evaluation = zk_sumcheck_data.libra_evaluations[idx];
-                std::string libra_evaluation_label = "Libra:evaluation_" + std::to_string(idx);
-                transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
+            for (auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
+                libra_evaluation += libra_eval;
             }
+            std::string libra_evaluation_label = "Libra:final_evaluation";
+            transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
         };
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
@@ -275,9 +277,7 @@ template <typename Flavor> class SumcheckProver {
         if constexpr (!Flavor::HasZK) {
             return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
         } else {
-            return SumcheckOutput<Flavor>{ multivariate_challenge,
-                                           multivariate_evaluations,
-                                           zk_sumcheck_data.libra_evaluations };
+            return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations, libra_evaluation };
         }
         vinfo("finished sumcheck");
     };
@@ -573,14 +573,12 @@ template <typename Flavor> class SumcheckVerifier {
             }
         }
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
-        ClaimedLibraEvaluations libra_evaluations(multivariate_d);
+        FF libra_evaluation{ 0 };
         FF full_libra_purported_value = FF(0);
         if constexpr (Flavor::HasZK) {
-            for (size_t idx = 0; idx < multivariate_d; idx++) {
-                libra_evaluations[idx] =
-                    transcript->template receive_from_prover<FF>("Libra:evaluation_" + std::to_string(idx));
-                full_libra_purported_value += libra_evaluations[idx];
-            };
+            libra_evaluation = transcript->template receive_from_prover<FF>("Libra:final_evaluation");
+            full_libra_purported_value += libra_evaluation;
+            info("sumcheck verifier ", full_libra_purported_value);
             full_libra_purported_value *= libra_challenge;
         };
         // Final round
@@ -606,7 +604,7 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (!Flavor::HasZK) {
             return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
         } else {
-            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, libra_evaluations, verified };
+            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, libra_evaluation, verified };
         }
     };
 };

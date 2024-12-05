@@ -40,6 +40,9 @@ template <typename Flavor> struct ZKSumcheckData {
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
     FF free_term{ 0 };
+    std::array<FF, 377> interpolation_domain;
+    Polynomial<FF> polynomial_lagrange_form;
+    Polynomial<FF> concatenated;
     LibraUnivariates libra_univariates;
     LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
@@ -54,7 +57,7 @@ template <typename Flavor> struct ZKSumcheckData {
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : free_term(FF::random_element())
+        : free_term(FF(0))
         , libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
         , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
@@ -73,23 +76,21 @@ template <typename Flavor> struct ZKSumcheckData {
         // 377--> Flavor::SubgroupSize
 
         // create evaluation domain using the generator
-        std::array<FF, 377> subgroup_interpolation_domain;
         for (size_t idx = 0; idx < 377; idx++) {
-            subgroup_interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
+            interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
         }
 
+        polynomial_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
         Polynomial<FF> polynomial_to_commit(
-            std::span<FF>(subgroup_interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 377);
+            std::span<FF>(interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 377);
 
         // If proving_key is provided, commit to libra_univariates
         if (commitment_key != nullptr) {
-            size_t idx = 0;
-            for (auto& libra_univariate_monomial : libra_univariates_monomial) {
-                auto libra_commitment = commitment_key->commit(Polynomial<FF>(libra_univariate_monomial));
-                transcript->template send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
-                idx++;
-            }
+
+            auto libra_commitment = commitment_key->commit(polynomial_to_commit);
+            transcript->template send_to_verifier("Libra:commitment", libra_commitment);
         }
+        concatenated = polynomial_to_commit;
         // Compute the total sum of the Libra polynomials
         libra_scaling_factor = FF(1);
         FF libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor);

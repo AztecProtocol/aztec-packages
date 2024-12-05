@@ -48,20 +48,21 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::vector<Commitment> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
-            Commitment libra_commitment =
-                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-            libra_commitments.push_back(libra_commitment);
-        };
-    }
 
+        Commitment libra_commitment = transcript->template receive_from_prover<Commitment>("Libra:commitment");
+        libra_commitments.push_back(libra_commitment);
+    }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
-    std::vector<FF> libra_evaluations = {};
+    FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
-        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
+        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
+        Commitment libra_big_sum_commitment =
+            transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments.push_back(libra_big_sum_commitment);
+        info("big sum received");
     }
 
     // If Sumcheck did not verify, return false
@@ -81,7 +82,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     return sumcheck_output.verified.value() && verified;
