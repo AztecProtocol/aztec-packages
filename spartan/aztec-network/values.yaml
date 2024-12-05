@@ -36,10 +36,7 @@ aztec:
   realProofs: false
 
 bootNode:
-<<<<<<< HEAD
   seqPublisherPrivateKey: ""
-=======
->>>>>>> master
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
@@ -130,10 +127,6 @@ proverNode:
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-<<<<<<< HEAD
-  realProofs: false
-=======
->>>>>>> master
   proverAgent:
     count: 0
     pollIntervalMs: 1000
@@ -237,10 +230,6 @@ proverAgent:
     spotEnabled: false
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-<<<<<<< HEAD
-  realProofs: false
-=======
->>>>>>> master
   bb:
     hardwareConcurrency: ""
   nodeSelector: {}
