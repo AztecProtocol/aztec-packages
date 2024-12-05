@@ -275,6 +275,7 @@ export class AvmEphemeralForest {
     if (pathAbsentInEphemeralTree) {
       // Since we have never seen this before - we should insert it into our tree as it is about to be updated.
       this.treeMap.get(treeId)!.insertSiblingPath(index, siblingPath);
+      tree.updateLeaf(this.hashPreimage(preimage), index);
     }
 
     assert(!alreadyPresent, 'Nullifier already exists in the tree. Cannot update a nullifier!');
