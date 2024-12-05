@@ -22,7 +22,7 @@ bootNode:
     disabled: true
 
 # use small provers to produce fake proofs
-provateAgent:
+proverAgent:
   replicas: 1
   resources:
     requests:
@@ -35,7 +35,7 @@ bot:
   txIntervalSeconds: 200
 
 network:
-  public: false
+  public: true
 
 images:
   aztec:
