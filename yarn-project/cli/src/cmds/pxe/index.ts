@@ -4,7 +4,9 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type Command } from 'commander';
 
 import {
+  LOCALHOST,
   logJson,
+  makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
   parseField,
@@ -142,11 +144,18 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
   program
     .command('get-node-info')
-    .description('Gets the information of an aztec node at a URL.')
-    .addOption(pxeOption)
+    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
+    .option('--node-url <string>', 'URL of the node.', `http://${LOCALHOST}:8080`)
+    .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
-      await getNodeInfo(options.rpcUrl, debugLogger, log);
+      let url: string;
+      if (options.nodeUrl) {
+        url = options.nodeUrl;
+      } else {
+        url = options.rpcUrl;
+      }
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
     });
 
   program

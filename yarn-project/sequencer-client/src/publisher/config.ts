@@ -1,4 +1,4 @@
-import { type L1ReaderConfig, NULL_KEY } from '@aztec/ethereum';
+import { type L1ReaderConfig, type L1TxUtilsConfig, NULL_KEY, l1TxUtilsConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**
@@ -19,12 +19,12 @@ export type TxSenderConfig = L1ReaderConfig & {
 /**
  * Configuration of the L1Publisher.
  */
-export interface PublisherConfig {
+export type PublisherConfig = L1TxUtilsConfig & {
   /**
    * The interval to wait between publish retries.
    */
   l1PublishRetryIntervalMS: number;
-}
+};
 
 export const getTxSenderConfigMappings: (
   scope: 'PROVER' | 'SEQ',
@@ -62,13 +62,16 @@ export function getTxSenderConfigFromEnv(scope: 'PROVER' | 'SEQ'): Omit<TxSender
   return getConfigFromMappings(getTxSenderConfigMappings(scope));
 }
 
-export const getPublisherConfigMappings: (scope: 'PROVER' | 'SEQ') => ConfigMappingsType<PublisherConfig> = scope => ({
+export const getPublisherConfigMappings: (
+  scope: 'PROVER' | 'SEQ',
+) => ConfigMappingsType<PublisherConfig & L1TxUtilsConfig> = scope => ({
   l1PublishRetryIntervalMS: {
     env: `${scope}_PUBLISH_RETRY_INTERVAL_MS`,
     parseEnv: (val: string) => +val,
     defaultValue: 1000,
     description: 'The interval to wait between publish retries.',
   },
+  ...l1TxUtilsConfigMappings,
 });
 
 export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {

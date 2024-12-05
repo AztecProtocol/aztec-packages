@@ -18,7 +18,7 @@ library Constants {
   uint256 internal constant ARGS_LENGTH = 16;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
-  uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
+  uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
   uint256 internal constant MAX_ENQUEUED_CALLS_PER_CALL = 16;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_CALL = 2;
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 64;
@@ -200,7 +200,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 25;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 731;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 739;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 38;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;

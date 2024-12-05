@@ -12,9 +12,13 @@ contract SchnorrHardcodedAccount {
     use dep::aztec::prelude::PrivateContext;
 
     use dep::aztec::macros::functions::{private, view};
+    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
-    global public_key_x: Field = 0x16b93f4afae55cab8507baeb8e7ab4de80f5ab1e9e1f5149bf8cd0d375451d90;
-    global public_key_y: Field = 0x208d44b36eb6e73b254921134d002da1a90b41131024e3b1d721259182106205;
+    global public_key: EmbeddedCurvePoint = EmbeddedCurvePoint {
+        x: 0x16b93f4afae55cab8507baeb8e7ab4de80f5ab1e9e1f5149bf8cd0d375451d90,
+        y: 0x208d44b36eb6e73b254921134d002da1a90b41131024e3b1d721259182106205,
+        is_infinite: false,
+    };
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
@@ -41,12 +45,7 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        std::schnorr::verify_signature(
-            public_key_x,
-            public_key_y,
-            signature,
-            outer_hash.to_be_bytes::<32>(),
-        )
+        schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
     }
     // docs:end:is-valid
 }

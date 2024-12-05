@@ -4,7 +4,7 @@ The algebraic logic unit performs operations analogous to an arithmetic unit in 
 
 This component of the VM circuit evaluates both base-2 arithmetic operations and prime-field operation. It takes its input/output from the intermediate registers in the state controller.
 
-The following block diagram maps out an draft of the internal components of the "ALU"
+The following block diagram maps out a draft of the internal components of the "ALU"
 
 ![](/img/protocol-specs/public-vm/alu.png)
 

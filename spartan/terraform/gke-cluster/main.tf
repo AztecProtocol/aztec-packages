@@ -38,6 +38,24 @@ resource "google_project_iam_member" "gke_sa_roles" {
   member  = "serviceAccount:${google_service_account.gke_sa.email}"
 }
 
+# Create a new service account for Helm
+resource "google_service_account" "helm_sa" {
+  account_id   = "helm-sa"
+  display_name = "Helm Service Account"
+  description  = "Service account for Helm operations"
+}
+
+# Add IAM roles to the Helm service account
+resource "google_project_iam_member" "helm_sa_roles" {
+  for_each = toset([
+    "roles/container.admin",
+    "roles/storage.admin"
+  ])
+  project = var.project
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.helm_sa.email}"
+}
+
 # Create a GKE cluster
 resource "google_container_cluster" "primary" {
   name     = "spartan-gke"
