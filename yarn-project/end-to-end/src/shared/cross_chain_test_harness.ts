@@ -76,15 +76,20 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   underlyingERC20: any;
 }> {
   if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode).then(
-      ({ address }) => address,
-    );
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
+      'Underlying',
+      'UND',
+      walletClient.account.address,
+    ]).then(({ address }) => address);
   }
   const underlyingERC20 = getContract({
     address: underlyingERC20Address!.toString(),
     abi: TestERC20Abi,
     client: walletClient,
   });
+
+  // allow anyone to mint
+  await underlyingERC20.write.setFreeForAll([true], {} as any);
 
   // deploy the token portal
   const { address: tokenPortalAddress } = await deployL1Contract(

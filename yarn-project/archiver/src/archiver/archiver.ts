@@ -176,7 +176,7 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS ?? 10_000,
-      new ArchiverInstrumentation(telemetry),
+      new ArchiverInstrumentation(telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -271,9 +271,6 @@ export class Archiver implements ArchiveSource {
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
-
-      const storeSizes = this.store.estimateSize();
-      this.instrumentation.recordDBMetrics(storeSizes);
     }
   }
 

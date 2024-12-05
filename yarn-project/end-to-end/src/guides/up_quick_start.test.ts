@@ -9,9 +9,12 @@ describe('guides/up_quick_start', () => {
   // TODO: update to not use CLI
   it('works', async () => {
     await waitForPXE(createPXEClient(PXE_URL));
-    execSync(`DEBUG="aztec:*" PXE_URL=\${PXE_URL:-http://localhost:8080} ./src/guides/up_quick_start.sh`, {
-      shell: '/bin/bash',
-      stdio: 'inherit',
-    });
+    execSync(
+      `LOG_LEVEL=\${LOG_LEVEL:-verbose} PXE_URL=\${PXE_URL:-http://localhost:8080} ./src/guides/up_quick_start.sh`,
+      {
+        shell: '/bin/bash',
+        stdio: 'inherit',
+      },
+    );
   });
 });
