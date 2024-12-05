@@ -228,6 +228,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest
         using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using ShortView = typename ShortAccumulator::View;
+
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
@@ -246,8 +248,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
         // Degrees:                     2 (3)       1 (2)        1              1
-        std::get<0>(accumulator) +=
-            ShortAccumulator((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
+        const Accumulator logderiv_first_term = (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+        std::get<0>(accumulator) += ShortView(logderiv_first_term); // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
