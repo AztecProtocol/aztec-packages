@@ -91,6 +91,11 @@ beforeEach(async () => {
   mainState = await worldState.fork();
   copyState = await worldState.fork();
 
+  const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
+  const nullifierLeaf = new Fr(69420)
+  await mainState.batchInsert(treeId, [nullifierLeaf.toBuffer()], 0);
+  await copyState.batchInsert(treeId, [nullifierLeaf.toBuffer()], 0);
+
   noteHashes = Array.from({ length: 64 }, (_, i) => new Fr(i));
   // We do + 128 since the first 128 leaves are already filled in the indexed trees (nullifier, public data)
   indexedHashes = Array.from({ length: 64 }, (_, i) => new Fr(i + 128));

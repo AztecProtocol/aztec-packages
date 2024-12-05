@@ -138,12 +138,12 @@ export class AvmEphemeralForest {
    * @param newLeafPreimage - The preimage of the new leaf to be inserted.
    * @returns The sibling path of the new leaf (i.e. the insertion path)
    */
-  appendIndexedTree<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
+  async appendIndexedTree<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
     treeId: ID,
     lowLeafIndex: bigint,
     lowLeafPreimage: T,
     newLeafPreimage: T,
-  ): Fr[] {
+  ): Promise<Fr[]> {
     const tree = this.treeMap.get(treeId)!;
     const newLeaf = this.hashPreimage(newLeafPreimage);
     const insertIndex = tree.leafCount;
@@ -152,8 +152,13 @@ export class AvmEphemeralForest {
     // Update the low nullifier hash
     this.setIndexedUpdates(treeId, lowLeafIndex, lowLeafPreimage);
     tree.updateLeaf(lowLeaf, lowLeafIndex);
+
+    const pathBeforeAppend = await this.getSiblingPath(treeId, insertIndex);
+    console.log(`Path before appendLeaf: ${pathBeforeAppend}`);
     // Append the new leaf
     tree.appendLeaf(newLeaf);
+    const pathAfterAppend = await this.getSiblingPath(treeId, insertIndex);
+    console.log(`Path after  appendLeaf: ${pathAfterAppend}`);
     this.setIndexedUpdates(treeId, insertIndex, newLeafPreimage);
 
     return tree.getSiblingPath(insertIndex)!;
@@ -212,7 +217,7 @@ export class AvmEphemeralForest {
       new Fr(preimage.getNextKey()),
       preimage.getNextIndex(),
     );
-    const insertionPath = this.appendIndexedTree(treeId, lowLeafIndex, updatedLowLeaf, newPublicDataLeaf);
+    const insertionPath = await this.appendIndexedTree(treeId, lowLeafIndex, updatedLowLeaf, newPublicDataLeaf);
 
     // Even though the low leaf key is not updated, we still need to update the sorted keys in case we have
     // not seen the low leaf before
@@ -281,7 +286,7 @@ export class AvmEphemeralForest {
     updatedLowNullifier.nextIndex = insertionIndex;
 
     const newNullifierLeaf = new NullifierLeafPreimage(nullifier, preimage.nextNullifier, preimage.nextIndex);
-    const insertionPath = this.appendIndexedTree(treeId, index, updatedLowNullifier, newNullifierLeaf);
+    const insertionPath = await this.appendIndexedTree(treeId, index, updatedLowNullifier, newNullifierLeaf);
 
     // Even though the low nullifier key is not updated, we still need to update the sorted keys in case we have
     // not seen the low nullifier before
