@@ -145,6 +145,33 @@ void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
     merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
 }
 
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
+{
+    // uint32_t clk = 0;
+    // auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // Find the bytecode based on contract address of the public call request
+    const AvmContractBytecode bytecode_hint =
+        *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_address](const auto& contract) {
+            return contract.contract_instance.address == contract_address;
+        });
+    if (check_membership) {
+        // NullifierReadTreeHint nullifier_read_hint = bytecode_hint.contract_instance.membership_hint;
+        //// hinted nullifier should match the specified contract address
+        // ASSERT(nullifier_read_hint.low_leaf_preimage.nullifier == contract_address);
+        // bool is_member = merkle_tree_trace_builder.perform_nullifier_read(clk,
+        //                                                                   nullifier_read_hint.low_leaf_preimage,
+        //                                                                   nullifier_read_hint.low_leaf_index,
+        //                                                                   nullifier_read_hint.low_leaf_sibling_path);
+        //// TODO(dbanks12): handle non-existent bytecode
+        //// if the contract address nullifier is hinted as "exists", the membership check should agree
+        // ASSERT(is_member);
+    }
+
+    vinfo("Found bytecode for contract address: ", contract_address);
+    return bytecode_hint.bytecode;
+}
+
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
                                            [[maybe_unused]] const std::vector<FF>& siloed_note_hashes)
 {

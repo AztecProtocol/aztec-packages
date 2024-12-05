@@ -299,15 +299,6 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
-    // Temporary spot for private non-revertible insertion
-    std::vector<FF> siloed_nullifiers;
-    siloed_nullifiers.insert(siloed_nullifiers.end(),
-                             public_inputs.accumulated_data.nullifiers.begin(),
-                             public_inputs.accumulated_data.nullifiers.begin() +
-                                 public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
-    trace_builder.insert_private_state(siloed_nullifiers, {});
-    trace_builder.checkpoint_non_revertible_state();
-
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_teardown_call_requests{};
     public_teardown_call_requests[0] = public_inputs.public_teardown_call_request;
 
@@ -324,34 +315,37 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
                 public_call_requests.push_back(call_request);
             }
         }
-        info("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");
+        // When we get this, it means we have done our non-revertible setup phase
+        if (phase == TxExecutionPhase::SETUP) {
+            vinfo("Inserting non-revertible side effects from private before SETUP phase. Checkpointing trees.");
+            // Temporary spot for private non-revertible insertion
+            std::vector<FF> siloed_nullifiers;
+            siloed_nullifiers.insert(
+                siloed_nullifiers.end(),
+                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin(),
+                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin() +
+                    public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+            trace_builder.insert_private_state(siloed_nullifiers, {});
+            trace_builder.checkpoint_non_revertible_state();
+        } else if (phase == TxExecutionPhase::APP_LOGIC) {
+            vinfo("Inserting revertible side effects from private before APP_LOGIC phase");
+            // Temporary spot for private revertible insertion
+            std::vector<FF> siloed_nullifiers;
+            siloed_nullifiers.insert(siloed_nullifiers.end(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
+                                         public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
+            trace_builder.insert_private_state(siloed_nullifiers, {});
+        }
+
+        vinfo("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");
         AvmError error = AvmError::NO_ERROR;
-        for (size_t i = 0; i < public_call_requests.size(); i++) {
-
-            // When we get this, it means we have done our non-revertible setup phase
-            if (phase == TxExecutionPhase::SETUP) {
-                // Temporary spot for private revertible insertion
-                std::vector<FF> siloed_nullifiers;
-                siloed_nullifiers.insert(
-                    siloed_nullifiers.end(),
-                    public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
-                    public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
-                        public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
-                trace_builder.insert_private_state(siloed_nullifiers, {});
-            }
-
-            auto public_call_request = public_call_requests.at(i);
+        for (auto public_call_request : public_call_requests) {
             trace_builder.set_public_call_request(public_call_request);
             trace_builder.set_call_ptr(call_ctx++);
 
             // Find the bytecode based on contract address of the public call request
-            const std::vector<uint8_t>& bytecode = std::ranges::find_if(execution_hints.all_contract_bytecode,
-                                                                        [public_call_request](const auto& contract) {
-                                                                            return contract.contract_instance.address ==
-                                                                                   public_call_request.contract_address;
-                                                                        })
-                                                       ->bytecode;
-            info("Found bytecode for contract address: ", public_call_request.contract_address);
+            std::vector<uint8_t> bytecode = trace_builder.get_bytecode(public_call_request.contract_address);
 
             // Set this also on nested call
 
@@ -881,10 +875,10 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             if (phase == TxExecutionPhase::SETUP) {
                 info("A revert during SETUP phase halts the entire TX");
                 break;
-            } else {
-                info("Rolling back tree roots to non-revertible checkpoint");
-                trace_builder.rollback_to_non_revertible_checkpoint();
             }
+            // otherwise, reverting in a revertible phase rolls back state
+            vinfo("Rolling back tree roots to non-revertible checkpoint");
+            trace_builder.rollback_to_non_revertible_checkpoint();
         }
     }
     auto trace = trace_builder.finalize(apply_end_gas_assertions);
