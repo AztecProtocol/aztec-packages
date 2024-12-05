@@ -86,7 +86,7 @@ export async function buildNoteHashReadRequestHintsFromResetStates<PENDING exten
   for (let i = 0; i < resetStates.states.length; i++) {
     if (resetStates.states[i] === ReadRequestState.SETTLED) {
       const readRequest = noteHashReadRequests[i];
-      const siloedValue = siloNoteHash(readRequest.contractAddress, readRequest.value);
+      const siloedValue = siloNoteHash(readRequest.contractAddress, readRequest.value); //TODO here
       const leafIndex = noteHashLeafIndexMap.get(siloedValue.toBigInt());
       if (leafIndex === undefined) {
         throw new Error('Read request is reading an unknown note hash.');

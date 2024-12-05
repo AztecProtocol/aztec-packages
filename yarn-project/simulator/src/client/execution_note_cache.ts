@@ -51,11 +51,11 @@ export class ExecutionNoteCache {
     // The nonces will be used to create the "complete" nullifier.
     const updatedNotes = this.notes.map(({ note, counter }, i) => {
       const nonce = computeNoteHashNonce(this.txHash, i);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, note.noteHash);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(note.contractAddress, note.noteHash));
       return {
         counter,
         note: { ...note, nonce },
-        noteHashForConsumption: siloNoteHash(note.contractAddress, uniqueNoteHash),
+        noteHashForConsumption: uniqueNoteHash,
       };
     });
     // Rebuild the data.

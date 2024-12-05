@@ -50,14 +50,14 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
-    let inputs = [nonce, note_hash];
+fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
-pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
+pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
     poseidon2_hash_with_separator(
-        [app.to_field(), unique_note_hash],
+        [app.to_field(), note_hash],
         GENERATOR_INDEX__SILOED_NOTE_HASH,
     )
 }
