@@ -1,9 +1,9 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-
-import { type Message } from '@libp2p/interface';
 import { sha256 } from '@aztec/foundation/crypto';
-import {RPC} from "@chainsafe/libp2p-gossipsub/message";
-import xxhashFactory from "xxhash-wasm";
+
+import { type RPC } from '@chainsafe/libp2p-gossipsub/message';
+import { type Message } from '@libp2p/interface';
+import xxhashFactory from 'xxhash-wasm';
 
 // Load WASM
 const xxhash = await xxhashFactory();
@@ -22,13 +22,13 @@ export function fastMsgIdFn(rpcMsg: RPC.Message): string {
   if (rpcMsg.data) {
     return xxhash.h64Raw(rpcMsg.data, h64Seed).toString(16);
   }
-  return "0000000000000000";
+  return '0000000000000000';
 }
 
 export function msgIdToStrFn(msgId: Uint8Array): string {
   // This happens serially, no need to reallocate the buffer
   sharedMsgIdBuf.set(msgId);
-  return `0x${sharedMsgIdBuf.toString("hex")}`;
+  return `0x${sharedMsgIdBuf.toString('hex')}`;
 }
 
 /**
