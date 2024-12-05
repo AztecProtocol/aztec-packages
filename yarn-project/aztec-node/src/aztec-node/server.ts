@@ -45,6 +45,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateLog,
@@ -235,6 +236,29 @@ export class AztecNodeService implements AztecNode {
    */
   public isReady() {
     return Promise.resolve(this.p2pClient.isReady() ?? false);
+  }
+
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.getNodeVersion(),
+        this.getVersion(),
+        this.getChainId(),
+        this.getEncodedEnr(),
+        this.getL1ContractAddresses(),
+        this.getProtocolContractAddresses(),
+      ]);
+
+    const nodeInfo: NodeInfo = {
+      nodeVersion,
+      l1ChainId: chainId,
+      protocolVersion,
+      enr,
+      l1ContractAddresses: contractAddresses,
+      protocolContractAddresses: protocolContractAddresses,
+    };
+
+    return nodeInfo;
   }
 
   /**
@@ -433,6 +457,22 @@ export class AztecNodeService implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+  }
+
+  /**
+   * Find the block numbers of the given leaf indices in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * @param treeId - The tree to search in.
+   * @param leafIndices - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   */
+  public async findBlockNumbersForIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return await committedDb.getBlockNumbersForLeafIndices(treeId, leafIndices);
   }
 
   public async findNullifiersIndexesWithBlock(
@@ -836,10 +876,12 @@ export class AztecNodeService implements AztecNode {
 
   // TODO(#10007): Remove this method
   public addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    this.log.info(`Adding contract class via API ${contractClass.id}`);
     return this.contractDataSource.addContractClass(contractClass);
   }
 
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    this.log.info(`Adding contract artifact ${artifact.name} for ${address.toString()} via API`);
     // TODO: Node should validate the artifact before accepting it
     return this.contractDataSource.addContractArtifact(address, artifact);
   }

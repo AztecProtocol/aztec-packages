@@ -7,7 +7,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -44,9 +43,6 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.sha256_compression.size(); i++) {
         constraint_system.original_opcode_indices.sha256_compression.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.schnorr_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.schnorr_constraints.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); i++) {
         constraint_system.original_opcode_indices.ecdsa_k1_constraints.push_back(current_opcode++);

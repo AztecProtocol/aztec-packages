@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {TxsDecoder} from "@aztec/core/libraries/RollupLibs/TxsDecoder.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 
 contract TxsDecoderHelper {
