@@ -41,6 +41,12 @@ class CircuitBase {
     std::unordered_map<SubcircuitType, std::unordered_map<size_t, CircuitProps>>
         cached_subcircuits; // caches subcircuits during optimization
                             // No need to recompute them each time
+    std::unordered_map<uint32_t, std::vector<bb::fr>>
+        post_process; // Values idxs that should be post processed after the solver returns a witness.
+                      // Basically it affects only optimized out variables.
+                      // Because in BitVector case we can't collect negative values since they will not be
+                      // the same in the field. That's why we store the expression and calculate it after the witness is
+                      // obtained.
 
     Solver* solver; // pointer to the solver
     TermType type;  // Type of the underlying Symbolic Terms
