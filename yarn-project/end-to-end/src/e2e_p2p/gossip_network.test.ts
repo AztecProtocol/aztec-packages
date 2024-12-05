@@ -84,9 +84,6 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
-    // When using fake timers, we need to keep the system and anvil clocks in sync.
-    await t.syncMockSystemTime();
-
     // wait a bit for peers to discover each other
     await sleep(4000);
 

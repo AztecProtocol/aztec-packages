@@ -34,7 +34,7 @@ const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
 export class P2PNetworkTest {
-  public snapshotManager: ISnapshotManager;
+  private snapshotManager: ISnapshotManager;
   private baseAccount;
 
   public logger: DebugLogger;
@@ -83,6 +83,9 @@ export class P2PNetworkTest {
     });
   }
 
+  /**
+   * Start a loop to sync the mock system time with the L1 block time
+   */
   public startSyncMockSystemTimeInterval() {
     this.cleanupInterval = setInterval(async () => {
       await this.syncMockSystemTime();
@@ -92,7 +95,6 @@ export class P2PNetworkTest {
   /**
    * When using fake timers, we need to keep the system and anvil clocks in sync.
    */
-  // TODO: can we just calculate time based on the epoch number observed in the smart contract vs the genesis time?
   public async syncMockSystemTime() {
     this.logger.info('Syncing mock system time');
     const { timer, deployL1ContractsValues } = this.ctx!;

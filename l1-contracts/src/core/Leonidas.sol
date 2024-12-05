@@ -334,7 +334,6 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return _getCommitteeAt(_ts);
   }
 
-  // TODO: make sure this cannot modify state
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256) {
     return _getSampleSeed(getEpochAt(_ts));
   }
@@ -510,7 +509,6 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return lastSeed;
   }
 
-
   /**
    * @notice  Computes the index of the committee member that acts as proposer for a given slot
    *
@@ -528,5 +526,4 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   {
     return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
-
 }
