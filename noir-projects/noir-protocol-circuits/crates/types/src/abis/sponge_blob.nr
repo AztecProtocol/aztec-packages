@@ -5,7 +5,7 @@ use crate::{
 };
 use std::hash::poseidon2::Poseidon2;
 
-// A Poseidon2 sponge used to accumulate data that will be added to a blob
+// A Poseidon2 sponge used to accumulate data that will be added to blob(s)
 // (More accurately called BlobSponge, but that's not as fun)
 
 // Each base rollup circuit has a start and end SpongeBlob instance, like a PartialStateReference.
@@ -16,7 +16,7 @@ use std::hash::poseidon2::Poseidon2;
 
 // Finally, the block_root is given the list of all fields to be included in the blob.
 // We hash these ^ and check that the hash matches the one given by the block_root's right input's end SpongeBlob.squeeze().
-// The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob.
+// The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob(s).
 
 // Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
 global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * 18446744073709551616;

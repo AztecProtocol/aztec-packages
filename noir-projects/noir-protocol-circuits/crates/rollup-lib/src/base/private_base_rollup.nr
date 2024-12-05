@@ -104,7 +104,7 @@ impl PrivateBaseRollupInputs {
             [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         all_public_data_update_requests[0] = fee_public_data_write;
 
-        // Calculate the tx effects hash of the transaction
+        // Append the tx effects for blob(s)
         let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,

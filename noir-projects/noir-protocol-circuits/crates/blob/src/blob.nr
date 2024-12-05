@@ -121,11 +121,8 @@ fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment)
     challenge
 }
 
-// ~500k constraints. 30 MINUTES TO COMPILE (due to all the brillig)!
-//
 // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
-// we haven't implemented Fq; only Fr, and we don't actually need to operate on it;
-// we just need the bits of data. So we've simply encoded it as fitting inside a
+// we don't actually need to operate on it so we've simply encoded it as fitting inside a
 // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
 // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
 fn evaluate_blob(
@@ -138,11 +135,7 @@ fn evaluate_blob(
     let blob = convert_blob_fields(blob_as_fields);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    // TODO(Miranda): Since we are verifying a root proof, the below doesn't apply. We should be hashing ALL root public inputs, including the blob ones.
-    // In future, when we do hash PIs, the below will apply.
-    // TODO: this return data needs to be TIGHTLY PACKED into bytes.
-    // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification.
-    // On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
+
     BlobPublicInputs { z: challenge_z, y, kzg_commitment }
 }
 

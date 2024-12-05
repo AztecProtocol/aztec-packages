@@ -462,7 +462,7 @@ pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
 
-// + 4 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
+// + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
 pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH

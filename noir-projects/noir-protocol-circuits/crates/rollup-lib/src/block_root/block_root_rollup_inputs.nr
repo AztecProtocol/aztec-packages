@@ -50,9 +50,9 @@ pub struct BlockRootRollupInputs {
     // Fields for blob verification made of all tx effects in this block
     // (will likely change to be accumulated and sent up to the final root)
     blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    // see blob/src/main.nr -> main() -  these are used for creating the challenge z
+    // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating the challenge z
     blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract check its validity vs the blob_public_inputs below
+    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs below
     // NB: to fit it into a field, we truncate to 31 bytes
     blobs_hash: Field,
 }

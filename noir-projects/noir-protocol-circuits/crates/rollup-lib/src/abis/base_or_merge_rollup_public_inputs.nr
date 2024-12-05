@@ -20,7 +20,7 @@ pub struct BaseOrMergeRollupPublicInputs {
     start: PartialStateReference,
     end: PartialStateReference,
 
-    // A poseidon sponge of all tx effects to be unpacked in block root, then added to a blob
+    // A poseidon sponge of all tx effects to be unpacked in block root, then added to blob(s)
     // In sponge form so we can check left.end == right.start, rather than recreate a tree later
     start_sponge_blob: SpongeBlob,
     end_sponge_blob: SpongeBlob,

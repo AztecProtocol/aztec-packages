@@ -160,7 +160,7 @@ impl PublicBaseRollupInputs {
         let end_public_data_tree_snapshot =
             self.validate_and_process_public_state(all_public_data_update_requests);
 
-        // Calculate the tx effects hash of the transaction
+        // Append the tx effects for blob(s)
         let siloed_l2_to_l1_msgs = combined_accumulated_data.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,

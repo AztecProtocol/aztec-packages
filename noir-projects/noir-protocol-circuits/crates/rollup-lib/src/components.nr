@@ -310,7 +310,7 @@ pub fn append_tx_effects_for_blob(
     offset += 1;
 
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
-    // We can use it because all inputs here come from the kernels which DO contrain left-packing.
+    // We can use it because all inputs here come from the kernels which DO constrain left-packing.
     // If that ever changes, we will have to constrain it by counting items differently.
     // NOTE HASHES
     array_len = array_length(note_hashes);
