@@ -193,7 +193,6 @@ export class Archiver implements ArchiveSource {
     }
 
     if (blockUntilSynced) {
-      this.log.info(`Performing initial chain sync to rollup contract ${this.rollupAddress.toString()}`);
       await this.sync(blockUntilSynced);
     }
 
@@ -232,6 +231,15 @@ export class Archiver implements ArchiveSource {
     const { l1StartBlock } = this.l1constants;
     const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+
+    if (blockUntilSynced) {
+      this.log.info(
+        `Starting archiver sync to rollup contract ${this.rollupAddress.toString()} from L1 block ${Math.min(
+          Number(blocksSynchedTo),
+          Number(messagesSynchedTo),
+        )} to current L1 block ${currentL1BlockNumber}`,
+      );
+    }
 
     // ********** Ensuring Consistency of data pulled from L1 **********
 
@@ -272,6 +280,10 @@ export class Archiver implements ArchiveSource {
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
     }
+
+    if (blockUntilSynced) {
+      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`);
+    }
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
@@ -286,13 +298,13 @@ export class Archiver implements ArchiveSource {
 
     if (canPrune) {
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
-      this.log.verbose(
-        `L2 prune will occur on next submission. ` +
-          `Unwinding ${count(blocksToUnwind, 'block')} from block ${localPendingBlockNumber} ` +
-          `to the last proven block ${provenBlockNumber}.`,
-      );
+      this.log.debug(`L2 prune will occur on next block submission.`);
       await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
-      this.log.verbose(`Unwound ${count(blocksToUnwind, 'block')}. New L2 block is ${await this.getBlockNumber()}.`);
+      this.log.warn(
+        `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
+          `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
+          `Updated L2 latest block is ${await this.getBlockNumber()}.`,
+      );
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -313,8 +325,8 @@ export class Archiver implements ArchiveSource {
 
     if (localTotalMessageCount === destinationTotalMessageCount) {
       await this.store.setMessageSynchedL1BlockNumber(currentL1BlockNumber);
-      this.log.verbose(
-        `Retrieved no new L1 -> L2 messages between L1 blocks ${messagesSynchedTo + 1n} and ${currentL1BlockNumber}.`,
+      this.log.debug(
+        `Retrieved no new L1 to L2 messages between L1 blocks ${messagesSynchedTo + 1n} and ${currentL1BlockNumber}.`,
       );
       return;
     }
@@ -329,7 +341,7 @@ export class Archiver implements ArchiveSource {
     await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
 
     this.log.verbose(
-      `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
+      `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 to L2 messages between L1 blocks ${
         messagesSynchedTo + 1n
       } and ${currentL1BlockNumber}.`,
     );
@@ -356,10 +368,10 @@ export class Archiver implements ArchiveSource {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        this.log.verbose(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+        this.log.info(`Updated proven chain`, { provenBlockNumber, provenEpochNumber });
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
@@ -369,7 +381,7 @@ export class Archiver implements ArchiveSource {
     const noBlocks = localPendingBlockNumber === 0n && pendingBlockNumber === 0n;
     if (noBlocks) {
       await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
-      this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
       return { provenBlockNumber };
     }
 
@@ -386,7 +398,7 @@ export class Archiver implements ArchiveSource {
       const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
       if (noBlockSinceLast) {
         await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
-        this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+        this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return { provenBlockNumber };
       }
 
@@ -396,7 +408,7 @@ export class Archiver implements ArchiveSource {
         // or the L1 have reorged.
         // In any case, we have to figure out how far into the past the action will take us.
         // For simplicity here, we will simply rewind until we end in a block that is also on the chain on L1.
-        this.log.verbose(`L2 prune have occurred, unwind state`);
+        this.log.debug(`L2 prune has been detected.`);
 
         let tipAfterUnwind = localPendingBlockNumber;
         while (true) {
@@ -414,15 +426,18 @@ export class Archiver implements ArchiveSource {
         }
 
         const blocksToUnwind = localPendingBlockNumber - tipAfterUnwind;
-        this.log.verbose(
-          `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
-        );
-
         await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+
+        this.log.warn(
+          `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
+            `due to mismatched block hashes at L1 block ${currentL1BlockNumber}. ` +
+            `Updated L2 latest block is ${await this.getBlockNumber()}.`,
+        );
       }
     }
 
-    this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+    // TODO(palla/log) Downgrade to trace
+    this.log.debug(`Retrieving L2 blocks from L1 block ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
     const retrievedBlocks = await retrieveBlockFromRollup(
       this.rollup,
       this.publicClient,
@@ -435,25 +450,35 @@ export class Archiver implements ArchiveSource {
     if (retrievedBlocks.length === 0) {
       // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
       // See further details in earlier comments.
-      this.log.verbose(`Retrieved no new L2 blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      // TODO(palla/log) Downgrade to trace
+      this.log.debug(`Retrieved no new L2 blocks from L1 block ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
       return { provenBlockNumber };
     }
 
+    const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
     this.log.debug(
       `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${
         blocksSynchedTo + 1n
-      } and ${currentL1BlockNumber}.`,
+      } and ${currentL1BlockNumber} with last processed L1 block ${lastProcessedL1BlockNumber}.`,
     );
 
-    const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
-
-    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
     for (const block of retrievedBlocks) {
-      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
+      this.log.debug(`Ingesting new L2 block ${block.data.number}`, {
+        ...block.data.header.globalVariables.toInspect(),
+        blockHash: block.data.hash,
+        l1BlockNumber: block.l1.blockNumber,
+      });
     }
 
     const timer = new Timer();
     await this.store.addBlocks(retrievedBlocks);
+
+    for (const block of retrievedBlocks) {
+      this.log.info(`Downloaded L2 block ${block.data.number}`, {
+        blockHash: block.data.hash(),
+        blockNumber: block.data.number,
+      });
+    }
 
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
@@ -461,8 +486,6 @@ export class Archiver implements ArchiveSource {
       timer.ms() / retrievedBlocks.length,
       retrievedBlocks.map(b => b.data),
     );
-    const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
-    this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
 
     return { provenBlockNumber };
   }
@@ -825,7 +848,7 @@ class ArchiverStoreHelper
       .map(log => ContractClassRegisteredEvent.fromLog(log.data))
       .map(e => e.toContractClassPublic());
     if (contractClasses.length > 0) {
-      contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
+      contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
         // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
         return await this.store.addContractClasses(
