@@ -319,9 +319,6 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_teardown_call_requests{};
-    public_teardown_call_requests[0] = public_inputs.public_teardown_call_request;
-
     const auto setup_call_requests = non_empty_call_requests(public_inputs.public_setup_call_requests);
     const auto app_logic_call_requests = non_empty_call_requests(public_inputs.public_app_logic_call_requests);
     std::vector<PublicCallRequest> teardown_call_requests;
