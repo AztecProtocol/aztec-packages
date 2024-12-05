@@ -27,8 +27,8 @@ export async function createAccount(
     client,
     undefined /* address, we don't have it yet */,
     undefined /* db, as we want to create from scratch */,
-    accountType,
     secretKey,
+    accountType,
     Fr.ZERO,
     publicKey,
   );
