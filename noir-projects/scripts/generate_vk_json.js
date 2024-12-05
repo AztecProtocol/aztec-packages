@@ -144,7 +144,7 @@ async function generateVKData(
   function getVkCommand() {
     if (isMegaHonk) return "write_vk_mega_honk";
     if (isIvcIntegration) return "write_vk_for_ivc";
-    return "write_vk_ultra_honk";
+    return "write_vk_ultra_rollup_honk";
   }
 
   const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
@@ -156,7 +156,7 @@ async function generateVKData(
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
     isMegaHonk || isIvcIntegration
       ? "vk_as_fields_mega_honk"
-      : "vk_as_fields_ultra_honk"
+      : "vk_as_fields_ultra_rollup_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
