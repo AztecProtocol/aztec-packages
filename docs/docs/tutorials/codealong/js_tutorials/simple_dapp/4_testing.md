@@ -14,7 +14,7 @@ Start by installing our test runner, in this case jest:
 yarn add -D jest
 ```
 
-We'll need to [install and run the Sandbox](../../../reference/developer_references/sandbox_reference/sandbox-reference.md).
+We'll need to [install and run the Sandbox](../../../../guides/getting_started.md).
 
 ## Test setup
 
@@ -69,4 +69,6 @@ yarn node --experimental-vm-modules $(yarn bin jest) --testRegex '.*\.test\.mjs$
 
 ## Next steps
 
-Now that you have finished the tutorial, you can learn more about [writing contracts with Noir](../../../aztec/smart_contracts_overview.md) or read about the [fundamental concepts behind Aztec Network](../../../aztec/overview.md).
+Have you written a contract from scratch? If not, follow a tutorial for [writing contracts with Noir](../../contract_tutorials/counter_contract.md)
+
+Or read about the [fundamental concepts behind Aztec Network](../../../../aztec/concepts_overview.md) and dive deeper into how things work.

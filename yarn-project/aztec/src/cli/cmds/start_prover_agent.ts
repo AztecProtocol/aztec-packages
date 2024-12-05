@@ -40,7 +40,18 @@ export async function startProverAgent(
   );
   const prover = await buildServerCircuitProver(config, telemetry);
   const proofStore = new InlineProofStore();
-  const agents = times(config.proverAgentCount, () => new ProvingAgent(broker, proofStore, prover));
+  const agents = times(
+    config.proverAgentCount,
+    () =>
+      new ProvingAgent(
+        broker,
+        proofStore,
+        prover,
+        telemetry,
+        config.proverAgentProofTypes,
+        config.proverAgentPollIntervalMs,
+      ),
+  );
 
   await Promise.all(agents.map(agent => agent.start()));
 
