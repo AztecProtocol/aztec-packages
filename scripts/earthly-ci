@@ -17,8 +17,8 @@ ATTEMPT_COUNT=0
 # earthly settings
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
-# make sure earthly gives annotations that github picks up
-export GITHUB_ACTIONS=true
+# we make our own groupings, ignore earthly's
+export GITHUB_ACTIONS=false
 export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/scripts/earthly-ci-config.yml
 

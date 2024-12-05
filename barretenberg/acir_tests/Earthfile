@@ -6,10 +6,12 @@ test-base:
     WORKDIR /usr/src/barretenberg/acir_tests
     ENV VERBOSE=1
     RUN mkdir -p ~/.bb-crs
+    # Does not run in typical bootstrap
     RUN CI25=1 ./bootstrap.sh build
     ENV RECURSIVE=1
     # Avoid race conditions with bb.
     RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
+    SAVE ARTIFACT /usr/src /usr/src
 
 test-bb:
     FROM +test-base
@@ -73,21 +75,41 @@ test-sol-honk:
     RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
 test-bb.js:
-    FROM +test-base
+    FROM ../../build-images/+base-slim-node
+    # TODO(ci3) Playwright does not work on build/ci image
+    RUN apt update && apt install -y curl jq lsof
+
+    COPY ../../+bootstrap-noir-bb/usr/src/barretenberg/ts /usr/src/barretenberg/ts
+    COPY ../../+bootstrap-noir-bb/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
+
+    ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+    WORKDIR /usr/src/barretenberg/acir_tests
+    ENV VERBOSE=1
+    RUN mkdir -p ~/.bb-crs
+    ENV RECURSIVE=1
+    # Avoid race conditions with bb.
+    RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
+
     # Build/install ts apps.
-    RUN cd browser-test-app && yarn && yarn build
+    RUN (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
     RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
     RUN cd ../ts && yarn
     # We have diminishing returns after 32 cores, and unnecessarily use resources
     ENV HARDWARE_CONCURRENCY=32
+    COPY ../../+bootstrap-noir-bb/usr/src/.git /usr/src/.git
+    COPY ../../+bootstrap-noir-bb/usr/src/ci3 /usr/src/ci3
+    COPY ../../+bootstrap-noir-bb/usr/src/noir /usr/src/noir
+    COPY +test-base/usr/src/barretenberg/acir_tests /usr/src/barretenberg/acir_tests
+    RUN apt install parallel
+    ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672): Try to enable double_verify
     # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
     RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof
     # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
     RUN BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
     # Commenting for now as fails intermittently. Unreproducable on mainframe.
     # See https://github.com/AztecProtocol/aztec-packages/issues/2104
+    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
     #RUN BROWSER=webkit THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul
     # TODO(https://github.com/noir-lang/noir/issues/5106)
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
