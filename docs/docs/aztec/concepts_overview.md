@@ -18,7 +18,7 @@ Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with b
 
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs)
 2. Private functions are executed in the PXE, which is client-side
-3. They are rolled up and sent to the Public VM (running on an Aztec node)
+3. Proofs and tree updates are sent to the Public VM (running on an Aztec node)
 4. Public functions are executed in the Public VM
 5. The Public VM rolls up the transactions that include private and public state updates into blocks
 6. The block data and proof of a correct state transition are submitted to Ethereum for verification
