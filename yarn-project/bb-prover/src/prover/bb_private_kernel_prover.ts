@@ -8,7 +8,7 @@ import {
   AGGREGATION_OBJECT_LENGTH,
   ClientIvcProof,
   Fr,
-  IPA_CLAIM_SIZE,
+  IPA_CLAIM_LENGTH,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
@@ -393,7 +393,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     ]);
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_SIZE;
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.info(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
