@@ -14,29 +14,13 @@ async function pollSpotStatus(
   ec2Client: Ec2Instance,
   ghClient: GithubClient
 ): Promise<string | "unusable" | "none"> {
-  // 6 iters x 10000 ms = 1 minute
-  for (let iter = 0; iter < 6; iter++) {
-    const instances = await ec2Client.getInstancesForTags("running");
-    if (instances.length <= 0) {
-      // we need to start an instance
-      return "none";
-    }
-    try {
-      core.info("Found ec2 instance, looking for runners.");
-      // TODO find out whatever happened here but we seem to not be able to wait for runners
-      //if (process.env.WAIT_FOR_RUNNERS === "false" || await ghClient.hasRunner([config.githubJobId])) {
-        // we have runners
-        return instances[0].InstanceId!;
-      //}
-    } catch (err) {}
-    // wait 10 seconds
-    await new Promise((r) => setTimeout(r, 10000));
+  const instances = await ec2Client.getInstancesForTags("running");
+  if (instances.length <= 0) {
+    // we need to start an instance
+    return "none";
   }
-  // we have a bad state for a while, error
-  core.warning(
-    "Looped for 1 minutes and could only find spot with no runners!"
-  );
-  return "unusable";
+  core.info("Found ec2 instance, returning it.");
+  return instances[0].InstanceId!;
 }
 
 async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {

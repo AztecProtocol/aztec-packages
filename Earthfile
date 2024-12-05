@@ -108,30 +108,29 @@ ci:
   # dependencies
   WAIT
     BUILD +bootstrap-noir-bb
+    BUILD ./noir/+examples
+    BUILD ./noir/+test
+    BUILD ./barretenberg/cpp/+bench
+    BUILD ./barretenberg/cpp/+preset-gcc
+  END
+  WAIT
+    BUILD ./barretenberg/cpp+test --jobs=32
+  END
+  WAIT
+    BUILD ./barretenberg/acir_tests/+test
+    BUILD ./barretenberg/acir_tests/+bench
   END
   WAIT
     BUILD +bootstrap
   END
   WAIT
-    # BUILD ./barretenberg/acir_tests/+test
-    BUILD ./barretenberg/acir_tests/+bench
-  END
-  # builds
-  WAIT
-    BUILD ./barretenberg/cpp/+bench-binaries
-    BUILD ./barretenberg/cpp/+preset-gcc
     BUILD ./docs/+deploy-preview
     BUILD ./l1-contracts+test
-    BUILD ./noir/+examples
-    BUILD ./noir/+test
     BUILD ./noir-projects/+test
     BUILD ./yarn-project/+format-check
   END
   WAIT
     BUILD ./yarn-project/+network-test
-  END
-  WAIT
-    BUILD ./barretenberg/cpp+test --jobs=32
   END
   WAIT
     BUILD ./yarn-project/+prover-client-test

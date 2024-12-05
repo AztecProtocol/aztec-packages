@@ -42,6 +42,9 @@ runs:
           echo "runner_label=$USERNAME-arm" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
         fi
+        if [ -n "$RUNNER_CONCURRENCY" ]; then
+          echo "runner_concurrency=$RUNNER_CONCURRENCY" >> $GITHUB_OUTPUT
+        fi
 
     - name: Start Builder
       uses: ./.github/spot-runner-action
