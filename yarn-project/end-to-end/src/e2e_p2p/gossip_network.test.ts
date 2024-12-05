@@ -21,7 +21,7 @@ const DATA_DIR = './data/gossip';
 const qosAlerts: AlertConfig[] = [
   {
     alert: 'SequencerTimeToCollectAttestations',
-    expr: 'aztec_sequencer_time_to_collect_attestations > 2500',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
     labels: { severity: 'error' },
     for: '10m',
     annotations: {},
