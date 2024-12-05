@@ -83,29 +83,6 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
     );
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
-    public
-    override(Staking)
-  {
-    setupEpoch();
-    require(
-      _attester != address(0) && _proposer != address(0),
-      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
-    );
-    super.deposit(_attester, _proposer, _withdrawer, _amount);
-  }
-
-  function initiateWithdraw(address _attester, address _recipient)
-    public
-    override(Staking)
-    returns (bool)
-  {
-    // @note The attester might be chosen for the epoch, so the delay must be long enough
-    //       to allow for that.
-    setupEpoch();
-    return super.initiateWithdraw(_attester, _recipient);
-  }
-
   /**
    * @notice  Get the committee for a given timestamp
    *
@@ -142,6 +119,29 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
    */
   function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
     return LeonidasLib.getSampleSeed(leonidasStore, getCurrentEpoch());
+  }
+
+  function initiateWithdraw(address _attester, address _recipient)
+    public
+    override(Staking)
+    returns (bool)
+  {
+    // @note The attester might be chosen for the epoch, so the delay must be long enough
+    //       to allow for that.
+    setupEpoch();
+    return super.initiateWithdraw(_attester, _recipient);
+  }
+
+  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+    public
+    override(Staking)
+  {
+    setupEpoch();
+    require(
+      _attester != address(0) && _proposer != address(0),
+      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
+    );
+    super.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
   /**

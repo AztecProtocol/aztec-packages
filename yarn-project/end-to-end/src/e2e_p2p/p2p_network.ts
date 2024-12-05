@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js';
@@ -131,59 +131,81 @@ export class P2PNetworkTest {
   }
 
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, timer }) => {
-      const rollup = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: deployL1ContractsValues.walletClient,
-      });
+    await this.snapshotManager.snapshot(
+      'add-validators',
+      async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
+        const rollup = getContract({
+          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+          abi: RollupAbi,
+          client: deployL1ContractsValues.walletClient,
+        });
 
-      this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+        this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
 
-      const stakingAsset = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-        abi: TestERC20Abi,
-        client: deployL1ContractsValues.walletClient,
-      });
+        const stakingAsset = getContract({
+          address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+          abi: TestERC20Abi,
+          client: deployL1ContractsValues.walletClient,
+        });
 
-      const stakeNeeded = MINIMUM_STAKE * BigInt(this.numberOfNodes);
-      await Promise.all(
-        [
-          await stakingAsset.write.mint([deployL1ContractsValues.walletClient.account.address, stakeNeeded], {} as any),
-          await stakingAsset.write.approve(
-            [deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(), stakeNeeded],
-            {} as any,
-          ),
-        ].map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash })),
-      );
-
-      const validators = [];
-
-      for (let i = 0; i < this.numberOfNodes; i++) {
-        const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
-        const proposer = privateKeyToAccount(this.proposerPrivateKeys[i]!);
-        validators.push({
-          attester: attester.address,
-          proposer: proposer.address,
-          withdrawer: attester.address,
-          amount: MINIMUM_STAKE,
-        } as const);
-
-        this.logger.verbose(
-          `Adding (attester, proposer) pair: (${attester.address}, ${proposer.address}) as validator`,
+        const stakeNeeded = MINIMUM_STAKE * BigInt(this.numberOfNodes);
+        await Promise.all(
+          [
+            await stakingAsset.write.mint(
+              [deployL1ContractsValues.walletClient.account.address, stakeNeeded],
+              {} as any,
+            ),
+            await stakingAsset.write.approve(
+              [deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(), stakeNeeded],
+              {} as any,
+            ),
+          ].map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash })),
         );
-      }
 
-      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
-      });
+        const validators = [];
 
-      // Set the system time in the node, only after we have warped the time and waited for a block
-      // Time is only set in the NEXT block
-      const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-      const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-      timer.setSystemTime(Number(timestamp) * 1000);
-    });
+        for (let i = 0; i < this.numberOfNodes; i++) {
+          const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
+          const proposer = privateKeyToAccount(this.proposerPrivateKeys[i]!);
+          validators.push({
+            attester: attester.address,
+            proposer: proposer.address,
+            withdrawer: attester.address,
+            amount: MINIMUM_STAKE,
+          } as const);
+
+          this.logger.verbose(
+            `Adding (attester, proposer) pair: (${attester.address}, ${proposer.address}) as validator`,
+          );
+        }
+
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
+        });
+
+        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
+        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        try {
+          await cheatCodes.warp(Number(timestamp));
+        } catch (err) {
+          this.logger.debug('Warp failed, time already satisfied');
+        }
+
+        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: await deployL1ContractsValues.walletClient.sendTransaction({
+            to: this.baseAccount.address,
+            value: 1n,
+            account: this.baseAccount,
+          }),
+        });
+
+        // Set the system time in the node, only after we have warped the time and waited for a block
+        // Time is only set in the NEXT block
+        timer.setSystemTime(Number(timestamp) * 1000);
+      },
+    );
   }
 
   async setupAccount() {
