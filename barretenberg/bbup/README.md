@@ -13,7 +13,7 @@ curl -L bbup.dev | bash
 ```
 
 > [!IMPORTANT]
-> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install).
+> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup) in your system's PATH
 
 ## Usage
 
