@@ -92,7 +92,7 @@ beforeEach(async () => {
   copyState = await worldState.fork();
 
   const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
-  const nullifierLeaf = new Fr(69420)
+  const nullifierLeaf = new Fr(69420);
   await mainState.batchInsert(treeId, [nullifierLeaf.toBuffer()], 0);
   await copyState.batchInsert(treeId, [nullifierLeaf.toBuffer()], 0);
 
