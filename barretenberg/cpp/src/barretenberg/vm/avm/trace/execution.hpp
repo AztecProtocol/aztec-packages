@@ -42,6 +42,10 @@ class Execution {
                                       ExecutionHints const& execution_hints,
                                       bool apply_end_gas_assertions = false);
 
+    static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
+                                          PublicCallRequest& public_call_request,
+                                          std::vector<FF>& returndata);
+
     // For testing purposes only.
     static void set_trace_builder_constructor(TraceBuilderConstructor constructor)
     {
