@@ -3,6 +3,7 @@
  */
 import { TxHash, mockTx } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -22,7 +23,6 @@ import {
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
-import { type EpochCache } from '@aztec/epoch-cache';
 
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
@@ -100,7 +100,9 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
-    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+    );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
     const val = ValidatorClient.new(config, epochCache, p2pClient);
@@ -112,22 +114,26 @@ describe('ValidationService', () => {
     expect(attestation).toBeUndefined();
   });
 
-  it("Should not return an attestation if the validator is not in the committee", async () => {
+  it('Should not return an attestation if the validator is not in the committee', async () => {
     const proposal = makeBlockProposal();
 
     // Setup epoch cache mocks
-    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(proposal.getSender()) );
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+    );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
 
     const attestation = await validatorClient.attestToProposal(proposal);
     expect(attestation).toBeUndefined();
   });
 
-  it("Should not return an attestation if the proposer is not the current proposer", async () => {
+  it('Should not return an attestation if the proposer is not the current proposer', async () => {
     const proposal = makeBlockProposal();
 
     // Setup epoch cache mocks
-    epochCache.getCurrentProposer.mockImplementation(() => Promise.resolve(EthAddress.random()));
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+    );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
     const attestation = await validatorClient.attestToProposal(proposal);

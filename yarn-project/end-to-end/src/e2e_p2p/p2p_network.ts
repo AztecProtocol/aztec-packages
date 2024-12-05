@@ -27,13 +27,11 @@ import {
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
-import { InstalledClock } from '@sinonjs/fake-timers';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
-
 
 export class P2PNetworkTest {
   public snapshotManager: ISnapshotManager;
@@ -51,6 +49,8 @@ export class P2PNetworkTest {
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
+
+  private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
   constructor(
     testName: string,
@@ -83,13 +83,31 @@ export class P2PNetworkTest {
     });
   }
 
+  public startSyncMockSystemTimeInterval() {
+    this.cleanupInterval = setInterval(async () => {
+      await this.syncMockSystemTime();
+    }, l1ContractsConfig.aztecSlotDuration * 1000);
+  }
+
   /**
    * When using fake timers, we need to keep the system and anvil clocks in sync.
    */
+  // TODO: can we just calculate time based on the epoch number observed in the smart contract vs the genesis time?
   public async syncMockSystemTime() {
+    this.logger.info('Syncing mock system time');
     const { timer, deployL1ContractsValues } = this.ctx!;
-    const timestamp = await deployL1ContractsValues.publicClient.getBlock({blockTag: 'latest'});
+    // Send a tx and only update the time after the tx is mined, as eth time is not continuous
+    const tx = await deployL1ContractsValues.walletClient.sendTransaction({
+      to: this.baseAccount.address,
+      value: 1n,
+      account: this.baseAccount,
+    });
+    const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+      hash: tx,
+    });
+    const timestamp = await deployL1ContractsValues.publicClient.getBlock({ blockNumber: receipt.blockNumber });
     timer.setSystemTime(Number(timestamp.timestamp) * 1000);
+    this.logger.info(`Synced mock system time to ${timestamp.timestamp * 1000n}`);
   }
 
   static async create({
@@ -123,60 +141,62 @@ export class P2PNetworkTest {
   }
 
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
-      const rollup = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: deployL1ContractsValues.walletClient,
-      });
+    await this.snapshotManager.snapshot(
+      'add-validators',
+      async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
+        const rollup = getContract({
+          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+          abi: RollupAbi,
+          client: deployL1ContractsValues.walletClient,
+        });
 
-      this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+        this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
 
-      const txHashes: `0x${string}`[] = [];
-      for (let i = 0; i < this.numberOfNodes; i++) {
-        const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
-        this.logger.debug(`Adding ${account.address} as validator`);
-        const txHash = await rollup.write.addValidator([account.address]);
-        txHashes.push(txHash);
+        const txHashes: `0x${string}`[] = [];
+        for (let i = 0; i < this.numberOfNodes; i++) {
+          const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
+          this.logger.debug(`Adding ${account.address} as validator`);
+          const txHash = await rollup.write.addValidator([account.address]);
+          txHashes.push(txHash);
 
-        this.logger.debug(`Adding ${account.address} as validator`);
-      }
+          this.logger.debug(`Adding ${account.address} as validator`);
+        }
 
-      // Wait for all the transactions adding validators to be mined
-      await Promise.all(
-        txHashes.map(txHash =>
-          deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-            hash: txHash,
+        // Wait for all the transactions adding validators to be mined
+        await Promise.all(
+          txHashes.map(txHash =>
+            deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+              hash: txHash,
+            }),
+          ),
+        );
+
+        //@note   Now we jump ahead to the next epoch such that the validator committee is picked
+        //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
+        //        Which means that the validator set will still be empty! So anyone can propose.
+        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
+        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        try {
+          await cheatCodes.warp(Number(timestamp));
+        } catch (err) {
+          this.logger.debug('Warp failed, time already satisfied');
+        }
+
+        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+          hash: await deployL1ContractsValues.walletClient.sendTransaction({
+            to: this.baseAccount.address,
+            value: 1n,
+            account: this.baseAccount,
           }),
-        ),
-      );
+        });
 
-      //@note   Now we jump ahead to the next epoch such that the validator committee is picked
-      //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
-      //        Which means that the validator set will still be empty! So anyone can propose.
-      const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-      const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-      const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
-      try {
-        await cheatCodes.warp(Number(timestamp));
-      } catch (err) {
-        this.logger.debug('Warp failed, time already satisfied');
-      }
-
-      // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await deployL1ContractsValues.walletClient.sendTransaction({
-          to: this.baseAccount.address,
-          value: 1n,
-          account: this.baseAccount,
-        }),
-      });
-
-      // Set the system time in the node, only after we have warped the time and waited for a block
-      // Time is only set in the NEXT block
-      timer.setSystemTime(Number(timestamp) * 1000);
-      console.log("getting system time after jump", Date.now());
-    });
+        // Set the system time in the node, only after we have warped the time and waited for a block
+        // Time is only set in the NEXT block
+        timer.setSystemTime(Number(timestamp) * 1000);
+      },
+    );
   }
 
   async setupAccount() {
@@ -262,6 +282,7 @@ export class P2PNetworkTest {
 
   async setup() {
     this.ctx = await this.snapshotManager.setup();
+    this.startSyncMockSystemTimeInterval();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
@@ -281,5 +302,8 @@ export class P2PNetworkTest {
   async teardown() {
     await this.bootstrapNode.stop();
     await this.snapshotManager.teardown();
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
   }
 }

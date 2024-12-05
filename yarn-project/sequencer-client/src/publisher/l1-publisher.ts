@@ -161,6 +161,10 @@ export class L1Publisher {
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
+  get publisherAddress() {
+    return this.account.address;
+  }
+
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     client: TelemetryClient,

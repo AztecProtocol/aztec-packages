@@ -24,6 +24,7 @@ import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
+import { type InstalledClock, install } from '@sinonjs/fake-timers';
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
@@ -37,9 +38,6 @@ import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { type SetupOptions, createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
-
-import { jest } from '@jest/globals';
-import FakeTimers, { InstalledClock } from '@sinonjs/fake-timers';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -102,7 +100,6 @@ class MockSnapshotManager implements ISnapshotManager {
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
 
-
   public async snapshot<T>(
     name: string,
     apply: (context: SubsystemsContext) => Promise<T>,
@@ -150,7 +147,6 @@ class SnapshotManager implements ISnapshotManager {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
-
 
   public async snapshot<T>(
     name: string,
@@ -253,7 +249,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.acvmConfig?.cleanup();
   await context.anvil.stop();
   await context.watcher.stop();
-  await context.timer?.uninstall();
+  context.timer?.uninstall();
 }
 
 /**
@@ -273,7 +269,7 @@ async function setupFromFresh(
   logger.verbose(`Initializing state...`);
 
   // Use sinonjs fake timers
-  const timer = FakeTimers.install({shouldAdvanceTime: true, advanceTimeDelta: 200, toFake: ['Date']});
+  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
@@ -335,7 +331,6 @@ async function setupFromFresh(
     await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
-
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
@@ -404,7 +399,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
   // TODO: make one function
-  const timer = FakeTimers.install({shouldAdvanceTime: true, advanceTimeDelta: 20});
+  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(

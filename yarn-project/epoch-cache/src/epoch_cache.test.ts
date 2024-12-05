@@ -81,18 +81,34 @@ describe('EpochCache', () => {
     const initialTime = Number(L1_GENESIS_TIME) * 1000; // Convert to milliseconds
     jest.setSystemTime(initialTime);
 
+    // The valid proposer has been calculated in advance to be [1,1,0] for the slots chosen
+    // Hence the chosen values for testCommittee below
+
     // Get validator for slot 0
-    let currentValidator = await epochCache.getCurrentProposer();
-    expect(currentValidator).toEqual(testCommittee[0]); // First validator for slot 0
+    let [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(currentValidator).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    currentValidator = await epochCache.getCurrentProposer();
-    expect(currentValidator).toEqual(testCommittee[1]); // Second validator for slot 1
+    [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(currentValidator).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    currentValidator = await epochCache.getCurrentProposer();
-    expect(currentValidator).toEqual(testCommittee[0]); // Back to first validator for slot 3
+    [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(currentValidator).toEqual(testCommittee[0]);
+  });
+
+  it('Should request to update the validato set when on the epoch boundary', async () => {
+    // Set initial time to a known slot
+    const initialTime = Number(L1_GENESIS_TIME) * 1000; // Convert to milliseconds
+    jest.setSystemTime(initialTime);
+
+    // Move forward to slot before the epoch boundary
+    jest.setSystemTime(initialTime + Number(SLOT_DURATION) * (EPOCH_DURATION - 1) * 1000);
+
+    // Should request to update the validator set
+    await epochCache.getProposerInCurrentOrNextSlot();
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(2);
   });
 });

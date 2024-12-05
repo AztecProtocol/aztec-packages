@@ -255,6 +255,7 @@ export function createL1Clients(
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
+    pollingInterval: 100,
   });
 
   return { walletClient, publicClient };

@@ -4,16 +4,13 @@ import {
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
 } from '@aztec/circuit-types';
-import {
-  RollupContract,
-  createEthereumChain,
-} from '@aztec/ethereum';
+import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { getEpochCacheConfigEnvVars, type EpochCacheConfig } from './config.js';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
-import { createPublicClient, encodeAbiParameters, keccak256, http, PublicClient } from 'viem';
-import { Logger } from '@aztec/foundation/log';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
+
+import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
 type EpochAndSlot = {
   epoch: bigint;
@@ -21,7 +18,16 @@ type EpochAndSlot = {
   ts: bigint;
 };
 
-// TODO: adjust log levels in file
+/**
+ * Epoch cache
+ *
+ * This class is responsible for managing traffic to the l1 node, by caching the validator set.
+ * It also provides a method to get the current or next proposer, and to check who is in the current slot.
+ *
+ * If the epoch changes, then we update the stored validator set.
+ *
+ * Note: This class is very dependent on the system clock being in sync.
+ */
 export class EpochCache {
   private committee: EthAddress[];
   private cachedEpoch: bigint;
@@ -37,15 +43,11 @@ export class EpochCache {
     this.committee = initialValidators;
     this.cachedSampleSeed = initialSampleSeed;
 
-    this.log.verbose(`Initialized EpochCache with constants and validators`, { l1constants, initialValidators });
+    this.log.debug(`Initialized EpochCache with constants and validators`, { l1constants, initialValidators });
 
     this.cachedEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
   }
 
-
-  // TODO: cleanup and merge rollup getters with l1 createAndSync in the archiver
-  // TODO: be aware that the timestamp source may be lagging behind since it is from the archiver??? - double check that there are no issues here
-  //       how will this behave at the epoch boundary?
   static async create(rollupAddress: EthAddress, config?: EpochCacheConfig) {
     config = config ?? getEpochCacheConfigEnvVars();
 
@@ -80,9 +82,14 @@ export class EpochCache {
     );
   }
 
-  async getEpochAndSlotNow(): Promise<EpochAndSlot> {
+  getEpochAndSlotNow(): EpochAndSlot {
     const now = BigInt(Math.floor(Date.now() / 1000));
     return this.getEpochAndSlotAtTimestamp(now);
+  }
+
+  getEpochAndSlotInNextSlot(): EpochAndSlot {
+    const nextSlotTs = BigInt(Math.floor(Date.now() / 1000) + this.l1constants.slotDuration);
+    return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
   getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
@@ -93,20 +100,18 @@ export class EpochCache {
     };
   }
 
-  // TODO: when the validator is asking about this, it may be in a slot that is across the epoch boundary
-  //       we need to make sure that whenever we receive a request we are certain that the timing is correct
-  //       - my first attempt used node timers, but this did not work well in tests that we jump into the future
-  // .     - now i am reading the timestamp from the chain, but i need to make sure that we are only proposing for
-  //       - the next slot, which means i sort of still need access to the archiver, to know what the last slot we
-  //       - saw was, and that we do not get requested to attest to slots that are in the past
-
-
-  async getCommittee(): Promise<EthAddress[]> {
+  /**
+   * Get the current validator set
+   *
+   * @param nextSlot - If true, get the validator set for the next slot.
+   * @returns The current validator set.
+   */
+  async getCommittee(nextSlot: boolean = false): Promise<EthAddress[]> {
     // If the current epoch has changed, then we need to make a request to update the validator set
-    const { epoch: calculatedEpoch, ts } = await this.getEpochAndSlotNow();
+    const { epoch: calculatedEpoch, ts } = nextSlot ? this.getEpochAndSlotInNextSlot() : this.getEpochAndSlotNow();
 
     if (calculatedEpoch !== this.cachedEpoch) {
-      this.log.verbose(`Epoch changed, updating validator set`, { calculatedEpoch, cachedEpoch: this.cachedEpoch });
+      this.log.debug(`Epoch changed, updating validator set`, { calculatedEpoch, cachedEpoch: this.cachedEpoch });
       this.cachedEpoch = calculatedEpoch;
       const [committeeAtTs, sampleSeedAtTs] = await Promise.all([
         this.rollup.getCommitteeAt(ts),
@@ -114,58 +119,72 @@ export class EpochCache {
       ]);
       this.committee = committeeAtTs.map((v: `0x${string}`) => EthAddress.fromString(v));
       this.cachedSampleSeed = sampleSeedAtTs;
-      console.log('this.committee updated to ', this.committee);
     }
 
     return this.committee;
   }
 
+  /**
+   * Get the ABI encoding of the proposer index - see Leonidas.sol _computeProposerIndex
+   */
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}` {
-    return encodeAbiParameters([
-      { type: 'uint256', name: 'epoch' }, { type: 'uint256', name: 'slot' }, { type: 'uint256', name: 'seed' }],
-      [epoch, slot, seed]);
+    return encodeAbiParameters(
+      [
+        { type: 'uint256', name: 'epoch' },
+        { type: 'uint256', name: 'slot' },
+        { type: 'uint256', name: 'seed' },
+      ],
+      [epoch, slot, seed],
+    );
   }
 
-  async computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): Promise<bigint> {
+  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
   }
 
-  // TODO: just use another timing library
-  async getCurrentProposer(slot: bigint): Promise<EthAddress> {
-    console.log('\n\n\n\n\ngetting current proposer\n\n\n\n\n');
+  /**
+   * Returns the current and next proposer
+   *
+   * We return the next proposer as the node will check if it is the proposer at the next ethereum block, which
+   * can be the next slot. If this is the case, then it will send proposals early.
+   *
+   * If we are at an epoch boundary, then we can update the cache for the next epoch, this is the last check
+   * we do in the validator client, so we can update the cache here.
+   */
+  async getProposerInCurrentOrNextSlot(): Promise<[EthAddress, EthAddress]> {
     // Validators are sorted by their index in the committee, and getValidatorSet will cache
-    // TODO: should we get the timestamp from the underlying l1 node?
     const committee = await this.getCommittee();
-    // const { slot: currentSlot, ts } = await this.getEpochAndSlotNow();
-    // console.log('currentSlot', currentSlot);
-    const [proposerFromL1] = await Promise.all([this.rollup.getCurrentProposer()]);
+    const { slot: currentSlot, epoch: currentEpoch } = this.getEpochAndSlotNow();
+    const { slot: nextSlot, epoch: nextEpoch } = this.getEpochAndSlotInNextSlot();
 
-    console.log('timestampFromL1', await this.rollup.getTimestamp());
-    const { slot: currentSlot, ts } = await this.getEpochAndSlotNow();
-    console.log('local ts', ts);
+    // Compute the proposer in this and the next slot
+    const proposerIndex = this.computeProposerIndex(
+      currentSlot,
+      this.cachedEpoch,
+      this.cachedSampleSeed,
+      BigInt(committee.length),
+    );
 
-    // TODO: could also cache this
-    const proposerIndex = await this.computeProposerIndex(slot, this.cachedEpoch, this.cachedSampleSeed, BigInt(committee.length));
-    const proposerIndexFromL1 = await this.rollup.getInternalProposerIndexAt(ts);
-    console.log('locally calculated proposerIndex', proposerIndex);
-    console.log('proposerIndexFromL1', proposerIndexFromL1);
+    // Check if the next proposer is in the next epoch
+    if (nextEpoch !== currentEpoch) {
+      await this.getCommittee(/*next slot*/ true);
+    }
+    const nextProposerIndex = this.computeProposerIndex(
+      nextSlot,
+      this.cachedEpoch,
+      this.cachedSampleSeed,
+      BigInt(committee.length),
+    );
 
-    // return committee[Number(proposerIndex)];
-    // TODO: fix this, we need to request the seed from l1 for this epoch, we can cache this along side the epoch information
     const calculatedProposer = committee[Number(proposerIndex)];
+    const nextCalculatedProposer = committee[Number(nextProposerIndex)];
 
-
-    const [internalSampleEncoding, epoch] = await this.rollup.getInternalSampleEncodingAt(ts);
-
-    console.log('self proposer encoding', this.getProposerIndexEncoding(this.cachedEpoch, slot, this.cachedSampleSeed));
-    console.log('internalSampleEncoding', internalSampleEncoding);
-
-    console.log('calculatedProposer', calculatedProposer);
-    console.log('proposerFromL1', proposerFromL1);
-
-    return calculatedProposer;
+    return [calculatedProposer, nextCalculatedProposer];
   }
 
+  /**
+   * Check if a validator is in the current epoch's committee
+   */
   async isInCommittee(validator: EthAddress): Promise<boolean> {
     const committee = await this.getCommittee();
     return committee.some(v => v.equals(validator));
