@@ -5,7 +5,7 @@ import {
   type Gauge,
   type Histogram,
   LmdbMetrics,
-  LmdbStatsCallback,
+  type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,

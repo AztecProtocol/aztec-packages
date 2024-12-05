@@ -1,4 +1,4 @@
-import { type BatchObservableResult, type Meter, type Metrics, ObservableGauge, ValueType } from './telemetry.js';
+import { type BatchObservableResult, type Meter, type Metrics, type ObservableGauge, ValueType } from './telemetry.js';
 
 export type LmdbMetricDescriptor = {
   name: Metrics;

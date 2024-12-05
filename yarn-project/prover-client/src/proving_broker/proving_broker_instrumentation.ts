@@ -1,13 +1,13 @@
 import { ProvingRequestType } from '@aztec/circuit-types';
-import { Timer } from '@aztec/foundation/timer';
+import { type Timer } from '@aztec/foundation/timer';
 import {
   Attributes,
-  Histogram,
+  type Histogram,
   Metrics,
-  ObservableGauge,
-  ObservableResult,
-  TelemetryClient,
-  UpDownCounter,
+  type ObservableGauge,
+  type ObservableResult,
+  type TelemetryClient,
+  type UpDownCounter,
   ValueType,
   millisecondBuckets,
 } from '@aztec/telemetry-client';
