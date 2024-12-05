@@ -64,8 +64,6 @@ spec:
           env:
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
-            - name: DEBUG
-              value: "aztec:*"
             - name: LOG_LEVEL
               value: "debug"
             - name: NETWORK_PUBLIC

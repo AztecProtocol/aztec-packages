@@ -6,6 +6,35 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.66
+
+### DEBUG env var is removed
+
+The `DEBUG` variable is no longer used. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
+
+### `tty` resolve fallback required for browser bundling
+
+When bundling `aztec.js` for web, the `tty` package now needs to be specified as an empty fallback:
+
+```diff
+resolve: {
+  plugins: [new ResolveTypeScriptPlugin()],
+  alias: { './node/index.js': false },
+  fallback: {
+    crypto: false,
+    os: false,
+    fs: false,
+    path: false,
+    url: false,
++   tty: false,
+    worker_threads: false,
+    buffer: require.resolve('buffer/'),
+    util: require.resolve('util/'),
+    stream: require.resolve('stream-browserify'),
+  },
+},
+```
+
 ## 0.65
 
 ### [aztec.nr] Removed SharedImmutable
