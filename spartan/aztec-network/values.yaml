@@ -34,6 +34,7 @@ aztec:
   epochDuration: 16 # how many L2 slots in an epoch
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
+  l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
 
 bootNode:
   peerIdPrivateKey: ""
