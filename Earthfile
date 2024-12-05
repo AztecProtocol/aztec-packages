@@ -104,6 +104,43 @@ bootstrap-aztec-faucet:
     yarn-project/**/src
   SAVE ARTIFACT /usr/src /usr/src
 
+# Simulates CI with chunks that use resources
+ci:
+  # dependencies
+  WAIT
+    BUILD +bootstrap-noir-bb
+  END
+  WAIT
+    BUILD +bootstrap
+  END
+  WAIT
+    # BUILD ./barretenberg/acir_tests/+test
+    BUILD ./barretenberg/acir_tests/+bench
+  END
+  # builds
+  WAIT
+    BUILD ./barretenberg/cpp/+bench-binaries
+    BUILD ./barretenberg/cpp/+preset-gcc
+    BUILD ./docs/+deploy-preview
+    BUILD ./l1-contracts+test
+    BUILD ./noir/+examples
+    BUILD ./noir/+test
+    BUILD ./noir-projects/+test
+    BUILD ./yarn-project/+format-check
+  END
+  WAIT
+    BUILD ./yarn-project/+network-test
+  END
+  WAIT
+    BUILD ./barretenberg/cpp+test --jobs=32
+  END
+  WAIT
+    BUILD ./yarn-project/+prover-client-test
+  END
+  WAIT
+    BUILD ./yarn-project/+test
+  END
+
 ########################################################################################################################
 # Build helpers
 ########################################################################################################################
@@ -201,36 +238,22 @@ base-log-uploader:
     rm -rf aws awscliv2.zip
   COPY +scripts/scripts /usr/src/scripts
 
-ci:
-  WAIT
-    BUILD +bootstrap-noir-bb
-  END
-  WAIT
-    BUILD +bootstrap
-  END
-  WAIT
-    # BUILD ./barretenberg/acir_tests/+test
-    BUILD ./barretenberg/acir_tests/+bench
-  END
-  WAIT
-    BUILD ./barretenberg/cpp/+bench-binaries
-    BUILD ./barretenberg/cpp/+preset-gcc
-    BUILD ./docs/+deploy-preview
-    BUILD ./l1-contracts+test
-    BUILD ./noir/+examples
-    BUILD ./noir/+test
-    BUILD ./noir-projects/+test
-    BUILD ./yarn-project/+format-check
-  END
-  WAIT
-    BUILD ./yarn-project/+network-test
-  END
-  WAIT
-    BUILD ./barretenberg/cpp+test --jobs=32
-  END
-  WAIT
-    BUILD ./yarn-project/+prover-client-test
-  END
-  WAIT
-    BUILD ./yarn-project/+test
-  END
+########################################################################################################################
+# Tests
+########################################################################################################################
+network-test:
+    FROM +bootstrap
+    ARG test=./test-transfer.sh
+    ARG validators=3
+    WORKDIR /usr/src/yarn-project
+    # All script arguments are in the end-to-end/scripts/native-network folder
+    ENV LOG_LEVEL=verbose
+    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+        "$test" \
+        ./deploy-l1-contracts.sh \
+        ./deploy-l2-contracts.sh \
+        ./boot-node.sh \
+        ./ethereum.sh \
+        "./prover-node.sh 8078 false" \
+        ./pxe.sh \
+        "./validators.sh $validators"

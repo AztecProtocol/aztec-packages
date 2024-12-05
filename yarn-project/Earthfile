@@ -89,95 +89,16 @@ cli-wallet:
     COPY +cli-wallet-build/usr/src /usr/src
     ENTRYPOINT ["/usr/src/yarn-project/cli-wallet/wallet-entrypoint.sh"]
 
+# TODO(ci3) move to bootstrap.sh
 export-cli-wallet:
     FROM +cli-wallet
     ARG DIST_TAG="latest"
     ARG ARCH
     SAVE IMAGE --push aztecprotocol/cli-wallet:${DIST_TAG}${ARCH:+-$ARCH}
 
-aztec-prod:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    SAVE ARTIFACT /usr/src /usr/src
-
-aztec:
-    FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    COPY +aztec-prod/usr/src /usr/src
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    LET port=8080
-    ENV PORT=$port
-    HEALTHCHECK --interval=10s --timeout=10s --retries=6 --start-period=120s \
-        CMD curl -fsS http://127.0.0.1:$port/status
-    EXPOSE $port
-
-aztec-faucet-build:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
-    RUN rm -rf \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src
-    SAVE ARTIFACT /usr/src /usr/src
-
-# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
-end-to-end-prod:
-    BUILD ../spartan/+charts
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
-    COPY --dir ../spartan/+charts/usr/src/spartan /usr/src/spartan
-
-    SAVE ARTIFACT /usr/src /usr/src
-
 anvil:
     FROM ../build-images+from-registry
     SAVE ARTIFACT /opt/foundry/bin/anvil
-
-end-to-end-base:
-    FROM ubuntu:noble
-    # add repository for chromium
-    RUN apt-get update && apt-get install -y software-properties-common \
-        && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
-        && apt-get install -y wget gnupg \
-        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
-        && rm -rf /var/lib/apt/lists/* \
-        && mkdir -p /usr/local/bin \
-        && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-        && chmod +x /usr/local/bin/kubectl \
-        && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-        && chmod +x get_helm.sh \
-        && ./get_helm.sh \
-        && rm get_helm.sh
-
-    ENV CHROME_BIN="/usr/bin/chromium"
-    ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
-    ENV HARDWARE_CONCURRENCY=""
-    ENV FAKE_PROOFS=""
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    ENV PROVER_AGENT_CONCURRENCY=8
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
-
-end-to-end:
-    FROM +end-to-end-base
-
-    COPY +anvil/anvil /opt/foundry/bin/anvil
-    COPY +end-to-end-prod/usr/src /usr/src
-    WORKDIR /usr/src/yarn-project/end-to-end
-    ENTRYPOINT ["yarn", "test"]
 
 scripts-prod:
     FROM +build
@@ -187,26 +108,6 @@ scripts-prod:
 all:
     BUILD +aztec
     BUILD +end-to-end
-
-export-aztec:
-    ARG EARTHLY_GIT_HASH
-    FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
-
-export-aztec-arch:
-    FROM +aztec
-    ARG DIST_TAG="latest"
-    ARG ARCH
-    SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH:+-$ARCH}
-
-export-end-to-end:
-    ARG EARTHLY_GIT_HASH
-    FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
-
-export-e2e-test-images:
-    BUILD +export-aztec
-    BUILD +export-end-to-end
 
 format-check:
     FROM +build
@@ -227,25 +128,6 @@ prover-client-test:
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
-
-# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
-# Running this inside the main builder as the point is not to run this through dockerization.
-network-test:
-    FROM ../+bootstrap
-    ARG test=./test-transfer.sh
-    ARG validators=3
-    WORKDIR /usr/src/yarn-project
-    # All script arguments are in the end-to-end/scripts/native-network folder
-    ENV LOG_LEVEL=verbose
-    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        "$test" \
-        ./deploy-l1-contracts.sh \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        ./ethereum.sh \
-        "./prover-node.sh 8078 false" \
-        ./pxe.sh \
-        "./validators.sh $validators"
 
 publish-npm:
     FROM +build
