@@ -763,7 +763,6 @@ jobs:
         with:
           concurrency_key: boxes
       - name: Box test
-        working-directory: ./boxes
         timeout-minutes: 40
         run: ./bootstrap.sh test-boxes
 
