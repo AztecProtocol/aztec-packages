@@ -20,7 +20,9 @@ if ! git diff --quiet; then
   exit 1
 fi
 
-docker run --name aztec_build -ti --rm \
+# Only add -ti if stdin is a tty.
+interactive_args=$( [ -t 0 ] && echo "-ti" )
+docker run --name aztec_build $interactive_args --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
