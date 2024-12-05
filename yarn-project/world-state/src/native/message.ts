@@ -54,12 +54,14 @@ export enum WorldStateMessageType {
   GET_LEAF_VALUE,
   GET_LEAF_PREIMAGE,
   GET_SIBLING_PATH,
+  GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
   FIND_LEAF_INDEX,
   FIND_LOW_LEAF,
 
   APPEND_LEAVES,
   BATCH_INSERT,
+  SEQUENTIAL_INSERT,
 
   UPDATE_ARCHIVE,
 
@@ -136,10 +138,10 @@ export interface TreeDBStats {
   nodesDBStats: DBStats;
   /** Stats for the 'leaf pre-images' DB */
   leafPreimagesDBStats: DBStats;
-  /** Stats for the 'leaf keys' DB */
-  leafKeysDBStats: DBStats;
   /** Stats for the 'leaf indices' DB */
   leafIndicesDBStats: DBStats;
+  /** Stats for the 'block indices' DB */
+  blockIndicesDBStats: DBStats;
 }
 
 export interface WorldStateMeta {
@@ -190,6 +192,7 @@ export function buildEmptyTreeDBStats() {
     leafIndicesDBStats: buildEmptyDBStats(),
     leafKeysDBStats: buildEmptyDBStats(),
     leafPreimagesDBStats: buildEmptyDBStats(),
+    blockIndicesDBStats: buildEmptyDBStats(),
   } as TreeDBStats;
 }
 
@@ -271,8 +274,8 @@ export function sanitiseMeta(meta: TreeMeta) {
 export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
   stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
-  stats.leafKeysDBStats = sanitiseDBStats(stats.leafKeysDBStats);
   stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
+  stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
   return stats;
@@ -346,6 +349,14 @@ interface GetTreeInfoResponse {
   root: Buffer;
 }
 
+interface GetBlockNumbersForLeafIndicesRequest extends WithTreeId, WithWorldStateRevision {
+  leafIndices: bigint[];
+}
+
+interface GetBlockNumbersForLeafIndicesResponse {
+  blockNumbers: bigint[];
+}
+
 interface GetSiblingPathRequest extends WithTreeId, WithLeafIndex, WithWorldStateRevision {}
 type GetSiblingPathResponse = Buffer[];
 
@@ -378,6 +389,7 @@ interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
+
 interface BatchInsertResponse {
   low_leaf_witness_data: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
@@ -386,6 +398,21 @@ interface BatchInsertResponse {
   }>;
   sorted_leaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
   subtree_path: Tuple<Buffer, number>;
+}
+
+interface SequentialInsertRequest extends WithTreeId, WithForkId, WithLeaves {}
+
+interface SequentialInsertResponse {
+  low_leaf_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
+  insertion_witness_data: ReadonlyArray<{
+    leaf: SerializedIndexedLeaf;
+    index: bigint | number;
+    path: Tuple<Buffer, number>;
+  }>;
 }
 
 interface UpdateArchiveRequest extends WithForkId {
@@ -400,7 +427,7 @@ interface SyncBlockRequest {
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];
-  batchesOfPublicDataWrites: readonly SerializedLeafValue[][];
+  publicDataWrites: readonly SerializedLeafValue[];
 }
 
 interface CreateForkRequest {
@@ -432,12 +459,14 @@ export type WorldStateRequest = {
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathRequest;
+  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesRequest;
 
   [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexRequest;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertRequest;
+  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertRequest;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: UpdateArchiveRequest;
 
@@ -466,12 +495,14 @@ export type WorldStateResponse = {
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafResponse;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageResponse;
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathResponse;
+  [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesResponse;
 
   [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexResponse;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;
 
   [WorldStateMessageType.APPEND_LEAVES]: void;
   [WorldStateMessageType.BATCH_INSERT]: BatchInsertResponse;
+  [WorldStateMessageType.SEQUENTIAL_INSERT]: SequentialInsertResponse;
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: void;
 

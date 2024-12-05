@@ -32,7 +32,11 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 
     template <typename T> void put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
 
+    template <typename T> void put_value(T& key, const index_t& data, const LMDBDatabase& db);
+
     void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
+
+    void put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db);
 
     template <typename T> void delete_value(T& key, const LMDBDatabase& db);
 
@@ -51,7 +55,13 @@ template <typename T>
 void LMDBTreeWriteTransaction::put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
-    lmdb_queries::put_value(keyBuffer, data, db, *this);
+    put_value(keyBuffer, data, db);
+}
+
+template <typename T> void LMDBTreeWriteTransaction::put_value(T& key, const index_t& data, const LMDBDatabase& db)
+{
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    put_value(keyBuffer, data, db);
 }
 
 template <typename T> void LMDBTreeWriteTransaction::delete_value(T& key, const LMDBDatabase& db)

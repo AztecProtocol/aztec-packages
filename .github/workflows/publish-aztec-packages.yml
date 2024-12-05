@@ -100,13 +100,13 @@ jobs:
         with:
           concurrency_key: build-aztec
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Build & Push Aztec x86_64
+      - name: Build & Push Aztec and End-to-End x86_64
         timeout-minutes: 40
         run: |
           earthly-ci \
             --no-output \
             --push \
-            ./yarn-project+export-aztec-arch \
+            ./yarn-project+export-images-arch \
             --DIST_TAG=${{ env.GIT_COMMIT }} \
             --ARCH=x86_64
 
@@ -275,7 +275,7 @@ jobs:
         with:
           concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      
+
       - name: Publish bb.js NPM package
         run: |
           DEPLOY_TAG=${{ env.DEPLOY_TAG }}
@@ -312,6 +312,18 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
+      - name: Publish spartan NPM package
+        run: |
+          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+          VERSION=${DEPLOY_TAG#aztec-packages-v}
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./spartan/releases/rough-rhino+publish-npm \
+            --DIST_TAG=latest \
+            --VERSION=$VERSION \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
   publish-aztec-up:
     needs: [configure, publish-manifests]
     runs-on: ubuntu-latest
@@ -335,10 +347,10 @@ jobs:
         working-directory: ./aztec-up/terraform
         run: |
           terraform init
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            TAG=master
-          else
+          if [ -n "${{ env.DEPLOY_TAG }}" ]; then
             TAG=${{ env.DEPLOY_TAG }}
+          else
+            TAG=${{ github.ref_name }}
           fi
           export TF_VAR_VERSION=${TAG#aztec-packages-v}
           terraform apply -auto-approve

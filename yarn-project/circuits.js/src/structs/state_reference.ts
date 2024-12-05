@@ -19,10 +19,6 @@ export class StateReference {
     public partial: PartialStateReference,
   ) {}
 
-  toJSON() {
-    return { l1ToL2MessageTree: this.l1ToL2MessageTree, partial: this.partial };
-  }
-
   static get schema() {
     return z
       .object({

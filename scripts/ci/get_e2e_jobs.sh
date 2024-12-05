@@ -20,6 +20,7 @@ full_list=$(get_test_names)
 allow_list=(
   "e2e_2_pxes"
   "e2e_authwit"
+  "e2e_amm"
   "e2e_avm_simulator"
   "e2e_block_building"
   "e2e_cross_chain_messaging"
@@ -68,7 +69,6 @@ done
 
 # Add the input labels and expanded matches to allow_list
 allow_list+=("${input_labels[@]}" "${expanded_allow_list[@]}")
-
 
 # Generate full list of targets, excluding specific entries, on one line
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)

@@ -143,12 +143,12 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
 }
 
 trait AsStrQuote {
-    fn as_str_quote(self) -> Self;
+    fn as_str_quote(self) -> (Self, u32);
 }
 
 impl<let N: u32, Env> AsStrQuote for Quoted {
-    // Used to convert an arbirary quoted type into a quoted string, removing whitespace between tokens
-    comptime fn as_str_quote(self) -> Quoted {
+    // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
+    comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();
         let mut acc: [u8] = &[];
         let mut total_len: u32 = 0;
@@ -166,7 +166,7 @@ impl<let N: u32, Env> AsStrQuote for Quoted {
                 signature_as_array.as_str_unchecked()
             },
         );
-        quote { $result }
+        (quote { $result }, total_len)
     }
 }
 
@@ -181,7 +181,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let args_signatures =
         f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
-    let signature_str_quote = signature_quote.as_str_quote();
+    let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
         protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
@@ -207,7 +207,7 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
         })
         .join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
-    let signature_str_quote = signature_quote.as_str_quote();
+    let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
         protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()

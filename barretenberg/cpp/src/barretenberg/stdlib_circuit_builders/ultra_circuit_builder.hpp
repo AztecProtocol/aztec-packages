@@ -381,23 +381,20 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
+    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) noexcept
         : CircuitBuilderBase<FF>(std::move(other))
-    {
-        blocks = other.blocks;
-        constant_variable_indices = other.constant_variable_indices;
-
-        lookup_tables = other.lookup_tables;
-        range_lists = other.range_lists;
-        ram_arrays = other.ram_arrays;
-        rom_arrays = other.rom_arrays;
-        memory_read_records = other.memory_read_records;
-        memory_write_records = other.memory_write_records;
-        cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalized = other.circuit_finalized;
-    };
+        , blocks(other.blocks)
+        , constant_variable_indices(other.constant_variable_indices)
+        , lookup_tables(other.lookup_tables)
+        , range_lists(other.range_lists)
+        , ram_arrays(other.ram_arrays)
+        , rom_arrays(other.rom_arrays)
+        , memory_read_records(other.memory_read_records)
+        , memory_write_records(other.memory_write_records)
+        , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
+        , circuit_finalized(other.circuit_finalized){};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
+    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
         blocks = other.blocks;
@@ -504,7 +501,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint32_t put_constant_variable(const FF& variable);
 
-  public:
     size_t get_num_constant_gates() const override { return 0; }
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
@@ -557,8 +553,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             // We record `ram_timestamps` to detect and correct for this error when we process range lists.
             ram_timestamps.push_back(max_timestamp);
             size_t padding = (NUM_WIRES - (max_timestamp % NUM_WIRES)) % NUM_WIRES;
-            if (max_timestamp == NUM_WIRES)
+            if (max_timestamp == NUM_WIRES) {
                 padding += NUM_WIRES;
+            }
             const size_t ram_range_check_list_size = max_timestamp + padding;
 
             size_t ram_range_check_gate_count = (ram_range_check_list_size / NUM_WIRES);
@@ -570,8 +567,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (const auto& list : range_lists) {
             auto list_size = list.second.variable_indices.size();
             size_t padding = (NUM_WIRES - (list.second.variable_indices.size() % NUM_WIRES)) % NUM_WIRES;
-            if (list.second.variable_indices.size() == NUM_WIRES)
+            if (list.second.variable_indices.size() == NUM_WIRES) {
                 padding += NUM_WIRES;
+            }
             list_size += padding;
 
             for (size_t i = 0; i < ram_timestamps.size(); ++i) {
@@ -820,8 +818,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
-    typedef std::pair<uint32_t, FF> scaled_witness;
-    typedef std::tuple<scaled_witness, scaled_witness, FF> add_simple;
+    using scaled_witness = std::pair<uint32_t, FF>;
+    using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
                                                                   add_simple limb1,
                                                                   add_simple limb2,

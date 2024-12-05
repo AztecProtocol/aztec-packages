@@ -1,0 +1,27 @@
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
+
+network:
+  setupL2Contracts: false
+  disableEthNode: true
+  public: false
+
+ethereum:
+  externalHost: "https://sepolia.infura.io/v3/${INFURA_API_KEY}"
+  chainId: "11155111"
+
+validator:
+  replicas: 3
+  validatorKeys: ${VALIDATOR_KEYS}
+  validatorAddresses: ${VALIDATOR_ADDRESSES}
+  validator:
+    disabled: false
+
+bootNode:
+  seqPublisherPrivateKey: ${SEQ_PUBLISHER_PRIVATE_KEY}
+  validator:
+    disabled: true
+
+proverNode:
+  proverPublisherPrivateKey: ${PROVER_PUBLISHER_PRIVATE_KEY}

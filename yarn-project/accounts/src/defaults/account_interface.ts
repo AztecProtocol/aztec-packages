@@ -9,7 +9,8 @@ import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
  * entrypoint signature, which accept an AppPayload and a FeePayload as defined in noir-libs/aztec-noir/src/entrypoint module
  */
 export class DefaultAccountInterface implements AccountInterface {
-  private entrypoint: EntrypointInterface;
+  protected entrypoint: EntrypointInterface;
+
   private chainId: Fr;
   private version: Fr;
 

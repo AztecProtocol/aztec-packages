@@ -3,9 +3,8 @@ set -exu
 
 CHAIN_ID=$1
 
-
 # Use default account, it is funded on our dev machine
-export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+export PRIVATE_KEY=${PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
 
 # Run the deploy-l1-contracts command and capture the output
 output=""

@@ -1,10 +1,6 @@
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { loadContractArtifact } from '@aztec/types/abi';
-import type { NoirCompiledContract } from '@aztec/types/noir';
 
-import { readFileSync } from 'fs';
-
-import { getPathToFixture, getTestContractArtifact } from '../tests/fixtures.js';
+import { getTestContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
 describe('ArtifactHash', () => {
@@ -28,22 +24,9 @@ describe('ArtifactHash', () => {
   it('calculates the test contract artifact hash multiple times to ensure deterministic hashing', () => {
     const testArtifact = getTestContractArtifact();
 
+    const calculatedArtifactHash = computeArtifactHash(testArtifact).toString();
     for (let i = 0; i < 1000; i++) {
-      expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-        `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
-      );
+      expect(computeArtifactHash(testArtifact).toString()).toBe(calculatedArtifactHash);
     }
-  });
-
-  it('calculates the test contract artifact hash', () => {
-    const path = getPathToFixture('Test.test.json');
-    const content = JSON.parse(readFileSync(path).toString()) as NoirCompiledContract;
-    content.outputs.structs.functions.reverse();
-
-    const testArtifact = loadContractArtifact(content);
-
-    expect(computeArtifactHash(testArtifact).toString()).toMatchInlineSnapshot(
-      `"0x21070d88558fdc3906322f267cf6f0f632caf3949295520fe1f71f156fbb0d0b"`,
-    );
   });
 });

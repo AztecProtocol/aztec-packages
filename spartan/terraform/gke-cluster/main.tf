@@ -38,6 +38,24 @@ resource "google_project_iam_member" "gke_sa_roles" {
   member  = "serviceAccount:${google_service_account.gke_sa.email}"
 }
 
+# Create a new service account for Helm
+resource "google_service_account" "helm_sa" {
+  account_id   = "helm-sa"
+  display_name = "Helm Service Account"
+  description  = "Service account for Helm operations"
+}
+
+# Add IAM roles to the Helm service account
+resource "google_project_iam_member" "helm_sa_roles" {
+  for_each = toset([
+    "roles/container.admin",
+    "roles/storage.admin"
+  ])
+  project = var.project
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.helm_sa.email}"
+}
+
 # Create a GKE cluster
 resource "google_container_cluster" "primary" {
   name     = "spartan-gke"
@@ -87,6 +105,40 @@ resource "google_container_node_pool" "primary_nodes" {
       env = "production"
     }
     tags = ["gke-node"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+}
+
+# Create node pool for aztec nodes (validators, prover nodes, boot nodes)
+resource "google_container_node_pool" "aztec_nodes" {
+  name     = "aztec-node-pool"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 128
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-8"
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+    }
+    tags = ["gke-node", "aztec"]
   }
 
   # Management configuration

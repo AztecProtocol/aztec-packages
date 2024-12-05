@@ -22,6 +22,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
+  SampleLibAbi,
+  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   TxsDecoderAbi,
@@ -53,6 +55,7 @@ import { foundry } from 'viem/chains';
 import { type L1ContractsConfig } from './config.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -172,6 +175,10 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
         TxsDecoder: {
           contractAbi: TxsDecoderAbi,
           contractBytecode: TxsDecoderBytecode,
+        },
+        SampleLib: {
+          contractAbi: SampleLibAbi,
+          contractBytecode: SampleLibBytecode,
         },
       },
     },
@@ -391,7 +398,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000;
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000;
   const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
@@ -601,7 +608,9 @@ export async function deployL1Contract(
   logger?: DebugLogger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
-  let address: Hex | null | undefined = undefined;
+  let resultingAddress: Hex | null | undefined = undefined;
+
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
 
   if (libraries) {
     // @note  Assumes that we wont have nested external libraries.
@@ -623,9 +632,15 @@ export async function deployL1Contract(
       );
 
       for (const linkRef in libraries.linkReferences) {
-        for (const c in libraries.linkReferences[linkRef]) {
-          const start = 2 + 2 * libraries.linkReferences[linkRef][c][0].start;
-          const length = 2 * libraries.linkReferences[linkRef][c][0].length;
+        for (const contractName in libraries.linkReferences[linkRef]) {
+          // If the library name matches the one we just deployed, we replace it.
+          if (contractName !== libraryName) {
+            continue;
+          }
+
+          // We read the first instance to figure out what we are to replace.
+          const start = 2 + 2 * libraries.linkReferences[linkRef][contractName][0].start;
+          const length = 2 * libraries.linkReferences[linkRef][contractName][0].length;
 
           const toReplace = bytecode.slice(start, start + length);
           replacements[toReplace] = address;
@@ -647,21 +662,31 @@ export async function deployL1Contract(
     const salt = padHex(maybeSalt, { size: 32 });
     const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
     const calldata = encodeDeployData({ abi, bytecode, args });
-    address = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
-    const existing = await publicClient.getBytecode({ address });
+    resultingAddress = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      txHash = await walletClient.sendTransaction({ to: deployer, data: concatHex([salt, calldata]) });
-      logger?.verbose(`Deploying contract with salt ${salt} to address ${address} in tx ${txHash}`);
+      const res = await l1TxUtils.sendTransaction({
+        to: deployer,
+        data: concatHex([salt, calldata]),
+      });
+      txHash = res.txHash;
+
+      logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {
-      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
+      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
     }
   } else {
-    txHash = await walletClient.deployContract({ abi, bytecode, args });
-    logger?.verbose(`Deploying contract in tx ${txHash}`);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, pollingInterval: 100 });
-    address = receipt.contractAddress;
-    if (!address) {
+    // Regular deployment path
+    const deployData = encodeDeployData({ abi, bytecode, args });
+    const receipt = await l1TxUtils.sendAndMonitorTransaction({
+      to: null,
+      data: deployData,
+    });
+
+    txHash = receipt.transactionHash;
+    resultingAddress = receipt.contractAddress;
+    if (!resultingAddress) {
       throw new Error(
         `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
           typeof val === 'bigint' ? String(val) : val,
@@ -670,6 +695,6 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(address!), txHash };
+  return { address: EthAddress.fromString(resultingAddress!), txHash };
 }
 // docs:end:deployL1Contract

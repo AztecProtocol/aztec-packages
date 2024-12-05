@@ -15,7 +15,7 @@ set -eux
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Main positional parameter
-TEST="$1"
+TEST=${1:-}
 
 REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
@@ -39,8 +39,8 @@ if [ -z "${NAMESPACE:-}" ]; then
   exit 1
 fi
 
-if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
-   ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
+if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" ||
+  ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
   echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
   exit 1
 fi
@@ -56,15 +56,15 @@ fi
 STERN_PID=""
 function copy_stern_to_log() {
   ulimit -n 4096
-  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  stern spartan -n $NAMESPACE >$SCRIPT_DIR/network-test.log &
   STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
-  set +x # don't spam with our commands
+  set +x   # don't spam with our commands
   sleep 15 # let helm upgrade start
-  for i in {1..100} ; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null ; then
+  for i in {1..100}; do
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null; then
       break # we are up, stop showing status
     fi
     # show startup status
@@ -74,38 +74,51 @@ function show_status_until_pxe_ready() {
 
 # Handle and check chaos mesh setup
 handle_network_shaping() {
-    if [ -n "${CHAOS_VALUES:-}" ]; then
-        echo "Checking chaos-mesh setup..."
+  if [ -n "${CHAOS_VALUES:-}" ]; then
+    echo "Checking chaos-mesh setup..."
 
-        if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
-            # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
-            # to determine if we should install it.
-            if [ "$INSTALL_CHAOS_MESH" ]; then
-              echo "Installing chaos-mesh..."
-              cd "$REPO/spartan/chaos-mesh" && ./install.sh
-            else
-              echo "Error: chaos-mesh namespace not found!"
-              echo "Please set up chaos-mesh first. You can do this by running:"
-              echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
-              exit 1
-            fi
-        fi
-
-        echo "Deploying Aztec Chaos Scenarios..."
-        if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
-            --namespace chaos-mesh \
-            --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
-            --set global.targetNamespace="$NAMESPACE" \
-            --wait \
-            --timeout=5m; then
-            echo "Error: failed to deploy Aztec Chaos Scenarios!"
-            return 1
-        fi
-
-        echo "Aztec Chaos Scenarios applied successfully"
-        return 0
+    if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
+      # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
+      # to determine if we should install it.
+      if [ "$INSTALL_CHAOS_MESH" ]; then
+        echo "Installing chaos-mesh..."
+        cd "$REPO/spartan/chaos-mesh" && ./install.sh
+      else
+        echo "Error: chaos-mesh namespace not found!"
+        echo "Please set up chaos-mesh first. You can do this by running:"
+        echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
+        exit 1
+      fi
     fi
+
+    echo "Deploying Aztec Chaos Scenarios..."
+    if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
+      --namespace chaos-mesh \
+      --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
+      --set global.targetNamespace="$NAMESPACE" \
+      --wait \
+      --timeout=5m; then
+      echo "Error: failed to deploy Aztec Chaos Scenarios!"
+      return 1
+    fi
+
+    echo "Aztec Chaos Scenarios applied successfully"
     return 0
+  fi
+
+  echo "Deploying network shaping configuration..."
+  if ! helm upgrade --install network-shaping "$REPO/spartan/network-shaping/" \
+    --namespace chaos-mesh \
+    --values "$REPO/spartan/network-shaping/values/$CHAOS_VALUES" \
+    --set global.targetNamespace="$NAMESPACE" \
+    --wait \
+    --timeout=5m; then
+    echo "Error: failed to deploy network shaping configuration!"
+    return 1
+  fi
+
+  echo "Network shaping configuration applied successfully"
+  return 0
 }
 
 copy_stern_to_log
@@ -129,22 +142,25 @@ fi
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
-      --namespace "$NAMESPACE" \
-      --create-namespace \
-      --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
-      --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --wait \
-      --wait-for-jobs=true \
-      --timeout="$INSTALL_TIMEOUT"
+  --namespace "$NAMESPACE" \
+  --create-namespace \
+  --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
+  --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+  --wait \
+  --wait-for-jobs=true \
+  --timeout="$INSTALL_TIMEOUT"
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# Find two free ports between 9000 and 10000
-FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
+# Find 3 free ports between 9000 and 10000
+FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
 
-# Extract the two free ports from the list
+# Extract the free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
+METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
+
+GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
@@ -160,17 +176,24 @@ if ! handle_network_shaping; then
   fi
 fi
 
-docker run --rm --network=host \
-  -v ~/.kube:/root/.kube \
-  -e K8S=true \
-  -e INSTANCE_NAME="spartan" \
-  -e SPARTAN_DIR="/usr/src/spartan" \
-  -e NAMESPACE="$NAMESPACE" \
-  -e HOST_PXE_PORT=$PXE_PORT \
-  -e CONTAINER_PXE_PORT=8081 \
-  -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
-  -e CONTAINER_ETHEREUM_PORT=8545 \
-  -e DEBUG="aztec:*" \
-  -e LOG_JSON=1 \
-  -e LOG_LEVEL=debug \
-  aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
+# Run the test if $TEST is not empty
+if [ -n "$TEST" ]; then
+  echo "RUNNING TEST: $TEST"
+  docker run --rm --network=host \
+    -v ~/.kube:/root/.kube \
+    -e K8S=local \
+    -e INSTANCE_NAME="spartan" \
+    -e SPARTAN_DIR="/usr/src/spartan" \
+    -e NAMESPACE="$NAMESPACE" \
+    -e HOST_PXE_PORT=$PXE_PORT \
+    -e CONTAINER_PXE_PORT=8081 \
+    -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
+    -e CONTAINER_ETHEREUM_PORT=8545 \
+    -e HOST_METRICS_PORT=$METRICS_PORT \
+    -e CONTAINER_METRICS_PORT=80 \
+    -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
+    -e DEBUG="aztec:*" \
+    -e LOG_JSON=1 \
+    -e LOG_LEVEL=debug \
+    aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
+fi

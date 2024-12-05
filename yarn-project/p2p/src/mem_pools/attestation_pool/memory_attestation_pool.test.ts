@@ -3,6 +3,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type PoolInstrumentation } from '../instrumentation.js';
@@ -29,6 +30,11 @@ describe('MemoryAttestationPool', () => {
     // Can i overwrite this like this??
     (ap as any).metrics = metricsMock;
   });
+
+  const createAttestationsForSlot = (slotNumber: number) => {
+    const archive = Fr.random();
+    return signers.map(signer => mockAttestation(signer, slotNumber, archive));
+  };
 
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
@@ -170,5 +176,30 @@ describe('MemoryAttestationPool', () => {
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
+  });
+
+  it('Should delete attestations older than a given slot', async () => {
+    const slotNumbers = [1, 2, 3, 69, 72, 74, 88, 420];
+    const attestations = slotNumbers.map(slotNumber => createAttestationsForSlot(slotNumber)).flat();
+    const proposalId = attestations[0].archive.toString();
+
+    await ap.addAttestations(attestations);
+
+    const attestationsForSlot1 = await ap.getAttestationsForSlot(BigInt(1), proposalId);
+    expect(attestationsForSlot1.length).toBe(signers.length);
+
+    const deleteAttestationsSpy = jest.spyOn(ap, 'deleteAttestationsForSlot');
+
+    await ap.deleteAttestationsOlderThan(BigInt(73));
+
+    const attestationsForSlot1AfterDelete = await ap.getAttestationsForSlot(BigInt(1), proposalId);
+    expect(attestationsForSlot1AfterDelete.length).toBe(0);
+
+    expect(deleteAttestationsSpy).toHaveBeenCalledTimes(5);
+    expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(1));
+    expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(2));
+    expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(3));
+    expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(69));
+    expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(72));
   });
 });

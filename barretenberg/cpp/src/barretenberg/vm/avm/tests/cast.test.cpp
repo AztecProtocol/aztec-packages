@@ -1,6 +1,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -23,7 +24,7 @@ class AvmCastTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
     std::vector<FF> calldata;
 
@@ -242,7 +243,7 @@ TEST_F(AvmCastTests, indirectAddrTruncationU64ToU8)
 
 TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
 {
-    // TODO(#9131): Re-enable as part of #9131
+    // TODO(#9995): Re-enable as part of #9995
     GTEST_SKIP();
     // Indirect addresses. src:5  dst:6
     // Direct addresses.   src:10 dst:11
