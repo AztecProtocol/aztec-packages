@@ -31,7 +31,7 @@ test-contracts:
 
 format:
   FROM ../+bootstrap
-
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
   RUN node ./scripts/generate_variants.js
   RUN nargo fmt --check
