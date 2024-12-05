@@ -236,7 +236,7 @@ export class Ec2Instance {
       },
       Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
-        AvailabilityZone: this.config.githubActionRunnerConcurrency > 0 ? availabilityZone : undefined,
+        AvailabilityZone: this.config.ec2InstanceTags.includes("Builder") ? availabilityZone : undefined,
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };

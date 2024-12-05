@@ -43,8 +43,7 @@ EARTHLY_ARGS=""
 function run_earthly() {
   # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
   # we do not run with minio in CI
-  earthly --logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON \
-          --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+  earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
           --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
           --secret S3_BUILD_CACHE_MINIO_URL="" \
           --secret S3_BUILD_CACHE_UPLOAD="true" \
@@ -54,33 +53,11 @@ function run_earthly() {
           $@
 }
 
-function print_earthly_command_timings() {
-  jq --version >/dev/null || return
-  # Use jq to extract target names, start times, and end times
-  echo "TARGET TIMES"
-  jq -r '
-    .targets[] |
-    .name as $name |
-    (.startedAtUnixNanos | tonumber) as $start |
-    (.endedAtUnixNanos | tonumber) as $end |
-    "\($name) \($start) \($end)"
-  ' $EARTHLY_RUN_STATS_JSON | while read name start end; do
-    # Calculate duration in seconds using pure bash
-    duration_ns=$((end - start))
-    duration_s=$((duration_ns / 1000000000))
-    duration_ms=$(( (duration_ns % 1000000000) / 1000000 ))
-    # Print target name and duration in seconds and milliseconds
-    printf "%d.%03ds - %s\n" "$duration_s" "$duration_ms" "$name"
-  done | sort -n
-}
-
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
   if run_earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
-    print_earthly_command_timings || true
     exit 0  # Success, exit the script
   else
-    print_earthly_command_timings || true
     # Increment attempt counter
     ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
     echo "Attempt #$ATTEMPT_COUNT failed."
