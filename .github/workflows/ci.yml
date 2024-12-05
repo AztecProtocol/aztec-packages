@@ -140,7 +140,7 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.barretenberg == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true' || github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -344,7 +344,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
       - name: "Native Prover Tests"
         run: |
           # Ensure we can SSH into the spot instances we request
@@ -353,6 +352,8 @@ jobs:
           chmod 600 ~/.ssh/build_instance_key
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
       - name: "Native Prover Tests"
+        env:
+          GITHUB_LOG: 1
         run: |
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
           ./ci.sh ec2 "./barretenberg/cpp/bootstrap.sh ci"
@@ -477,69 +478,28 @@ jobs:
   #       timeout-minutes: 40
   #       run: earthly-ci --no-output ./+format
 
-  # yarn-project-formatting:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: yarn-project-formatting-x86
-  #     - name: "Yarn Project Tests"
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./yarn-project/+format-check
-
-  # yarn-project-test:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: yarn-project-test-x86
-  #     - name: "Yarn Project Tests"
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./yarn-project/+test
-
-  # prover-client-test:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: prover-client-test-x86
-  #     - name: "Prover Client Tests"
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./yarn-project/+prover-client-test
-
-  # # proving disabled
-  # network-test:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   strategy:
-  #     max-parallel: 1
-  #     fail-fast: false
-  #     matrix:
-  #       test: [test-transfer.sh, test-4epochs.sh]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: network-test-${{ matrix.test }}
-  #     - name: "Setup and Local Network Tests"
-  #       timeout-minutes: 60
-  #       # Only allow transfer test to run on every (non-network-all) PR
-  #       if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
-  #       run: sudo shutdown -P 60 && earthly-ci +network-test --test=./${{ matrix.test }}
+  # proving disabled
+  network-4epochs-test:
+    needs: [ci-rest, configure]
+    if: needs.configure.outputs.yarn-project == 'true' && (github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: "Setup"
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          runner_type: builder-x86
+          username: ${{ needs.configure.outputs.username }}
+      - name: "Network Test (${{ matrix.test }})"
+        uses: ./.github/run-on-builder
+        timeout-minutes: 40
+        with:
+          run: flock /var/lock/build.lock scripts/earthly-ci +ci-rest
+      - name: "Setup and Local Network Tests"
+        timeout-minutes: 60
+        run: sudo shutdown -P 60 && earthly-ci +network-test --test=./test-4epochs.sh
 
   # kind-smoke-test:
   #   needs: [bootstrap, configure]
@@ -669,70 +629,86 @@ jobs:
   #         --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
   #         --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
-  # bb-bench:
-  #   runs-on: ubuntu-20.04
-  #   needs: [bootstrap-noir-bb, configure]
-  #   if: needs.configure.outputs.barretenberg-cpp == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: Build Bench Binaries
-  #       uses: ./.github/ensure-builder
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       with:
-  #         runner_type: builder-x86
-  #         run: |
-  #           set -eux
-  #           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-  #           scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
-  #     - name: Run Bench
-  #       uses: ./.github/ensure-tester
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       timeout-minutes: 40
-  #       with:
-  #         runner_type: 16core-tester-x86
-  #         run: |
-  #           scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
-  #     - name: Copy Bench.json
-  #       run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/barretenberg/cpp/bench.json bench.json
-  #     # Utilize github-action-benchmark to automatically update the plots at
-  #     # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
-  #     # This also creates an alert if benchmarks exceed the threshold specified below.
-  #     - name: Store benchmark result
-  #       if: github.ref == 'refs/heads/master'
-  #       uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-  #       with:
-  #         name: C++ Benchmark
-  #         tool: "googlecpp"
-  #         output-file-path: bench.json
-  #         # Access token to deploy GitHub Pages branch
-  #         github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-  #         # Push and deploy GitHub pages branch automatically
-  #         auto-push: true
-  #         # Show alert with commit comment on detecting possible performance regression
-  #         alert-threshold: "105%" # alert if bench result is 1.05x worse
-  #         comment-on-alert: true
-  #         fail-on-alert: false
-  #         alert-comment-cc-users: "@ludamad @codygunton"
-  #         max-items-in-chart: 50
+  bb-bench:
+    runs-on: ubuntu-20.04
+    needs: [ci-noir-bb, configure]
+    if: needs.configure.outputs.barretenberg-cpp == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: builder-x86
+          run: |
+            set -eux
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+      - name: Run Bench
+        uses: ./.github/ensure-tester
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        timeout-minutes: 40
+        with:
+          runner_type: 16core-tester-x86
+          run: |
+            HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
+            export CI=1
+            if ci3/test_should_run bb-bench-$HASH bench; then
+              scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
+              ci3/cache_upload_flag bb-bench-$HASH
+            fi
+      - name: Copy Bench.json
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/barretenberg/cpp/bench.json bench.json || true
+      # Utilize github-action-benchmark to automatically update the plots at
+      # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
+      # This also creates an alert if benchmarks exceed the threshold specified below.
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: C++ Benchmark
+          tool: "googlecpp"
+          output-file-path: bench.json
+          # Access token to deploy GitHub Pages branch
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          # Push and deploy GitHub pages branch automatically
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: "105%" # alert if bench result is 1.05x worse
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
 
-  # boxes-test:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: boxes
-  #     - name: Box test
-  #       timeout-minutes: 40
-  #       run: CI=1 ./bootstrap.sh test-boxes
+  boxes-test:
+    needs: [ci-rest, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: boxes
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: builder-x86
+          run: |
+            set -eux
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+      - name: Box test
+        uses: ./.github/runs-on-builder
+        timeout-minutes: 40
+        run: CI=1 ./bootstrap.sh test-boxes
 
-  # protocol-circuits-gates-report:
+# protocol-circuits-gates-report:
   #   needs: [bootstrap, configure]
   #   if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
   #   runs-on: ${{ needs.configure.outputs.username }}-x86

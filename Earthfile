@@ -19,7 +19,8 @@ bootstrap-noir-bb:
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>&1 >/dev/null) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>&1 >/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
-    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 ./barretenberg/acir_tests/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/src
@@ -35,15 +36,17 @@ bootstrap:
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init 2>&1 >/dev/null && \
-    git remote add origin https://github.com/aztecprotocol/aztec-packages 2>/dev/null && \
+    git remote add origin https://github.com/aztecprotocol/aztec-packages 2>&1 >/dev/null && \
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT 2>&1 >/dev/null) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH 2>&1 >/dev/null || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD && \
-    CI=1 TEST=0 ./bootstrap.sh fast && \
-    # Rust build dirs can be big
-    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -delete && \
-    find noir/noir-repo/target/release -type f ! -name "nargo" ! -name "acvm" -print && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/acir_tests/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./l1-contracts/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./avm-transpiler/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./noir-projects/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./yarn-projects/bootstrap.sh && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
 
@@ -105,52 +108,84 @@ bootstrap-aztec-faucet:
 
 # Simulates noir+bb CI with chunks that use resources
 ci-noir-bb:
-  WAIT
-    # dependency for rest
-    BUILD +bootstrap-noir-bb
+  FROM +bootstrap-noir-bb
+  ENV USE_CACHE=1
+  LET artifact=noir-ci-native-tests-$(./noir/bootstrap.sh hash-native)-$(./noir/bootstrap.sh hash-packages)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./noir/+examples
+      BUILD ./noir/+packages-test
+      BUILD ./noir/+test
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+  LET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./barretenberg/cpp/+preset-gcc
+    END
+    RUN ci3/cache_upload_flag $artifact
   END
   WAIT
-    BUILD ./noir/+examples
-    BUILD ./noir/+test
-    BUILD ./barretenberg/cpp/+preset-gcc
-    # Currently done on its own runner
-    # BUILD ./barretenberg/cpp/+bench
+    LET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
+    IF ci3/test_should_run $artifact
+      BUILD ./barretenberg/acir_tests/+test
+      RUN ci3/cache_upload_flag $artifact
+    END
   END
-  # Currently done on its own runner
-  # WAIT
-  #   BUILD ./barretenberg/cpp+test --jobs=32
-  # END
-  WAIT
-    BUILD ./barretenberg/acir_tests/+test
-    BUILD ./barretenberg/acir_tests/+bench
-  END
-
 
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:
+  FROM +bootstrap
+  ENV USE_CACHE=1
   WAIT
-    # dependency for rest
-    BUILD +bootstrap
-  END
-  WAIT
-    BUILD ./docs/+deploy-preview
-    BUILD ./l1-contracts+test
-    BUILD ./noir-projects/+test
     BUILD ./yarn-project/+format-check
+    BUILD +docs-helper
+    # internally uses cache
+    BUILD ./l1-contracts+test
+    BUILD +noir-projects-helper
   END
-  WAIT
-    BUILD ./yarn-project/+network-test
-  END
-  WAIT
-    BUILD ./yarn-project/+prover-client-test
-  END
-  WAIT
-    BUILD ./yarn-project/+test
+  LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./yarn-project/+network-test --test=./test-transfer.sh
+    END
+    WAIT
+      BUILD ./yarn-project/+prover-client-test
+    END
+    WAIT
+      BUILD ./yarn-project/+test
+    END
+    RUN ci3/cache_upload_flag $artifact
   END
 
 ########################################################################################################################
 # Build helpers
 ########################################################################################################################
+# uses flag cache
+docs-helper:
+  FROM +bootstrap
+  ENV USE_CACHE=1
+  LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./docs/+deploy-preview
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+# uses flag cache
+noir-projects-helper:
+  FROM +bootstrap
+  ENV USE_CACHE=1
+  LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    # could be changed to bootstrap once txe solution found
+    WAIT
+      BUILD ./noir-projects/+test
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+
 bb-cli:
     FROM +bootstrap
     ENV BB_WORKING_DIRECTORY=/usr/src/bb

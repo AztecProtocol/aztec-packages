@@ -236,7 +236,8 @@ export class Ec2Instance {
       },
       Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
-        AvailabilityZone: this.config.ec2InstanceTags.includes("Builder") ? availabilityZone : undefined,
+        // Not longer support attaching EBS
+        AvailabilityZone: undefined,
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };

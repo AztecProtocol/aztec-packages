@@ -47,6 +47,12 @@ case "$cmd" in
     build
     test
     ;;
+  "hash-native")
+    echo $native_hash
+    ;;
+  "hash-packages")
+    echo $packages_hash
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

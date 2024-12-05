@@ -33,9 +33,12 @@ function build {
     -o $HOME/.bb-crs/bn254_g1.dat
 }
 
-function test {
-  hash=$(cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns)
+function hash() {
+  cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
+}
 
+function test {
+  hash=$(hash)
   if ! test_should_run barretenberg-acir-test-$hash; then
     exit 0
   fi
@@ -100,6 +103,9 @@ case "$cmd" in
   "test"|"ci")
     build
     test
+    ;;
+  "hash")
+    hash
     ;;
   *)
     echo "Unknown command: $cmd"

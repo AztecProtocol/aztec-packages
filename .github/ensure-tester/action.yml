@@ -26,7 +26,7 @@ runs:
         # Try to use spot for every runner type for now
         echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
-        echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
+        echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
         # no github runners, 'bare spot' in action code
         echo "runner_concurrency=0" >> $GITHUB_OUTPUT
         echo "ttl=${{ inputs.ttl }}" >> $GITHUB_OUTPUT

@@ -9,7 +9,7 @@ lint:
 test:
     FROM ../+bootstrap
     WORKDIR /usr/src/l1-contracts
-    RUN forge test --no-match-contract UniswapPortalTest
+    RUN USE_CACHE=1 ./bootstrap.sh test
 
 publish-npm:
     FROM ../+bootstrap

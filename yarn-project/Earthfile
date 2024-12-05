@@ -2,10 +2,7 @@ VERSION 0.8
 
 build:
     FROM ../+bootstrap
-    # TODO move into build image
     WORKDIR /usr/src/yarn-project
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN cd ivc-integration && npx playwright install && npx playwright install-deps
 
 cli-base:
     FROM +build
@@ -80,6 +77,9 @@ format-check:
 test:
     FROM +build
     RUN yarn test
+    # TODO move into build image
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN cd ivc-integration && npx playwright install && npx playwright install-deps
 
 run-e2e:
     ARG test

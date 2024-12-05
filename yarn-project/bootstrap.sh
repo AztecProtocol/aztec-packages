@@ -215,6 +215,8 @@ case "$cmd" in
     build
     test
     ;;
+  "hash")
+    echo $hash
   *)
     echo "Unknown command: $cmd"
     exit 1
