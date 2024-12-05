@@ -1,6 +1,6 @@
 //! Dead Instruction Elimination (DIE) pass: Removes any instruction without side-effects for
 //! which the results are unused.
-use fxhash::FxHashSet as HashSet;
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use im::Vector;
 use noirc_errors::Location;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
