@@ -113,6 +113,7 @@ ci-noir-bb:
   LET artifact=noir-ci-native-tests-$(./noir/bootstrap.sh hash-native)-$(./noir/bootstrap.sh hash-packages)
   IF ci3/test_should_run $artifact
     WAIT
+      BUILD ./noir/+format
       BUILD ./noir/+examples
       BUILD ./noir/+packages-test
       BUILD ./noir/+test
@@ -123,6 +124,13 @@ ci-noir-bb:
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./barretenberg/cpp/+preset-gcc
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+  LET artifact=bb-ci-gcc-$(./barretenberg/ts/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./barretenberg/ts/+test
     END
     RUN ci3/cache_upload_flag $artifact
   END
@@ -139,6 +147,7 @@ ci-rest:
   FROM +bootstrap
   ENV USE_CACHE=1
   WAIT
+    BUILD ./avm-transpiler/+format
     BUILD ./yarn-project/+format-check
     BUILD +docs-helper
     # internally uses cache
@@ -169,7 +178,7 @@ docs-helper:
   LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
-      BUILD ./docs/+deploy-preview
+      BUILD --pass-args ./docs/+deploy-preview
     END
     RUN ci3/cache_upload_flag $artifact
   END
@@ -181,6 +190,7 @@ noir-projects-helper:
   IF ci3/test_should_run $artifact
     # could be changed to bootstrap once txe solution found
     WAIT
+      BUILD ./noir-projects/+format
       BUILD ./noir-projects/+test
     END
     RUN ci3/cache_upload_flag $artifact

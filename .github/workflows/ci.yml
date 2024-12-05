@@ -176,7 +176,11 @@ jobs:
         uses: ./.github/run-on-builder
         timeout-minutes: 40
         with:
-          run: flock /var/lock/build.lock scripts/earthly-ci +ci-rest
+          # args are for docs, okay for now, going away in future
+          run: flock /var/lock/build.lock scripts/earthly-ci +ci-rest --ENV=staging --PR=${{ github.event.number }} \
+            --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+            --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
       - name: "E2E Images"
         uses: ./.github/run-on-builder
         timeout-minutes: 40
@@ -196,84 +200,84 @@ jobs:
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
             echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
       - name: Copy Github Output
-        run: copy_from_tester .github-output $GITHUB_OUTPUT
+        run: copy_from_builder .github-output $GITHUB_OUTPUT
 
-  # # all the non-bench end-to-end integration tests for aztec
-  # e2e:
-  #   needs: [bootstrap, configure]
-  #   if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       test: ${{ fromJson( needs.build.outputs.e2e_list )}}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: Determine runner type
-  #       id: runner_type
-  #       run: |
-  #         runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
-  #         echo "type=$runner" >> $GITHUB_OUTPUT
-  #     - name: Setup and Test
-  #       timeout-minutes: 40
-  #       uses: ./.github/ensure-tester-with-images
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #         PULL_REQUEST: ${{ github.event.pull_request.number }}
-  #       with:
-  #         runner_type: ${{ steps.runner_type.outputs.type }}
-  #         builder_type: builder-x86
-  #         builder_images_to_copy: ./bootstrap.sh image-e2e
-  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-  #         run: |
-  #           set -eux
-  #           cd ./yarn-project/end-to-end/
-  #           export FORCE_COLOR=1
-  #           ./scripts/e2e_test.sh ${{ matrix.test }}
+  # all the non-bench end-to-end integration tests for aztec
+  e2e:
+    needs: [ci-rest, configure]
+    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.ci-rest.outputs.e2e_list )}}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Determine runner type
+        id: runner_type
+        run: |
+          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
+          echo "type=$runner" >> $GITHUB_OUTPUT
+      - name: Setup and Test
+        timeout-minutes: 40
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        with:
+          runner_type: ${{ steps.runner_type.outputs.type }}
+          builder_type: builder-x86
+          builder_images_to_copy: ./bootstrap.sh image-e2e
+          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
+          run: |
+            set -eux
+            cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
+            ./scripts/e2e_test.sh ${{ matrix.test }}
 
-  # # all the benchmarking end-to-end integration tests for aztec (not required to merge)
-  # bench-e2e:
-  #   needs: [bootstrap, configure]
-  #   if: needs.build.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       test: ${{ fromJson( needs.build.outputs.bench_list )}}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: Determine runner type
-  #       id: runner_type
-  #       run: |
-  #         runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
-  #         echo "type=$runner" >> $GITHUB_OUTPUT
-  #     - name: Setup and Test
-  #       uses: ./.github/ensure-tester-with-images
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       timeout-minutes: 45
-  #       with:
-  #         runner_type: ${{ steps.runner_type.outputs.type }}
-  #         builder_type: builder-x86
-  #         # these are copied to the tester and expected by the earthly command below
-  #         # if they fail to copy, it will try to build them on the tester and fail
-  #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-  #         # command to produce the images in case they don't exist
-  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-  #         tester_ttl: 40
-  #         run: |
-  #           set -eux
-  #           cd ./yarn-project/end-to-end/
-  #           export FORCE_COLOR=1
-  #           export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-  #           ./scripts/e2e_test.sh ${{ matrix.test }}
+  # all the benchmarking end-to-end integration tests for aztec (not required to merge)
+  bench-e2e:
+    needs: [ci-rest, configure]
+    if: needs.ci-rest.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.ci-rest.outputs.bench_list )}}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Determine runner type
+        id: runner_type
+        run: |
+          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
+          echo "type=$runner" >> $GITHUB_OUTPUT
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        timeout-minutes: 45
+        with:
+          runner_type: ${{ steps.runner_type.outputs.type }}
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
+          tester_ttl: 40
+          run: |
+            set -eux
+            cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ./scripts/e2e_test.sh ${{ matrix.test }}
 
-  #           # TODO(#9692): disabled after refactoring - trying to call function as target
-  #           # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
+            # TODO(#9692): disabled after refactoring - trying to call function as target
+            # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
     runs-on: ubuntu-20.04
@@ -296,44 +300,44 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
 
-  # bench-summary:
-  #   needs:
-  #     - acir-bench
-  #     - bench-e2e
-  #     - configure
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 100 # Downloading base benchmark from master requires access to history
-  #         ref: "${{ github.event.pull_request.head.sha }}"
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: bench-summary-x86
-  #     - name: "Build and upload bench aggregate file"
-  #       working-directory: ./yarn-project/scripts
-  #       run: |
-  #         earthly-ci +bench-aggregate
-  #     - name: "Download base benchmark and package into earthly"
-  #       if: github.event_name == 'pull_request'
-  #       run: |
-  #         # Download the base benchmark locally (requires AWS creds and .git history)
-  #         mkdir -p $BENCH_FOLDER
-  #         ./scripts/logs/download_base_benchmark_from_s3.sh
-  #         # Package it into an earthly artifact to read from bench-comment
-  #         earthly-ci ./scripts/logs+pack-base-benchmark
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         BENCH_FOLDER: "./scripts/logs/tmp/bench"
-  #         PULL_REQUEST: "${{ github.event.pull_request.number }}"
-  #     - name: "Generate summary comment if pull request"
-  #       if: github.event_name == 'pull_request'
-  #       working-directory: ./yarn-project/scripts
-  #       run: |
-  #         earthly-ci +bench-comment
-  #       env:
-  #         AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+  bench-summary:
+    needs:
+      - acir-bench
+      - bench-e2e
+      - configure
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100 # Downloading base benchmark from master requires access to history
+          ref: "${{ github.event.pull_request.head.sha }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: bench-summary-x86
+      - name: "Build and upload bench aggregate file"
+        working-directory: ./yarn-project/scripts
+        run: |
+          earthly-ci +bench-aggregate
+      - name: "Download base benchmark and package into earthly"
+        if: github.event_name == 'pull_request'
+        run: |
+          # Download the base benchmark locally (requires AWS creds and .git history)
+          mkdir -p $BENCH_FOLDER
+          ./scripts/logs/download_base_benchmark_from_s3.sh
+          # Package it into an earthly artifact to read from bench-comment
+          earthly-ci ./scripts/logs+pack-base-benchmark
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BENCH_FOLDER: "./scripts/logs/tmp/bench"
+          PULL_REQUEST: "${{ github.event.pull_request.number }}"
+      - name: "Generate summary comment if pull request"
+        if: github.event_name == 'pull_request'
+        working-directory: ./yarn-project/scripts
+        run: |
+          earthly-ci +bench-comment
+        env:
+          AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # ran on own runner for resource reasons (memory x cpu intensive)
@@ -358,127 +362,6 @@ jobs:
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
           ./ci.sh ec2 "./barretenberg/cpp/bootstrap.sh ci"
 
-  # bb-js-test:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.barretenberg == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: bb-js-test-x86
-  #     - name: "bb.js Tests"
-  #       working-directory: ./barretenberg/ts/
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./+test
-
-  # bb-acir-tests:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: bb-acir-tests
-  #     - name: "BB Native Acir Tests (Misc)"
-  #       working-directory: ./barretenberg/acir_tests
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./+test
-
-  # noir-format:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: noir-format-x86
-  #     - name: "Format Noir"
-  #       working-directory: ./noir/
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./+format
-  #     - name: "Format noir-projects"
-  #       working-directory: ./noir-projects/
-  #       timeout-minutes: 40
-  #       run: |
-  #         earthly-ci --no-output ./+format
-
-  # noir-test:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.noir == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: noir-x86
-  #     - name: "Test Nargo"
-  #       run: earthly-ci --no-output ./noir+test
-
-  # noir-examples:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.noir == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: noir-examples-x86
-  #     - name: "Test Noir examples"
-  #       run: earthly-ci --no-output ./noir+examples
-
-  # noir-packages-test:
-  #   needs: [bootstrap-noir-bb, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: noir-packages-x86
-  #     - name: "Test Noir JS packages"
-  #       timeout-minutes: 50
-  #       run: earthly-ci --no-output ./noir+packages-test
-
-  # noir-projects:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: noir-projects-x86
-  #     - name: "Noir Projects"
-  #       timeout-minutes: 40
-  #       run: |
-  #         earthly-ci --no-output ./noir-projects/+test --RAYON_NUM_THREADS=$(nproc)
-
-  # avm-format:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.avm-transpiler == 'true' || needs.configure.outputs.noir == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: avm-transpiler-format-x86
-  #     - name: "Format AVM transpiler"
-  #       working-directory: ./avm-transpiler/
-  #       timeout-minutes: 40
-  #       run: earthly-ci --no-output ./+format
-
-  # proving disabled
   network-4epochs-test:
     needs: [ci-rest, configure]
     if: needs.configure.outputs.yarn-project == 'true' && (github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all'))
@@ -501,133 +384,98 @@ jobs:
         timeout-minutes: 60
         run: sudo shutdown -P 60 && earthly-ci +network-test --test=./test-4epochs.sh
 
-  # kind-smoke-test:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: kind-smoke-test
-  #     - name: Setup and KIND Network Test
-  #       timeout-minutes: 60
-  #       uses: ./.github/ensure-tester-with-images
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       with:
-  #         runner_type: 8core-tester-x86
-  #         spot_strategy: None # use on-demand machines
-  #         builder_type: builder-x86
-  #         # these are copied to the tester and expected by the earthly command below
-  #         # if they fail to copy, it will try to build them on the tester and fail
-  #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-  #         # command to produce the images in case they don't exist
-  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-  #         tester_ttl: 60
-  #         run: |
-  #           cd yarn-project/end-to-end
-  #           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-  #           NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+  kind-smoke-test:
+    needs: [ci-rest, configure]
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: kind-smoke-test
+      - name: Setup and KIND Network Test
+        timeout-minutes: 60
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: 8core-tester-x86
+          spot_strategy: None # use on-demand machines
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
+          tester_ttl: 60
+          run: |
+            cd yarn-project/end-to-end
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-  # # note: proving disabled
-  # kind-network-test:
-  #   needs: [bootstrap, configure]
-  #   if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       config:
-  #         - test: transfer.test.ts
-  #           values: 16-validators
-  #           runner_type: 16core-tester-x86
-  #           timeout: 60
-  #         # TODO: Enable this once stable
-  #         # - test: transfer.test.ts
-  #         #   values: 48-validators
-  #         #   runner_type: 32core-tester-x86
-  #         #   timeout: 90
-  #         - test: reorg.test.ts
-  #           values: 16-validators
-  #           runner_type: 16core-tester-x86-high-memory
-  #           timeout: 90
-  #         - test: 4epochs.test.ts
-  #           values: 16-validators
-  #           runner_type: 16core-tester-x86
-  #           timeout: 60
-  #         - test: gating-passive.test.ts
-  #           values: 16-validators
-  #           runner_type: 16core-tester-x86
-  #           timeout: 60
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: kind-network-${{ matrix.config.test }}
-  #     - name: Setup and KIND Network Test
-  #       timeout-minutes: ${{ matrix.config.timeout }}
-  #       uses: ./.github/ensure-tester-with-images
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       with:
-  #         runner_type: ${{ matrix.config.runner_type }}
-  #         spot_strategy: None # use on-demand machines
-  #         builder_type: builder-x86
-  #         # these are copied to the tester and expected by the earthly command below
-  #         # if they fail to copy, it will try to build them on the tester and fail
-  #         builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-  #         # command to produce the images in case they don't exist
-  #         builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-  #         tester_ttl: ${{ matrix.config.timeout }}
-  #         run: |
-  #           cd yarn-project/end-to-end
-  #           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-  #           test=${{ matrix.config.test }}
-  #           NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
-  #     - name: Copy Network Logs
-  #       if: always() # Run on failure too
-  #       run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
-  #     - name: Upload Network Logs
-  #       if: always() # Run on failure too
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
-  #         path: network-test.log
-
-  # l1-contracts-test:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.l1-contracts == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: l1-contracts-${{ needs.configure.outputs.username }}-x86
-  #     - name: "Test l1 contracts"
-  #       run: earthly-ci --no-output ./l1-contracts+test
-
-  # docs-preview:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   if: needs.configure.outputs.non-barretenberg-cpp == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: docs-preview-x86
-  #     - name: "Docs Preview"
-  #       timeout-minutes: 60
-  #       run: |
-  #         earthly-ci --no-output \
-  #         ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} \
-  #         --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-  #         --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
-  #         --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+  # note: proving disabled
+  kind-network-test:
+    needs: [ci-rest, configure]
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # TODO: Enable this once stable
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          #   timeout: 90
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: gating-passive.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Setup and KIND Network Test
+        timeout-minutes: ${{ matrix.config.timeout }}
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: ${{ matrix.config.runner_type }}
+          spot_strategy: None # use on-demand machines
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
+          tester_ttl: ${{ matrix.config.timeout }}
+          run: |
+            cd yarn-project/end-to-end
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            test=${{ matrix.config.test }}
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Copy Network Logs
+        if: always() # Run on failure too
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
+      - name: Upload Network Logs
+        if: always() # Run on failure too
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          path: network-test.log
 
   bb-bench:
     runs-on: ubuntu-20.04
@@ -636,7 +484,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
         env:
@@ -702,195 +549,185 @@ jobs:
           run: |
             set -eux
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+            flock /var/lock/build.lock scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Box test
         uses: ./.github/runs-on-builder
         timeout-minutes: 40
-        run: CI=1 ./bootstrap.sh test-boxes
+        with:
+          run: CI=1 ./bootstrap.sh test-boxes
 
-# protocol-circuits-gates-report:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   permissions:
-  #     pull-requests: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     # Only allow one memory-hunger prover test to use this runner
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: protocol-circuits-gates-report-x86
-  #     - name: "Noir Protocol Circuits Report"
-  #       working-directory: ./noir-projects/
-  #       timeout-minutes: 40
-  #       run: |
-  #         earthly-ci \
-  #         --artifact +gates-report/gates_report.json
-  #         mv gates_report.json ../protocol_circuits_report.json
+  protocol-circuits-gates-report:
+    needs: [ci-rest, configure]
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: builder-x86
+          run: |
+            set -eux
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            flock /var/lock/build.lock scripts/earthly-ci --artifact +gates-report/gates_report.json
+      - name: "Noir Protocol Circuits Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          flock /var/lock/build.lock earthly-ci --artifact +gates-report/gates_report.json
+          mv gates_report.json ../protocol_circuits_report.json
 
-  #     - name: Compare gates reports
-  #       id: gates_diff
-  #       uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
-  #       with:
-  #         report: protocol_circuits_report.json
-  #         summaryQuantile: 0 # Display any diff in gate count
+      - name: Compare gates reports
+        id: gates_diff
+        uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
+        with:
+          report: protocol_circuits_report.json
+          summaryQuantile: 0 # Display any diff in gate count
 
-  #     - name: Add gates diff to sticky comment
-  #       if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-  #       uses: marocchino/sticky-pull-request-comment@v2
-  #       with:
-  #         # delete the comment in case changes no longer impact circuit sizes
-  #         delete: ${{ !steps.gates_diff.outputs.markdown }}
-  #         message: ${{ steps.gates_diff.outputs.markdown }}
+      - name: Add gates diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.gates_diff.outputs.markdown }}
+          message: ${{ steps.gates_diff.outputs.markdown }}
 
-  # public-functions-size-report:
-  #   needs: [bootstrap, configure]
-  #   if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
-  #   runs-on: ${{ needs.configure.outputs.username }}-x86
-  #   permissions:
-  #     pull-requests: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     # Only allow one memory-hunger prover test to use this runner
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: public-functions-size-report-x86
-  #     - name: "Aztec Public Functions Bytecode Size Report"
-  #       working-directory: ./noir-projects/
-  #       timeout-minutes: 40
-  #       run: |
-  #         earthly-ci \
-  #         --artifact +public-functions-report/public_functions_report.json
-  #         mv public_functions_report.json ../public_functions_report.json
+  public-functions-size-report:
+    needs: [ci-rest, configure]
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: public-functions-size-report-x86
+      - name: "Aztec Public Functions Bytecode Size Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          earthly-ci \
+          --artifact +public-functions-report/public_functions_report.json
+          mv public_functions_report.json ../public_functions_report.json
 
-  #     - name: Compare public functions bytecode size reports
-  #       id: public_functions_sizes_diff
-  #       uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
-  #       with:
-  #         report: public_functions_report.json
-  #         header: |
-  #           # Changes to public function bytecode sizes
-  #         brillig_report: true
-  #         brillig_report_bytes: true
-  #         summaryQuantile: 0 # Display any diff in bytecode size count
+      - name: Compare public functions bytecode size reports
+        id: public_functions_sizes_diff
+        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
+        with:
+          report: public_functions_report.json
+          header: |
+            # Changes to public function bytecode sizes
+          brillig_report: true
+          brillig_report_bytes: true
+          summaryQuantile: 0 # Display any diff in bytecode size count
 
-  #     - name: Add bytecode size diff to sticky comment
-  #       if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-  #       uses: marocchino/sticky-pull-request-comment@v2
-  #       with:
-  #         header: public_functions_size
-  #         # delete the comment in case changes no longer impact circuit sizes
-  #         delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
-  #         message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
+      - name: Add bytecode size diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: public_functions_size
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
 
-  # merge-check:
-  #   runs-on: ubuntu-20.04
-  #   needs:
-  #     - setup
-  #     - configure
-  #     - bootstrap
-  #     - bootstrap-noir-bb
-  #     - e2e
-  #     - bb-gcc
-  #     - bb-native-tests
-  #     - bb-js-test
-  #     - bb-acir-tests
-  #     - noir-format
-  #     - noir-test
-  #     - noir-examples
-  #     - noir-packages-test
-  #     - noir-projects
-  #     - avm-format
-  #     - yarn-project-formatting
-  #     - yarn-project-test
-  #     - prover-client-test
-  #     - network-test
-  #     - kind-smoke-test
-  #     - kind-network-test
-  #     - l1-contracts-test
-  #     - docs-preview
-  #     # - bb-bench # non-blocking
-  #     - boxes-test
-  #     # - protocol-circuits-gates-report # non-blocking
-  #   if: always()
-  #   outputs:
-  #     failure: ${{ steps.set_failed_jobs.outputs.failure }}
-  #     failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
-  #   steps:
-  #     - name: Check for Failures and Set Output
-  #       id: set_failed_jobs
-  #       env:
-  #         # Collect needed jobs
-  #         NEEDS_JOBS_JSON: ${{ toJson(needs) }}
-  #       run: |
-  #         echo "Processing failed jobs..."
-  #         failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
-  #         echo "$failed_jobs" > .failed
-  #         echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
-  #         echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
+  merge-check:
+    runs-on: ubuntu-20.04
+    needs:
+      - configure
+      - base-images
+      - ci-noir-bb
+      - ci-rest
+      - bb-native-tests
+      - kind-network-test
+      # - bb-bench # non-blocking
+      - boxes-test
+      # - protocol-circuits-gates-report # non-blocking
+      # - public-functions-size-report # non-blocking
+    if: always()
+    outputs:
+      failure: ${{ steps.set_failed_jobs.outputs.failure }}
+      failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
+    steps:
+      - name: Check for Failures and Set Output
+        id: set_failed_jobs
+        env:
+          # Collect needed jobs
+          NEEDS_JOBS_JSON: ${{ toJson(needs) }}
+        run: |
+          echo "Processing failed jobs..."
+          failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
+          echo "$failed_jobs" > .failed
+          echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
+          echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
 
-  #     - name: Report overall success (non-draft)
-  #       if: github.event.pull_request.draft == false
-  #       env:
-  #         # We treat any skipped or failing jobs as a failure for the workflow as a whole.
-  #         FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-  #       run: |
-  #         if [[ $FAIL == true ]]; then
-  #             echo "Jobs failed: $(cat .failed), merging not allowed."
-  #             exit 1
-  #         else
-  #             echo "All jobs succeeded, merge allowed."
-  #             exit 0
-  #         fi
-  #     - name: Block merge (draft)
-  #       if: github.event.pull_request.draft
-  #       run: echo "Can't merge drafts." && exit 1
+      - name: Report overall success (non-draft)
+        if: github.event.pull_request.draft == false
+        env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "Jobs failed: $(cat .failed), merging not allowed."
+              exit 1
+          else
+              echo "All jobs succeeded, merge allowed."
+              exit 0
+          fi
+      - name: Block merge (draft)
+        if: github.event.pull_request.draft
+        run: echo "Can't merge drafts." && exit 1
 
-  # rerun-check:
-  #   runs-on: ubuntu-20.04
-  #   permissions:
-  #     actions: write
-  #   needs:
-  #     - merge-check
-  #   if: github.event.pull_request.draft == false && !cancelled()
-  #   steps:
-  #     - name: Check for Rerun
-  #       env:
-  #         GH_REPO: ${{ github.repository }}
-  #         GH_TOKEN: ${{ github.token }}
-  #       run: |
-  #         if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
-  #           echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
-  #           gh workflow run rerun.yml -F run_id=${{ github.run_id }}
-  #         fi
+  rerun-check:
+    runs-on: ubuntu-20.04
+    permissions:
+      actions: write
+    needs:
+      - merge-check
+    if: github.event.pull_request.draft == false && !cancelled()
+    steps:
+      - name: Check for Rerun
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          fi
 
-  # notify:
-  #   runs-on: ubuntu-20.04
-  #   needs:
-  #     - merge-check
-  #   if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+  notify:
+    runs-on: ubuntu-20.04
+    needs:
+      - merge-check
+    if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Get Authors of Recent Commit
-  #       id: get_authors
-  #       run: |
-  #         git fetch --depth=1 origin ${{ github.sha }}
-  #         authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
-  #         echo "authors=${authors}" >> $GITHUB_OUTPUT
+      - name: Get Authors of Recent Commit
+        id: get_authors
+        run: |
+          git fetch --depth=1 origin ${{ github.sha }}
+          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
 
-  #     - name: Send notification to aztec3-ci channel if workflow failed on master
-  #       uses: slackapi/slack-github-action@v1.25.0
-  #       with:
-  #         payload: |
-  #           {
-  #             "text": "Master Github Actions failure",
-  #             "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-  #             "authors": "${{ steps.get_authors.outputs.authors }}",
-  #             "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
-  #           }
-  #       env:
-  #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Master Github Actions failure",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_authors.outputs.authors }}",
+              "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
