@@ -67,6 +67,8 @@ import {
 } from '@aztec/protocol-contracts';
 import { type AcirSimulator } from '@aztec/simulator';
 
+import { inspect } from 'util';
+
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -133,6 +135,10 @@ export class PXEService implements PXE {
     this.log.info('Cancelled Job Queue');
     await this.synchronizer.stop();
     this.log.info('Stopped Synchronizer');
+  }
+
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
   /** Returns an estimate of the db size in bytes. */
@@ -519,8 +525,7 @@ export class PXEService implements PXE {
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       });
   }
 
@@ -576,8 +581,15 @@ export class PXEService implements PXE {
         );
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `simulatePublic=${simulatePublic}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `skipTxValidation=${skipTxValidation}`,
+          `profile=${profile}`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -588,8 +600,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
-      this.log.error(err);
-      throw err;
+      throw this.contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
@@ -613,8 +624,12 @@ export class PXEService implements PXE {
         return executionResult;
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
+        throw this.contextualizeError(
+          err,
+          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -985,5 +1000,14 @@ export class PXEService implements PXE {
 
   async resetNoteSyncData() {
     return await this.db.resetNoteSyncData();
+  }
+
+  private contextualizeError(err: Error, ...context: string[]): Error {
+    this.log.error(err.name, err);
+    this.log.debug('Context:');
+    for (const c of context) {
+      this.log.debug(c);
+    }
+    return err;
   }
 }

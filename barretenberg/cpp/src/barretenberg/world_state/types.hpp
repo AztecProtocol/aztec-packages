@@ -32,7 +32,7 @@ using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
 
 struct WorldStateRevision {
     index_t forkId{ 0 };
-    index_t blockNumber{ 0 };
+    block_number_t blockNumber{ 0 };
     bool includeUncommitted{ false };
 
     MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
