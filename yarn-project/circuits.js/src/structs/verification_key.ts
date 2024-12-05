@@ -5,7 +5,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -139,7 +139,10 @@ export class VerificationKeyAsFields {
   }
 
   static makeFakeHonk(seed = 1): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+    return new VerificationKeyAsFields(
+      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed),
+      Fr.random(),
+    );
   }
 
   /**
@@ -249,7 +252,7 @@ export class VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
 
-  static makeFake(len = HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+  static makeFake(len = ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 
