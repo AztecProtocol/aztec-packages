@@ -83,9 +83,9 @@ To update a value, its previous note hash(es) are nullified. The new note value 
 
 Some optional background resources on notes can be found here:
 
-- [High level network architecture](../../../../../aztec/overview.md), specifically the Private Execution Environment
+- [High level network architecture](../../../../../aztec/concepts_overview.md), specifically the Private Execution Environment
 - [Transaction lifecycle (simple diagram)](../../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public and Private state](../../../../../aztec/concepts/state_model/index.md)
+- [Public and Private state](../../../../../aztec/concepts/storage/state_model/index.md)
 
 Notes touch several core components of the protocol, but we will focus on a the essentials first.
 

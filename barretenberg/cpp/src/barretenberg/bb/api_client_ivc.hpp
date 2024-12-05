@@ -141,8 +141,7 @@ class ClientIVCAPI : public API {
         ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
 
         // Accumulate the entire program stack into the IVC
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once
-        // databus has been integrated into noir kernel programs
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel
         bool is_kernel = false;
         for (Program& program : folding_stack) {
             // Construct a bberg circuit from the acir representation then accumulate it into the IVC
@@ -157,6 +156,47 @@ class ClientIVCAPI : public API {
 
             // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
             // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
+            ivc.accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
+        }
+
+        return ivc;
+    };
+
+    static ClientIVC _accumulate_without_auto_verify(std::vector<acir_format::AcirProgram>& folding_stack)
+    {
+        using Builder = MegaCircuitBuilder;
+        using Program = acir_format::AcirProgram;
+
+        using namespace acir_format;
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
+
+        // TODO(#7371) dedupe this with the rest of the similar code
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
+        ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/false };
+
+        // Accumulate the entire program stack into the IVC
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once
+        // databus has been integrated into noir kernel programs
+        bool is_kernel = false;
+        for (Program& program : folding_stack) {
+
+            Builder circuit;
+
+            is_kernel = !program.constraints.ivc_recursion_constraints.empty();
+            if (is_kernel) {
+                vinfo("Accumulating KERNEL.");
+                circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
+            } else {
+                vinfo("Accumulating APP.");
+                circuit = create_circuit<Builder>(
+                    program.constraints, /*recursive=*/false, 0, program.witness, false, ivc.goblin.op_queue);
+            }
+
+            // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
+            // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
             ivc.accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
         }
 
@@ -179,7 +219,19 @@ class ClientIVCAPI : public API {
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
-        ClientIVC ivc = _accumulate(folding_stack);
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
+
+        ClientIVC ivc;
+        if (flags.no_auto_verify) {
+            vinfo("performing accumulation WITHOUT auto-verify");
+            ivc = _accumulate_without_auto_verify(folding_stack);
+        } else {
+            vinfo("performing accumulation with auto-verify");
+            ivc = _accumulate(folding_stack);
+        }
         ClientIVC::Proof proof = ivc.prove();
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems

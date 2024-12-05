@@ -44,6 +44,8 @@ import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
 
+  abstract isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
   abstract getCompleteAddress(): CompleteAddress;
 
   abstract getChainId(): Fr;

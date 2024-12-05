@@ -4,16 +4,13 @@ set -exu
 CHAIN_ID=$1
 
 
-# Use default account, it is funded on our dev machine
-export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
 # Run the deploy-l1-contracts command and capture the output
 output=""
 # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
 if [ "$INIT_VALIDATORS" = "true" ]; then
-  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --validators $2 --l1-chain-id $CHAIN_ID)
+  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $2 --l1-chain-id $CHAIN_ID)
 else
-  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --l1-chain-id $CHAIN_ID)
+  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID)
 fi
 
 echo "$output"
