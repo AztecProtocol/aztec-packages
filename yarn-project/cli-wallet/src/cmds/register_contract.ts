@@ -1,7 +1,7 @@
 import {
   type AccountWalletWithSecretKey,
   type AztecAddress,
-  Fr,
+  type Fr,
   PublicKeys,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
