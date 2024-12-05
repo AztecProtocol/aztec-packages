@@ -504,8 +504,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    this.node.services.pubsub.topicValidators.set;
-
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
     const dataValidator = new DataTxValidator();

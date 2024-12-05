@@ -132,7 +132,7 @@ describe('ValidationService', () => {
 
     // Setup epoch cache mocks
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
-      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+      Promise.resolve([EthAddress.random(), EthAddress.random()]),
     );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 

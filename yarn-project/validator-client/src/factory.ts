@@ -8,8 +8,6 @@ import { generatePrivateKey } from 'viem/accounts';
 import { type ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
 
-// import { type L1TimestampSource } from '@aztec/circuit-types';
-
 export async function createValidatorClient(
   config: ValidatorClientConfig & EpochCacheConfig,
   rollupAddress: EthAddress,
