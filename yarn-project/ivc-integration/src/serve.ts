@@ -1,6 +1,6 @@
 import createDebug from 'debug';
 
-import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser } from './index.js';
+import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser, proveBrowser } from './index.js';
 
 createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
@@ -79,6 +79,7 @@ function setupConsoleOutput() {
 }
 
 (window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
+(window as any).proveBroswer = proveBrowser;
 
 document.addEventListener('DOMContentLoaded', function () {
   setupConsoleOutput(); // Initialize console output capture
