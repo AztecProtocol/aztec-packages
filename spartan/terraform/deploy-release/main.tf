@@ -46,6 +46,11 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.AZTEC_DOCKER_IMAGE
   }
 
+  set {
+    name  = "aztec.l1DeploymentMnemonic"
+    value = var.l1_deployment_mnemonic
+  }
+
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
   wait          = true

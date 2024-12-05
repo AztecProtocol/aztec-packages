@@ -11,8 +11,8 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 # Set environment variables
 export PORT=${PORT:-"8080"}
-export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export DEBUG=${DEBUG:-""}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="true"

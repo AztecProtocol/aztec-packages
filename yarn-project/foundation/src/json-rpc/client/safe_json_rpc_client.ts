@@ -1,6 +1,6 @@
 import { format } from 'util';
 
-import { createDebugLogger } from '../../log/logger.js';
+import { createDebugLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
 import { defaultFetch } from './fetch.js';
 

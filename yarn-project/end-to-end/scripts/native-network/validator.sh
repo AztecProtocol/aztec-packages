@@ -49,7 +49,8 @@ fi
 
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
-export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
+export DEBUG=${DEBUG:-""}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 
 # Automatically detect if we're using Anvil

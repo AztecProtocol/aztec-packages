@@ -1,4 +1,4 @@
-import { createDebugLogger } from '../../log/logger.js';
+import { createDebugLogger } from '../../log/pino-logger.js';
 
 /**
  * A number generator which is used as a source of randomness in the system. If the SEED env variable is set, the
