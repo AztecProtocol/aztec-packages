@@ -7,6 +7,7 @@ import {
   type L2BlockSource,
   MerkleTreeId,
   type RawGossipMessage,
+  TopicToDeserializer,
   TopicType,
   TopicTypeMap,
   Tx,
@@ -27,7 +28,7 @@ import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import type { PeerId } from '@libp2p/interface';
+import type { Message, PeerId } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
@@ -242,6 +243,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          msgIdFn: getMsgIdFn,
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
@@ -597,4 +599,15 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.logger.error('Error during stop or timeout:', error);
     }
   }
+}
+
+function getMsgIdFn(message: Message) {
+  if (message.topic in TopicToDeserializer) {
+    // 1. Get deserialiser based on the topic
+    // 2. Deserialise message
+    // 3. Get p2pMessageIdentifier from deserialised message
+    return Uint8Array.from(TopicToDeserializer[message.topic](Buffer.from(message.data)).p2pMessageIdentifier().buffer);
+  }
+
+  throw new Error(`No deserializer found for topic ${message.topic}`);
 }
