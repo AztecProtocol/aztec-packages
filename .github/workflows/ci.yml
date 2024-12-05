@@ -484,7 +484,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
         env:
