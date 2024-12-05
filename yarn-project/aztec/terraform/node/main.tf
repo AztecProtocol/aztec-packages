@@ -253,10 +253,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "80"
         },
         {
-          name  = "DEBUG"
-          value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
-        },
-        {
           name  = "ETHEREUM_HOST"
           value = "${local.eth_host}"
         },

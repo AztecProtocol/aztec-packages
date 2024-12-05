@@ -3,6 +3,7 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -157,16 +158,25 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
-        for (size_t i = 0; i < circuit_size; ++i) {
-            // We only compute the inverse if this row contains a lookup gate or data that has been looked up
-            if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                auto value = compute_read_term<FF, 0>(row, relation_parameters) *
-                             compute_write_term<FF, 0>(row, relation_parameters);
-                inverse_polynomial.at(i) = value;
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
+        size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            size_t start = thread_idx * iterations_per_thread;
+            size_t end = (thread_idx + 1) * iterations_per_thread;
+            for (size_t i = start; i < end; ++i) {
+                // We only compute the inverse if this row contains a lookup gate or data that has been looked up
+                if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+                    auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                    auto value = compute_read_term<FF, 0>(row, relation_parameters) *
+                                 compute_write_term<FF, 0>(row, relation_parameters);
+                    inverse_polynomial.at(i) = value;
+                }
             }
-        }
+        });
+
         // Compute inverse polynomial I in place by inverting the product at each row
         FF::batch_invert(inverse_polynomial.coeffs());
     };

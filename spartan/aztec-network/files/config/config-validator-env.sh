@@ -1,9 +1,9 @@
 #!/bin/bash
 set -eu
 
-# Pass the bootnode url as an argument
-# Ask the bootnode for l1 contract addresses
-output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info --node-url $1)
+# Pass a PXE url as an argument
+# Ask the PXE's node for l1 contract addresses
+output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $1 --node-url '')
 
 echo "$output"
 
