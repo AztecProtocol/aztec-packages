@@ -47,6 +47,7 @@ format:
 
 gates-report:
   FROM ../+bootstrap
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir-projects
 
   # Install bb
@@ -60,8 +61,10 @@ gates-report:
 
 public-functions-report:
   FROM ../+bootstrap
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir-projects
 
   RUN cd noir-contracts && node ./scripts/publicFunctionsSizeReport.js ./target/
 
   SAVE ARTIFACT ./noir-contracts/public_functions_report.json public_functions_report.json
+yarn add ethers

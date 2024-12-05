@@ -25,4 +25,4 @@ export TESTING_HONK="true"
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
 export TEST_NAME=$(basename $(pwd))
-node "$DIR/../sol-test/src/index.js"
+yarn --cwd "$DIR/../sol-test/" start

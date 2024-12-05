@@ -36,42 +36,6 @@ bb-cli:
     # yarn symlinks the binary to node_modules/.bin
     ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
 
-# helper target to generate vks in parallel
-verification-key:
-    ARG circuit="RootRollupArtifact"
-    FROM +bb-cli
-
-    # this needs to be exported as an env var for RUN to pick it up
-    ENV CIRCUIT=$circuit
-    RUN --entrypoint write-vk -c $CIRCUIT
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-protocol-verification-keys:
-    LOCALLY
-    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
-
-    FOR circuit IN $circuits
-        BUILD +verification-key --circuit=$circuit
-    END
-
-    # this could be FROM scratch
-    # but FOR doesn't work without /bin/sh
-    FROM ubuntu:noble
-    WORKDIR /usr/src/bb
-
-    FOR circuit IN $circuits
-        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
-    END
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-rollup-verifier-contract:
-    FROM +bb-cli
-    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
 txe:
     FROM +cli-base
     RUN yarn workspaces focus @aztec/txe && yarn cache clean

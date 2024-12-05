@@ -78,8 +78,6 @@ test-bb.js:
     RUN (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn && yarn build)
     RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
     RUN cd ../ts && yarn
-    # We have diminishing returns after 32 cores, and unnecessarily use resources
-    ENV HARDWARE_CONCURRENCY=32
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672): Try to enable double_verify
     # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
     # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
