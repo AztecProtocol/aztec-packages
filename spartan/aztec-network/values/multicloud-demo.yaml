@@ -17,12 +17,8 @@ bootNode:
   validator:
     disabled: true
 
-proverNode:
-  realProofs: false
-
 proverAgent:
   replicas: 1
-  realProofs: false
   bb:
     hardwareConcurrency: 16
 

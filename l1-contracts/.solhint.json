@@ -27,7 +27,7 @@
     "no-unused-vars": "error",
     "state-visibility": "error",
     "var-name-mixedcase": "error",
-    "private-func-leading-underscore": "error",
+    "private-func-leading-underscore": "warn",
     "private-vars-no-leading-underscore": "error",
     "func-param-name-leading-underscore": "error",
     "func-param-name-mixedcase": "error",

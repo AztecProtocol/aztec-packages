@@ -193,19 +193,28 @@ impl Context {
     }
 
     fn remove_rc_instructions(self, dfg: &mut DataFlowGraph) {
-        for (rc, block) in self.rc_instructions {
-            let value = match &dfg[rc] {
-                Instruction::IncrementRc { value } => *value,
-                Instruction::DecrementRc { value } => *value,
-                other => {
-                    unreachable!("Expected IncrementRc or DecrementRc instruction, found {other:?}")
-                }
-            };
+        let unused_rc_values_by_block: HashMap<BasicBlockId, HashSet<InstructionId>> =
+            self.rc_instructions.into_iter().fold(HashMap::default(), |mut acc, (rc, block)| {
+                let value = match &dfg[rc] {
+                    Instruction::IncrementRc { value } => *value,
+                    Instruction::DecrementRc { value } => *value,
+                    other => {
+                        unreachable!(
+                            "Expected IncrementRc or DecrementRc instruction, found {other:?}"
+                        )
+                    }
+                };
 
-            // This could be more efficient if we have to remove multiple instructions in a single block
-            if !self.used_values.contains(&value) {
-                dfg[block].instructions_mut().retain(|instruction| *instruction != rc);
-            }
+                if !self.used_values.contains(&value) {
+                    acc.entry(block).or_default().insert(rc);
+                }
+                acc
+            });
+
+        for (block, instructions_to_remove) in unused_rc_values_by_block {
+            dfg[block]
+                .instructions_mut()
+                .retain(|instruction| !instructions_to_remove.contains(instruction));
         }
     }
 

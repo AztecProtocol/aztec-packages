@@ -88,7 +88,7 @@ spec:
             - name: DEBUG
               value: "{{ .Values.proverAgent.debug }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.proverAgent.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_AGENT_COUNT
               value: "1"
             - name: PROVER_AGENT_POLL_INTERVAL_MS
