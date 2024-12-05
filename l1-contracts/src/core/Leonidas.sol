@@ -278,14 +278,12 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   }
 
   /**
-   * @notice  Adds a validator to the set WITHOUT setting up the epoch
-   * @param _validator - The validator to add
+   * @notice  Get the committee for a given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee for the given timestamp
    */
-  function _addValidator(address _validator) internal {
-    store.validatorSet.add(_validator);
-  }
-
-  // Public view function for get committee at
   function getCommitteeAt(Timestamp _ts)
     external
     view
@@ -295,12 +293,32 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return store.getCommitteeAt(getEpochAt(_ts), TARGET_COMMITTEE_SIZE);
   }
 
-  function getSampleSeedAt(Timestamp _ts) external view returns (uint256) {
+  /**
+   * @notice  Get the sample seed for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sample seed for
+   *
+   * @return The sample seed for the given timestamp
+   */
+  function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
     return store.getSampleSeed(getEpochAt(_ts));
   }
 
-  function getCurrentSampleSeed() external view returns (uint256) {
+  /**
+   * @notice  Get the sample seed for the current epoch
+   *
+   * @return The sample seed for the current epoch
+   */
+  function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
     return store.getSampleSeed(getCurrentEpoch());
+  }
+
+  /**
+   * @notice  Adds a validator to the set WITHOUT setting up the epoch
+   * @param _validator - The validator to add
+   */
+  function _addValidator(address _validator) internal {
+    store.validatorSet.add(_validator);
   }
 
   /**
