@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733404406368,
+  "lastUpdate": 1733411994207,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e60874245439a47082db9fd0ca82d3798bee092d",
-          "message": "chore: optimise polynomial initialisation (#10073)\n\nAnalysing the impact of using a large ambient trace (2^20) in the\r\nClientIVC bench, with no changes to the circuit, one culprit is\r\ninitalisation of polynomials defined over the full domain with 0. As\r\nsuch, I parallelised the initialisation function inside the polynomial\r\nclass, which also brings improvement to the Client IVC bench as it is.\r\n\r\nDefault benchmark \r\nNOW: \r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   \r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      29956 ms        28100 ms\r\n```\r\nBEFORE: \r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   \r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      32341 ms        30470 ms\r\n```\r\n\r\n\r\nBenchmark with 2^20 ambient trace\r\n\r\nNOW: \r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   \r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      39013 ms        36526 ms \r\n```\r\nBEFORE: \r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   \r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      44346 ms        41778 ms \r\n```\r\nNote: this is disabled for AVM as they do parallel polynomial\r\nconstruction and have smaller polynomials.",
-          "timestamp": "2024-11-21T13:42:33Z",
-          "tree_id": "115a68ce8c10cae42cb896d6aa11dc67ca8d4b37",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e60874245439a47082db9fd0ca82d3798bee092d"
-        },
-        "date": 1732198604139,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28470.841744000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26735.503748 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5025.867008000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4690.847336 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84448.41394,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84448415000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15152.382715000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15152383000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3044703744,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3044703744 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142128019,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142128019 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 136637592,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136637592 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7ed89aaa9d0968af6334c1c8abf6c06a42754c52",
+          "message": "feat: Integrate verify_proof calls in mock protocol circuits (#9253)\n\nIntegrates `verify_proof` calls into the mock kernels in the IVC\r\nintegration suite. VKs are computed using a new `write_vk_for_ivc` flow.\r\n\r\n---------\r\n\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2024-12-05T07:29:08-07:00",
+          "tree_id": "797ebc8d7c7d86b831bcdb0f59ce6ee3573716ed",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7ed89aaa9d0968af6334c1c8abf6c06a42754c52"
+        },
+        "date": 1733411987048,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25636.434116000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23776.302220999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4626.7122279999885,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4309.831836 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89467.156511,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89467158000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16541.559909,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16541561000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2841648049,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2841648049 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136619531,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136619531 ns\nthreads: 1"
           }
         ]
       }
