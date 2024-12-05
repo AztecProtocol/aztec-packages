@@ -47,8 +47,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
             add_gates_to_ensure_all_polys_are_non_zero();
         }
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
+#endif
         process_range_lists();
         circuit_finalized = true;
     } else {
