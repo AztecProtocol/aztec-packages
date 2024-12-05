@@ -26,7 +26,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     using Relations = AvmFlavor::Relations_<FF>;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = false;
+    static constexpr bool USE_SHORT_MONOMIALS = NativeFlavor::USE_SHORT_MONOMIALS;
 
     static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
