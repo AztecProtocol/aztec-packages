@@ -157,6 +157,10 @@ struct PublicCallRequest {
      */
     bool is_static_call = false;
     FF args_hash{};
+    inline bool is_empty() const
+    {
+        return msg_sender == 0 && contract_address == 0 && function_selector == 0 && !is_static_call && args_hash == 0;
+    }
 };
 
 inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)

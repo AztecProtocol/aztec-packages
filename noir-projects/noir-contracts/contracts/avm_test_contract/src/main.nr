@@ -476,7 +476,6 @@ contract AvmTest {
     #[public]
     fn n_storage_writes(num: u32) {
         for i in 0..num {
-            context.push_nullifier(i as Field);
             storage.map.at(AztecAddress::from_field(i as Field)).write(i);
         }
     }

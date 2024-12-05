@@ -54,7 +54,22 @@ std::string to_name(TxExecutionPhase phase)
     }
 }
 
+/**************************************************************************************************
+ *                              HELPERS IN ANONYMOUS NAMESPACE
+ **************************************************************************************************/
 namespace {
+
+template <size_t N>
+std::vector<PublicCallRequest> non_empty_call_requests(std::array<PublicCallRequest, N> call_requests_array)
+{
+    std::vector<PublicCallRequest> call_requests_vec;
+    for (const auto& call_request : call_requests_array) {
+        if (!call_request.is_empty()) {
+            call_requests_vec.push_back(call_request);
+        }
+    }
+    return call_requests_vec;
+}
 
 // The SRS needs to be able to accommodate the circuit subgroup size.
 // Note: The *2 is due to how init_bn254_crs works, look there.
@@ -162,6 +177,10 @@ void show_trace_info(const auto& trace)
 }
 
 } // namespace
+
+/**************************************************************************************************
+ *                              Execution
+ **************************************************************************************************/
 
 // Needed for dependency injection in tests.
 Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](AvmPublicInputs public_inputs,
@@ -275,9 +294,10 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
 /**
  * @brief Generate the execution trace pertaining to the supplied instructions returns the return data.
  *
- * @param instructions A vector of the instructions to be executed.
- * @param calldata expressed as a vector of finite field elements.
- * @param public_inputs expressed as a vector of finite field elements.
+ * @param public_inputs - to constrain execution inputs & results against
+ * @param returndata - to add to for each enqueued call
+ * @param execution_hints - to inform execution
+ * @param apply_end_gas_assertions - should we apply assertions that public input's end gas is right?
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
@@ -299,598 +319,612 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
-    // Temporary spot for private non-revertible insertion
-    std::vector<FF> siloed_nullifiers;
-    siloed_nullifiers.insert(siloed_nullifiers.end(),
-                             public_inputs.accumulated_data.nullifiers.begin(),
-                             public_inputs.accumulated_data.nullifiers.begin() +
-                                 public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
-    trace_builder.insert_private_state(siloed_nullifiers, {});
-    trace_builder.checkpoint_non_revertible_state();
-
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_teardown_call_requests{};
-    public_teardown_call_requests[0] = public_inputs.public_teardown_call_request;
+    const auto setup_call_requests = non_empty_call_requests(public_inputs.public_setup_call_requests);
+    const auto app_logic_call_requests = non_empty_call_requests(public_inputs.public_app_logic_call_requests);
+    std::vector<PublicCallRequest> teardown_call_requests;
+    if (!public_inputs.public_teardown_call_request.is_empty()) {
+        // teardown is always one call request
+        teardown_call_requests.push_back(public_inputs.public_teardown_call_request);
+    }
 
     // Loop over all the public call requests
     uint8_t call_ctx = 0;
-    auto const phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };
+    const auto phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };
     for (auto phase : phases) {
-        auto call_requests_array = phase == TxExecutionPhase::SETUP       ? public_inputs.public_setup_call_requests
-                                   : phase == TxExecutionPhase::APP_LOGIC ? public_inputs.public_app_logic_call_requests
-                                                                          : public_teardown_call_requests;
-        std::vector<PublicCallRequest> public_call_requests;
-        for (const auto& call_request : call_requests_array) {
-            if (call_request.contract_address != 0) {
-                public_call_requests.push_back(call_request);
-            }
+        const auto public_call_requests = phase == TxExecutionPhase::SETUP       ? setup_call_requests
+                                          : phase == TxExecutionPhase::APP_LOGIC ? app_logic_call_requests
+                                                                                 : teardown_call_requests;
+
+        // When we get this, it means we have done our non-revertible setup phase
+        if (phase == TxExecutionPhase::SETUP) {
+            vinfo("Inserting non-revertible side effects from private before SETUP phase. Checkpointing trees.");
+            // Temporary spot for private non-revertible insertion
+            std::vector<FF> siloed_nullifiers;
+            siloed_nullifiers.insert(
+                siloed_nullifiers.end(),
+                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin(),
+                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin() +
+                    public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+            trace_builder.insert_private_state(siloed_nullifiers, {});
+            trace_builder.checkpoint_non_revertible_state();
+        } else if (phase == TxExecutionPhase::APP_LOGIC) {
+            vinfo("Inserting revertible side effects from private before APP_LOGIC phase");
+            // Temporary spot for private revertible insertion
+            std::vector<FF> siloed_nullifiers;
+            siloed_nullifiers.insert(siloed_nullifiers.end(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
+                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
+                                         public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
+            trace_builder.insert_private_state(siloed_nullifiers, {});
         }
-        info("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");
-        AvmError error = AvmError::NO_ERROR;
-        for (size_t i = 0; i < public_call_requests.size(); i++) {
 
-            // When we get this, it means we have done our non-revertible setup phase
-            if (phase == TxExecutionPhase::SETUP) {
-                // Temporary spot for private revertible insertion
-                std::vector<FF> siloed_nullifiers;
-                siloed_nullifiers.insert(
-                    siloed_nullifiers.end(),
-                    public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
-                    public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
-                        public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
-                trace_builder.insert_private_state(siloed_nullifiers, {});
-            }
-
-            auto public_call_request = public_call_requests.at(i);
+        vinfo("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");
+        AvmError phase_error = AvmError::NO_ERROR;
+        for (auto public_call_request : public_call_requests) {
             trace_builder.set_public_call_request(public_call_request);
             trace_builder.set_call_ptr(call_ctx++);
+            // Execute!
+            phase_error = Execution::execute_enqueued_call(trace_builder, public_call_request, returndata);
 
-            // Find the bytecode based on contract address of the public call request
-            const std::vector<uint8_t>& bytecode = std::ranges::find_if(execution_hints.all_contract_bytecode,
-                                                                        [public_call_request](const auto& contract) {
-                                                                            return contract.contract_instance.address ==
-                                                                                   public_call_request.contract_address;
-                                                                        })
-                                                       ->bytecode;
-            info("Found bytecode for contract address: ", public_call_request.contract_address);
-
-            // Set this also on nested call
-
-            // Copied version of pc maintained in trace builder. The value of pc is evolving based
-            // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
-            // is determined by this value which require read access to the code below.
-            uint32_t pc = 0;
-            uint32_t counter = 0;
-            while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
-                auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
-                error = parse_error;
-
-                if (!is_ok(error)) {
-                    break;
-                }
-
-                debug("[PC:" + std::to_string(pc) + "] [IC:" + std::to_string(counter++) + "] " + inst.to_string() +
-                      " (gasLeft l2=" + std::to_string(trace_builder.get_l2_gas_left()) + ")");
-
-                switch (inst.op_code) {
-                    // Compute
-                    // Compute - Arithmetic
-                case OpCode::ADD_8:
-                    error = trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::ADD_8);
-                    break;
-                case OpCode::ADD_16:
-                    error = trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::ADD_16);
-                    break;
-                case OpCode::SUB_8:
-                    error = trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::SUB_8);
-                    break;
-                case OpCode::SUB_16:
-                    error = trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::SUB_16);
-                    break;
-                case OpCode::MUL_8:
-                    error = trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::MUL_8);
-                    break;
-                case OpCode::MUL_16:
-                    error = trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::MUL_16);
-                    break;
-                case OpCode::DIV_8:
-                    error = trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::DIV_8);
-                    break;
-                case OpCode::DIV_16:
-                    error = trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::DIV_16);
-                    break;
-                case OpCode::FDIV_8:
-                    error = trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint8_t>(inst.operands.at(1)),
-                                                  std::get<uint8_t>(inst.operands.at(2)),
-                                                  std::get<uint8_t>(inst.operands.at(3)),
-                                                  OpCode::FDIV_8);
-                    break;
-                case OpCode::FDIV_16:
-                    error = trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint16_t>(inst.operands.at(1)),
-                                                  std::get<uint16_t>(inst.operands.at(2)),
-                                                  std::get<uint16_t>(inst.operands.at(3)),
-                                                  OpCode::FDIV_16);
-                    break;
-                case OpCode::EQ_8:
-                    error = trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint8_t>(inst.operands.at(1)),
-                                                std::get<uint8_t>(inst.operands.at(2)),
-                                                std::get<uint8_t>(inst.operands.at(3)),
-                                                OpCode::EQ_8);
-                    break;
-                case OpCode::EQ_16:
-                    error = trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint16_t>(inst.operands.at(1)),
-                                                std::get<uint16_t>(inst.operands.at(2)),
-                                                std::get<uint16_t>(inst.operands.at(3)),
-                                                OpCode::EQ_16);
-                    break;
-                case OpCode::LT_8:
-                    error = trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint8_t>(inst.operands.at(1)),
-                                                std::get<uint8_t>(inst.operands.at(2)),
-                                                std::get<uint8_t>(inst.operands.at(3)),
-                                                OpCode::LT_8);
-                    break;
-                case OpCode::LT_16:
-                    error = trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint16_t>(inst.operands.at(1)),
-                                                std::get<uint16_t>(inst.operands.at(2)),
-                                                std::get<uint16_t>(inst.operands.at(3)),
-                                                OpCode::LT_16);
-                    break;
-                case OpCode::LTE_8:
-                    error = trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::LTE_8);
-                    break;
-                case OpCode::LTE_16:
-                    error = trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::LTE_16);
-                    break;
-                case OpCode::AND_8:
-                    error = trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::AND_8);
-                    break;
-                case OpCode::AND_16:
-                    error = trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::AND_16);
-                    break;
-                case OpCode::OR_8:
-                    error = trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint8_t>(inst.operands.at(1)),
-                                                std::get<uint8_t>(inst.operands.at(2)),
-                                                std::get<uint8_t>(inst.operands.at(3)),
-                                                OpCode::OR_8);
-                    break;
-                case OpCode::OR_16:
-                    error = trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint16_t>(inst.operands.at(1)),
-                                                std::get<uint16_t>(inst.operands.at(2)),
-                                                std::get<uint16_t>(inst.operands.at(3)),
-                                                OpCode::OR_16);
-                    break;
-                case OpCode::XOR_8:
-                    error = trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::XOR_8);
-                    break;
-                case OpCode::XOR_16:
-                    error = trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::XOR_16);
-                    break;
-                case OpCode::NOT_8:
-                    error = trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 OpCode::NOT_8);
-                    break;
-                case OpCode::NOT_16:
-                    error = trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 OpCode::NOT_16);
-                    break;
-                case OpCode::SHL_8:
-                    error = trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::SHL_8);
-                    break;
-                case OpCode::SHL_16:
-                    error = trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::SHL_16);
-                    break;
-                case OpCode::SHR_8:
-                    error = trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 OpCode::SHR_8);
-                    break;
-                case OpCode::SHR_16:
-                    error = trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 OpCode::SHR_16);
-                    break;
-
-                    // Compute - Type Conversions
-                case OpCode::CAST_8:
-                    error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint8_t>(inst.operands.at(1)),
-                                                  std::get<uint8_t>(inst.operands.at(2)),
-                                                  std::get<AvmMemoryTag>(inst.operands.at(3)),
-                                                  OpCode::CAST_8);
-                    break;
-                case OpCode::CAST_16:
-                    error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint16_t>(inst.operands.at(1)),
-                                                  std::get<uint16_t>(inst.operands.at(2)),
-                                                  std::get<AvmMemoryTag>(inst.operands.at(3)),
-                                                  OpCode::CAST_16);
-                    break;
-
-                    // Execution Environment
-                    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
-                case OpCode::GETENVVAR_16:
-                    error = trace_builder.op_get_env_var(std::get<uint8_t>(inst.operands.at(0)),
-                                                         std::get<uint16_t>(inst.operands.at(1)),
-                                                         std::get<uint8_t>(inst.operands.at(2)));
-                    break;
-
-                    // Execution Environment - Calldata
-                case OpCode::CALLDATACOPY:
-                    error = trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                                           std::get<uint16_t>(inst.operands.at(1)),
-                                                           std::get<uint16_t>(inst.operands.at(2)),
-                                                           std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-
-                case OpCode::RETURNDATASIZE:
-                    error = trace_builder.op_returndata_size(std::get<uint8_t>(inst.operands.at(0)),
-                                                             std::get<uint16_t>(inst.operands.at(1)));
-                    break;
-
-                case OpCode::RETURNDATACOPY:
-                    error = trace_builder.op_returndata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                                             std::get<uint16_t>(inst.operands.at(1)),
-                                                             std::get<uint16_t>(inst.operands.at(2)),
-                                                             std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-
-                    // Machine State - Internal Control Flow
-                case OpCode::JUMP_32:
-                    error = trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
-                    break;
-                case OpCode::JUMPI_32:
-                    error = trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                                   std::get<uint16_t>(inst.operands.at(1)),
-                                                   std::get<uint32_t>(inst.operands.at(2)));
-                    break;
-                case OpCode::INTERNALCALL:
-                    error = trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
-                    break;
-                case OpCode::INTERNALRETURN:
-                    error = trace_builder.op_internal_return();
-                    break;
-
-                    // Machine State - Memory
-                case OpCode::SET_8: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(3)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_8);
-                    break;
-                }
-                case OpCode::SET_16: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(3)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_16);
-                    break;
-                }
-                case OpCode::SET_32: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint32_t>(inst.operands.at(3)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_32);
-                    break;
-                }
-                case OpCode::SET_64: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint64_t>(inst.operands.at(3)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_64);
-                    break;
-                }
-                case OpCode::SET_128: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(3))),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_128);
-                    break;
-                }
-                case OpCode::SET_FF: {
-                    error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<FF>(inst.operands.at(3)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<AvmMemoryTag>(inst.operands.at(2)),
-                                                 OpCode::SET_FF);
-                    break;
-                }
-                case OpCode::MOV_8:
-                    error = trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint8_t>(inst.operands.at(1)),
-                                                 std::get<uint8_t>(inst.operands.at(2)),
-                                                 OpCode::MOV_8);
-                    break;
-                case OpCode::MOV_16:
-                    error = trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                 OpCode::MOV_16);
-                    break;
-
-                    // World State
-                case OpCode::SLOAD:
-                    error = trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
-                                                   std::get<uint16_t>(inst.operands.at(1)),
-                                                   std::get<uint16_t>(inst.operands.at(2)));
-                    break;
-                case OpCode::SSTORE:
-                    error = trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
-                                                    std::get<uint16_t>(inst.operands.at(1)),
-                                                    std::get<uint16_t>(inst.operands.at(2)));
-                    break;
-                case OpCode::NOTEHASHEXISTS:
-                    error = trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                                              std::get<uint16_t>(inst.operands.at(1)),
-                                                              std::get<uint16_t>(inst.operands.at(2)),
-                                                              std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-                case OpCode::EMITNOTEHASH:
-                    error = trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
-                                                            std::get<uint16_t>(inst.operands.at(1)));
-                    break;
-                case OpCode::NULLIFIEREXISTS:
-                    error = trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                                              std::get<uint16_t>(inst.operands.at(1)),
-                                                              std::get<uint16_t>(inst.operands.at(2)),
-                                                              std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-                case OpCode::EMITNULLIFIER:
-                    error = trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
-                                                            std::get<uint16_t>(inst.operands.at(1)));
-                    break;
-
-                case OpCode::L1TOL2MSGEXISTS:
-                    error = trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                                                 std::get<uint16_t>(inst.operands.at(1)),
-                                                                 std::get<uint16_t>(inst.operands.at(2)),
-                                                                 std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-                case OpCode::GETCONTRACTINSTANCE:
-                    error = trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
-                                                                   std::get<uint16_t>(inst.operands.at(1)),
-                                                                   std::get<uint16_t>(inst.operands.at(2)),
-                                                                   std::get<uint16_t>(inst.operands.at(3)),
-                                                                   std::get<uint8_t>(inst.operands.at(4)));
-                    break;
-
-                    // Accrued Substate
-                case OpCode::EMITUNENCRYPTEDLOG:
-                    error = trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
-                                                                  std::get<uint16_t>(inst.operands.at(1)),
-                                                                  std::get<uint16_t>(inst.operands.at(2)));
-                    break;
-                case OpCode::SENDL2TOL1MSG:
-                    error = trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
-                                                               std::get<uint16_t>(inst.operands.at(1)),
-                                                               std::get<uint16_t>(inst.operands.at(2)));
-                    break;
-
-                    // Control Flow - Contract Calls
-                case OpCode::CALL:
-                    error = trace_builder.op_call(std::get<uint16_t>(inst.operands.at(0)),
-                                                  std::get<uint16_t>(inst.operands.at(1)),
-                                                  std::get<uint16_t>(inst.operands.at(2)),
-                                                  std::get<uint16_t>(inst.operands.at(3)),
-                                                  std::get<uint16_t>(inst.operands.at(4)),
-                                                  std::get<uint16_t>(inst.operands.at(5)));
-                    break;
-                case OpCode::STATICCALL:
-                    error = trace_builder.op_static_call(std::get<uint16_t>(inst.operands.at(0)),
-                                                         std::get<uint16_t>(inst.operands.at(1)),
-                                                         std::get<uint16_t>(inst.operands.at(2)),
-                                                         std::get<uint16_t>(inst.operands.at(3)),
-                                                         std::get<uint16_t>(inst.operands.at(4)),
-                                                         std::get<uint16_t>(inst.operands.at(5)));
-                    break;
-                case OpCode::RETURN: {
-                    auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
-                                                       std::get<uint16_t>(inst.operands.at(1)),
-                                                       std::get<uint16_t>(inst.operands.at(2)));
-                    error = ret.error;
-                    returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-
-                    break;
-                }
-                case OpCode::REVERT_8: {
-                    info("HIT REVERT_8  ", "[PC=" + std::to_string(pc) + "] " + inst.to_string());
-                    auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
-                                                       std::get<uint8_t>(inst.operands.at(1)),
-                                                       std::get<uint8_t>(inst.operands.at(2)));
-                    error = ret.error;
-                    returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-
-                    break;
-                }
-                case OpCode::REVERT_16: {
-                    info("HIT REVERT_16 ", "[PC=" + std::to_string(pc) + "] " + inst.to_string());
-                    auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
-                                                       std::get<uint16_t>(inst.operands.at(1)),
-                                                       std::get<uint16_t>(inst.operands.at(2)));
-                    error = ret.error;
-                    returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-
-                    break;
-                }
-
-                    // Misc
-                case OpCode::DEBUGLOG:
-                    error = trace_builder.op_debug_log(std::get<uint8_t>(inst.operands.at(0)),
-                                                       std::get<uint16_t>(inst.operands.at(1)),
-                                                       std::get<uint16_t>(inst.operands.at(2)),
-                                                       std::get<uint16_t>(inst.operands.at(3)),
-                                                       std::get<uint16_t>(inst.operands.at(4)));
-                    break;
-
-                    // Gadgets
-                case OpCode::POSEIDON2PERM:
-                    error = trace_builder.op_poseidon2_permutation(std::get<uint8_t>(inst.operands.at(0)),
-                                                                   std::get<uint16_t>(inst.operands.at(1)),
-                                                                   std::get<uint16_t>(inst.operands.at(2)));
-
-                    break;
-
-                case OpCode::SHA256COMPRESSION:
-                    error = trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
-                                                                std::get<uint16_t>(inst.operands.at(1)),
-                                                                std::get<uint16_t>(inst.operands.at(2)),
-                                                                std::get<uint16_t>(inst.operands.at(3)));
-                    break;
-
-                case OpCode::KECCAKF1600:
-                    error = trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
-                                                         std::get<uint16_t>(inst.operands.at(1)),
-                                                         std::get<uint16_t>(inst.operands.at(2)));
-
-                    break;
-
-                case OpCode::ECADD:
-                    error = trace_builder.op_ec_add(std::get<uint16_t>(inst.operands.at(0)),
-                                                    std::get<uint16_t>(inst.operands.at(1)),
-                                                    std::get<uint16_t>(inst.operands.at(2)),
-                                                    std::get<uint16_t>(inst.operands.at(3)),
-                                                    std::get<uint16_t>(inst.operands.at(4)),
-                                                    std::get<uint16_t>(inst.operands.at(5)),
-                                                    std::get<uint16_t>(inst.operands.at(6)),
-                                                    std::get<uint16_t>(inst.operands.at(7)));
-                    break;
-                case OpCode::MSM:
-                    error = trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
-                                                          std::get<uint16_t>(inst.operands.at(1)),
-                                                          std::get<uint16_t>(inst.operands.at(2)),
-                                                          std::get<uint16_t>(inst.operands.at(3)),
-                                                          std::get<uint16_t>(inst.operands.at(4)));
-                    break;
-
-                    // Conversions
-                case OpCode::TORADIXBE:
-                    error = trace_builder.op_to_radix_be(std::get<uint8_t>(inst.operands.at(0)),
-                                                         std::get<uint16_t>(inst.operands.at(1)),
-                                                         std::get<uint16_t>(inst.operands.at(2)),
-                                                         std::get<uint16_t>(inst.operands.at(3)),
-                                                         std::get<uint16_t>(inst.operands.at(4)),
-                                                         std::get<uint8_t>(inst.operands.at(5)));
-                    break;
-
-                default:
-                    throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " +
-                                   std::to_string(pc) + ".");
-                    break;
-                }
-            }
-
-            if (!is_ok(error)) {
-                auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
-                std::string reason_prefix = exceptionally_halted(error) ? "exceptional halt" : "REVERT opcode";
-                info("AVM enqueued call halted due to ",
-                     reason_prefix,
-                     ". Error: ",
-                     to_name(error),
-                     " at PC: ",
-                     pc,
-                     " IC: ",
-                     error_ic);
+            if (!is_ok(phase_error)) {
+                info("Phase ", to_name(phase), " reverted.");
+                // otherwise, reverting in a revertible phase rolls back state
+                vinfo("Rolling back tree roots to non-revertible checkpoint");
+                trace_builder.rollback_to_non_revertible_checkpoint();
                 break;
             }
         }
-        if (!is_ok(error)) {
-            info("Phase ", to_name(phase), " reverted.");
-            if (phase == TxExecutionPhase::SETUP) {
-                info("A revert during SETUP phase halts the entire TX");
-                break;
-            } else {
-                info("Rolling back tree roots to non-revertible checkpoint");
-                trace_builder.rollback_to_non_revertible_checkpoint();
-            }
+
+        if (!is_ok(phase_error) && phase == TxExecutionPhase::SETUP) {
+            // Stop processing phases. Halt TX.
+            info("A revert during SETUP phase halts the entire TX");
+            break;
         }
     }
     auto trace = trace_builder.finalize(apply_end_gas_assertions);
 
     show_trace_info(trace);
     return trace;
+}
+
+/**
+ * @brief Execute one enqueued call, adding its results to the trace.
+ *
+ * @param trace_builder - the trace builder to add rows to
+ * @param public_call_request - the enqueued call to execute
+ * @param returndata - to add to for each enqueued call
+ * @returns the error/result of the enqueued call
+ *
+ */
+AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
+                                          PublicCallRequest& public_call_request,
+                                          std::vector<FF>& returndata)
+{
+    AvmError error = AvmError::NO_ERROR;
+    // Find the bytecode based on contract address of the public call request
+    std::vector<uint8_t> bytecode = trace_builder.get_bytecode(public_call_request.contract_address);
+
+    // Set this also on nested call
+
+    // Copied version of pc maintained in trace builder. The value of pc is evolving based
+    // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
+    // is determined by this value which require read access to the code below.
+    uint32_t pc = 0;
+    uint32_t counter = 0;
+    while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
+        auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
+        error = parse_error;
+
+        if (!is_ok(error)) {
+            break;
+        }
+
+        debug("[PC:" + std::to_string(pc) + "] [IC:" + std::to_string(counter++) + "] " + inst.to_string() +
+              " (gasLeft l2=" + std::to_string(trace_builder.get_l2_gas_left()) + ")");
+
+        switch (inst.op_code) {
+            // Compute
+            // Compute - Arithmetic
+        case OpCode::ADD_8:
+            error = trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::ADD_8);
+            break;
+        case OpCode::ADD_16:
+            error = trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::ADD_16);
+            break;
+        case OpCode::SUB_8:
+            error = trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::SUB_8);
+            break;
+        case OpCode::SUB_16:
+            error = trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::SUB_16);
+            break;
+        case OpCode::MUL_8:
+            error = trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::MUL_8);
+            break;
+        case OpCode::MUL_16:
+            error = trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::MUL_16);
+            break;
+        case OpCode::DIV_8:
+            error = trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::DIV_8);
+            break;
+        case OpCode::DIV_16:
+            error = trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::DIV_16);
+            break;
+        case OpCode::FDIV_8:
+            error = trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint8_t>(inst.operands.at(1)),
+                                          std::get<uint8_t>(inst.operands.at(2)),
+                                          std::get<uint8_t>(inst.operands.at(3)),
+                                          OpCode::FDIV_8);
+            break;
+        case OpCode::FDIV_16:
+            error = trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint16_t>(inst.operands.at(1)),
+                                          std::get<uint16_t>(inst.operands.at(2)),
+                                          std::get<uint16_t>(inst.operands.at(3)),
+                                          OpCode::FDIV_16);
+            break;
+        case OpCode::EQ_8:
+            error = trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint8_t>(inst.operands.at(1)),
+                                        std::get<uint8_t>(inst.operands.at(2)),
+                                        std::get<uint8_t>(inst.operands.at(3)),
+                                        OpCode::EQ_8);
+            break;
+        case OpCode::EQ_16:
+            error = trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint16_t>(inst.operands.at(1)),
+                                        std::get<uint16_t>(inst.operands.at(2)),
+                                        std::get<uint16_t>(inst.operands.at(3)),
+                                        OpCode::EQ_16);
+            break;
+        case OpCode::LT_8:
+            error = trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint8_t>(inst.operands.at(1)),
+                                        std::get<uint8_t>(inst.operands.at(2)),
+                                        std::get<uint8_t>(inst.operands.at(3)),
+                                        OpCode::LT_8);
+            break;
+        case OpCode::LT_16:
+            error = trace_builder.op_lt(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint16_t>(inst.operands.at(1)),
+                                        std::get<uint16_t>(inst.operands.at(2)),
+                                        std::get<uint16_t>(inst.operands.at(3)),
+                                        OpCode::LT_16);
+            break;
+        case OpCode::LTE_8:
+            error = trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::LTE_8);
+            break;
+        case OpCode::LTE_16:
+            error = trace_builder.op_lte(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::LTE_16);
+            break;
+        case OpCode::AND_8:
+            error = trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::AND_8);
+            break;
+        case OpCode::AND_16:
+            error = trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::AND_16);
+            break;
+        case OpCode::OR_8:
+            error = trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint8_t>(inst.operands.at(1)),
+                                        std::get<uint8_t>(inst.operands.at(2)),
+                                        std::get<uint8_t>(inst.operands.at(3)),
+                                        OpCode::OR_8);
+            break;
+        case OpCode::OR_16:
+            error = trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
+                                        std::get<uint16_t>(inst.operands.at(1)),
+                                        std::get<uint16_t>(inst.operands.at(2)),
+                                        std::get<uint16_t>(inst.operands.at(3)),
+                                        OpCode::OR_16);
+            break;
+        case OpCode::XOR_8:
+            error = trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::XOR_8);
+            break;
+        case OpCode::XOR_16:
+            error = trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::XOR_16);
+            break;
+        case OpCode::NOT_8:
+            error = trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         OpCode::NOT_8);
+            break;
+        case OpCode::NOT_16:
+            error = trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         OpCode::NOT_16);
+            break;
+        case OpCode::SHL_8:
+            error = trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::SHL_8);
+            break;
+        case OpCode::SHL_16:
+            error = trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::SHL_16);
+            break;
+        case OpCode::SHR_8:
+            error = trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         OpCode::SHR_8);
+            break;
+        case OpCode::SHR_16:
+            error = trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         OpCode::SHR_16);
+            break;
+
+            // Compute - Type Conversions
+        case OpCode::CAST_8:
+            error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint8_t>(inst.operands.at(1)),
+                                          std::get<uint8_t>(inst.operands.at(2)),
+                                          std::get<AvmMemoryTag>(inst.operands.at(3)),
+                                          OpCode::CAST_8);
+            break;
+        case OpCode::CAST_16:
+            error = trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                          std::get<uint16_t>(inst.operands.at(1)),
+                                          std::get<uint16_t>(inst.operands.at(2)),
+                                          std::get<AvmMemoryTag>(inst.operands.at(3)),
+                                          OpCode::CAST_16);
+            break;
+
+            // Execution Environment
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
+        case OpCode::GETENVVAR_16:
+            error = trace_builder.op_get_env_var(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint8_t>(inst.operands.at(2)));
+            break;
+
+            // Execution Environment - Calldata
+        case OpCode::CALLDATACOPY:
+            error = trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                                   std::get<uint16_t>(inst.operands.at(1)),
+                                                   std::get<uint16_t>(inst.operands.at(2)),
+                                                   std::get<uint16_t>(inst.operands.at(3)));
+            break;
+
+        case OpCode::RETURNDATASIZE:
+            error = trace_builder.op_returndata_size(std::get<uint8_t>(inst.operands.at(0)),
+                                                     std::get<uint16_t>(inst.operands.at(1)));
+            break;
+
+        case OpCode::RETURNDATACOPY:
+            error = trace_builder.op_returndata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                                     std::get<uint16_t>(inst.operands.at(1)),
+                                                     std::get<uint16_t>(inst.operands.at(2)),
+                                                     std::get<uint16_t>(inst.operands.at(3)));
+            break;
+
+            // Machine State - Internal Control Flow
+        case OpCode::JUMP_32:
+            error = trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::JUMPI_32:
+            error = trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint16_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::INTERNALCALL:
+            error = trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::INTERNALRETURN:
+            error = trace_builder.op_internal_return();
+            break;
+
+            // Machine State - Memory
+        case OpCode::SET_8: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(3)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_8);
+            break;
+        }
+        case OpCode::SET_16: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_16);
+            break;
+        }
+        case OpCode::SET_32: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint32_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_32);
+            break;
+        }
+        case OpCode::SET_64: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint64_t>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_64);
+            break;
+        }
+        case OpCode::SET_128: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(3))),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_128);
+            break;
+        }
+        case OpCode::SET_FF: {
+            error = trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<FF>(inst.operands.at(3)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<AvmMemoryTag>(inst.operands.at(2)),
+                                         OpCode::SET_FF);
+            break;
+        }
+        case OpCode::MOV_8:
+            error = trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint8_t>(inst.operands.at(2)),
+                                         OpCode::MOV_8);
+            break;
+        case OpCode::MOV_16:
+            error = trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint16_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)),
+                                         OpCode::MOV_16);
+            break;
+
+            // World State
+        case OpCode::SLOAD:
+            error = trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint16_t>(inst.operands.at(1)),
+                                           std::get<uint16_t>(inst.operands.at(2)));
+            break;
+        case OpCode::SSTORE:
+            error = trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint16_t>(inst.operands.at(1)),
+                                            std::get<uint16_t>(inst.operands.at(2)));
+            break;
+        case OpCode::NOTEHASHEXISTS:
+            error = trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                      std::get<uint16_t>(inst.operands.at(1)),
+                                                      std::get<uint16_t>(inst.operands.at(2)),
+                                                      std::get<uint16_t>(inst.operands.at(3)));
+            break;
+        case OpCode::EMITNOTEHASH:
+            error = trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
+                                                    std::get<uint16_t>(inst.operands.at(1)));
+            break;
+        case OpCode::NULLIFIEREXISTS:
+            error = trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                      std::get<uint16_t>(inst.operands.at(1)),
+                                                      std::get<uint16_t>(inst.operands.at(2)),
+                                                      std::get<uint16_t>(inst.operands.at(3)));
+            break;
+        case OpCode::EMITNULLIFIER:
+            error = trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
+                                                    std::get<uint16_t>(inst.operands.at(1)));
+            break;
+
+        case OpCode::L1TOL2MSGEXISTS:
+            error = trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                         std::get<uint16_t>(inst.operands.at(1)),
+                                                         std::get<uint16_t>(inst.operands.at(2)),
+                                                         std::get<uint16_t>(inst.operands.at(3)));
+            break;
+        case OpCode::GETCONTRACTINSTANCE:
+            error = trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
+                                                           std::get<uint16_t>(inst.operands.at(1)),
+                                                           std::get<uint16_t>(inst.operands.at(2)),
+                                                           std::get<uint16_t>(inst.operands.at(3)),
+                                                           std::get<uint8_t>(inst.operands.at(4)));
+            break;
+
+            // Accrued Substate
+        case OpCode::EMITUNENCRYPTEDLOG:
+            error = trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
+                                                          std::get<uint16_t>(inst.operands.at(1)),
+                                                          std::get<uint16_t>(inst.operands.at(2)));
+            break;
+        case OpCode::SENDL2TOL1MSG:
+            error = trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
+                                                       std::get<uint16_t>(inst.operands.at(1)),
+                                                       std::get<uint16_t>(inst.operands.at(2)));
+            break;
+
+            // Control Flow - Contract Calls
+        case OpCode::CALL:
+            error = trace_builder.op_call(std::get<uint16_t>(inst.operands.at(0)),
+                                          std::get<uint16_t>(inst.operands.at(1)),
+                                          std::get<uint16_t>(inst.operands.at(2)),
+                                          std::get<uint16_t>(inst.operands.at(3)),
+                                          std::get<uint16_t>(inst.operands.at(4)),
+                                          std::get<uint16_t>(inst.operands.at(5)));
+            break;
+        case OpCode::STATICCALL:
+            error = trace_builder.op_static_call(std::get<uint16_t>(inst.operands.at(0)),
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint16_t>(inst.operands.at(2)),
+                                                 std::get<uint16_t>(inst.operands.at(3)),
+                                                 std::get<uint16_t>(inst.operands.at(4)),
+                                                 std::get<uint16_t>(inst.operands.at(5)));
+            break;
+        case OpCode::RETURN: {
+            auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint16_t>(inst.operands.at(1)),
+                                               std::get<uint16_t>(inst.operands.at(2)));
+            error = ret.error;
+            returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
+
+            break;
+        }
+        case OpCode::REVERT_8: {
+            info("HIT REVERT_8  ", "[PC=" + std::to_string(pc) + "] " + inst.to_string());
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint8_t>(inst.operands.at(1)),
+                                               std::get<uint8_t>(inst.operands.at(2)));
+            error = ret.error;
+            returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
+
+            break;
+        }
+        case OpCode::REVERT_16: {
+            info("HIT REVERT_16 ", "[PC=" + std::to_string(pc) + "] " + inst.to_string());
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint16_t>(inst.operands.at(1)),
+                                               std::get<uint16_t>(inst.operands.at(2)));
+            error = ret.error;
+            returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
+
+            break;
+        }
+
+            // Misc
+        case OpCode::DEBUGLOG:
+            error = trace_builder.op_debug_log(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint16_t>(inst.operands.at(1)),
+                                               std::get<uint16_t>(inst.operands.at(2)),
+                                               std::get<uint16_t>(inst.operands.at(3)),
+                                               std::get<uint16_t>(inst.operands.at(4)));
+            break;
+
+            // Gadgets
+        case OpCode::POSEIDON2PERM:
+            error = trace_builder.op_poseidon2_permutation(std::get<uint8_t>(inst.operands.at(0)),
+                                                           std::get<uint16_t>(inst.operands.at(1)),
+                                                           std::get<uint16_t>(inst.operands.at(2)));
+
+            break;
+
+        case OpCode::SHA256COMPRESSION:
+            error = trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
+                                                        std::get<uint16_t>(inst.operands.at(1)),
+                                                        std::get<uint16_t>(inst.operands.at(2)),
+                                                        std::get<uint16_t>(inst.operands.at(3)));
+            break;
+
+        case OpCode::KECCAKF1600:
+            error = trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint16_t>(inst.operands.at(2)));
+
+            break;
+
+        case OpCode::ECADD:
+            error = trace_builder.op_ec_add(std::get<uint16_t>(inst.operands.at(0)),
+                                            std::get<uint16_t>(inst.operands.at(1)),
+                                            std::get<uint16_t>(inst.operands.at(2)),
+                                            std::get<uint16_t>(inst.operands.at(3)),
+                                            std::get<uint16_t>(inst.operands.at(4)),
+                                            std::get<uint16_t>(inst.operands.at(5)),
+                                            std::get<uint16_t>(inst.operands.at(6)),
+                                            std::get<uint16_t>(inst.operands.at(7)));
+            break;
+        case OpCode::MSM:
+            error = trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
+                                                  std::get<uint16_t>(inst.operands.at(1)),
+                                                  std::get<uint16_t>(inst.operands.at(2)),
+                                                  std::get<uint16_t>(inst.operands.at(3)),
+                                                  std::get<uint16_t>(inst.operands.at(4)));
+            break;
+
+            // Conversions
+        case OpCode::TORADIXBE:
+            error = trace_builder.op_to_radix_be(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint16_t>(inst.operands.at(1)),
+                                                 std::get<uint16_t>(inst.operands.at(2)),
+                                                 std::get<uint16_t>(inst.operands.at(3)),
+                                                 std::get<uint16_t>(inst.operands.at(4)),
+                                                 std::get<uint8_t>(inst.operands.at(5)));
+            break;
+
+        default:
+            throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " + std::to_string(pc) +
+                           ".");
+            break;
+        }
+    }
+    if (!is_ok(error)) {
+        auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
+        std::string reason_prefix = exceptionally_halted(error) ? "exceptional halt" : "REVERT opcode";
+        info("AVM enqueued call halted due to ",
+             reason_prefix,
+             ". Error: ",
+             to_name(error),
+             " at PC: ",
+             pc,
+             " IC: ",
+             error_ic);
+    }
+    return error;
 }
 
 } // namespace bb::avm_trace
