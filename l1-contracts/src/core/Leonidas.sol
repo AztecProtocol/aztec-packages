@@ -286,7 +286,12 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   }
 
   // Public view function for get committee at
-  function getCommitteeAt(Timestamp _ts) external view override(ILeonidas) returns (address[] memory) {
+  function getCommitteeAt(Timestamp _ts)
+    external
+    view
+    override(ILeonidas)
+    returns (address[] memory)
+  {
     return store.getCommitteeAt(getEpochAt(_ts), TARGET_COMMITTEE_SIZE);
   }
 
