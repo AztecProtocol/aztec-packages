@@ -43,7 +43,7 @@ import {
 } from '../tx_validator/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
-import { fastMsgIdFn, getMsgIdFn, msgIdToStrFn, SnappyTransform } from './encoding.js';
+import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from './encoding.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
