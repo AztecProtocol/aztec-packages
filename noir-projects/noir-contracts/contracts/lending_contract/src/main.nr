@@ -128,9 +128,11 @@ contract Lending {
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
+        // docs:start:public_to_public_call
         let _ = Token::at(collateral_asset)
             .transfer_in_public(context.msg_sender(), context.this_address(), amount, nonce)
             .call(&mut context);
+        // docs:end:public_to_public_call
         let _ = Lending::at(context.this_address())
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
             .call(&mut context);
