@@ -117,7 +117,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints, trace_settings);
 
         // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
-        Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc, /*witness=*/{});
+        ProgramMetadata metadata{ &mock_ivc };
+        Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note: adding pairing point normally happens in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
@@ -150,12 +151,14 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
     // Complete instance and generate an oink proof
     ivc.accumulate(app_circuit);
 
-    // Construct kernel_0 consisting only of the kernel completion logic
-    AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue);
-    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
+    // Construct kernel consisting only of the kernel completion logic
+    AcirProgram program = construct_mock_kernel_program(ivc.verification_queue);
 
-    EXPECT_TRUE(CircuitChecker::check(kernel_0));
-    ivc.accumulate(kernel_0);
+    ProgramMetadata metadata{ &ivc };
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    EXPECT_TRUE(CircuitChecker::check(kernel));
+    ivc.accumulate(kernel);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 }

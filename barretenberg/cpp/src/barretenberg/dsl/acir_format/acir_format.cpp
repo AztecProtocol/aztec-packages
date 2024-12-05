@@ -17,13 +17,12 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
-template <typename Builder>
-void build_constraints(Builder& builder,
-                       AcirFormat& constraint_system,
-                       bool has_valid_witness_assignments,
-                       bool honk_recursion,
-                       bool collect_gates_per_opcode)
+template <typename Builder> void build_constraints(Builder& builder, AcirProgram& program, ProgramMetadata& metadata)
 {
+    bool has_valid_witness_assignments = !program.witness.empty();
+    bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
+    AcirFormat& constraint_system = program.constraints;
+
     if (collect_gates_per_opcode) {
         constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
     }
@@ -230,6 +229,7 @@ void build_constraints(Builder& builder,
         if (!constraint_system.avm_recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
         }
+        process_ivc_recursion_constraints(builder, constraint_system, metadata.ivc, has_valid_witness_assignments);
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         PairingPointAccumulatorIndices current_aggregation_object =
@@ -245,9 +245,9 @@ void build_constraints(Builder& builder,
         // default one if the circuit is recursive and honk_recursion is true.
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
-            ASSERT(honk_recursion);
+            ASSERT(metadata.honk_recursion);
             builder.add_pairing_point_accumulator(current_aggregation_object);
-        } else if (honk_recursion && builder.is_recursive_circuit) {
+        } else if (metadata.honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
@@ -360,6 +360,59 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     return current_aggregation_object;
 }
 
+void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
+                                       AcirFormat& constraints,
+                                       ClientIVC* ivc,
+                                       bool has_valid_witness_assignments)
+{
+    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
+
+    // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+    if (constraints.ivc_recursion_constraints.size() != ivc->verification_queue.size()) {
+        info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
+        ASSERT(false);
+    }
+
+    // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+    // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+    if (!has_valid_witness_assignments) {
+        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+        for (auto [constraint, queue_entry] :
+             zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
+            populate_dummy_vk_in_constraint(builder, queue_entry.honk_verification_key, constraint.key);
+        }
+    }
+
+    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
+    std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
+    stdlib_verification_keys.reserve(constraints.ivc_recursion_constraints.size());
+    for (const auto& constraint : constraints.ivc_recursion_constraints) {
+        stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
+            StdlibVerificationKey::from_witness_indices(builder, constraint.key)));
+    }
+    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+    ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
+
+    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
+    // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
+    // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    for (auto [constraint, queue_entry] :
+         zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
+
+        // Get the witness indices for the public inputs contained within the proof in the verification queue
+        std::vector<uint32_t> public_input_indices = ProofSurgeon::get_public_inputs_witness_indices_from_proof(
+            queue_entry.proof, constraint.public_inputs.size());
+
+        // Assert equality between the internal public input witness indices and those in the acir constraint
+        for (auto [witness_idx, constraint_witness_idx] : zip_view(public_input_indices, constraint.public_inputs)) {
+            builder.assert_equal(witness_idx, constraint_witness_idx);
+        }
+    }
+
+    // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+    ivc->complete_kernel_circuit_logic(builder);
+}
+
 #ifndef DISABLE_AZTEC_VM
 PairingPointAccumulatorIndices process_avm_recursion_constraints(
     Builder& builder,
@@ -382,6 +435,41 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
 #endif // DISABLE_AZTEC_VM
 
 /**
+ * @brief WORKTODO
+ */
+template <> UltraCircuitBuilder create_circuit(AcirProgram& program, ProgramMetadata& metadata)
+{
+    AcirFormat& constraints = program.constraints;
+    WitnessVector& witness = program.witness;
+
+    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum, metadata.recursive };
+
+    build_constraints(builder, program, metadata);
+
+    vinfo("created circuit");
+
+    return builder;
+};
+
+/**
+ * @brief WORKTODO
+ */
+template <> MegaCircuitBuilder create_circuit(AcirProgram& program, ProgramMetadata& metadata)
+{
+    AcirFormat& constraints = program.constraints;
+    WitnessVector& witness = program.witness;
+
+    // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
+    auto builder =
+        MegaCircuitBuilder{ metadata.ivc->goblin.op_queue, witness, constraints.public_inputs, constraints.varnum };
+
+    // Populate constraints in the builder via the data in constraint_system
+    build_constraints(builder, program, metadata);
+
+    return builder;
+};
+
+/**
  * @brief Specialization for creating Ultra circuit from acir constraints and optionally a witness
  *
  * @tparam Builder
@@ -401,9 +489,13 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
 {
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
-    bool has_valid_witness_assignments = !witness.empty();
-    build_constraints(
-        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
+    AcirProgram program{ constraint_system, witness };
+    ProgramMetadata metadata;
+    metadata.recursive = recursive;
+    metadata.honk_recursion = honk_recursion;
+    metadata.collect_gates_per_opcode = collect_gates_per_opcode;
+    metadata.size_hint = size_hint;
+    build_constraints(builder, program, metadata);
 
     vinfo("created circuit");
 
@@ -432,9 +524,11 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
-    bool has_valid_witness_assignments = !witness.empty();
-    acir_format::build_constraints(
-        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
+    AcirProgram program{ constraint_system, witness };
+    ProgramMetadata metadata;
+    metadata.honk_recursion = honk_recursion;
+    metadata.collect_gates_per_opcode = collect_gates_per_opcode;
+    build_constraints(builder, program, metadata);
 
     return builder;
 };
@@ -461,14 +555,13 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
+    AcirProgram program{ constraint_system, witness };
+    ProgramMetadata metadata;
+    metadata.size_hint = size_hint;
+    metadata.ivc = &ivc;
+
     // Construct the main kernel circuit logic excluding recursive verifiers
-    auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
-                                                      /*recursive=*/false,
-                                                      size_hint,
-                                                      witness,
-                                                      /*honk_recursion=*/false,
-                                                      ivc.goblin.op_queue,
-                                                      /*collect_gates_per_opcode=*/false);
+    auto circuit = create_circuit<MegaCircuitBuilder>(program, metadata);
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
     if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
@@ -519,6 +612,6 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     return circuit;
 };
 
-template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, ProgramMetadata&);
 
 } // namespace acir_format
