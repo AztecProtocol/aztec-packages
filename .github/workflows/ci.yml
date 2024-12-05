@@ -18,7 +18,7 @@ on:
 
 concurrency:
   # force parallelism in master
-  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  group: ci-${{ github.ref_name == 'master' && github.run_id || github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
