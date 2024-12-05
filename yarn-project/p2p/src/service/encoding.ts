@@ -2,8 +2,10 @@
 import { sha256 } from '@aztec/foundation/crypto';
 
 import { type RPC } from '@chainsafe/libp2p-gossipsub/message';
+import { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import { type Message } from '@libp2p/interface';
 import xxhashFactory from 'xxhash-wasm';
+import { compressSync, uncompressSync } from 'snappy';
 
 // Load WASM
 const xxhash = await xxhashFactory();
@@ -46,3 +48,14 @@ export function getMsgIdFn(message: Message) {
   const vec = [Buffer.from(topic), message.data];
   return sha256(Buffer.concat(vec)).subarray(0, 20);
 }
+
+export class SnappyTransform implements DataTransform {
+  inboundTransform(_topicStr: string, data: Uint8Array): Uint8Array {
+    const uncompressed = Buffer.from(uncompressSync(Buffer.from(data), { asBuffer: true }));
+    return new Uint8Array(uncompressed);
+  }
+
+    outboundTransform(_topicStr: string, data: Uint8Array): Uint8Array {
+      return new Uint8Array(compressSync(Buffer.from(data)));
+    }
+  }
