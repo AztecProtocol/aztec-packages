@@ -325,8 +325,6 @@ void UltraCircuitChecker::populate_values(
 #ifdef ULTRA_FUZZ
 template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_relation(Builder& builder)
 {
-    //    info("here");
-    //    exit(0);
     std::unordered_map<uint32_t, uint64_t> range_tags;
     for (const auto& list : builder.range_lists) {
         range_tags[list.second.range_tag] = list.first;
