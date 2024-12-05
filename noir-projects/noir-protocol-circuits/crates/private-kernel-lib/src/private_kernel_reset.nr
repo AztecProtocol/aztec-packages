@@ -240,14 +240,13 @@ mod tests {
         }
 
         pub fn compute_output_note_hashes<let N: u32>(
-            self,
+            _self: Self,
             note_hashes: [ScopedNoteHash; N],
         ) -> [ScopedNoteHash; N] {
             // First nullifier is tx hash.
-            let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
             let mut output = note_hashes;
             for i in 0..N {
-                output[i].note_hash.value = silo_note_hash(note_hashes[i], tx_hash, i);
+                output[i].note_hash.value = silo_note_hash(note_hashes[i]);
                 output[i].contract_address = AztecAddress::zero();
             }
             output

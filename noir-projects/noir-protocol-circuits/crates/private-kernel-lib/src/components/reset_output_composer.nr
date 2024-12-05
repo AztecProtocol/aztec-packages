@@ -74,9 +74,8 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         self,
     ) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
-        let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         for i in 0..note_hashes.len() {
-            note_hashes[i].note_hash.value = silo_note_hash(note_hashes[i], first_nullifier, i);
+            note_hashes[i].note_hash.value = silo_note_hash(note_hashes[i]);
             note_hashes[i].contract_address = AztecAddress::zero();
         }
         note_hashes
