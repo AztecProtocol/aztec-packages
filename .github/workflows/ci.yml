@@ -275,26 +275,26 @@ jobs:
   #           # TODO(#9692): disabled after refactoring - trying to call function as target
   #           # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
-  # acir-bench:
-  #   runs-on: ubuntu-20.04
-  #   needs: [bootstrap-noir-bb, configure]
-  #   # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
-  #   if: needs.configure.outputs.non-barretenberg-cpp == 'true'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: "Setup and Test"
-  #       uses: ./.github/ensure-tester
-  #       env:
-  #         USERNAME: ${{ needs.configure.outputs.username }}
-  #       # note: tester by default times out at 30, would need to delay shutdown for more
-  #       timeout-minutes: 30
-  #       with:
-  #         runner_type: 16core-tester-x86
-  #         run: |
-  #           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-  #           scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+  acir-bench:
+    runs-on: ubuntu-20.04
+    needs: [ci-noir-bb, configure]
+    # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
+    if: needs.configure.outputs.non-barretenberg-cpp == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: "Setup and Test"
+        uses: ./.github/ensure-tester
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        # note: tester by default times out at 30, would need to delay shutdown for more
+        timeout-minutes: 30
+        with:
+          runner_type: 16core-tester-x86
+          run: |
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
 
   # bench-summary:
   #   needs:
@@ -345,6 +345,13 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+      - name: "Native Prover Tests"
+        run: |
+          # Ensure we can SSH into the spot instances we request
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
       - name: "Native Prover Tests"
         run: |
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
