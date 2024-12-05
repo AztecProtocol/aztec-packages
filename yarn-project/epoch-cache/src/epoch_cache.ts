@@ -151,7 +151,12 @@ export class EpochCache {
    * If we are at an epoch boundary, then we can update the cache for the next epoch, this is the last check
    * we do in the validator client, so we can update the cache here.
    */
-  async getProposerInCurrentOrNextSlot(): Promise<[EthAddress, EthAddress]> {
+  async getProposerInCurrentOrNextSlot(): Promise<{
+    currentProposer: EthAddress;
+    nextProposer: EthAddress;
+    currentSlot: bigint;
+    nextSlot: bigint;
+  }> {
     // Validators are sorted by their index in the committee, and getValidatorSet will cache
     const committee = await this.getCommittee();
     const { slot: currentSlot, epoch: currentEpoch } = this.getEpochAndSlotNow();
@@ -176,10 +181,10 @@ export class EpochCache {
       BigInt(committee.length),
     );
 
-    const calculatedProposer = committee[Number(proposerIndex)];
-    const nextCalculatedProposer = committee[Number(nextProposerIndex)];
+    const currentProposer = committee[Number(proposerIndex)];
+    const nextProposer = committee[Number(nextProposerIndex)];
 
-    return [calculatedProposer, nextCalculatedProposer];
+    return { currentProposer, nextProposer, currentSlot, nextSlot };
   }
 
   /**
