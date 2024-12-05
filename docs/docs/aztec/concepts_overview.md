@@ -20,12 +20,12 @@ Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with b
 2. Private functions are executed in the PXE, which is client-side
 3. They are rolled up and sent to the Public VM (running on an Aztec node)
 4. Public functions are executed in the Public VM
-5. The Public VM rolls up the private & public transaction rollups
-6. These rollups are submitted to Ethereum
+5. The Public VM rolls up the transactions that include private and public state updates into blocks
+6. The block data and proof of a correct state transition are submitted to Ethereum for verification
 
 ## Private and public execution
 
-Private functions and public functions are executed in different environments.
+Private functions are executed client side, on user devices to maintain maximum privacy. Public functions are executed by a remote network of nodes, similar to other blockchains. These distinct execution environments create a directional execution flow for a single transaction--a transaction begins in the private context on the user's device then moves to the public network. This means that private functions executed by a transaction can enqueue public functions to be executed later in the transaction life cycle, but public functions cannot call private functions.
 
 ### Private Execution Environment (PXE)
 
