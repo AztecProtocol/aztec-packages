@@ -72,6 +72,8 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
+            - name: TELEMETRY
+              value: "{{ .Values.telemetry.enabled }}"
             - name: INIT_VALIDATORS
               value: "true"
             - name: ETHEREUM_SLOT_DURATION

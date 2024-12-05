@@ -54,7 +54,7 @@ spec:
               until curl -s -X POST -H 'content-type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
                 $PXE_URL | grep -q '"enr:-'; do
-                echo "Waiting for PXE service..."
+                echo "Waiting for PXE service at ${PXE_URL}..."
                 sleep 5
               done
               echo "PXE service is ready!"

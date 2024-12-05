@@ -17,9 +17,9 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-node
     spec:
-      dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
