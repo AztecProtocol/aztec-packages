@@ -33,7 +33,7 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-    ClientIVC ivc{ { EXAMPLE_20 } };
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
     auto mocked_vkeys = mock_verification_keys(total_num_circuits);

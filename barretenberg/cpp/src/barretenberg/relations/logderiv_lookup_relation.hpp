@@ -243,14 +243,15 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto write_inverse = inverses * read_term;                        // Degree 3 (4)
         const auto read_inverse = inverses * write_term;                        // Degree 2 (3)
 
-        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
-        // is 0 if !inverse_exists. Degrees:                     2 (3)       1 (2)        1              1
+        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
+        // if !inverse_exists.
+        // Degrees:                     2 (3)       1 (2)        1              1
         std::get<0>(accumulator) +=
             ShortView((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
 
-        // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly
-        // dependent, i.e. enforced across the entire trace, not on a per-row basis. Degrees: 1            2 (3) 1
-        // 3 (4)
+        // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
+        // i.e. enforced across the entire trace, not on a per-row basis.
+        // Degrees:                       1            2 (3)            1            3 (4)
         std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
     }
 };
