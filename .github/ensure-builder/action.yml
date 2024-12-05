@@ -107,19 +107,20 @@ runs:
             "flock /var/lock/git.lock bash -c '$UNPACK'"
         fi
 
-    - name: Attach EBS Cache Disk
-      uses: ./.github/run-on-builder
-      with:
-        run: |
-          # give time in case another instance started the clone first
-          for i in {1..30} ; do
-            [ -f ./scripts/ci/attach_ebs_cache.sh ] && break
-            sleep 1
-          done
-          # attach {ebs_cache_size}-gb cache disk
-          export AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
-          export AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
-          sudo -E ./scripts/ci/attach_ebs_cache.sh ${{ steps.select_instance.outputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
+    # TODO trying out no ebs
+    # - name: Attach EBS Cache Disk
+    #   uses: ./.github/run-on-builder
+    #   with:
+    #     run: |
+    #       # give time in case another instance started the clone first
+    #       for i in {1..30} ; do
+    #         [ -f ./scripts/ci/attach_ebs_cache.sh ] && break
+    #         sleep 1
+    #       done
+    #       # attach {ebs_cache_size}-gb cache disk
+    #       export AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+    #       export AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+    #       sudo -E ./scripts/ci/attach_ebs_cache.sh ${{ steps.select_instance.outputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
 
     - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
