@@ -177,23 +177,12 @@ class ClientIVCAPI : public API {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
         ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/false };
 
+        ProgramMetadata metadata{ &ivc };
+
         // Accumulate the entire program stack into the IVC
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once
-        // databus has been integrated into noir kernel programs
-        bool is_kernel = false;
         for (Program& program : folding_stack) {
 
-            Builder circuit;
-
-            is_kernel = !program.constraints.ivc_recursion_constraints.empty();
-            if (is_kernel) {
-                vinfo("Accumulating KERNEL.");
-                circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
-            } else {
-                vinfo("Accumulating APP.");
-                circuit = create_circuit<Builder>(
-                    program.constraints, /*recursive=*/false, 0, program.witness, false, ivc.goblin.op_queue);
-            }
+            Builder circuit = create_circuit<Builder>(program, metadata);
 
             // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
             // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
