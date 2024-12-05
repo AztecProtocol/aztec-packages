@@ -11,7 +11,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProofStore } from './proof_store.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';

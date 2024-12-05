@@ -13,12 +13,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
-import { MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
+import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
 
 type InProgressMetadata = {
   id: ProvingJobId;
@@ -111,7 +111,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return count;
   };
 
-  public async start(): Promise<void> {
+  public start(): Promise<void> {
     for (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`);
 
@@ -131,6 +131,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
+
+    return Promise.resolve();
   }
 
   public stop(): Promise<void> {

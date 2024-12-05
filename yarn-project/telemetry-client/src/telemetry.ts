@@ -1,8 +1,8 @@
 import {
   type AttributeValue,
-  BatchObservableCallback,
+  type BatchObservableCallback,
   type MetricOptions,
-  Observable,
+  type Observable,
   type BatchObservableResult as OtelBatchObservableResult,
   type Gauge as OtelGauge,
   type Histogram as OtelHistogram,

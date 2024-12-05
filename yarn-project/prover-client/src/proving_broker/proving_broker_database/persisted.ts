@@ -1,7 +1,7 @@
 import { type ProofUri, ProvingJob, type ProvingJobId, ProvingJobSettledResult } from '@aztec/circuit-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { LmdbMetrics, Metrics, TelemetryClient } from '@aztec/telemetry-client';
+import { LmdbMetrics, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 

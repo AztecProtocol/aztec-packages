@@ -1,6 +1,5 @@
-import { ProvingRequestType } from '@aztec/circuit-types';
 import { Timer } from '@aztec/foundation/timer';
-import { Attributes, Histogram, Metrics, TelemetryClient, UpDownCounter, ValueType } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 export class ProvingAgentInstrumentation {
   private idleTime: Histogram;
@@ -9,7 +8,7 @@ export class ProvingAgentInstrumentation {
     const meter = client.getMeter(name);
 
     this.idleTime = meter.createHistogram(Metrics.PROVING_AGENT_IDLE, {
-      description: 'Records how long an agent was in between jobs',
+      description: 'Records how long an agent was idle',
       unit: 'ms',
       valueType: ValueType.INT,
     });

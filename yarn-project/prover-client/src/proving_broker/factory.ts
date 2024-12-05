@@ -1,6 +1,6 @@
 import { type ProverBrokerConfig } from '@aztec/circuit-types';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { ProvingBroker } from './proving_broker.js';
 import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
