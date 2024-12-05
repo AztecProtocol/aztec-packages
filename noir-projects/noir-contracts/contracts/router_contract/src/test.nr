@@ -10,7 +10,7 @@ unconstrained fn test_check_block_number() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(9);
+    env.advance_block_by(8);
 
     // First we sanity-check that current block number is as expected
     let current_block_number = env.block_number();
@@ -28,7 +28,7 @@ unconstrained fn test_fail_check_block_number() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(9);
+    env.advance_block_by(8);
 
     // First we sanity-check that current block number is as expected
     let current_block_number = env.block_number();

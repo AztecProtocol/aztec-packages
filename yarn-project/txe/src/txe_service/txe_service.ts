@@ -5,6 +5,7 @@ import {
   Fr,
   FunctionSelector,
   PublicDataTreeLeaf,
+  PublicDataWrite,
   PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
@@ -19,7 +20,7 @@ import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/prot
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees, NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -41,6 +42,10 @@ export class TXEService {
   static async init(logger: Logger) {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
+
+    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const baseFork = await nativeWorldStateService.fork();
+
     const packedValuesCache = new PackedValuesCache();
     const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
     const noteCache = new ExecutionNoteCache(txHash);
@@ -53,7 +58,16 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
+    const txe = new TXE(
+      logger,
+      trees,
+      packedValuesCache,
+      noteCache,
+      keyStore,
+      txeDatabase,
+      nativeWorldStateService,
+      baseFork,
+    );
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -69,21 +83,12 @@ export class TXEService {
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
-    const trees = (this.typedOracle as TXE).getTrees();
-
-    await (this.typedOracle as TXE).commitState();
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
-      const header = BlockHeader.empty();
-      const l2Block = L2Block.empty();
-      header.state = await trees.getStateReference(true);
-      header.globalVariables.blockNumber = new Fr(blockNumber);
-      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
-      l2Block.header = header;
-      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
-      await trees.handleL2BlockAndMessages(l2Block, []);
+
+      await (this.typedOracle as TXE).commitState();
+
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
     return toForeignCallResult([]);
@@ -145,22 +150,18 @@ export class TXEService {
     startStorageSlot: ForeignCallSingle,
     values: ForeignCallArray,
   ) {
-    const trees = (this.typedOracle as TXE).getTrees();
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = addressFromSingle(contractAddress);
-    const db = await trees.getLatest();
 
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      return new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
     });
-    await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => write.toBuffer()),
-      0,
-    );
+
+    await (this.typedOracle as TXE).addPublicDataWrites(publicDataWrites);
+
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
@@ -541,16 +542,6 @@ export class TXEService {
 
   async getVersion() {
     return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
-  }
-
-  async addNullifiers(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNullifiers(addressFromSingle(contractAddress), fromArray(nullifiers));
-    return toForeignCallResult([]);
-  }
-
-  async addNoteHashes(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNoteHashes(addressFromSingle(contractAddress), fromArray(noteHashes));
-    return toForeignCallResult([]);
   }
 
   async getBlockHeader(blockNumber: ForeignCallSingle) {
