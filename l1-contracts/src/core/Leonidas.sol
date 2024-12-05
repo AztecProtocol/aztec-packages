@@ -119,7 +119,9 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
     override(ILeonidas)
     returns (address[] memory)
   {
-    return store.getCommitteeAt(getEpochAt(_ts), TARGET_COMMITTEE_SIZE);
+    return LeonidasLib.getCommitteeAt(
+      leonidasStore, stakingStore, getEpochAt(_ts), TARGET_COMMITTEE_SIZE
+    );
   }
 
   /**
@@ -130,7 +132,7 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
    * @return The sample seed for the given timestamp
    */
   function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
-    return store.getSampleSeed(getEpochAt(_ts));
+    return LeonidasLib.getSampleSeed(leonidasStore, getEpochAt(_ts));
   }
 
   /**
@@ -139,7 +141,7 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
    * @return The sample seed for the current epoch
    */
   function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
-    return store.getSampleSeed(getCurrentEpoch());
+    return LeonidasLib.getSampleSeed(leonidasStore, getCurrentEpoch());
   }
 
   /**
