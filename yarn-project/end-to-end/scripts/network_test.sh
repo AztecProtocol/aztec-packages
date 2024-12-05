@@ -176,7 +176,7 @@ docker run --rm --network=host \
   -e HOST_METRICS_PORT=$METRICS_PORT \
   -e CONTAINER_METRICS_PORT=80 \
   -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-  -e DEBUG="aztec:*" \
+  -e DEBUG=${DEBUG:-""} \
   -e LOG_JSON=1 \
-  -e LOG_LEVEL=debug \
+  -e LOG_LEVEL=verbose \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST

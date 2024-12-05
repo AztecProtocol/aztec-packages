@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {EpochData, LeonidasStorage} from "@aztec/core/interfaces/ILeonidas.sol";
+import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -25,28 +26,30 @@ library LeonidasLib {
    * @return The validators for the given epoch
    */
   function sampleValidators(
-    LeonidasStorage storage _store,
+    StakingStorage storage _stakingStore,
     uint256 _seed,
     uint256 _targetCommitteeSize
   ) external view returns (address[] memory) {
-    return _sampleValidators(_store, _seed, _targetCommitteeSize);
+    return _sampleValidators(_stakingStore, _seed, _targetCommitteeSize);
   }
 
   function getProposerAt(
-    LeonidasStorage storage _store,
+    LeonidasStorage storage _leonidasStore,
+    StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) external view returns (address) {
-    return _getProposerAt(_store, _slot, _epochNumber, _targetCommitteeSize);
+    return _getProposerAt(_leonidasStore, _stakingStore, _slot, _epochNumber, _targetCommitteeSize);
   }
 
   function getCommitteeAt(
-    LeonidasStorage storage _store,
+    LeonidasStorage storage _leonidasStore,
+    StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) external view returns (address[] memory) {
-    return _getCommitteeAt(_store, _epochNumber, _targetCommitteeSize);
+    return _getCommitteeAt(_leonidasStore, _stakingStore, _epochNumber, _targetCommitteeSize);
   }
 
   /**
@@ -66,7 +69,8 @@ library LeonidasLib {
    * @param _digest - The digest of the block
    */
   function validateLeonidas(
-    LeonidasStorage storage _store,
+    LeonidasStorage storage _leonidasStore,
+    StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     Signature[] memory _signatures,
@@ -74,7 +78,16 @@ library LeonidasLib {
     DataStructures.ExecutionFlags memory _flags,
     uint256 _targetCommitteeSize
   ) external view {
-    address proposer = _getProposerAt(_store, _slot, _epochNumber, _targetCommitteeSize);
+    // Same logic as we got in getProposerAt
+    // Done do avoid duplicate computing the committee
+    address[] memory committee =
+      _getCommitteeAt(_leonidasStore, _stakingStore, _epochNumber, _targetCommitteeSize);
+    address attester = committee.length == 0
+      ? address(0)
+      : committee[computeProposerIndex(
+        _epochNumber, _slot, getSampleSeed(_leonidasStore, _epochNumber), committee.length
+      )];
+    address proposer = _stakingStore.info[attester].proposer;
 
     // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
@@ -85,15 +98,9 @@ library LeonidasLib {
     // @todo We should allow to provide a signature instead of needing the proposer to broadcast.
     require(proposer == msg.sender, Errors.Leonidas__InvalidProposer(proposer, msg.sender));
 
-    // @note  This is NOT the efficient way to do it, but it is a very convenient way for us to do it
-    //        that allows us to reduce the number of code paths. Also when changed with optimistic for
-    //        pleistarchus, this will be changed, so we can live with it.
-
     if (_flags.ignoreSignatures) {
       return;
     }
-
-    address[] memory committee = _getCommitteeAt(_store, _epochNumber, _targetCommitteeSize);
 
     uint256 needed = committee.length * 2 / 3 + 1;
     require(
@@ -137,7 +144,7 @@ library LeonidasLib {
    *
    * @return The sample seed for the epoch
    */
-  function getSampleSeed(LeonidasStorage storage _store, Epoch _epoch)
+  function getSampleSeed(LeonidasStorage storage _leonidasStore, Epoch _epoch)
     internal
     view
     returns (uint256)
@@ -145,17 +152,17 @@ library LeonidasLib {
     if (Epoch.unwrap(_epoch) == 0) {
       return type(uint256).max;
     }
-    uint256 sampleSeed = _store.epochs[_epoch].sampleSeed;
+    uint256 sampleSeed = _leonidasStore.epochs[_epoch].sampleSeed;
     if (sampleSeed != 0) {
       return sampleSeed;
     }
 
-    sampleSeed = _store.epochs[_epoch - Epoch.wrap(1)].nextSeed;
+    sampleSeed = _leonidasStore.epochs[_epoch - Epoch.wrap(1)].nextSeed;
     if (sampleSeed != 0) {
       return sampleSeed;
     }
 
-    return _store.lastSeed;
+    return _leonidasStore.lastSeed;
   }
 
   /**
@@ -167,32 +174,33 @@ library LeonidasLib {
    * @return The validators for the given epoch
    */
   function _sampleValidators(
-    LeonidasStorage storage _store,
+    StakingStorage storage _stakingStore,
     uint256 _seed,
     uint256 _targetCommitteeSize
   ) private view returns (address[] memory) {
-    uint256 validatorSetSize = _store.validatorSet.length();
+    uint256 validatorSetSize = _stakingStore.attesters.length();
     if (validatorSetSize == 0) {
       return new address[](0);
     }
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= _targetCommitteeSize) {
-      return _store.validatorSet.values();
+      return _stakingStore.attesters.values();
     }
 
-    uint256[] memory indicies =
+    uint256[] memory indices =
       SampleLib.computeCommitteeClever(_targetCommitteeSize, validatorSetSize, _seed);
 
     address[] memory committee = new address[](_targetCommitteeSize);
     for (uint256 i = 0; i < _targetCommitteeSize; i++) {
-      committee[i] = _store.validatorSet.at(indicies[i]);
+      committee[i] = _stakingStore.attesters.at(indices[i]);
     }
     return committee;
   }
 
   function _getProposerAt(
-    LeonidasStorage storage _store,
+    LeonidasStorage storage _leonidasStore,
+    StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
@@ -201,21 +209,26 @@ library LeonidasLib {
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
-    address[] memory committee = _getCommitteeAt(_store, _epochNumber, _targetCommitteeSize);
+    address[] memory committee =
+      _getCommitteeAt(_leonidasStore, _stakingStore, _epochNumber, _targetCommitteeSize);
     if (committee.length == 0) {
       return address(0);
     }
-    return committee[computeProposerIndex(
-      _epochNumber, _slot, getSampleSeed(_store, _epochNumber), committee.length
+
+    address attester = committee[computeProposerIndex(
+      _epochNumber, _slot, getSampleSeed(_leonidasStore, _epochNumber), committee.length
     )];
+
+    return _stakingStore.info[attester].proposer;
   }
 
   function _getCommitteeAt(
-    LeonidasStorage storage _store,
+    LeonidasStorage storage _leonidasStore,
+    StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) private view returns (address[] memory) {
-    EpochData storage epoch = _store.epochs[_epochNumber];
+    EpochData storage epoch = _leonidasStore.epochs[_epochNumber];
 
     if (epoch.sampleSeed != 0) {
       uint256 committeeSize = epoch.committee.length;
@@ -226,13 +239,13 @@ library LeonidasLib {
     }
 
     // Allow anyone if there is no validator set
-    if (_store.validatorSet.length() == 0) {
+    if (_stakingStore.attesters.length() == 0) {
       return new address[](0);
     }
 
     // Emulate a sampling of the validators
-    uint256 sampleSeed = getSampleSeed(_store, _epochNumber);
-    return _sampleValidators(_store, sampleSeed, _targetCommitteeSize);
+    uint256 sampleSeed = getSampleSeed(_leonidasStore, _epochNumber);
+    return _sampleValidators(_stakingStore, sampleSeed, _targetCommitteeSize);
   }
 
   /**

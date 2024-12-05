@@ -18,3 +18,9 @@ variable "AZTEC_DOCKER_IMAGE" {
   description = "Docker image to use for the aztec network"
   type        = string
 }
+
+variable "l1_deployment_mnemonic" {
+  description = "Mnemonic to use for the L1 contract deployments"
+  type        = string
+  sensitive   = true
+}

@@ -9,6 +9,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
@@ -834,6 +835,62 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
 }
 
 /**
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
+ * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+ *
+ * @param bytecodePath
+ * @param witnessPath
+ */
+void write_vk_for_ivc(const std::string& bytecodePath, const std::string& outputPath)
+{
+    using Builder = ClientIVC::ClientCircuit;
+    using Prover = ClientIVC::MegaProver;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using VerificationKey = ClientIVC::MegaVerificationKey;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << 20);
+    init_grumpkin_crs(1 << 15);
+
+    auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    acir_format::WitnessVector witness = {};
+
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+
+    // The presence of ivc recursion constraints determines whether or not the program is a kernel
+    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
+
+    Builder builder;
+    if (is_kernel) {
+        // Create a mock IVC instance based on the IVC recursion constraints in the kernel program
+        ClientIVC mock_ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
+        builder = acir_format::create_kernel_circuit(constraints, mock_ivc, witness);
+    } else {
+        builder = acir_format::create_circuit<Builder>(
+            constraints, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
+    }
+    // Add public inputs corresponding to pairing point accumulator
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
+
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+    Prover prover{ proving_key };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    VerificationKey vk(prover.proving_key->proving_key);
+
+    // Write the VK to file as a buffer
+    auto serialized_vk = to_buffer(vk);
+    if (outputPath == "-") {
+        writeRawBytesToStdout(serialized_vk);
+        vinfo("vk written to stdout");
+    } else {
+        write_file(outputPath, serialized_vk);
+        vinfo("vk written to: ", outputPath);
+    }
+}
+
+/**
  * @brief Write a toml file containing recursive verifier inputs for a given program + witness
  *
  * @tparam Flavor
@@ -1073,7 +1130,8 @@ int main(int argc, char* argv[])
 
         const API::Flags flags = [&args]() {
             return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
+                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
+                               .no_auto_verify = flag_present(args, "--no_auto_verify") };
         }();
 
         const std::string command = args[0];
@@ -1227,6 +1285,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
+        } else if (command == "write_vk_for_ivc") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            write_vk_for_ivc(bytecode_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);
