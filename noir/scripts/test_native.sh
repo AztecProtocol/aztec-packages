@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+# Go to noir repo root.
 cd $(dirname "$0")/../noir-repo
 
 # Set build data manually.
