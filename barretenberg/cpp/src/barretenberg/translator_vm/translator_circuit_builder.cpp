@@ -702,6 +702,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
                            [&](size_t variable_index) { return variable_index + variable_offset; });
         }
     });
+    num_gates += raw_ops.size() * 2;
 #else
 
     for (const auto& raw_op : raw_ops) {
