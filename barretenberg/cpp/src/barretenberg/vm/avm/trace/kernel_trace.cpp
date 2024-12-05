@@ -353,10 +353,6 @@ void AvmKernelTraceBuilder::op_sstore(uint32_t clk, uint32_t side_effect_counter
 //                 dest.main_kernel_in_offset = SENDER_KERNEL_INPUTS_COL_OFFSET;
 //                 dest.main_sel_q_kernel_lookup = 1;
 //                 break;
-//             case KernelTraceOpType::FUNCTION_SELECTOR:
-//                 dest.main_kernel_in_offset = FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET;
-//                 dest.main_sel_q_kernel_lookup = 1;
-//                 break;
 //             case KernelTraceOpType::TRANSACTION_FEE:
 //                 dest.main_kernel_in_offset = TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET;
 //                 dest.main_sel_q_kernel_lookup = 1;

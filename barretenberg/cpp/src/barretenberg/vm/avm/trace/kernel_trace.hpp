@@ -18,7 +18,6 @@ class AvmKernelTraceBuilder {
         // IN
         ADDRESS,
         SENDER,
-        FUNCTION_SELECTOR,
         TRANSACTION_FEE,
         CHAIN_ID,
         VERSION,
