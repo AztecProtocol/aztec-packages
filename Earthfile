@@ -7,7 +7,6 @@ bootstrap-noir-bb:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
-  ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   ENV GITHUB_LOG=1
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
@@ -29,9 +28,9 @@ bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
-  ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   ENV GITHUB_LOG=1
   WORKDIR /build-volume
+  # ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   # Use a cache volume for performance
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
