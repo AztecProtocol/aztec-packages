@@ -29,13 +29,9 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-<<<<<<< HEAD
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
-=======
 import {
   ProposeArgs, OracleInput, ProposeLib
 } from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
->>>>>>> master
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns

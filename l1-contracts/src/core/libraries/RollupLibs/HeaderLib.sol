@@ -106,59 +106,6 @@ struct Header {
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
-<<<<<<< HEAD:l1-contracts/src/core/libraries/HeaderLib.sol
-  struct AppendOnlyTreeSnapshot {
-    bytes32 root;
-    uint32 nextAvailableLeafIndex;
-  }
-
-  struct PartialStateReference {
-    AppendOnlyTreeSnapshot noteHashTree;
-    AppendOnlyTreeSnapshot nullifierTree;
-    AppendOnlyTreeSnapshot contractTree;
-    AppendOnlyTreeSnapshot publicDataTree;
-  }
-
-  struct StateReference {
-    AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
-    PartialStateReference partialStateReference;
-  }
-
-  struct GasFees {
-    uint256 feePerDaGas;
-    uint256 feePerL2Gas;
-  }
-
-  struct GlobalVariables {
-    uint256 chainId;
-    uint256 version;
-    uint256 blockNumber;
-    uint256 slotNumber;
-    uint256 timestamp;
-    address coinbase;
-    bytes32 feeRecipient;
-    GasFees gasFees;
-  }
-
-  struct ContentCommitment {
-    uint256 numTxs;
-    bytes32 txsEffectsHash;
-    bytes32 inHash;
-    bytes32 outHash;
-  }
-
-  struct Header {
-    AppendOnlyTreeSnapshot lastArchive;
-    ContentCommitment contentCommitment;
-    StateReference stateReference;
-    GlobalVariables globalVariables;
-    uint256 totalFees;
-    uint256 totalManaUsed;
-  }
-
-=======
->>>>>>> master:l1-contracts/src/core/libraries/RollupLibs/HeaderLib.sol
   uint256 private constant HEADER_LENGTH = 0x288; // Header byte length
 
   /**

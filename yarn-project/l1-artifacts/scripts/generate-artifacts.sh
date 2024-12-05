@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euo pipefail;
 
 target_dir=./generated
+
 
 # CONTRACT elements have structure PROJECT_DIR_NAME:CONTRACT_NAME.
 #   This will generate the following artifacts for the contracts within the target_dir{./generated} directory.
@@ -31,28 +32,29 @@ CONTRACTS=(
   "l1-contracts:ExtRollupLib"
 )
 
-# create target dir if it doesn't exist
-mkdir -p "$target_dir"
 
-echo -ne "// Auto generated module\n" >"$target_dir/index.ts"
+# create target dir if it doesn't exist
+mkdir -p "$target_dir";
+
+echo -ne "// Auto generated module\n" > "$target_dir/index.ts";
 
 for E in "${CONTRACTS[@]}"; do
-  ARR=(${E//:/ })
-  ROOT="${ARR[0]}"
-  CONTRACT_NAME="${ARR[1]}"
+    ARR=(${E//:/ })
+    ROOT="${ARR[0]}";
+    CONTRACT_NAME="${ARR[1]}";
 
-  echo -ne "/**\n * $CONTRACT_NAME ABI.\n */\nexport const ${CONTRACT_NAME}Abi = " >"$target_dir/${CONTRACT_NAME}Abi.ts"
-  jq -j '.abi' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >>"$target_dir/${CONTRACT_NAME}Abi.ts"
-  echo " as const;" >>"$target_dir/${CONTRACT_NAME}Abi.ts"
+    echo -ne "/**\n * $CONTRACT_NAME ABI.\n */\nexport const ${CONTRACT_NAME}Abi = " > "$target_dir/${CONTRACT_NAME}Abi.ts";
+    jq -j '.abi' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Abi.ts";
 
-  echo -ne "/**\n * $CONTRACT_NAME bytecode.\n */\nexport const ${CONTRACT_NAME}Bytecode = \"" >"$target_dir/${CONTRACT_NAME}Bytecode.ts"
-  jq -j '.bytecode.object' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >>"$target_dir/${CONTRACT_NAME}Bytecode.ts"
-  echo "\";" >>"$target_dir/${CONTRACT_NAME}Bytecode.ts"
-  echo -ne "/**\n * $CONTRACT_NAME link references.\n */\nexport const ${CONTRACT_NAME}LinkReferences = " >>"$target_dir/${CONTRACT_NAME}Bytecode.ts"
-  jq -j '.bytecode.linkReferences' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >>"$target_dir/${CONTRACT_NAME}Bytecode.ts"
-  echo " as const;" >>"$target_dir/${CONTRACT_NAME}Bytecode.ts"
+    echo -ne "/**\n * $CONTRACT_NAME bytecode.\n */\nexport const ${CONTRACT_NAME}Bytecode = \"" > "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    jq -j '.bytecode.object' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    echo "\";" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    echo -ne "/**\n * $CONTRACT_NAME link references.\n */\nexport const ${CONTRACT_NAME}LinkReferences = " >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    jq -j '.bytecode.linkReferences' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
 
-  echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" >>"$target_dir/index.ts"
-done
+    echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" >> "$target_dir/index.ts";
+done;
 
-echo "Successfully generated TS artifacts!"
+echo "Successfully generated TS artifacts!";

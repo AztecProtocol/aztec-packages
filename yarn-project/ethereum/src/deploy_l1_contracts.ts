@@ -26,8 +26,6 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
-  SampleLibAbi,
-  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
@@ -181,10 +179,6 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode,
-        },
-        SampleLib: {
-          contractAbi: SampleLibAbi,
-          contractBytecode: SampleLibBytecode,
         },
       },
     },
