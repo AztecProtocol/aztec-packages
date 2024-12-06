@@ -1,6 +1,5 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
-// todo change to typesense
 
 const { themes } = require("prism-react-renderer");
 const lightTheme = themes.github;
@@ -195,7 +194,7 @@ const config = {
       ],
       image: "img/docs-preview-image.png",
       typesense: {
-        typesenseCollectionName: "aztec-docs", 
+        typesenseCollectionName: "aztec-docs",
         typesenseServerConfig: {
           nodes: [
             {
@@ -204,7 +203,7 @@ const config = {
               protocol: "https",
             },
           ],
-          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", 
+          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, save to commit
         },
         contextualSearch: true,
       },
