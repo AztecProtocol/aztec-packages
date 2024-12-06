@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733442141224,
+  "lastUpdate": 1733503622082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc4139a83347b9a726b03bd167bf7e70e6dadda7",
-          "message": "chore: Delete stray todos (#10112)\n\nA few `WORKTODO`s were lingering in the code. This is a tag\r\n@ledwards2225 and I use to mark todos that we intend to delete before a\r\nparticular PR merges. Sometimes they get missed.",
-          "timestamp": "2024-11-21T13:55:48-05:00",
-          "tree_id": "260c50b41d6cfcc43150ad43bd7ef21557b93cf8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc4139a83347b9a726b03bd167bf7e70e6dadda7"
-        },
-        "date": 1732217151017,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28152.36954300002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26239.051099 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5088.158947000011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4760.867148 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84145.571559,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84145572000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15240.000718,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15240001000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3103457078,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3103457078 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141167843,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141167843 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2982,6 +2922,66 @@ window.BENCHMARK_DATA = {
             "value": 147869487,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 147869487 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e7ebef8d09744fdc24a79cb0bf74638b0a8f5dc8",
+          "message": "feat: manage enqueued calls & phases in AVM witgen (#10310)\n\nAnother larger PR:\n1) Swap out to use the enqueued side effect trace (so we private insert\nhints)\n2) Perform private inserts of nullifiers in witgen\n3) Apply asserts in witgen to ensure the endTree snapshots and endGas\nline up with expected public inputs\n4) Enforce side effect limits in witgen\n5) Handle enqueued calls & phases in witgen\n\nLater:\n1) [Handle nested calls in\nwitgen](https://github.com/AztecProtocol/aztec-packages/pull/10384)\n2) Remove old side effect trace & old public inputs completely\n\n---------\n\nCo-authored-by: David Banks <47112877+dbanks12@users.noreply.github.com>\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
+          "timestamp": "2024-12-06T10:55:34-05:00",
+          "tree_id": "0234141f751e83f7ac99ef8f4ac7e4f325960c69",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e7ebef8d09744fdc24a79cb0bf74638b0a8f5dc8"
+        },
+        "date": 1733503614595,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25520.91563799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23644.049005 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4589.823870999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4320.716221000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89293.39788599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89293398000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16528.366928,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16528367000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2816102150,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2816102150 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134061838,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134061838 ns\nthreads: 1"
           }
         ]
       }
