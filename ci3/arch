@@ -5,7 +5,7 @@ case $(uname -m) in
     echo arm64
     ;;
   amd64|x86_64)
-    echo "x64"
+    echo amd64
     ;;
   *)
     echo "Error: unknown architecture $(uname -m)" >&2
