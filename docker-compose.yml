@@ -6,8 +6,6 @@ services:
     platform: linux/amd64
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DEBUG: ${DEBUG:-aztec:*,-json-rpc:*,-aztec:circuits:artifact_hash,-aztec:randomness_singleton}
-      DEBUG_COLORS: 1
       L1_CHAIN_ID: 31337
       VERSION: 1
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
@@ -38,8 +36,6 @@ services:
     platform: linux/amd64
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DEBUG: ${DEBUG:-aztec:*,-json-rpc:*,-aztec:circuits:artifact_hash,-aztec:randomness_singleton,-aztec:avm_simulator:*}
-      DEBUG_COLORS: 1
       L1_CHAIN_ID: 31337
       VERSION: 1
       NODE_NO_WARNINGS: 1

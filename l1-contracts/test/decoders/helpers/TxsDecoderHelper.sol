@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {TxsDecoder} from "@aztec/core/libraries/RollupLibs/TxsDecoder.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 
 contract TxsDecoderHelper {
@@ -16,7 +16,7 @@ contract TxsDecoderHelper {
     pure
     returns (bytes32, uint256, uint256)
   {
-    return TxsDecoder.computeKernelEncryptedLogsHash(0, _kernelLogs);
+    return TxsDecoder.computeKernelUnencryptedLogsHash(0, _kernelLogs, false);
   }
 
   function computeTxOutHash(bytes calldata _kernelMsgs) external pure returns (bytes32) {

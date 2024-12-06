@@ -10,8 +10,11 @@ import {
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProofStore } from './proof_store.js';
+import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
 /**
@@ -20,6 +23,8 @@ import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_
 export class ProvingAgent {
   private currentJobController?: ProvingJobController;
   private runningPromise: RunningPromise;
+  private instrumentation: ProvingAgentInstrumentation;
+  private idleTimer: Timer | undefined;
 
   constructor(
     /** The source of proving jobs */
@@ -28,12 +33,15 @@ export class ProvingAgent {
     private proofStore: ProofStore,
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
+    /** A telemetry client through which to emit metrics */
+    client: TelemetryClient,
     /** Optional list of allowed proof types to build */
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
     private log = createDebugLogger('aztec:prover-client:proving-agent'),
   ) {
+    this.instrumentation = new ProvingAgentInstrumentation(client);
     this.runningPromise = new RunningPromise(this.safeWork, this.pollIntervalMs);
   }
 
@@ -46,6 +54,7 @@ export class ProvingAgent {
   }
 
   public start(): void {
+    this.idleTimer = new Timer();
     this.runningPromise.start();
   }
 
@@ -114,6 +123,11 @@ export class ProvingAgent {
         );
       }
 
+      if (this.idleTimer) {
+        this.instrumentation.recordIdleTime(this.idleTimer);
+      }
+      this.idleTimer = undefined;
+
       this.currentJobController.start();
     } catch (err) {
       this.log.error(`Error in ProvingAgent: ${String(err)}`);
@@ -126,9 +140,10 @@ export class ProvingAgent {
     err: Error | undefined,
     result: ProvingJobResultsMap[T] | undefined,
   ) => {
+    this.idleTimer = new Timer();
     if (err) {
       const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
-      this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`);
+      this.log.error(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`, err);
       return this.broker.reportProvingJobError(jobId, err.message, retry);
     } else if (result) {
       const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);

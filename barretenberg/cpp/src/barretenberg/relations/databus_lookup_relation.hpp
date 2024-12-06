@@ -3,6 +3,7 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
@@ -231,32 +232,42 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                               const size_t circuit_size)
     {
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
-        bool is_read = false;
-        bool nonzero_read_count = false;
-        for (size_t i = 0; i < circuit_size; ++i) {
-            // Determine if the present row contains a databus operation
-            auto q_busread = polynomials.q_busread[i];
-            if constexpr (bus_idx == 0) { // calldata
-                is_read = q_busread == 1 && polynomials.q_l[i] == 1;
-                nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
+
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
+        size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            size_t start = thread_idx * iterations_per_thread;
+            size_t end = (thread_idx + 1) * iterations_per_thread;
+            bool is_read = false;
+            bool nonzero_read_count = false;
+            for (size_t i = start; i < end; ++i) {
+                // Determine if the present row contains a databus operation
+                auto q_busread = polynomials.q_busread[i];
+                if constexpr (bus_idx == 0) { // calldata
+                    is_read = q_busread == 1 && polynomials.q_l[i] == 1;
+                    nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
+                }
+                if constexpr (bus_idx == 1) { // secondary_calldata
+                    is_read = q_busread == 1 && polynomials.q_r[i] == 1;
+                    nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
+                }
+                if constexpr (bus_idx == 2) { // return data
+                    is_read = q_busread == 1 && polynomials.q_o[i] == 1;
+                    nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
+                }
+                // We only compute the inverse if this row contains a read gate or data that has been read
+                if (is_read || nonzero_read_count) {
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+                    auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                    auto value = compute_read_term<FF>(row, relation_parameters) *
+                                 compute_write_term<FF, bus_idx>(row, relation_parameters);
+                    inverse_polynomial.at(i) = value;
+                }
             }
-            if constexpr (bus_idx == 1) { // secondary_calldata
-                is_read = q_busread == 1 && polynomials.q_r[i] == 1;
-                nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
-            }
-            if constexpr (bus_idx == 2) { // return data
-                is_read = q_busread == 1 && polynomials.q_o[i] == 1;
-                nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
-            }
-            // We only compute the inverse if this row contains a read gate or data that has been read
-            if (is_read || nonzero_read_count) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                auto value = compute_read_term<FF>(row, relation_parameters) *
-                             compute_write_term<FF, bus_idx>(row, relation_parameters);
-                inverse_polynomial.at(i) = value;
-            }
-        }
+        });
+
         // Compute inverse polynomial I in place by inverting the product at each row
         // Note: zeroes are ignored as they are not used anyway
         FF::batch_invert(inverse_polynomial.coeffs());
@@ -299,8 +310,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         constexpr size_t subrel_idx_1 = 2 * bus_idx;
         constexpr size_t subrel_idx_2 = 2 * bus_idx + 1;
 
-        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
-        // if !inverse_exists. Degree 3 (5)
+        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
+        // is 0 if !inverse_exists. Degree 3 (5)
         std::get<subrel_idx_1>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the

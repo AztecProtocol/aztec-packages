@@ -2,7 +2,6 @@ services:
   txe:
     image: "aztecprotocol/aztec"
     environment:
-      DEBUG: # Loaded from the user shell if explicitly set
       LOG_LEVEL: # Loaded from the user shell if explicitly set
       HOST_WORKDIR: "${PWD}" # Loaded from the user shell to show log files absolute path in host
     volumes:

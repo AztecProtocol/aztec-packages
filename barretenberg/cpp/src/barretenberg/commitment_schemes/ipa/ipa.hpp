@@ -200,6 +200,7 @@ template <typename Curve_> class IPA {
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
         if (log_poly_length > CONST_ECCVM_LOG_N) {
             throw_or_abort("IPA log_poly_length is too large");
         }

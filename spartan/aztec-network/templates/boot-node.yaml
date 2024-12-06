@@ -72,6 +72,8 @@ spec:
           env:
             - name: INIT_VALIDATORS
               value: "true"
+            - name: MNEMONIC
+              value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -157,9 +159,9 @@ spec:
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -168,6 +170,8 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: PEER_ID_PRIVATE_KEY
+              value: "{{ .Values.bootNode.peerIdPrivateKey }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
@@ -206,6 +210,7 @@ data:
     export INBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.inboxAddress }}
     export OUTBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.outboxAddress }}
     export FEE_JUICE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuiceAddress }}
+    export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
 {{if not .Values.network.public }}
