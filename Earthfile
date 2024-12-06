@@ -116,8 +116,8 @@ ci-noir-bb:
     echo "[default]" > $HOME/.aws/credentials && \
     echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
     echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
-    echo "region = $AWS_REGION" >> $HOME/.aws/credentials
-
+    echo "region = $AWS_REGION" >> $HOME/.aws/credentials && \
+    chmod 600 $HOME/.aws/credentials
   LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
   IF ci3/test_should_run $artifact
     WAIT
