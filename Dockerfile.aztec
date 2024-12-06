@@ -1,4 +1,7 @@
 FROM ubuntu:noble
+# ensure we retry apt
+RUN echo 'Acquire::Retries "3"; Acquire::https::Timeout "240"; Acquire::http::Timeout "240"; APT::Get::Assume-Yes "true"; APT::Install-Recommends "false"; APT::Install-Suggests "false";' \
+    > /etc/apt/apt.conf.d/99-aztec-build
 RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 COPY /usr/src /usr/src
 ENV BB_WORKING_DIRECTORY=/usr/src/bb

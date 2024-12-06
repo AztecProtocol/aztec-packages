@@ -648,7 +648,7 @@ jobs:
             scripts/earthly-ci --artifact ./noir-projects/+public-functions-report/public_functions_report.json
       - name: Copy Report
         run: |
-          copy_from_builder public_functions_report.json public_functions_report.json
+          copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
         uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48

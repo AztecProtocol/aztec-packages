@@ -1,4 +1,7 @@
 FROM ubuntu:noble
+# ensure we retry apt
+RUN echo 'Acquire::Retries "3"; Acquire::https::Timeout "240"; Acquire::http::Timeout "240"; APT::Get::Assume-Yes "true"; APT::Install-Recommends "false"; APT::Install-Suggests "false";' \
+    > /etc/apt/apt.conf.d/99-aztec-build
 # add repository for chromium
 RUN apt-get update && apt-get install -y software-properties-common \
   && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
