@@ -390,9 +390,13 @@ jobs:
       - name: "Native Prover Tests"
         env:
           GITHUB_LOG: 1
+          CI: 1
+          USE_CACHE: 1
         run: |
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
-          ./ci.sh ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
+          if ci3/test_should_run barretenberg-test-$(./barretenberg/cpp/bootstrap.sh hash); then
+            ./ci.sh ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
+          fi
 
   network-4epochs-test:
     needs: [ci-rest, configure]
