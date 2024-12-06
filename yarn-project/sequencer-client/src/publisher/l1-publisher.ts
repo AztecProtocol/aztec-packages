@@ -43,7 +43,7 @@ import {
   type BaseError,
   type Chain,
   type Client,
-  type ContractFunctionExecutionError,
+  ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -392,6 +392,32 @@ export class L1Publisher {
       if (error instanceof ContractFunctionRevertedError) {
         const err = error as ContractFunctionRevertedError;
         this.log.debug(`Validation failed: ${err.message}`, err.data);
+      } else if (error instanceof ContractFunctionExecutionError) {
+        let err = error as ContractFunctionRevertedError;
+        if (!tryGetCustomErrorName(err)) {
+          // If we get here, it's because the custom error no longer exists in Rollup.sol,
+          // but in another lib. The below reconstructs the error message.
+          try {
+            await this.publicClient.estimateGas({
+              data: encodeFunctionData({
+                abi: this.rollupContract.abi,
+                functionName: 'validateHeader',
+                args,
+              }),
+              account: this.account,
+              to: this.rollupContract.address,
+            });
+          } catch (estGasErr: unknown) {
+            err = getContractError(estGasErr as BaseError, {
+              args: [],
+              abi: ExtRollupLibAbi,
+              functionName: 'validateHeader',
+              address: this.rollupContract.address,
+              sender: this.account.address,
+            });
+          }
+          throw err;
+        }
       } else {
         this.log.debug(`Unexpected error during validation: ${error}`);
       }

@@ -157,7 +157,7 @@ jobs:
           concurrency_key: build-x86
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
-        timeout-minutes: 90
+        timeout-minutes: 40
         if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
@@ -635,7 +635,7 @@ jobs:
         with:
           concurrency_key: prover-client-test-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   # proving disabled
