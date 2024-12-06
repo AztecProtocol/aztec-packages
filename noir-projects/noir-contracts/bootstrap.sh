@@ -33,7 +33,7 @@ function compile {
   local contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
+  export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns
   export REBUILD_PATTERNS="^noir-projects/noir-contracts/contracts/$contract/"
   local contract_hash=$(cache_content_hash)
   if ! cache_download contract-$contract_hash.tar.gz 2> /dev/null; then

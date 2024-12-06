@@ -2,28 +2,30 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-native_hash=$(cache_content_hash .rebuild_patterns_native)
-packages_hash=$(cache_content_hash ../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages .rebuild_patterns_native)
+hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
   github_group "noir build"
   # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
-  if ! cache_download noir-nargo-$native_hash.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
-    export COMMIT_HASH="$(echo "$native_hash" | sed 's/-.*//g')"
+  if ! cache_download noir-nargo-$hash.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
+    export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     # Continue with native bootstrapping if the cache was not used or nargo verification failed.
     denoise ./scripts/bootstrap_native.sh
-    cache_upload noir-nargo-$native_hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
+    cache_upload noir-nargo-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
   fi
-  if ! cache_download noir-packages-$packages_hash.tar.gz ; then
-    export COMMIT_HASH="$(echo "$packages_hash" | sed 's/-.*//g')"
+  if ! cache_download noir-packages-$hash.tar.gz ; then
+    export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     denoise ./scripts/bootstrap_packages.sh
-    cache_upload noir-packages-$packages_hash.tar.gz packages
+    cache_upload noir-packages-$hash.tar.gz packages
   fi
   github_endgroup
 }
 
+function test_hash() {
+  hash_str $hash-$(cache_content_hash .rebuild_patterns_tests)
+}
 function test {
-  test_flag=noir-test-$(hash_str $native_hash-$packages_hash-$(cache_content_hash .rebuild_patterns_tests))
+  test_flag=noir-test-$(test_hash)
   if test_should_run $test_flag; then
     github_group "noir test"
     export PATH="$PWD/noir-repo/target/release/:$PATH"
@@ -48,11 +50,11 @@ case "$cmd" in
     build
     test
     ;;
-  "hash-native")
-    echo $native_hash
+  "hash")
+    echo $hash
     ;;
-  "hash-packages")
-    echo $packages_hash
+  "hash-test")
+    test_hash
     ;;
   *)
     echo "Unknown command: $cmd"

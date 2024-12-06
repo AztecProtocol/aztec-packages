@@ -6,7 +6,7 @@ cmd=${1:-}
 
 function build {
   github_group "avm-transpiler build"
-  artifact=avm-transpiler-$(cache_content_hash ../noir/.rebuild_patterns_native .rebuild_patterns).tar.gz
+  artifact=avm-transpiler-$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns).tar.gz
   if ! cache_download $artifact; then
     denoise ./scripts/bootstrap_native.sh
     cache_upload $artifact target/release

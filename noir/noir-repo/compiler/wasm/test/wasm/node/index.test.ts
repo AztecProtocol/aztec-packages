@@ -36,10 +36,7 @@ describe('noir wasm compilation', () => {
       // We don't expect the hashes to match due to how `noir_wasm` handles dependencies
       expect(wasmCircuit.program.bytecode).to.eq(cliCircuit.bytecode);
       expect(wasmCircuit.program.abi).to.deep.eq(cliCircuit.abi);
-      if (!process.env.NOIR_TEST_DISABLE_VERSION_CHECK) {
-        // We expect these to match (e.g. not in aztec)
-        expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
-      }
+      expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
     }).timeout(60 * 20e3);
   });
 
@@ -72,10 +69,7 @@ describe('noir wasm compilation', () => {
       // We don't expect the hashes to match due to how `noir_wasm` handles dependencies
       expect(wasmCircuit.program.bytecode).to.eq(cliCircuit.bytecode);
       expect(wasmCircuit.program.abi).to.deep.eq(cliCircuit.abi);
-      if (!process.env.NOIR_TEST_DISABLE_VERSION_CHECK) {
-        // We expect these to match (e.g. not in aztec)
-        expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
-      }
+      expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
     }).timeout(60 * 20e3);
   });
 
@@ -122,10 +116,7 @@ describe('noir wasm compilation', () => {
       }
 
       // We don't expect the hashes to match due to how `noir_wasm` handles dependencies
-      if (!process.env.NOIR_TEST_DISABLE_VERSION_CHECK) {
-        // We expect these to match (e.g. not in aztec)
-        expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
-      }
+      expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
       expect(wasmCircuit.program.abi).to.deep.eq(cliCircuit.abi);
       expect(wasmCircuit.program.bytecode).to.eq(cliCircuit.bytecode);
     }).timeout(60 * 20e3);
@@ -149,10 +140,7 @@ describe('noir wasm compilation', () => {
       }
 
       // We don't expect the hashes to match due to how `noir_wasm` handles dependencies
-      if (!process.env.NOIR_TEST_DISABLE_VERSION_CHECK) {
-        // We expect these to match (e.g. not in aztec)
-        expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
-      }
+      expect(wasmCircuit.program.noir_version).to.eq(cliCircuit.noir_version);
       expect(wasmCircuit.program.abi).to.deep.eq(cliCircuit.abi);
       expect(wasmCircuit.program.bytecode).to.eq(cliCircuit.bytecode);
     }).timeout(60 * 20e3);
