@@ -1,6 +1,25 @@
 name: Aztec Network Deployment
 
 on:
+  workflow_call:
+    inputs:
+      namespace:
+        description: The namespace to deploy to, e.g. smoke
+        required: true
+      values_file:
+        description: The values file to use, e.g. 1-validators.yaml
+        required: true
+      aztec_docker_image:
+        description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
+        required: true
+      deployment_mnemonic_secret_name:
+        description: The name of the secret which holds the boot node's contract deployment mnemonic
+        required: true
+        default: testnet-deployment-mnemonic
+      respect_tf_lock:
+        description: Whether to respect the Terraform lock
+        required: false
+        default: "true"
   workflow_dispatch:
     inputs:
       namespace:
