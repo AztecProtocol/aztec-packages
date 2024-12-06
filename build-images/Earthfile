@@ -467,6 +467,9 @@ sysbox:
   SAVE IMAGE aztecprotocol/sysbox:2.1-$TARGETARCH
   SAVE IMAGE aztecprotocol/sysbox:2.1
 
+########################################################################################################################
+# Bases for images we run in e.g. docker or kubernetes
+
 aztec-base:
   FROM ubuntu:noble
   RUN echo 'Acquire::Retries "3"; Acquire::https::Timeout "240"; Acquire::http::Timeout "240"; APT::Get::Assume-Yes "true"; APT::Install-Recommends "false"; APT::Install-Suggests "false";' \
@@ -480,8 +483,6 @@ aztec-base:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
 
-########################################################################################################################
-# Bases for
 # Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
 end-to-end-base:
   FROM ubuntu:noble
@@ -517,16 +518,13 @@ end-to-end-base:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
 
-build-all:
-  # Build all intermediate and final images, pushing them to the registry
-  BUILD +base-build --push
-  BUILD +wasi-sdk --push
-  BUILD +osxcross --push
-  BUILD +foundry --push
-  BUILD +build --push
-  BUILD +ci --push
-  BUILD +basebox --push
-  BUILD +devbox --push
-  BUILD +sysbox --push
-  BUILD +aztec-base --push
-  BUILD +end-to-end-base --push
+all-ci:
+  # Build all images needed by ci, pushing them to the registry
+  BUILD +base-build
+  BUILD +wasi-sdk
+  BUILD +osxcross
+  BUILD +foundry
+  BUILD +buil
+  BUILD +ci
+  BUILD +aztec-base
+  BUILD +end-to-end-base

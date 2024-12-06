@@ -140,8 +140,11 @@ case "$cmd" in
     github_group "image-aztec"
     source $ci3/source_tmp
     echo "earthly artifact build:"
+    docker pull
     scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     echo "docker image build:"
+    docker pull aztecprotocol/aztec-base:v1.0-$(arch)
+    docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
     docker build -f Dockerfile.aztec -t $image $TMP
     github_endgroup
     exit
@@ -158,6 +161,8 @@ case "$cmd" in
     scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
     scripts/earthly-ci --artifact +bootstrap-end-to-end/anvil $TMP/anvil
     echo "docker image build:"
+    docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
+    docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
     docker build -f Dockerfile.end-to-end -t $image $TMP
     github_endgroup
     exit

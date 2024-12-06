@@ -6,14 +6,16 @@ hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
   github_group "noir build"
-  # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
+  # Downloads and checks for valid nargo.
   if ! cache_download noir-nargo-$hash.tar.gz || ! ./noir-repo/target/release/nargo --version >/dev/null 2>&1 ; then
+    # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     # Continue with native bootstrapping if the cache was not used or nargo verification failed.
     denoise ./scripts/bootstrap_native.sh
     cache_upload noir-nargo-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm
   fi
   if ! cache_download noir-packages-$hash.tar.gz ; then
+    # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     denoise ./scripts/bootstrap_packages.sh
     cache_upload noir-packages-$hash.tar.gz packages

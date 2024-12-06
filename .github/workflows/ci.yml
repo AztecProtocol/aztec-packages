@@ -86,8 +86,6 @@ jobs:
               - 'barretenberg/**'
             barretenberg-cpp:
               - 'barretenberg/cpp/**'
-            base-images:
-              - 'base-images/**'
             noir:
               - 'noir/**'
             avm-transpiler:
@@ -115,17 +113,15 @@ jobs:
               # Always rebuild when this file changes
               - .github/workflows/ci.yml
 
-  # Used by CI build.
+  # Used by CI build as a base image.
   base-images:
     needs: [configure]
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        if: needs.configure.outputs.base-images == 'true'
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "Setup"
-        if: needs.configure.outputs.base-images == 'true'
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
@@ -133,10 +129,9 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
       - name: "Build Images"
         uses: ./.github/run-on-builder
-        if: needs.configure.outputs.base-images == 'true'
         timeout-minutes: 40
         with:
-          run: scripts/earthly-ci --push ./build-images/+build
+          run: ./build-images/bootstrap.sh ci
 
   # CI for noir and bb.
   ci-noir-bb:

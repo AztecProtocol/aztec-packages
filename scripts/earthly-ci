@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # A wrapper for Earthly that is meant to catch signs of known intermittent failures and continue.
 # The silver lining is if Earthly does crash, the cache can pick up the build.
+if [ "${CI:-0}" = 0 ]; then
+  # only use earthly-ci if local not set.
+  echo "Running earthly-local because CI is not 1."
+  exec "$(dirname $0)/earthly-local"
+fi
 set -eu -o pipefail
 
 MAX_WAIT_TIME=300 # Maximum wait time in seconds
