@@ -14,12 +14,12 @@
         "global": true,
         "default_value": "Documentation"
       },
-      "lvl1": "article h1, header h1",
-      "lvl2": "article h2",
-      "lvl3": "article h3",
-      "lvl4": "article h4",
-      "lvl5": "article h5, article td:first-child",
-      "lvl6": "article h6",
+      "lvl1": "header h1",
+      "lvl2": "header h2",
+      "lvl3": "header h3",
+      "lvl4": "header h4",
+      "lvl5": "header h5",
+      "lvl6": "header h6",
       "text": "article p, article li, article td:last-child"
     },
     "strip_chars": " .,;:#",
