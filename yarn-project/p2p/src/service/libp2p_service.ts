@@ -43,7 +43,7 @@ import {
 } from '../tx_validator/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
-import { fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from './encoding.js';
+import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from './encoding.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
@@ -246,6 +246,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
+          dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
@@ -282,11 +283,11 @@ export class LibP2PService extends WithTracer implements P2PService {
      * @param msg - the tx request message
      * @returns the tx response message
      */
-    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
+    const txHandler = (msg: Buffer): Promise<Buffer> => {
       const txHash = TxHash.fromBuffer(msg);
       const foundTx = mempools.txPool.getTxByHash(txHash);
-      const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
-      return Promise.resolve(asUint8Array);
+      const buf = foundTx ? foundTx.toBuffer() : Buffer.alloc(0);
+      return Promise.resolve(buf);
     };
 
     const requestResponseHandlers = {

@@ -547,6 +547,7 @@ jobs:
           echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$(extract inboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$(extract outboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(extract feeJuiceAddress)" >>$GITHUB_ENV
+          echo "TF_VAR_STAKING_ASSET_CONTRACT_ADDRESS=$(extract stakingAssetAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(extract feeJuicePortalAddress)" >>$GITHUB_ENV
 
       - name: Apply l1-contracts Terraform
@@ -678,6 +679,7 @@ jobs:
           aws s3 cp ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json ./basic_contracts.json
 
           echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(jq -r '.feeJuiceAddress' ./l1_contracts.json)" >>$GITHUB_ENV
+          echo "TF_VAR_STAKING_ASSET_CONTRACT_ADDRESS=$(jq -r '.stakingAssetAddress' ./l1_contracts.json)" >>$GITHUB_ENV
           echo "TF_VAR_DEV_COIN_CONTRACT_ADDRESS=$(jq -r '.devCoinL1' ./basic_contracts.json)" >>$GITHUB_ENV
 
       - name: Deploy Faucet
