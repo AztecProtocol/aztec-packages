@@ -431,6 +431,16 @@ impl<'f> Context<'f> {
         };
         self.condition_stack.push(cond_context);
         self.insert_current_side_effects_enabled();
+
+        // We disallow this case as it results in the `else_destination` block
+        // being inlined before the `then_destination` block due to block deduplication in the work queue.
+        //
+        // The `else_destination` block then gets treated as if it were the `then_destination` block
+        // and has the incorrect condition applied to it.
+        assert_ne!(
+            self.branch_ends[if_entry], *then_destination,
+            "ICE: branches merge inside of `then` branch"
+        );
         vec![self.branch_ends[if_entry], *else_destination, *then_destination]
     }
 

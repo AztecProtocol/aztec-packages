@@ -45,7 +45,7 @@ impl<'a> ValueMerger<'a> {
 
     /// Merge two values a and b from separate basic blocks to a single value.
     /// If these two values are numeric, the result will be
-    /// `then_condition * then_value + else_condition * else_value`.
+    /// `then_condition * (then_value - else_value) + else_value`.
     /// Otherwise, if the values being merged are arrays, a new array will be made
     /// recursively from combining each element of both input arrays.
     ///
