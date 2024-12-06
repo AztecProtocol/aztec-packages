@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
@@ -36,3 +36,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     ...numberConfigHelper(1_000),
   },
 };
+
+export function getL1ReaderConfigFromEnv(): L1ReaderConfig {
+  return getConfigFromMappings<L1ReaderConfig>(l1ReaderConfigMappings);
+}

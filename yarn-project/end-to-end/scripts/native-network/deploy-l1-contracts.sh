@@ -2,6 +2,7 @@
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
+REPO=$(git rev-parse --show-toplevel)
 
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
@@ -13,7 +14,9 @@ set -eu
 # Check for validator addresses
 if [ $# -gt 0 ]; then
   INIT_VALIDATORS="true"
-  VALIDATOR_ADDRESSES="$1"
+  NUMBER_OF_VALIDATORS="$1"
+  # Generate validator keys, this will set the VALIDATOR_ADDRESSES variable
+  source $REPO/yarn-project/end-to-end/scripts/native-network/generate-aztec-validator-keys.sh $NUMBER_OF_VALIDATORS
 else
   INIT_VALIDATORS="false"
 fi

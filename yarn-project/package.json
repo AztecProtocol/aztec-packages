@@ -38,6 +38,7 @@
     "docs",
     "end-to-end",
     "entrypoints",
+    "epoch-cache",
     "ethereum",
     "foundation",
     "key-store",
