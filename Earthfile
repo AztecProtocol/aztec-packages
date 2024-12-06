@@ -79,7 +79,7 @@ bootstrap-aztec:
   ENV DENOISE=1
   LET ci3=$(git rev-parse --show-toplevel)/ci3
   RUN rm -rf node_modules && yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   WORKDIR /usr/src
   # Focus on the biggest chunks to remove
   RUN rm -rf \
@@ -247,6 +247,17 @@ noir-projects-with-cache:
     RUN ci3/cache_upload_flag $artifact
   END
 
+rollup-verifier-contract-with-cache:
+  FROM +bootstrap
+  ENV CI=1
+  ENV USE_CACHE=1
+  LET artifact=rollup-verifier-contract-$(./noir-projects/bootstrap.sh hash)
+  IF ! ci3/cache_download $artifact
+    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+    RUN cache_upload $artifact bb
+  END
+  SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
 bb-cli:
     FROM +bootstrap
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
@@ -295,7 +306,6 @@ rollup-verifier-contract:
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
     RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
 ########################################################################################################################
 # File-copying boilerplate
 ########################################################################################################################
