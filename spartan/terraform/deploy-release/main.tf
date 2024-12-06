@@ -48,7 +48,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "aztec.l1DeploymentMnemonic"
-    value = var.l1_deployment_mnemonic
+    value = var.L1_DEPLOYMENT_MNEMONIC
   }
 
   # Setting timeout and wait conditions
