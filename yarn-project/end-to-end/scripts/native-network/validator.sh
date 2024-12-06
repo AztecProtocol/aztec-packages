@@ -86,11 +86,12 @@ else
     node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
     sleep 1
   done
+
+  # Fast forward epochs if we're on an anvil chain
+  if [ "$IS_ANVIL" = "true" ]; then
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+  fi
 fi
 
-# Fast forward epochs if we're on an anvil chain
-if [ "$IS_ANVIL" = "true" ]; then
-  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
-fi
 # Start the Validator Node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer
