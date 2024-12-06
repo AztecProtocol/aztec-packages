@@ -1,6 +1,8 @@
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include <vector>
 
 namespace acir_format {
