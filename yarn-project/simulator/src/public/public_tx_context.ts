@@ -43,7 +43,7 @@ export class PublicTxContext {
   private log: DebugLogger;
 
   /* Gas used including private, teardown gas _limit_, setup and app logic */
-  private gasUsed: Gas;
+  private gasUsedByPublic: Gas = Gas.empty();
   /* Gas actually used during teardown (different from limit) */
   public teardownGasUsed: Gas = Gas.empty();
 
@@ -61,8 +61,9 @@ export class PublicTxContext {
     private readonly globalVariables: GlobalVariables,
     private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
-    private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
+    private readonly gasUsedByPrivate: Gas,
+    private readonly gasAllocatedToPublic: Gas,
     private readonly setupCallRequests: PublicCallRequest[],
     private readonly appLogicCallRequests: PublicCallRequest[],
     private readonly teardownCallRequests: PublicCallRequest[],
@@ -74,7 +75,7 @@ export class PublicTxContext {
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
-    this.gasUsed = startGasUsed;
+    this.log.debug(`PublicTxContext created with gas allocated to public: ${inspect(this.gasAllocatedToPublic)}`);
   }
 
   public static async create(
@@ -103,13 +104,19 @@ export class PublicTxContext {
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
 
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasUsedByPrivate = tx.data.gasUsed;
+    // Gas allocated to public is "whatever's left" after private, but with some max applied.
+    const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
+
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
       tx.data.constants.historicalHeader,
       await db.getStateReference(),
-      tx.data.gasUsed,
-      tx.data.constants.txContext.gasSettings,
+      gasSettings,
+      gasUsedByPrivate,
+      gasAllocatedToPublic,
       getCallRequestsByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
@@ -236,7 +243,8 @@ export class PublicTxContext {
     if (phase === TxExecutionPhase.TEARDOWN) {
       return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
     } else {
-      return applyMaxToAvailableGas(this.gasSettings.gasLimits).sub(this.gasUsed);
+      const gasLeftForPublic = this.gasAllocatedToPublic.sub(this.gasUsedByPublic);
+      return gasLeftForPublic;
     }
   }
 
@@ -247,8 +255,16 @@ export class PublicTxContext {
     if (phase === TxExecutionPhase.TEARDOWN) {
       this.teardownGasUsed = this.teardownGasUsed.add(gas);
     } else {
-      this.gasUsed = this.gasUsed.add(gas);
+      this.gasUsedByPublic = this.gasUsedByPublic.add(gas);
     }
+  }
+
+  /**
+   * The gasUsed by public and private,
+   * as if the entire teardown gas limit was consumed.
+   */
+  getTotalGasUsed(): Gas {
+    return this.gasUsedByPrivate.add(this.gasUsedByPublic);
   }
 
   /**
@@ -261,14 +277,7 @@ export class PublicTxContext {
     assert(this.halted, 'Can only compute actual gas used after tx execution ends');
     const requireTeardown = this.teardownCallRequests.length > 0;
     const teardownGasLimits = requireTeardown ? this.gasSettings.teardownGasLimits : Gas.empty();
-    return this.gasUsed.sub(teardownGasLimits).add(this.teardownGasUsed);
-  }
-
-  /**
-   * The gasUsed as if the entire teardown gas limit was consumed.
-   */
-  getGasUsedForFee(): Gas {
-    return this.gasUsed;
+    return this.getTotalGasUsed().sub(teardownGasLimits).add(this.teardownGasUsed);
   }
 
   /**
@@ -288,10 +297,10 @@ export class PublicTxContext {
    * Should only be called during or after teardown.
    */
   private getTransactionFeeUnsafe(): Fr {
-    const txFee = this.gasUsed.computeFee(this.globalVariables.gasFees);
+    const txFee = this.getTotalGasUsed().computeFee(this.globalVariables.gasFees);
     this.log.debug(`Computed tx fee`, {
       txFee,
-      gasUsed: inspect(this.gasUsed),
+      gasUsed: inspect(this.getTotalGasUsed()),
       gasFees: inspect(this.globalVariables.gasFees),
     });
     return txFee;
@@ -311,7 +320,7 @@ export class PublicTxContext {
       this.trace,
       this.globalVariables,
       this.startStateReference,
-      this.startGasUsed,
+      /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.setupCallRequests,
       this.appLogicCallRequests,
@@ -319,7 +328,7 @@ export class PublicTxContext {
       this.nonRevertibleAccumulatedDataFromPrivate,
       this.revertibleAccumulatedDataFromPrivate,
       endStateReference,
-      /*endGasUsed=*/ this.gasUsed,
+      /*endGasUsed=*/ this.getTotalGasUsed(),
       this.getTransactionFeeUnsafe(),
       this.revertCode,
     );
