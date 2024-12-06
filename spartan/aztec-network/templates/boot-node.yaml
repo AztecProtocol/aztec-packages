@@ -208,6 +208,7 @@ data:
     export INBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.inboxAddress }}
     export OUTBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.outboxAddress }}
     export FEE_JUICE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuiceAddress }}
+    export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
 {{if not .Values.network.public }}

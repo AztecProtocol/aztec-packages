@@ -16,7 +16,7 @@ contract RewardDistributorBase is Test {
   RewardDistributor internal rewardDistributor;
 
   function setUp() public {
-    token = IMintableERC20(address(new TestERC20()));
+    token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
     registry = new Registry(address(this));
     rewardDistributor = new RewardDistributor(token, registry, address(this));
   }

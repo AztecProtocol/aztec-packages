@@ -41,7 +41,7 @@ const {
   SPARTAN_DIR,
   INSTANCE_NAME,
 } = config;
-const debugLogger = createDebugLogger('aztec:spartan-test:reorg');
+const debugLogger = createDebugLogger('aztec:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
@@ -126,14 +126,16 @@ describe('a test that passively observes the network in the presence of network 
       await sleep(Number(epochDuration * slotDuration) * 1000);
       const newTips = await rollupCheatCodes.getTips();
 
-      const expectedPending =
-        controlTips.pending + BigInt(Math.floor((1 - MAX_MISSED_SLOT_PERCENT) * Number(epochDuration)));
-      expect(newTips.pending).toBeGreaterThan(expectedPending);
       // calculate the percentage of slots missed
       const perfectPending = controlTips.pending + BigInt(Math.floor(Number(epochDuration)));
       const missedSlots = Number(perfectPending) - Number(newTips.pending);
       const missedSlotsPercentage = (missedSlots / Number(epochDuration)) * 100;
       debugLogger.info(`Missed ${missedSlots} slots, ${missedSlotsPercentage.toFixed(2)}%`);
+
+      // Ensure we missed at most the max allowed slots
+      // This is in place to ensure that we don't have a bad regression in the network
+      const maxMissedSlots = Math.floor(Number(epochDuration) * MAX_MISSED_SLOT_PERCENT);
+      expect(missedSlots).toBeLessThanOrEqual(maxMissedSlots);
     }
   });
 });
