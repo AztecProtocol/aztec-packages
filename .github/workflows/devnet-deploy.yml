@@ -126,7 +126,7 @@ jobs:
             --network host \
             --rpc-url http://127.0.0.1:$PXE_PORT \
             --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
-            --l1-chain-id $CHAIN_ID \
+            --l1-chain-id $L1_CHAIN_ID \
             --mnemonic $MNEMONIC \
             --json | tee ./basic_contracts.json
 
