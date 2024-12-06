@@ -174,14 +174,22 @@ ci-rest:
     BUILD ./l1-contracts+test
     BUILD +noir-projects-with-cache
   END
-  LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  LET artifact=prover-client-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./yarn-project/+prover-client-test
     END
+    RUN ci3/cache_upload_flag $artifact
+  END
+  LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
     WAIT
       BUILD ./yarn-project/+test
     END
+    RUN ci3/cache_upload_flag $artifact
+  END
+  LET artifact=network-test-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
     WAIT
       BUILD ./+network-test --test=./test-transfer.sh
     END
