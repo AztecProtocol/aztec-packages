@@ -230,11 +230,6 @@ Builder create_circuit(AcirFormat& constraint_system,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
-MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         ClientIVC& ivc,
-                                         const WitnessVector& witness = {},
-                                         const size_t size_hint = 0);
-
 template <typename Builder> void build_constraints(Builder& builder, AcirProgram& program, ProgramMetadata& metadata);
 
 /**
