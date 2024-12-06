@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../guides/developer_guides/getting_started) to install `aztec-nargo` and `aztec`.
+- You have followed the [quickstart](../../../guides/getting_started) to install `aztec-nargo` and `aztec`.
 - Running Aztec Sandbox
 
 ## Set up a project

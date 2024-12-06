@@ -48,12 +48,13 @@ spec:
               chmod +x /tmp/setup-service-addresses.sh
               /tmp/setup-service-addresses.sh
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               export AZTEC_NODE_URL=$BOOT_NODE_HOST
               export PXE_URL=$BOOT_NODE_HOST
               until curl -s -X POST -H 'content-type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
                 $PXE_URL | grep -q '"enr:-'; do
-                echo "Waiting for PXE service..."
+                echo "Waiting for PXE service at ${PXE_URL}..."
                 sleep 5
               done
               echo "PXE service is ready!"
@@ -61,8 +62,8 @@ spec:
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
               echo "L2 contracts initialized"
           env:
-            - name: DEBUG
-              value: "aztec:*"
+            - name: TELEMETRY
+              value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
               value: "debug"
             - name: NETWORK_PUBLIC

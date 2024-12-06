@@ -74,8 +74,12 @@ contract RollupTest is DecoderBase, TimeFns {
    */
   modifier setUpFor(string memory _name) {
     {
+      testERC20 = new TestERC20("test", "TEST", address(this));
+
       leo = new Leonidas(
         address(1),
+        testERC20,
+        TestConstants.AZTEC_MINIMUM_STAKE,
         TestConstants.AZTEC_SLOT_DURATION,
         TestConstants.AZTEC_EPOCH_DURATION,
         TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
@@ -88,7 +92,6 @@ contract RollupTest is DecoderBase, TimeFns {
     }
 
     registry = new Registry(address(this));
-    testERC20 = new TestERC20();
     feeJuicePortal = new FeeJuicePortal(
       address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
@@ -98,7 +101,7 @@ contract RollupTest is DecoderBase, TimeFns {
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = new Rollup(
-      feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+      feeJuicePortal, rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));

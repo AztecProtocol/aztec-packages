@@ -9,7 +9,6 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
-import { setupConsoleJsonLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { aztecStartOptions } from './aztec_start_options.js';
@@ -39,11 +38,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   startCmd.helpInformation = printAztecStartHelpText;
 
   startCmd.action(async options => {
-    // setup json logging
-    if (['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '')) {
-      setupConsoleJsonLog();
-    }
-
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
     const services: NamespacedApiHandlers = {};
