@@ -13,6 +13,7 @@ using namespace bb;
 struct HonkRecursionConstraintOutput {
     PairingPointAccumulatorIndices agg_obj_indices;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
+    StdlibProof<Builder> ipa_proof;
 };
 
 template <typename Flavor>
