@@ -654,7 +654,7 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance(AztecAddress::from_field(args_field[0]));
+        test_get_contract_instance(AztecAddress::from_field(0x4444));
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");

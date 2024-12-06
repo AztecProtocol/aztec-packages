@@ -315,6 +315,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
 
@@ -347,6 +350,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     const instance = new AvmContractInstanceHint(
       contractAddress,

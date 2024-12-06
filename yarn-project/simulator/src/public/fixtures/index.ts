@@ -1,10 +1,11 @@
-import { PublicExecutionRequest, Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
   CallContext,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   DEFAULT_GAS_LIMIT,
+  DEPLOYER_CONTRACT_ADDRESS,
   FunctionSelector,
   Gas,
   GasFees,
@@ -22,6 +23,7 @@ import {
   TxContext,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -54,6 +56,17 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
   const contractInstance = contractDataSource.contractInstance;
+  const contractAddressNullifier = siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractInstance.address.toField(),
+  );
+  await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+  // other contract address used by the bulk test's GETCONTRACTINSTANCE test
+  const otherContractAddressNullifier = siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractDataSource.otherContractInstance.address.toField(),
+  );
+  await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
 
   const simulator = new PublicTxSimulator(
     merkleTrees,
@@ -132,7 +145,7 @@ export function createTxForPublicCall(
   return tx;
 }
 
-class MockedAvmTestContractDataSource {
+export class MockedAvmTestContractDataSource {
   private fnName = 'public_dispatch';
   private bytecode: Buffer;
   public fnSelector: FunctionSelector;
@@ -140,7 +153,7 @@ class MockedAvmTestContractDataSource {
   private contractClass: ContractClassPublic;
   public contractInstance: ContractInstanceWithAddress;
   private bytecodeCommitment: Fr;
-  private otherContractInstance: ContractInstanceWithAddress;
+  public otherContractInstance: ContractInstanceWithAddress;
 
   constructor() {
     this.bytecode = getAvmTestContractBytecode(this.fnName);
@@ -150,6 +163,7 @@ class MockedAvmTestContractDataSource {
     this.contractInstance = makeContractInstanceFromClassId(this.contractClass.id);
     this.bytecodeCommitment = computePublicBytecodeCommitment(this.bytecode);
     // The values here should match those in `avm_simulator.test.ts`
+    // Used for GETCONTRACTINSTANCE test
     this.otherContractInstance = new SerializableContractInstance({
       version: 1,
       salt: new Fr(0x123),
@@ -162,7 +176,7 @@ class MockedAvmTestContractDataSource {
         new Point(new Fr(0x252627), new Fr(0x282930), false),
         new Point(new Fr(0x313233), new Fr(0x343536), false),
       ),
-    }).withAddress(this.contractInstance.address);
+    }).withAddress(AztecAddress.fromNumber(0x4444));
   }
 
   getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
