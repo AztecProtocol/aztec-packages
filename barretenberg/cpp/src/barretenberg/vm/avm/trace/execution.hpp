@@ -41,7 +41,6 @@ class Execution {
                                       bool apply_e2e_assertions = false);
 
     static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
-                                          PublicCallRequest& public_call_request,
                                           AvmEnqueuedCallHint& enqueued_call_hint,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership);

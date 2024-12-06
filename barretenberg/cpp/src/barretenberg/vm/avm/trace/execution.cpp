@@ -363,8 +363,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             auto enqueued_call_hint = execution_hints.enqueued_call_hints.at(i);
             ASSERT(public_call_request.contract_address == enqueued_call_hint.contract_address);
             // Execute!
-            phase_error = Execution::execute_enqueued_call(
-                trace_builder, public_call_request, enqueued_call_hint, returndata, apply_e2e_assertions);
+            phase_error =
+                Execution::execute_enqueued_call(trace_builder, enqueued_call_hint, returndata, apply_e2e_assertions);
 
             if (!is_ok(phase_error)) {
                 info("Phase ", to_name(phase), " reverted.");
@@ -399,7 +399,6 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
  *
  */
 AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
-                                          PublicCallRequest& public_call_request,
                                           AvmEnqueuedCallHint& enqueued_call_hint,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership)
@@ -423,7 +422,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     };
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode =
-        trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+        trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -830,7 +829,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                           std::get<uint16_t>(inst.operands.at(4)),
                                           std::get<uint16_t>(inst.operands.at(5)));
             // We hack it in here the logic to change contract address that we are processing
-            bytecode = trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+            bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                  check_bytecode_membership);
             debug_counter_stack.push(counter);
             counter = 0;
             break;
@@ -843,7 +843,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                                  std::get<uint16_t>(inst.operands.at(4)),
                                                  std::get<uint16_t>(inst.operands.at(5)));
             // We hack it in here the logic to change contract address that we are processing
-            bytecode = trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+            bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                  check_bytecode_membership);
             debug_counter_stack.push(counter);
             counter = 0;
             break;
@@ -858,7 +859,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
 
             } else {
-                bytecode = trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+                bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                      check_bytecode_membership);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -874,7 +876,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
             } else {
                 // change to the current ext call ctx
-                bytecode = trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+                bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                      check_bytecode_membership);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -891,7 +894,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
             } else {
                 // change to the current ext call ctx
-                bytecode = trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
+                bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                      check_bytecode_membership);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }

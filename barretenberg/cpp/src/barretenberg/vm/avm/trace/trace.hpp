@@ -20,6 +20,7 @@
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include <stack>
+#include <unordered_set>
 
 namespace bb::avm_trace {
 
@@ -232,6 +233,7 @@ class AvmTraceBuilder {
     void checkpoint_non_revertible_state();
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    std::unordered_set<FF> bytecode_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
 
     // These are used for testing only.
