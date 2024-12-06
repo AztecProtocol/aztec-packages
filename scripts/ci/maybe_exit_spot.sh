@@ -30,7 +30,7 @@ while has_none Runner.Worker && has_none earthly && has_none docker && has_none 
   if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
     echo "Found no runner or earthly instance for $MAX_WAIT_TIME, shutting down now."
     ~/spot_runner_graceful_exit.sh
-    sudo shutdown now
+    sudo shutdown -P 1
     exit
   fi
 
