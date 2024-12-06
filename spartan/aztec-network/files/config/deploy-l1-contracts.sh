@@ -6,12 +6,19 @@ CHAIN_ID=$1
 
 # Run the deploy-l1-contracts command and capture the output
 output=""
-# if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
-if [ "$INIT_VALIDATORS" = "true" ]; then
-  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $2 --l1-chain-id $CHAIN_ID)
-else
-  output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID)
-fi
+MAX_RETRIES=5
+RETRY_DELAY=60
+for attempt in $(seq 1 $MAX_RETRIES); do
+  # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
+  if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
+    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $2 --l1-chain-id $CHAIN_ID) && break
+  else
+    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID) && break
+  fi
+  echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
+  sleep "$RETRY_DELAY"
+done || { echo "All l1 contract deploy attempts failed."; exit 1; }
+
 
 echo "$output"
 
