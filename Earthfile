@@ -117,7 +117,7 @@ ci-noir-bb:
       BUILD ./noir/+format
       BUILD ./noir/+examples
       BUILD ./noir/+packages-test
-      BUILD ./noir/+tegit cost
+      BUILD ./noir/+test
     END
     RUN ci3/cache_upload_flag $artifact
   END
