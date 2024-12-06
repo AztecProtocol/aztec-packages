@@ -53,4 +53,4 @@ bot:
 
 jobs:
   deployL1Verifier:
-    enable: true
+    enable: false
