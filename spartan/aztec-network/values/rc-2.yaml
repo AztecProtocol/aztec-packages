@@ -134,8 +134,8 @@ proverAgent:
     spotEnabled: true
   resources:
     requests:
-      memory: "63Gi"
-      cpu: "15"
+      memory: "116Gi"
+      cpu: "31"
 
 bot:
   replicas: 4
