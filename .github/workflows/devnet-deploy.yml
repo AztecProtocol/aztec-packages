@@ -103,7 +103,7 @@ jobs:
           helm get values $NAMESPACE -n $NAMESPACE -o json --all > helm_values.json
 
           PXE_PORT="$(jq -r .pxe.service.nodePort helm_values.json)"
-          ETHEREUM_PORT="$(jq -r ethereum.service.port helm_values.json)"
+          ETHEREUM_PORT="$(jq -r .ethereum.service.port helm_values.json)"
           L1_CHAIN_ID="$(jq -r .ethereum.chainId helm_values.json)"
 
           MNEMONIC="$(jq -r .aztec.l1DeploymentMnemonic helm_values.json)"
