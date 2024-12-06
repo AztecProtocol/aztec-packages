@@ -693,6 +693,10 @@ export class Sequencer {
 
     this.log.info('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    if (!proposal) {
+      this.log.verbose(`Failed to create block proposal, skipping`);
+      return undefined;
+    }
 
     const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
 

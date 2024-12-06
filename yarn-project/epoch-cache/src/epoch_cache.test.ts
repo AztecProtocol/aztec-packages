@@ -99,7 +99,7 @@ describe('EpochCache', () => {
     expect(currentValidator).toEqual(testCommittee[0]);
   });
 
-  it('Should request to update the validato set when on the epoch boundary', async () => {
+  it('Should request to update the validator set when on the epoch boundary', async () => {
     // Set initial time to a known slot
     const initialTime = Number(L1_GENESIS_TIME) * 1000; // Convert to milliseconds
     jest.setSystemTime(initialTime);
