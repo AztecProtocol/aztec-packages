@@ -83,16 +83,42 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
     );
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
-    public
-    override(Staking)
+  /**
+   * @notice  Get the committee for a given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee for the given timestamp
+   */
+  function getCommitteeAt(Timestamp _ts)
+    external
+    view
+    override(ILeonidas)
+    returns (address[] memory)
   {
-    setupEpoch();
-    require(
-      _attester != address(0) && _proposer != address(0),
-      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
+    return LeonidasLib.getCommitteeAt(
+      leonidasStore, stakingStore, getEpochAt(_ts), TARGET_COMMITTEE_SIZE
     );
-    super.deposit(_attester, _proposer, _withdrawer, _amount);
+  }
+
+  /**
+   * @notice  Get the sample seed for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sample seed for
+   *
+   * @return The sample seed for the given timestamp
+   */
+  function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
+    return LeonidasLib.getSampleSeed(leonidasStore, getEpochAt(_ts));
+  }
+
+  /**
+   * @notice  Get the sample seed for the current epoch
+   *
+   * @return The sample seed for the current epoch
+   */
+  function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
+    return LeonidasLib.getSampleSeed(leonidasStore, getCurrentEpoch());
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -104,6 +130,18 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
     //       to allow for that.
     setupEpoch();
     return super.initiateWithdraw(_attester, _recipient);
+  }
+
+  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+    public
+    override(Staking)
+  {
+    setupEpoch();
+    require(
+      _attester != address(0) && _proposer != address(0),
+      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
+    );
+    super.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
   /**

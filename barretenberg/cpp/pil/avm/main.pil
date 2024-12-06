@@ -61,7 +61,6 @@ namespace main(256);
     // CONTEXT - ENVIRONMENT
     pol commit sel_op_address;
     pol commit sel_op_sender;
-    pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
     pol commit sel_op_is_static_call;
 
@@ -234,7 +233,6 @@ namespace main(256);
     // opcode decomposition.
     sel_op_address * (1 - sel_op_address) = 0;
     sel_op_sender * (1 - sel_op_sender) = 0;
-    sel_op_function_selector * (1 - sel_op_function_selector) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
@@ -445,7 +443,7 @@ namespace main(256);
                        + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_sender
-                               + sel_op_function_selector + sel_op_transaction_fee + sel_op_chain_id
+                               + sel_op_transaction_fee + sel_op_chain_id
                                + sel_op_version + sel_op_block_number + sel_op_timestamp
                                + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_is_static_call;
     pol KERNEL_OUTPUT_SELECTORS = sel_op_note_hash_exists + sel_op_emit_note_hash + sel_op_nullifier_exists
