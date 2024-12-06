@@ -159,7 +159,7 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  Header as HeaderNoir,
+  BlockHeader as BlockHeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
@@ -1864,11 +1864,11 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
 }
 
 /**
- * Maps header to Noir
- * @param header - The header.
- * @returns Header.
+ * Maps a block header to Noir
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderToNoir(header: BlockHeader): HeaderNoir {
+export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
     content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
@@ -1880,11 +1880,11 @@ export function mapHeaderToNoir(header: BlockHeader): HeaderNoir {
 }
 
 /**
- * Maps header from Noir.
- * @param header - The header.
- * @returns Header.
+ * Maps a block header from Noir.
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderFromNoir(header: HeaderNoir): BlockHeader {
+export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
     mapContentCommitmentFromNoir(header.content_commitment),

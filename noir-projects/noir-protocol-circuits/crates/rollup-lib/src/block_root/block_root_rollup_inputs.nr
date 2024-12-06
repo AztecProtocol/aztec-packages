@@ -116,7 +116,7 @@ impl BlockRootRollupInputs {
         //     debug_log_format("header.total_fees={0}", [total_fees]);
         //     debug_log_format("header.total_mana_used={0}", [total_mana_used]);
         // }
-        let header = Header {
+        let header = BlockHeader {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,
