@@ -342,7 +342,7 @@ jobs:
             export USE_CACHE=1
             if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
               scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
-              ci3/cache_upload acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
+              ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
             fi
 
   bench-summary:
