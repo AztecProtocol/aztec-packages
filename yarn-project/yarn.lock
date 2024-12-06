@@ -373,7 +373,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/circuit-types@workspace:^, @aztec/circuit-types@workspace:circuit-types":
+"@aztec/circuit-types@workspace:*, @aztec/circuit-types@workspace:^, @aztec/circuit-types@workspace:circuit-types":
   version: 0.0.0-use.local
   resolution: "@aztec/circuit-types@workspace:circuit-types"
   dependencies:
@@ -545,6 +545,7 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noble/curves": ^1.0.0
+    "@sinonjs/fake-timers": ^13.0.5
     "@swc/core": ^1.4.11
     "@swc/jest": ^0.2.36
     "@types/fs-extra": ^11.0.2
@@ -611,7 +612,31 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/ethereum@workspace:^, @aztec/ethereum@workspace:ethereum":
+"@aztec/epoch-cache@workspace:^, @aztec/epoch-cache@workspace:epoch-cache":
+  version: 0.0.0-use.local
+  resolution: "@aztec/epoch-cache@workspace:epoch-cache"
+  dependencies:
+    "@aztec/circuit-types": "workspace:*"
+    "@aztec/ethereum": "workspace:*"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.14.6
+    "@viem/anvil": ^0.0.10
+    dotenv: ^16.0.3
+    get-port: ^7.1.0
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.7
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^2.7.15
+    zod: ^3.23.8
+  languageName: unknown
+  linkType: soft
+
+"@aztec/ethereum@workspace:*, @aztec/ethereum@workspace:^, @aztec/ethereum@workspace:ethereum":
   version: 0.0.0-use.local
   resolution: "@aztec/ethereum@workspace:ethereum"
   dependencies:
@@ -1283,6 +1308,7 @@ __metadata:
   dependencies:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
@@ -4116,7 +4142,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sinonjs/commons@npm:^3.0.0":
+"@sinonjs/commons@npm:^3.0.0, @sinonjs/commons@npm:^3.0.1":
   version: 3.0.1
   resolution: "@sinonjs/commons@npm:3.0.1"
   dependencies:
@@ -4131,6 +4157,15 @@ __metadata:
   dependencies:
     "@sinonjs/commons": ^3.0.0
   checksum: 614d30cb4d5201550c940945d44c9e0b6d64a888ff2cd5b357f95ad6721070d6b8839cd10e15b76bf5e14af0bcc1d8f9ec00d49a46318f1f669a4bec1d7f3148
+  languageName: node
+  linkType: hard
+
+"@sinonjs/fake-timers@npm:^13.0.5":
+  version: 13.0.5
+  resolution: "@sinonjs/fake-timers@npm:13.0.5"
+  dependencies:
+    "@sinonjs/commons": ^3.0.1
+  checksum: b1c6ba87fadb7666d3aa126c9e8b4ac32b2d9e84c9e5fd074aa24cab3c8342fd655459de014b08e603be1e6c24c9f9716d76d6d2a36c50f59bb0091be61601dd
   languageName: node
   linkType: hard
 

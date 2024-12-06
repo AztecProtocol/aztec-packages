@@ -95,9 +95,6 @@ namespace main(256);
     #[SENDER_KERNEL]
     sel_op_sender * (kernel_in_offset - constants.SENDER_KERNEL_INPUTS_COL_OFFSET) = 0;
 
-    #[FUNCTION_SELECTOR_KERNEL]
-    sel_op_function_selector * (kernel_in_offset - constants.FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET) = 0;
-
     #[FEE_TRANSACTION_FEE_KERNEL]
     sel_op_transaction_fee  * (kernel_in_offset - constants.TRANSACTION_FEE_KERNEL_INPUTS_COL_OFFSET) = 0;
 
@@ -172,7 +169,7 @@ namespace main(256);
 
     //===== LOOKUPS INTO THE PUBLIC INPUTS ===========================================
     pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_sender
-                               + sel_op_function_selector + sel_op_transaction_fee + sel_op_chain_id
+                               + sel_op_transaction_fee + sel_op_chain_id
                                + sel_op_version + sel_op_block_number + sel_op_timestamp
                                + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_is_static_call;
     // Ensure that only one kernel lookup is active when the kernel_in_offset is active

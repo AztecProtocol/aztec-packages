@@ -63,7 +63,6 @@ describe('Environment getters', () => {
   describe.each([
     [EnvironmentVariable.ADDRESS, address.toField()],
     [EnvironmentVariable.SENDER, sender.toField()],
-    [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],

@@ -37,9 +37,9 @@ describe('e2e_p2p_network', () => {
       testName: 'e2e_p2p_network',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();

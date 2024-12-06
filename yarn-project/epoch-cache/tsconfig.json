@@ -5,15 +5,10 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
+  "include": ["src"],
   "references": [
     {
       "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
-      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -22,14 +17,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../p2p"
-    },
-    {
-      "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
+      "path": "../l1-artifacts"
     }
-  ],
-  "include": ["src"]
+  ]
 }

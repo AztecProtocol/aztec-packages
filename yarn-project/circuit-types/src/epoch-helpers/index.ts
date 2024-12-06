@@ -1,4 +1,18 @@
-// REFACTOR: This file should go in a package lower in the dependency graph.
+export type L1RollupConstants = {
+  l1StartBlock: bigint;
+  l1GenesisTime: bigint;
+  slotDuration: number;
+  epochDuration: number;
+  ethereumSlotDuration: number;
+};
+
+export const EmptyL1RollupConstants: L1RollupConstants = {
+  l1StartBlock: 0n,
+  l1GenesisTime: 0n,
+  epochDuration: 1, // Not 0 to pervent division by zero
+  slotDuration: 1,
+  ethereumSlotDuration: 1,
+};
 
 export type EpochConstants = {
   l1GenesisBlock: bigint;
