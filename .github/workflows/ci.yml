@@ -76,6 +76,7 @@ jobs:
             GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
             echo "username=master-${GIT_HASH_MODULO_8}"
             echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
+          fi
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         with:
@@ -113,6 +114,7 @@ jobs:
               # Always rebuild when this file changes
               - .github/workflows/ci.yml
 
+  # Used by CI build.
   base-images:
     needs: [configure]
     if: github.event.pull_request.draft == false
@@ -135,6 +137,7 @@ jobs:
         with:
           run: scripts/earthly-ci --push ./build-images/+build
 
+  # CI for noir and bb.
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
@@ -154,6 +157,7 @@ jobs:
         with:
           run: scripts/earthly-ci +ci-noir-bb
 
+  # CI for l1-contracts, avm-transpiler, noir-projects, yarn-project
   ci-rest:
     needs: [ci-noir-bb, configure]
     runs-on: ubuntu-latest
@@ -174,6 +178,7 @@ jobs:
         uses: ./.github/run-on-builder
         timeout-minutes: 40
         with:
+          # args are passed only for docs, okay for now, going away in future
           run: scripts/earthly-ci +ci-rest --ENV=staging --PR=${{ github.event.number }} \
             --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
             --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
@@ -199,6 +204,31 @@ jobs:
       - name: Copy Github Output
         run: |
           copy_from_builder .github-output $GITHUB_OUTPUT
+
+  docs:
+    needs: [ci-rest, configure]
+    runs-on: ubuntu-latest
+    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: "Setup"
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          runner_type: builder-x86
+          username: ${{ needs.configure.outputs.username }}
+      - name: "Docs"
+        uses: ./.github/run-on-builder
+        timeout-minutes: 40
+        with:
+          run: scripts/earthly-ci +docs-helper --ENV=staging --PR=${{ github.event.number }} \
+            --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+            --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   e2e:
     needs: [ci-rest, configure]
@@ -234,6 +264,7 @@ jobs:
             export FORCE_COLOR=1
             ./scripts/e2e_test.sh ${{ matrix.test }}
 
+  # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [ci-rest, configure]
     if: needs.ci-rest.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
@@ -259,7 +290,10 @@ jobs:
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
           builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
           tester_ttl: 40
           run: |
@@ -268,6 +302,8 @@ jobs:
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ./scripts/e2e_test.sh ${{ matrix.test }}
+            # TODO(#9692): disabled after refactoring - trying to call function as target
+            # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
     runs-on: ubuntu-latest
@@ -297,7 +333,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 100
+          fetch-depth: 100 # Downloading base benchmark from master requires access to history
           ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
         with:
@@ -334,6 +370,8 @@ jobs:
         with:
           run: scripts/earthly-ci ./yarn-project/scripts/+bench-comment
 
+  # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
+  # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
     runs-on: ubuntu-latest
     needs: [base-images, configure]
@@ -377,12 +415,7 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "Network Test (${{ matrix.test }})"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
-          run: scripts/earthly-ci +ci-rest
-      - name: "Setup and Local Network Tests"
+      - name: "Local Network Tests"
         uses: ./.github/run-on-builder
         timeout-minutes: 60
         with:
@@ -405,7 +438,6 @@ jobs:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
           runner_type: 8core-tester-x86
-          spot_strategy: None
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
@@ -449,7 +481,7 @@ jobs:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
           runner_type: ${{ matrix.config.runner_type }}
-          spot_strategy: None
+          spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
@@ -461,7 +493,7 @@ jobs:
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
       - name: Copy Network Logs
         if: always()
-        run: copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log
+        run: copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -575,12 +607,13 @@ jobs:
         uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
         with:
           report: protocol_circuits_report.json
-          summaryQuantile: 0
+          summaryQuantile: 0 # Display any diff in gate count
 
       - name: Add gates diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
 
@@ -614,7 +647,7 @@ jobs:
             # Changes to public function bytecode sizes
           brillig_report: true
           brillig_report_bytes: true
-          summaryQuantile: 0
+          summaryQuantile: 0 # Display any diff in bytecode size count
 
       - name: Add bytecode size diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
@@ -631,7 +664,11 @@ jobs:
       - base-images
       - ci-noir-bb
       - ci-rest
+      - docs
+      - e2e
       - bb-native-tests
+      - network-4epochs-test
+      - kind-smoke-test
       - kind-network-test
       - boxes-test
     if: always()
@@ -639,38 +676,29 @@ jobs:
       failure: ${{ steps.set_failed_jobs.outputs.failure }}
       failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
     steps:
-      - name: "Setup"
-        uses: ./.github/ensure-builder
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
       - name: Check for Failures and Set Output
         id: set_failed_jobs
-        uses: ./.github/run-on-builder
         env:
           NEEDS_JOBS_JSON: ${{ toJson(needs) }}
-        with:
-          run: |
-            echo "Processing failed jobs..."
-            failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
-            echo "$failed_jobs" > .failed
-            echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
-            echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
+        run: |
+          echo "Processing failed jobs..."
+          failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
+          echo "$failed_jobs" > .failed
+          echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
+          echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
 
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
-        uses: ./.github/run-on-builder
         env:
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        with:
-          run: |
-            if [[ $FAIL == true ]]; then
-                echo "Jobs failed: $(cat .failed), merging not allowed."
-                exit 1
-            else
-                echo "All jobs succeeded, merge allowed."
-                exit 0
-            fi
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "Jobs failed: $(cat .failed), merging not allowed."
+              exit 1
+          else
+              echo "All jobs succeeded, merge allowed."
+              exit 0
+          fi
       - name: Block merge (draft)
         if: github.event.pull_request.draft
         uses: ./.github/run-on-builder
@@ -685,22 +713,15 @@ jobs:
       - merge-check
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
-      - name: "Setup"
-        uses: ./.github/ensure-builder
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
       - name: Check for Rerun
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-        uses: ./.github/run-on-builder
-        with:
-          run: |
-            if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
-              echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
-              gh workflow run rerun.yml -F run_id=${{ github.run_id }}
-            fi
+        run: |
+          if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+            echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          fi
 
   notify:
     runs-on: ubuntu-latest
@@ -711,20 +732,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: "Setup"
-        uses: ./.github/ensure-builder
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
-
       - name: Get Authors of Recent Commit
         id: get_authors
-        uses: ./.github/run-on-builder
-        with:
-          run: |
-            git fetch --depth=1 origin ${{ github.sha }}
-            authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
-            echo "authors=${authors}" >> $GITHUB_OUTPUT
+        run: |
+          git fetch --depth=1 origin ${{ github.sha }}
+          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
 
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
