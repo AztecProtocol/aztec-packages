@@ -43,6 +43,7 @@ function build {
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
   (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
   (cd headless-test && yarn)
+  (cd sol-test && yarn)
   # The md5sum of everything is the same after each yarn call.
   # Yet seemingly yarn's content hash will churn unless we reset timestamps
   find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
@@ -78,6 +79,15 @@ function test {
     grep -vE 'verify_honk_proof|double_verify_honk_proof')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof')
+
+  # barretenberg-acir-tests-sol:
+  run FLOW=sol ./run_test.sh assert_statement
+  run FLOW=sol ./run_test.sh double_verify_proof
+  run FLOW=sol ./run_test.sh double_verify_nested_proof
+  run FLOW=sol_honk ./run_test.sh assert_statement
+  run FLOW=sol_honk ./run_test.sh 1_mul
+  run FLOW=sol_honk ./run_test.sh slices
+  run FLOW=sol_honk ./run_test.sh verify_honk_proof
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
