@@ -32,7 +32,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GITHUB_RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
-  GIT_COMMIT: 403846e690b56c4f1caa5f31345583b97e68b239 # ${{ github.event.pull_request.head.sha || github.sha }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNNER_CONCURRENCY: 0
 jobs:
   configure:
@@ -209,7 +209,6 @@ jobs:
               LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
             fi
             echo Labels: $LABELS
-            # This part specifically needs yq
             sudo apt install yq
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
