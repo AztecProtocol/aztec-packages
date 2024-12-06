@@ -116,7 +116,7 @@ export class Archiver implements ArchiveSource {
     private readonly config: { pollingIntervalMs: number; batchSize: number },
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
-    private readonly log: DebugLogger = createDebugLogger('archiver'),
+    private readonly log: Logger = createLogger('archiver'),
   ) {
     this.store = new ArchiverStoreHelper(dataStore);
 

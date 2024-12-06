@@ -6,7 +6,7 @@ import {
 } from '@aztec/circuit-types';
 import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
 
@@ -32,7 +32,7 @@ export class EpochCache {
   private committee: EthAddress[];
   private cachedEpoch: bigint;
   private cachedSampleSeed: bigint;
-  private readonly log: Logger = createDebugLogger('aztec:EpochCache');
+  private readonly log: Logger = createLogger('aztec:EpochCache');
 
   constructor(
     private rollup: RollupContract,
