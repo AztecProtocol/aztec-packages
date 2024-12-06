@@ -171,7 +171,7 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const validatorClient = createValidatorClient(config, p2pClient, telemetry);
+    const validatorClient = await createValidatorClient(config, config.l1Contracts.rollupAddress, p2pClient, telemetry);
 
     // now create the sequencer
     const sequencer = config.disableValidator

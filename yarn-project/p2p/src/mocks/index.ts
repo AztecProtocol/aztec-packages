@@ -148,7 +148,7 @@ export type ReqRespNode = {
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [PING_PROTOCOL]: pingHandler,
   [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from('tx'))),
+  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
 };
 
 // By default, all requests are valid

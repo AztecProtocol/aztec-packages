@@ -502,7 +502,7 @@ pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4166;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4161;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -587,7 +587,6 @@ pub global MEM_TAG_U128: Field = 6;
 // Keep the number of offsets aligned with KERNEL_INPUTS_LENGTH defined in constants.hpp
 pub global SENDER_KERNEL_INPUTS_COL_OFFSET: u32 = 0;
 pub global ADDRESS_KERNEL_INPUTS_COL_OFFSET: u32 = 1;
-pub global FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET: u32 = 2;
 pub global IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET: u32 = 3;
 // pub global Variables
 pub global CHAIN_ID_KERNEL_INPUTS_COL_OFFSET: u32 = 4;

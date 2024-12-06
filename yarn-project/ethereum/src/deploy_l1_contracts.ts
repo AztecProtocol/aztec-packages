@@ -53,6 +53,7 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { type L1ContractsConfig } from './config.js';
+import { MINIMUM_STAKE } from './constants.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils } from './l1_tx_utils.js';
@@ -128,9 +129,13 @@ export interface L1ContractArtifactsForDeployment {
    */
   rollup: ContractArtifacts;
   /**
+   * The token to stake.
+   */
+  stakingAsset: ContractArtifacts;
+  /**
    * The token to pay for gas. This will be bridged to L2 via the feeJuicePortal below
    */
-  feeJuice: ContractArtifacts;
+  feeAsset: ContractArtifacts;
   /**
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
@@ -183,7 +188,11 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
       },
     },
   },
-  feeJuice: {
+  stakingAsset: {
+    contractAbi: TestERC20Abi,
+    contractBytecode: TestERC20Bytecode,
+  },
+  feeAsset: {
     contractAbi: TestERC20Abi,
     contractBytecode: TestERC20Bytecode,
   },
@@ -256,6 +265,7 @@ export function createL1Clients(
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
+    pollingInterval: 100,
   });
 
   return { walletClient, publicClient };
@@ -307,8 +317,19 @@ export const deployL1Contracts = async (
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
-  logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
+  const feeAssetAddress = await govDeployer.deploy(l1Artifacts.feeAsset, [
+    'FeeJuice',
+    'FEE',
+    account.address.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice at ${feeAssetAddress}`);
+
+  const stakingAssetAddress = await govDeployer.deploy(l1Artifacts.stakingAsset, [
+    'Staking',
+    'STK',
+    account.address.toString(),
+  ]);
+  logger.info(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
   // @todo  #8084
   // @note These numbers are just chosen to make testing simple.
@@ -321,26 +342,29 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
+  // @note @LHerskind the assets are expected to be the same at some point, but for better
+  // configurability they are different for now.
   const governanceAddress = await govDeployer.deploy(l1Artifacts.governance, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.info(`Deployed Governance at ${governanceAddress}`);
 
   const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
     governanceAddress.toString(),
   ]);
   logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     registryAddress.toString(),
     governanceAddress.toString(),
   ]);
   logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
+  logger.verbose(`Waiting for governance contracts to be deployed`);
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);
 
@@ -348,27 +372,29 @@ export const deployL1Contracts = async (
 
   const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
     registryAddress.toString(),
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     args.l2FeeJuiceAddress.toString(),
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
-  const rollupArgs = {
+  const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
     aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+    minimumStake: MINIMUM_STAKE,
   };
-  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
+  const rollupArgs = [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
+    stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
-    args.initialValidators?.map(v => v.toString()) ?? [],
-    rollupArgs,
-  ]);
-  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupArgs);
+    rollupConfigArgs,
+  ];
+  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
+  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   await deployer.waitForDeployments();
   logger.info(`All core contracts deployed`);
@@ -379,9 +405,15 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
-  const feeJuice = getContract({
-    address: feeJuiceAddress.toString(),
-    abi: l1Artifacts.feeJuice.contractAbi,
+  const feeAsset = getContract({
+    address: feeAssetAddress.toString(),
+    abi: l1Artifacts.feeAsset.contractAbi,
+    client: walletClient,
+  });
+
+  const stakingAsset = getContract({
+    address: stakingAssetAddress.toString(),
+    abi: l1Artifacts.stakingAsset.contractAbi,
     client: walletClient,
   });
 
@@ -394,12 +426,40 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
+  {
+    const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
+    logger.info(`Fee asset set to free for all in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
+  if (args.initialValidators && args.initialValidators.length > 0) {
+    // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+    const stakeNeeded = MINIMUM_STAKE * BigInt(args.initialValidators.length);
+    await Promise.all(
+      [
+        await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
+        await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
+      ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+    );
+
+    const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([
+      args.initialValidators.map(v => ({
+        attester: v.toString(),
+        proposer: v.toString(),
+        withdrawer: v.toString(),
+        amount: MINIMUM_STAKE,
+      })),
+    ]);
+    txHashes.push(initiateValidatorSetTxHash);
+    logger.info(`Initialized validator set (${args.initialValidators.join(', ')}) in tx ${initiateValidatorSetTxHash}`);
+  }
+
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000;
-  const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000n;
+  const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
   //        otherwise we execute subsequent transactions too soon
@@ -415,7 +475,7 @@ export const deployL1Contracts = async (
   }
 
   logger.info(
-    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {
@@ -493,7 +553,8 @@ export const deployL1Contracts = async (
     registryAddress,
     inboxAddress,
     outboxAddress,
-    feeJuiceAddress,
+    feeJuiceAddress: feeAssetAddress,
+    stakingAssetAddress,
     feeJuicePortalAddress,
     coinIssuerAddress,
     rewardDistributorAddress,

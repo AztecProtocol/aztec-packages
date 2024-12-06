@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - release/testnet*
       - "*/release-master*"
   workflow_dispatch:
     inputs:
@@ -212,7 +211,11 @@ jobs:
       - name: Publish aztec manifests
         if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#release/}"
+            DIST_TAG=devnet
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             TAG=${{ env.DEPLOY_TAG }}
             VERSION=${TAG#aztec-packages-v}
             DIST_TAG=latest
@@ -276,52 +279,59 @@ jobs:
           concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
 
+      - name: Set tags and versions
+        id: version_step
+        run: |
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            DIST_TAG=devnet
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}-devnet
+          else
+            DIST_TAG=latest
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "DIST_TAG=$DIST_TAG" >> $GITHUB_OUTPUT
+
       - name: Publish bb.js NPM package
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./barretenberg/ts+publish-npm \
-            --DIST_TAG=latest \
-            --VERSION=$VERSION \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish yarn-project NPM packages
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./yarn-project+publish-npm \
-            --DIST_TAG=latest \
-            --VERSION=$VERSION \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish l1-contracts NPM package
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./l1-contracts+publish-npm \
-            --DIST_TAG=latest \
-            --VERSION=$VERSION \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish spartan NPM package
         run: |
-          DEPLOY_TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${DEPLOY_TAG#aztec-packages-v}
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./spartan/releases/rough-rhino+publish-npm \
-            --DIST_TAG=latest \
-            --VERSION=$VERSION \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
   publish-aztec-up:
@@ -346,13 +356,17 @@ jobs:
       - name: Publish aztec-up
         working-directory: ./aztec-up/terraform
         run: |
-          terraform init
-          if [ -n "${{ env.DEPLOY_TAG }}" ]; then
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#release/}"
+          elif [ -n "${{ env.DEPLOY_TAG }}" ]; then
             TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
           else
-            TAG=${{ github.ref_name }}
+            VERSION=${{ github.ref_name }}
           fi
-          export TF_VAR_VERSION=${TAG#aztec-packages-v}
+          terraform init
+          export TF_VAR_VERSION=${VERSION}
           terraform apply -auto-approve
 
   # Sometimes runners get killed because they can be spot, we try once more for good measure

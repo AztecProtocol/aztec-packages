@@ -59,7 +59,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().storageReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().publicDataReads.items).toEqual([expected]);
   });
 
   it('Should trace storage writes', () => {
@@ -84,14 +84,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, siblingPath);
-    expect(trace.getAvmCircuitHints().storageUpdateRequest.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().publicDataWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace note hash checks', () => {
     const exists = true;
     trace.traceNoteHashCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().noteHashReads.items).toEqual([expected]);
   });
 
   it('Should trace note hashes', () => {
@@ -102,7 +102,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getSideEffects().noteHashes).toEqual(expected);
 
     const expectedHint = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashWriteRequest.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().noteHashWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace nullifier checks', () => {
@@ -112,7 +112,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmNullifierReadTreeHint(lowLeafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().nullifierReads.items).toEqual([expected]);
   });
 
   it('Should trace nullifiers', () => {
@@ -125,14 +125,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const readHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmNullifierWriteTreeHint(readHint, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierWriteHints.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().nullifierWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace L1ToL2 Message checks', () => {
     const exists = true;
     trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().l1ToL2MessageReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().l1ToL2MessageReads.items).toEqual([expected]);
   });
 
   it('Should trace new L2ToL1 messages', () => {
@@ -321,13 +321,13 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(parentHints.externalCalls.items).toEqual(childHints.externalCalls.items);
       expect(parentHints.contractInstances.items).toEqual(childHints.contractInstances.items);
       expect(parentHints.contractBytecodeHints.items).toEqual(childHints.contractBytecodeHints.items);
-      expect(parentHints.storageReadRequest.items).toEqual(childHints.storageReadRequest.items);
-      expect(parentHints.storageUpdateRequest.items).toEqual(childHints.storageUpdateRequest.items);
-      expect(parentHints.nullifierReadRequest.items).toEqual(childHints.nullifierReadRequest.items);
-      expect(parentHints.nullifierWriteHints.items).toEqual(childHints.nullifierWriteHints.items);
-      expect(parentHints.noteHashReadRequest.items).toEqual(childHints.noteHashReadRequest.items);
-      expect(parentHints.noteHashWriteRequest.items).toEqual(childHints.noteHashWriteRequest.items);
-      expect(parentHints.l1ToL2MessageReadRequest.items).toEqual(childHints.l1ToL2MessageReadRequest.items);
+      expect(parentHints.publicDataReads.items).toEqual(childHints.publicDataReads.items);
+      expect(parentHints.publicDataWrites.items).toEqual(childHints.publicDataWrites.items);
+      expect(parentHints.nullifierReads.items).toEqual(childHints.nullifierReads.items);
+      expect(parentHints.nullifierWrites.items).toEqual(childHints.nullifierWrites.items);
+      expect(parentHints.noteHashReads.items).toEqual(childHints.noteHashReads.items);
+      expect(parentHints.noteHashWrites.items).toEqual(childHints.noteHashWrites.items);
+      expect(parentHints.l1ToL2MessageReads.items).toEqual(childHints.l1ToL2MessageReads.items);
     });
   });
 });

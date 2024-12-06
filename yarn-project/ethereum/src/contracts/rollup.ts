@@ -44,6 +44,26 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
+  getCommitteeAt(timestamp: bigint) {
+    return this.rollup.read.getCommitteeAt([timestamp]);
+  }
+
+  getSampleSeedAt(timestamp: bigint) {
+    return this.rollup.read.getSampleSeedAt([timestamp]);
+  }
+
+  getCurrentSampleSeed() {
+    return this.rollup.read.getCurrentSampleSeed();
+  }
+
+  getCurrentEpochCommittee() {
+    return this.rollup.read.getCurrentEpochCommittee();
+  }
+
+  getCurrentProposer() {
+    return this.rollup.read.getCurrentProposer();
+  }
+
   async getEpochNumber(blockNumber?: bigint) {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);

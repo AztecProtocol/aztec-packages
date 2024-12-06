@@ -13,7 +13,7 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup} from "../harnesses/Rollup.sol";
-import {Leonidas} from "../harnesses/Leonidas.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -23,6 +23,8 @@ import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {
   ProposeArgs, OracleInput, ProposeLib
 } from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
+import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -51,7 +53,9 @@ contract SpartaTest is DecoderBase {
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Signature internal emptySignature;
-  mapping(address validator => uint256 privateKey) internal privateKeys;
+  mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+  mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
+  mapping(address proposer => address attester) internal proposerToAttester;
   mapping(address => bool) internal _seenValidators;
   mapping(address => bool) internal _seenCommittee;
 
@@ -61,7 +65,15 @@ contract SpartaTest is DecoderBase {
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";
     {
-      Leonidas leonidas = new Leonidas(address(1));
+      Leonidas leonidas = new Leonidas(
+        address(1),
+        testERC20,
+        TestConstants.AZTEC_MINIMUM_STAKE,
+        TestConstants.AZTEC_SLOT_DURATION,
+        TestConstants.AZTEC_EPOCH_DURATION,
+        TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
+      );
+
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime =
@@ -69,25 +81,37 @@ contract SpartaTest is DecoderBase {
       vm.warp(initialTime);
     }
 
-    address[] memory initialValidators = new address[](_validatorCount);
+    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
+
     for (uint256 i = 1; i < _validatorCount + 1; i++) {
-      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
-      address validator = vm.addr(privateKey);
-      privateKeys[validator] = privateKey;
-      initialValidators[i - 1] = validator;
+      uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
+      address attester = vm.addr(attesterPrivateKey);
+      attesterPrivateKeys[attester] = attesterPrivateKey;
+      uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", i)));
+      address proposer = vm.addr(proposerPrivateKey);
+      proposerPrivateKeys[proposer] = proposerPrivateKey;
+
+      proposerToAttester[proposer] = attester;
+
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        proposer: proposer,
+        withdrawer: address(this),
+        amount: TestConstants.AZTEC_MINIMUM_STAKE
+      });
     }
 
-    testERC20 = new TestERC20();
+    testERC20 = new TestERC20("test", "TEST", address(this));
     Registry registry = new Registry(address(this));
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(),
-      rewardDistributor,
-      bytes32(0),
-      bytes32(0),
-      address(this),
-      initialValidators
+      new MockFeeJuicePortal(), rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
     );
+
+    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+    rollup.cheat__InitialiseValidatorSet(initialValidators);
+
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -97,15 +121,15 @@ contract SpartaTest is DecoderBase {
     _;
   }
 
-  function testInitialCommitteMatch() public setup(4) {
-    address[] memory validators = rollup.getValidators();
+  function testInitialCommitteeMatch() public setup(4) {
+    address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 0);
-    assertEq(validators.length, 4, "Invalid validator set size");
+    assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
-    for (uint256 i = 0; i < validators.length; i++) {
-      _seenValidators[validators[i]] = true;
+    for (uint256 i = 0; i < attesters.length; i++) {
+      _seenValidators[attesters[i]] = true;
     }
 
     for (uint256 i = 0; i < committee.length; i++) {
@@ -114,8 +138,10 @@ contract SpartaTest is DecoderBase {
       _seenCommittee[committee[i]] = true;
     }
 
+    // The proposer is not necessarily an attester, we have to map it back. We can do this here
+    // because we created a 1:1 link. In practice, there could be multiple attesters for the same proposer
     address proposer = rollup.getCurrentProposer();
-    assertTrue(_seenCommittee[proposer]);
+    assertTrue(_seenCommittee[proposerToAttester[proposer]]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
@@ -129,14 +155,18 @@ contract SpartaTest is DecoderBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    rollup.addValidator(address(0xdead));
+    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE);
+    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE);
+    rollup.deposit(
+      address(0xdead), address(0xdead), address(0xdead), TestConstants.AZTEC_MINIMUM_STAKE
+    );
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
+    assertGt(rollup.getAttesters().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
     uint256 committeeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
     _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
@@ -302,7 +332,7 @@ contract SpartaTest is DecoderBase {
     view
     returns (Signature memory)
   {
-    uint256 privateKey = privateKeys[_signer];
+    uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);

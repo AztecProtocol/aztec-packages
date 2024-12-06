@@ -15,8 +15,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "inherits": [
     "../package.common.json"

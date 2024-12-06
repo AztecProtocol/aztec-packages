@@ -1,0 +1,23 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l1-artifacts"
+    }
+  ]
+}
