@@ -98,7 +98,7 @@ runs:
           )
       shell: bash
       run: |
-        # need to call run_on_builder
+        # need to call run_on_builder as the action version assumes git is set up
         run_on_builder "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
 
     - name: Setup Graceful Exit

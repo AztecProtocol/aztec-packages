@@ -134,7 +134,7 @@ ci-noir-bb:
       BUILD ./noir/+packages-test
       BUILD ./noir/+test
     END
-    RUN BUILD_SYSTEM_DEBUG=1 ci3/cache_upload_flag $artifact
+    RUN ci3/cache_upload_flag $artifact
   END
   SET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
