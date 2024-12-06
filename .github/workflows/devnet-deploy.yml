@@ -70,6 +70,13 @@ jobs:
           gcloud components install kubectl gke-gcloud-auth-plugin --quiet
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
 
+      - name: Setup helm
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+          chmod +x get_helm.sh
+          sudo ./get_helm.sh
+          rm get_helm.sh
+
       - name: Bootstrap network
         run: |
           set -eu -o pipefail
@@ -115,6 +122,7 @@ jobs:
           sleep 5
 
           docker run --rm $AZTEC_DOCKER_IMAGE bootstrap-network \
+            --network host \
             --rpc-url http://127.0.0.1:$PXE_PORT \
             --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
             --l1-chain-id $CHAIN_ID \
