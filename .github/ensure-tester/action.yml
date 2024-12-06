@@ -99,7 +99,7 @@ runs:
           " || true
         fi
 
-    - name: Setup yq
+    - name: Setup yq and earthly
       shell: bash
       run: |
         set -x
@@ -107,6 +107,7 @@ runs:
           wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq
           chmod +x ./yq
           DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
+          ci3/earthly_install
         "
 
     - name: Ensure Tester Cleanup
