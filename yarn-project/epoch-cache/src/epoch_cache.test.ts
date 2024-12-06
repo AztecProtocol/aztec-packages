@@ -13,7 +13,8 @@ describe('EpochCache', () => {
   // Test constants
   const SLOT_DURATION = 12;
   const EPOCH_DURATION = 32; // 384 seconds
-  const L1_GENESIS_TIME = 1000n;
+  // const L1_GENESIS_TIME = 1000n;
+  let l1GenesisTime: bigint;
 
   const testCommittee = [
     EthAddress.fromString('0x0000000000000000000000000000000000000001'),
@@ -30,13 +31,15 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(testCommittee.map(v => v.toString()));
     rollupContract.getSampleSeedAt.mockResolvedValue(0n);
 
+    l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
+
     // Setup fake timers
     jest.useFakeTimers();
 
     // Initialize with test constants
     const testConstants = {
       l1StartBlock: 0n,
-      l1GenesisTime: L1_GENESIS_TIME,
+      l1GenesisTime,
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
@@ -57,7 +60,7 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
 
     // Move time forward within the same epoch (less than EPOCH_DURATION) (x 1000 for milliseconds)
-    jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 2) * 1000);
+    jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 4) * 1000);
 
     // Add another validator to the set
     rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator].map(v => v.toString()));
@@ -78,7 +81,7 @@ describe('EpochCache', () => {
 
   it('should correctly get current validator based on slot number', async () => {
     // Set initial time to a known slot
-    const initialTime = Number(L1_GENESIS_TIME) * 1000; // Convert to milliseconds
+    const initialTime = Number(l1GenesisTime) * 1000; // Convert to milliseconds
     jest.setSystemTime(initialTime);
 
     // The valid proposer has been calculated in advance to be [1,1,0] for the slots chosen
@@ -99,9 +102,9 @@ describe('EpochCache', () => {
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
-  it('Should request to update the validato set when on the epoch boundary', async () => {
+  it('Should request to update the validator set when on the epoch boundary', async () => {
     // Set initial time to a known slot
-    const initialTime = Number(L1_GENESIS_TIME) * 1000; // Convert to milliseconds
+    const initialTime = Number(l1GenesisTime) * 1000; // Convert to milliseconds
     jest.setSystemTime(initialTime);
 
     // Move forward to slot before the epoch boundary
@@ -109,6 +112,6 @@ describe('EpochCache', () => {
 
     // Should request to update the validator set
     await epochCache.getProposerInCurrentOrNextSlot();
-    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(2);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
 });

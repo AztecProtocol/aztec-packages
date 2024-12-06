@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
@@ -42,11 +42,15 @@ export class BlockProposal extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockProposalHash.fromField(this.payload.archive);
+    return new BlockProposalHash(keccak256(this.signature.toBuffer()));
   }
 
   get archive(): Fr {
     return this.payload.archive;
+  }
+
+  get slotNumber(): Fr {
+    return this.payload.header.globalVariables.slotNumber;
   }
 
   static async createProposalFromSigner(

@@ -73,7 +73,7 @@ describe('ValidationService', () => {
     expect(blockProposal).toBeDefined();
 
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
-    expect(blockProposal.getSender()).toEqual(validatorAddress);
+    expect(blockProposal?.getSender()).toEqual(validatorAddress);
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
@@ -132,7 +132,7 @@ describe('ValidationService', () => {
 
     // Setup epoch cache mocks
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
-      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+      Promise.resolve([EthAddress.random(), EthAddress.random()]),
     );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 

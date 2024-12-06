@@ -48,7 +48,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
+  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -61,6 +61,9 @@ export interface Validator {
 export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
+
+  // Used to check if we are sending the same proposal twice
+  private previousProposal?: BlockProposal;
 
   // Callback registered to: sequencer.buildBlock
   private blockBuilder?: BlockBuilderCallback = undefined;
@@ -241,8 +244,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    return this.validationService.createBlockProposal(header, archive, txs);
+  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
+    if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
+      this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
+      return Promise.resolve(undefined);
+    }
+
+    const newProposal = await this.validationService.createBlockProposal(header, archive, txs);
+    this.previousProposal = newProposal;
+    return newProposal;
   }
 
   broadcastBlockProposal(proposal: BlockProposal): void {

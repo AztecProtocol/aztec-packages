@@ -84,8 +84,6 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.pxe.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.pxe.debug }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
           ports:

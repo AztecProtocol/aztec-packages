@@ -18,6 +18,8 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGovernanceProposerPayload} from "./NewGovernanceProposerPayload.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {TestConstants} from "../../harnesses/TestConstants.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -44,31 +46,35 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    token = IMintableERC20(address(new TestERC20()));
+    token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
 
     registry = new Registry(address(this));
     governanceProposer = new GovernanceProposer(registry, 7, 10);
 
     governance = new Governance(token, address(governanceProposer));
 
-    address[] memory initialValidators = new address[](VALIDATOR_COUNT);
+    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {
       uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = validator;
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        proposer: validator,
+        withdrawer: validator,
+        amount: TestConstants.AZTEC_MINIMUM_STAKE
+      });
     }
 
     RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(),
-      rewardDistributor,
-      bytes32(0),
-      bytes32(0),
-      address(this),
-      initialValidators
+      new MockFeeJuicePortal(), rewardDistributor, token, bytes32(0), bytes32(0), address(this)
     );
+
+    token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    token.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    rollup.cheat__InitialiseValidatorSet(initialValidators);
 
     registry.upgrade(address(rollup));
 
