@@ -101,8 +101,6 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       # wait for other docker restarts
       sleep 20
     else
-      # If other errors, exit the script
-      echo "Errors may exist in other jobs. Please see the run summary page and check for Build Summary. If there are no errors, it may be because runs were interrupted due to runner going down (please report this)."
       exit 1
     fi
   fi

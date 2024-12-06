@@ -156,8 +156,19 @@ case "$cmd" in
     fi
     exit 0
     ;;
+  "gha-url")
+    # TODO(ci3) change over to CI3 once fully enabled.
+    workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
+    run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
+    if [ -z "$run_url" ]; then
+      echo "No workflow runs found for branch '$BRANCH'."
+      exit 1
+    fi
+    echo "$run_url"
+    exit 0
+    ;;
   *)
-    echo "Unknown command: $cmd"
+    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|gha-url"
     exit 1
     ;;
 esac
