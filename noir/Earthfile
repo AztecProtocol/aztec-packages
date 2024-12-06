@@ -46,7 +46,7 @@ packages-test-build:
   FROM +packages-deps
   ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
   ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
-  ENV GIT_COMMIT=$(/usr/src/ci3/cache_content_hash /usr/src/noir/.rebuild_patterns_native | sed 's/_//')
+  ENV GIT_COMMIT="$(echo "$native_hash" | sed 's/-.*//g')"
   WORKDIR /usr/src/barretenberg/ts
   RUN yarn --immutable
 

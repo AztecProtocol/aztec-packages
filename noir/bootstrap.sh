@@ -2,8 +2,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-native_hash=v2-$(cache_content_hash .rebuild_patterns_native)
-packages_hash=v2-$(cache_content_hash ../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages .rebuild_patterns_native)
+native_hash=$(cache_content_hash .rebuild_patterns_native)
+packages_hash=$(cache_content_hash ../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages .rebuild_patterns_native)
 
 function build {
   github_group "noir build"

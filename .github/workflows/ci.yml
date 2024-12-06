@@ -379,7 +379,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Native Prover Tests"
+      - name: "Setup"
         run: |
           # Ensure we can SSH into the spot instances we request
           mkdir -p ~/.ssh
