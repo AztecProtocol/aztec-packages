@@ -168,15 +168,15 @@ ci-noir-bb:
 ci-rest:
   FROM +bootstrap
   WAIT
-    BUILD ./avm-transpiler/+format
-    BUILD ./yarn-project/+format-check
+    BUILD +avm-transpiler-with-cache
     # internally uses cache:
-    BUILD ./l1-contracts+test
+    BUILD +l1-contracts-with-cache
     BUILD +noir-projects-with-cache
   END
   LET artifact=prover-client-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
+      BUILD ./yarn-project/+format-check
       BUILD ./yarn-project/+prover-client-test
     END
     RUN ci3/cache_upload_flag $artifact
@@ -201,6 +201,7 @@ ci-rest:
 ########################################################################################################################
 docs-with-cache:
   FROM +bootstrap
+  ENV CI=1
   ENV USE_CACHE=1
   LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
@@ -209,9 +210,32 @@ docs-with-cache:
     END
     RUN ci3/cache_upload_flag $artifact
   END
+avm-transpiler-with-cache:
+  FROM +bootstrap
+  ENV CI=1
+  ENV USE_CACHE=1
+  LET artifact=avm-transpiler-ci-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./avm-transpiler/+format
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+l1-contracts-with-cache:
+  FROM +bootstrap
+  ENV CI=1
+  ENV USE_CACHE=1
+  LET artifact=l1-contracts-test-$(./l1-contracts/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD ./l1-contracts/+test
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
 # uses flag cache
 noir-projects-with-cache:
   FROM +bootstrap
+  ENV CI=1
   ENV USE_CACHE=1
   LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)
   IF ci3/test_should_run $artifact

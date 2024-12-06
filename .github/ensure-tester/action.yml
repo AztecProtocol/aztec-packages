@@ -8,6 +8,8 @@ inputs:
   run:
     # command to run once tester available
     required: false
+  username:
+    required: false
   ttl:
     required: false
     description: "Time to live for the tester instance in minutes"
@@ -25,6 +27,9 @@ runs:
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
         echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
+        if [ -n "${{ inputs.username }}" ]; then
+          USERNAME="${{ inputs.username }}"
+        fi
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
         # no github runners, 'bare spot' in action code

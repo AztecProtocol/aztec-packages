@@ -446,9 +446,8 @@ jobs:
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: 8core-tester-x86
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
@@ -489,9 +488,8 @@ jobs:
       - name: Setup and KIND Network Test
         timeout-minutes: ${{ matrix.config.timeout }}
         uses: ./.github/ensure-tester-with-images
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
@@ -522,9 +520,8 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
           run: |
             set -eux
@@ -573,19 +570,19 @@ jobs:
           concurrency_key: boxes
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            set -eux
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Box test
         uses: ./.github/run-on-builder
         timeout-minutes: 40
         with:
-          run: CI=1 ./bootstrap.sh test-boxes
+          run: |
+            export CI=1
+            export USE_CACHE=1
+            if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
+              USE_CACHE=1 CI=1 ./bootstrap.sh test-boxes
+            fi
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]

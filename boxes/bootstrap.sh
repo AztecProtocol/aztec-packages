@@ -10,6 +10,10 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
+hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
+
 function build {
   denoise "yarn && echo "Building... " && yarn build"
 }
@@ -19,10 +23,6 @@ function test {
     BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --force-recreate
   }
   export -f test_box
-
-  hash=$(cache_content_hash ../noir/.rebuild_patterns* \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns)
 
   if test_should_run "boxes-test-$hash"; then
     parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
@@ -39,6 +39,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "hash")
+    echo $hash
     ;;
   "ci")
     build

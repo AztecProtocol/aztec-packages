@@ -13,6 +13,8 @@ inputs:
     required: true
   builder_command:
     required: true
+  username:
+    required: false
   run:
     required: true
   tester_ttl:
@@ -26,6 +28,7 @@ runs:
     - name: Ensure Builder And Images
       uses: ./.github/ensure-builder
       with:
+        username: ${{ inputs.username }}
         runner_type: ${{ inputs.builder_type }}
         run: |
           # run builder_command if inputs don't exist
@@ -60,6 +63,7 @@ runs:
       uses: ./.github/ensure-tester
       if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
+        username: ${{ inputs.username }}
         runner_type: ${{ inputs.runner_type}}
         spot_strategy: ${{ inputs.spot_strategy }}
         ttl: ${{ inputs.tester_ttl }}

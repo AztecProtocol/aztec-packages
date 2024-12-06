@@ -4,9 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
+
 function build {
   github_group "avm-transpiler build"
-  artifact=avm-transpiler-$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns).tar.gz
+  artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
     denoise ./scripts/bootstrap_native.sh
     cache_upload $artifact target/release
@@ -25,6 +27,9 @@ case "$cmd" in
     ;;
   "ci")
     build
+    ;;
+  "hash")
+    echo $hash
     ;;
   *)
     echo "Unknown command: $cmd"
