@@ -334,14 +334,16 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
 }
 
-WASM_EXPORT void acir_verify_client_ivc(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
+WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
     //     init_bn254_crs(1);
     //     init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    vinfo("proof size  : ", proof.size());
     const auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
+    vinfo("vk.mega log size : ", vk.mega->log_circuit_size);
 
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     vk.eccvm->pcs_verification_key =
