@@ -111,6 +111,13 @@ ci-noir-bb:
   FROM +bootstrap-noir-bb
   ENV CI=1
   ENV USE_CACHE=1
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
+    mkdir -p $HOME/.aws/ && \
+    echo "[default]" > $HOME/.aws/credentials && \
+    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
+    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
+    echo "region = $AWS_REGION" >> $HOME/.aws/credentials
+
   LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
   IF ci3/test_should_run $artifact
     WAIT
@@ -148,6 +155,12 @@ ci-rest:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
+    mkdir -p $HOME/.aws/ && \
+    echo "[default]" > $HOME/.aws/credentials && \
+    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
+    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
+    echo "region = $AWS_REGION" >> $HOME/.aws/credentials
   WAIT
     BUILD ./avm-transpiler/+format
     BUILD ./yarn-project/+format-check
