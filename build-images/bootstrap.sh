@@ -9,10 +9,10 @@ function build {
   github_group "build-images build"
   if test_should_run build-images-$hash; then
     args=""
-    if [ "${CI:-0}" = 1]; then
+    if [ "${CI:-0}" = 1 ]; then
       args="--push"
     fi
-    ../scripts/earthly-ci $args +all-ci
+    denoise ../scripts/earthly-ci $args +all-ci
     cache_upload_flag build-images-$hash
   fi
   github_endgroup

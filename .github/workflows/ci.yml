@@ -129,7 +129,7 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
       - name: "Build Images"
         uses: ./.github/run-on-builder
-        timeout-minutes: 40
+        timeout-minutes: 120
         with:
           run: ./build-images/bootstrap.sh ci
 
