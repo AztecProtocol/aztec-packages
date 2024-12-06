@@ -1,5 +1,6 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -25,16 +26,14 @@ import { type L1Published, type L1PublishedData } from './structs/published.js';
  * Fetches new L2 blocks.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
- * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
  * @returns An array of block; as well as the next eth block to search from.
  */
-export async function retrieveBlockFromRollup(
+export async function retrieveBlocksFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
@@ -58,13 +57,13 @@ export async function retrieveBlockFromRollup(
 
     const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${l2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
-  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  } while (searchStartBlock <= searchEndBlock);
   return retrievedBlocks;
 }
 
@@ -82,14 +81,13 @@ export async function processL2BlockProposedLogs(
   logger: DebugLogger,
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
-  for (const log of logs) {
+  await asyncPool(10, logs, async log => {
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      // TODO: Fetch blocks from calldata in parallel
       const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
@@ -100,11 +98,12 @@ export async function processL2BlockProposedLogs(
 
       retrievedBlocks.push({ data: block, l1 });
     } else {
-      logger.warn(
-        `Archive mismatch matching, ignoring block ${l2BlockNumber} with archive: ${archive}, expected ${archiveFromChain}`,
-      );
+      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
+        actual: archive,
+        expected: archiveFromChain,
+      });
     }
-  }
+  });
 
   return retrievedBlocks;
 }
@@ -129,10 +128,7 @@ async function getBlockFromRollupTx(
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi,
-    data,
-  });
+  const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
   const allowedMethods = ['propose', 'proposeAndClaim'];
 
@@ -184,7 +180,6 @@ async function getBlockFromRollupTx(
  */
 export async function retrieveL1ToL2Messages(
   inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>,
-  blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
 ): Promise<DataRetrieval<InboxLeaf>> {
@@ -213,7 +208,7 @@ export async function retrieveL1ToL2Messages(
 
     // handles the case when there are no new messages:
     searchStartBlock = (messageSentLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
-  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  } while (searchStartBlock <= searchEndBlock);
   return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
 }
 
