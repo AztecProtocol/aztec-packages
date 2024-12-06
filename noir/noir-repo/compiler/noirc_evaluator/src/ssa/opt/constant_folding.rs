@@ -149,7 +149,8 @@ impl Function {
         use_constraint_info: bool,
         brillig_info: Option<BrilligInfo>,
     ) {
-        let mut context = Context::new(self, use_constraint_info, brillig_info);
+        let mut context = Context::new(use_constraint_info, brillig_info);
+        let mut dom = DominatorTree::with_function(self);
         context.block_queue.push_back(self.entry_block());
 
         while let Some(block) = context.block_queue.pop_front() {
@@ -158,7 +159,7 @@ impl Function {
             }
 
             context.visited_blocks.insert(block);
-            context.fold_constants_in_block(self, block);
+            context.fold_constants_in_block(self, &mut dom, block);
         }
     }
 }
@@ -172,22 +173,15 @@ struct Context<'a> {
 
     /// Contains sets of values which are constrained to be equivalent to each other.
     ///
-    /// The mapping's structure is `side_effects_enabled_var => (constrained_value => [(block, simplified_value)])`.
+    /// The mapping's structure is `side_effects_enabled_var => (constrained_value => simplified_value)`.
     ///
     /// We partition the maps of constrained values according to the side-effects flag at the point
     /// at which the values are constrained. This prevents constraints which are only sometimes enforced
     /// being used to modify the rest of the program.
-    ///
-    /// We also keep track of how a value was simplified to other values per block. That is,
-    /// a same ValueId could have been simplified to one value in one block and to another value
-    /// in another block.
-    constraint_simplification_mappings:
-        HashMap<ValueId, HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
+    constraint_simplification_mappings: ConstraintSimplificationCache,
 
     // Cache of instructions without any side-effects along with their outputs.
     cached_instruction_results: InstructionResultCache,
-
-    dom: DominatorTree,
 }
 
 #[derive(Copy, Clone)]
@@ -196,8 +190,55 @@ pub(crate) struct BrilligInfo<'a> {
     brillig_functions: &'a BTreeMap<FunctionId, Function>,
 }
 
+/// Records a simplified equivalents of an [`Instruction`] in the blocks
+/// where the constraint that advised the simplification has been encountered.
+///
+/// For more information see [`ConstraintSimplificationCache`].
+#[derive(Default)]
+struct SimplificationCache {
+    /// Simplified expressions where we found them.
+    ///
+    /// It will always have at least one value because `add` is called
+    /// after the default is constructed.
+    simplifications: HashMap<BasicBlockId, ValueId>,
+}
+
+impl SimplificationCache {
+    /// Called with a newly encountered simplification.
+    fn add(&mut self, dfg: &DataFlowGraph, simple: ValueId, block: BasicBlockId) {
+        self.simplifications
+            .entry(block)
+            .and_modify(|existing| {
+                // `SimplificationCache` may already hold a simplification in this block
+                // so we check whether `simple` is a better simplification than the current one.
+                if let Some((_, simpler)) = simplify(dfg, *existing, simple) {
+                    *existing = simpler;
+                };
+            })
+            .or_insert(simple);
+    }
+
+    /// Try to find a simplification in a visible block.
+    fn get(&self, block: BasicBlockId, dom: &DominatorTree) -> Option<ValueId> {
+        // Deterministically walk up the dominator chain until we encounter a block that contains a simplification.
+        dom.find_map_dominator(block, |b| self.simplifications.get(&b).cloned())
+    }
+}
+
+/// HashMap from `(side_effects_enabled_var, Instruction)` to a simplified expression that it can
+/// be replaced with based on constraints that testify to their equivalence, stored together
+/// with the set of blocks at which this constraint has been observed.
+///
+/// Only blocks dominated by one in the cache should have access to this information, otherwise
+/// we create a sort of time paradox where we replace an instruction with a constant we believe
+/// it _should_ equal to, without ever actually producing and asserting the value.
+type ConstraintSimplificationCache = HashMap<ValueId, HashMap<ValueId, SimplificationCache>>;
+
 /// HashMap from `(Instruction, side_effects_enabled_var)` to the results of the instruction.
 /// Stored as a two-level map to avoid cloning Instructions during the `.get` call.
+///
+/// The `side_effects_enabled_var` is optional because we only use them when `Instruction::requires_acir_gen_predicate`
+/// is true _and_ the constraint information is also taken into account.
 ///
 /// In addition to each result, the original BasicBlockId is stored as well. This allows us
 /// to deduplicate instructions across blocks as long as the new block dominates the original.
@@ -208,15 +249,11 @@ type InstructionResultCache = HashMap<Instruction, HashMap<Option<ValueId>, Resu
 /// For more information see [`InstructionResultCache`].
 #[derive(Default)]
 struct ResultCache {
-    results: Vec<(BasicBlockId, Vec<ValueId>)>,
+    result: Option<(BasicBlockId, Vec<ValueId>)>,
 }
 
 impl<'brillig> Context<'brillig> {
-    fn new(
-        function: &Function,
-        use_constraint_info: bool,
-        brillig_info: Option<BrilligInfo<'brillig>>,
-    ) -> Self {
+    fn new(use_constraint_info: bool, brillig_info: Option<BrilligInfo<'brillig>>) -> Self {
         Self {
             use_constraint_info,
             brillig_info,
@@ -224,19 +261,25 @@ impl<'brillig> Context<'brillig> {
             block_queue: Default::default(),
             constraint_simplification_mappings: Default::default(),
             cached_instruction_results: Default::default(),
-            dom: DominatorTree::with_function(function),
         }
     }
 
-    fn fold_constants_in_block(&mut self, function: &mut Function, block: BasicBlockId) {
+    fn fold_constants_in_block(
+        &mut self,
+        function: &mut Function,
+        dom: &mut DominatorTree,
+        block: BasicBlockId,
+    ) {
         let instructions = function.dfg[block].take_instructions();
 
+        // Default side effect condition variable with an enabled state.
         let mut side_effects_enabled_var =
             function.dfg.make_constant(FieldElement::one(), Type::bool());
 
         for instruction_id in instructions {
             self.fold_constants_into_instruction(
-                &mut function.dfg,
+                function,
+                dom,
                 block,
                 instruction_id,
                 &mut side_effects_enabled_var,
@@ -247,48 +290,59 @@ impl<'brillig> Context<'brillig> {
 
     fn fold_constants_into_instruction(
         &mut self,
-        dfg: &mut DataFlowGraph,
-        block: BasicBlockId,
+        function: &mut Function,
+        dom: &mut DominatorTree,
+        mut block: BasicBlockId,
         id: InstructionId,
         side_effects_enabled_var: &mut ValueId,
     ) {
-        let constraint_simplification_mapping =
-            self.constraint_simplification_mappings.get(side_effects_enabled_var);
-        let instruction = Self::resolve_instruction(
-            id,
-            block,
-            dfg,
-            &mut self.dom,
-            constraint_simplification_mapping,
-        );
+        let constraint_simplification_mapping = self.get_constraint_map(*side_effects_enabled_var);
+        let dfg = &mut function.dfg;
+
+        let instruction =
+            Self::resolve_instruction(id, block, dfg, dom, constraint_simplification_mapping);
+
         let old_results = dfg.instruction_results(id).to_vec();
 
         // If a copy of this instruction exists earlier in the block, then reuse the previous results.
-        if let Some(cached_results) =
-            self.get_cached(dfg, &instruction, *side_effects_enabled_var, block)
+        if let Some(cache_result) =
+            self.get_cached(dfg, dom, &instruction, *side_effects_enabled_var, block)
         {
-            Self::replace_result_ids(dfg, &old_results, cached_results);
-            return;
-        }
+            match cache_result {
+                CacheResult::Cached(cached) => {
+                    // We track whether we may mutate MakeArray instructions before we deduplicate
+                    // them but we still need to issue an extra inc_rc in case they're mutated afterward.
+                    if matches!(instruction, Instruction::MakeArray { .. }) {
+                        let value = *cached.last().unwrap();
+                        let inc_rc = Instruction::IncrementRc { value };
+                        let call_stack = dfg.get_call_stack(id);
+                        dfg.insert_instruction_and_results(inc_rc, block, None, call_stack);
+                    }
 
-        let new_results =
+                    Self::replace_result_ids(dfg, &old_results, cached);
+                    return;
+                }
+                CacheResult::NeedToHoistToCommonBlock(dominator) => {
+                    // Just change the block to insert in the common dominator instead.
+                    // This will only move the current instance of the instruction right now.
+                    // When constant folding is run a second time later on, it'll catch
+                    // that the previous instance can be deduplicated to this instance.
+                    block = dominator;
+                }
+            }
+        };
+
         // First try to inline a call to a brillig function with all constant arguments.
-        Self::try_inline_brillig_call_with_all_constants(
+        let new_results = Self::try_inline_brillig_call_with_all_constants(
             &instruction,
             &old_results,
             block,
             dfg,
             self.brillig_info,
         )
+        // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
         .unwrap_or_else(|| {
-            // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
-            Self::push_instruction(
-                id,
-                instruction.clone(),
-                &old_results,
-                block,
-                dfg,
-            )
+            Self::push_instruction(id, instruction.clone(), &old_results, block, dfg)
         });
 
         Self::replace_result_ids(dfg, &old_results, &new_results);
@@ -296,7 +350,7 @@ impl<'brillig> Context<'brillig> {
         self.cache_instruction(
             instruction.clone(),
             new_results,
-            dfg,
+            function,
             *side_effects_enabled_var,
             block,
         );
@@ -314,7 +368,7 @@ impl<'brillig> Context<'brillig> {
         block: BasicBlockId,
         dfg: &DataFlowGraph,
         dom: &mut DominatorTree,
-        constraint_simplification_mapping: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
+        constraint_simplification_mapping: &HashMap<ValueId, SimplificationCache>,
     ) -> Instruction {
         let instruction = dfg[instruction_id].clone();
 
@@ -324,30 +378,28 @@ impl<'brillig> Context<'brillig> {
         // This allows us to reach a stable final `ValueId` for each instruction input as we add more
         // constraints to the cache.
         fn resolve_cache(
+            block: BasicBlockId,
             dfg: &DataFlowGraph,
             dom: &mut DominatorTree,
-            cache: Option<&HashMap<ValueId, Vec<(BasicBlockId, ValueId)>>>,
+            cache: &HashMap<ValueId, SimplificationCache>,
             value_id: ValueId,
-            block: BasicBlockId,
         ) -> ValueId {
             let resolved_id = dfg.resolve(value_id);
-            let Some(cached_values) = cache.and_then(|cache| cache.get(&resolved_id)) else {
-                return resolved_id;
-            };
-
-            for (cached_block, cached_value) in cached_values {
-                // We can only use the simplified value if it was simplified in a block that dominates the current one
-                if dom.dominates(*cached_block, block) {
-                    return resolve_cache(dfg, dom, cache, *cached_value, block);
+            match cache.get(&resolved_id) {
+                Some(simplification_cache) => {
+                    if let Some(simplified) = simplification_cache.get(block, dom) {
+                        resolve_cache(block, dfg, dom, cache, simplified)
+                    } else {
+                        resolved_id
+                    }
                 }
+                None => resolved_id,
             }
-
-            resolved_id
         }
 
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
         instruction.map_values(|value_id| {
-            resolve_cache(dfg, dom, constraint_simplification_mapping, value_id, block)
+            resolve_cache(block, dfg, dom, constraint_simplification_mapping, value_id)
         })
     }
 
@@ -385,7 +437,7 @@ impl<'brillig> Context<'brillig> {
         &mut self,
         instruction: Instruction,
         instruction_results: Vec<ValueId>,
-        dfg: &DataFlowGraph,
+        function: &Function,
         side_effects_enabled_var: ValueId,
         block: BasicBlockId,
     ) {
@@ -394,21 +446,53 @@ impl<'brillig> Context<'brillig> {
             // to map from the more complex to the simpler value.
             if let Instruction::Constrain(lhs, rhs, _) = instruction {
                 // These `ValueId`s should be fully resolved now.
-                if let Some((complex, simple)) = simplify(dfg, lhs, rhs) {
+                if let Some((complex, simple)) = simplify(&function.dfg, lhs, rhs) {
                     self.get_constraint_map(side_effects_enabled_var)
                         .entry(complex)
                         .or_default()
-                        .push((block, simple));
+                        .add(&function.dfg, simple, block);
                 }
             }
         }
 
+        // If we have an array get whose value is from an array set on the same array at the same index,
+        // we can simplify that array get to the value of the previous array set.
+        //
+        // For example:
+        // v3 = array_set v0, index v1, value v2
+        // v4 = array_get v3, index v1 -> Field
+        //
+        // We know that `v4` can be simplified to `v2`.
+        // Thus, even if the index is dynamic (meaning the array get would have side effects),
+        // we can simplify the operation when we take into account the predicate.
+        if let Instruction::ArraySet { index, value, .. } = &instruction {
+            let use_predicate =
+                self.use_constraint_info && instruction.requires_acir_gen_predicate(&function.dfg);
+            let predicate = use_predicate.then_some(side_effects_enabled_var);
+
+            let array_get = Instruction::ArrayGet { array: instruction_results[0], index: *index };
+
+            self.cached_instruction_results
+                .entry(array_get)
+                .or_default()
+                .entry(predicate)
+                .or_default()
+                .cache(block, vec![*value]);
+        }
+
+        self.remove_possibly_mutated_cached_make_arrays(&instruction, function);
+
         // If the instruction doesn't have side-effects and if it won't interact with enable_side_effects during acir_gen,
         // we cache the results so we can reuse them if the same instruction appears again later in the block.
         // Others have side effects representing failure, which are implicit in the ACIR code and can also be deduplicated.
-        if instruction.can_be_deduplicated(dfg, self.use_constraint_info) {
+        let can_be_deduplicated =
+            instruction.can_be_deduplicated(function, self.use_constraint_info);
+
+        // We also allow deduplicating MakeArray instructions that we have tracked which haven't
+        // been mutated.
+        if can_be_deduplicated || matches!(instruction, Instruction::MakeArray { .. }) {
             let use_predicate =
-                self.use_constraint_info && instruction.requires_acir_gen_predicate(dfg);
+                self.use_constraint_info && instruction.requires_acir_gen_predicate(&function.dfg);
             let predicate = use_predicate.then_some(side_effects_enabled_var);
 
             self.cached_instruction_results
@@ -420,10 +504,12 @@ impl<'brillig> Context<'brillig> {
         }
     }
 
+    /// Get the simplification mapping from complex to simpler instructions,
+    /// which all depend on the same side effect condition variable.
     fn get_constraint_map(
         &mut self,
         side_effects_enabled_var: ValueId,
-    ) -> &mut HashMap<ValueId, Vec<(BasicBlockId, ValueId)>> {
+    ) -> &mut HashMap<ValueId, SimplificationCache> {
         self.constraint_simplification_mappings.entry(side_effects_enabled_var).or_default()
     }
 
@@ -438,19 +524,20 @@ impl<'brillig> Context<'brillig> {
         }
     }
 
-    fn get_cached<'a>(
-        &'a mut self,
+    /// Get a cached result if it can be used in this context.
+    fn get_cached(
+        &self,
         dfg: &DataFlowGraph,
+        dom: &mut DominatorTree,
         instruction: &Instruction,
         side_effects_enabled_var: ValueId,
         block: BasicBlockId,
-    ) -> Option<&'a [ValueId]> {
+    ) -> Option<CacheResult> {
         let results_for_instruction = self.cached_instruction_results.get(instruction)?;
-
         let predicate = self.use_constraint_info && instruction.requires_acir_gen_predicate(dfg);
         let predicate = predicate.then_some(side_effects_enabled_var);
 
-        results_for_instruction.get(&predicate)?.get(block, &mut self.dom)
+        results_for_instruction.get(&predicate)?.get(block, dom, instruction.has_side_effects(dfg))
     }
 
     /// Checks if the given instruction is a call to a brillig function with all constant arguments.
@@ -612,12 +699,34 @@ impl<'brillig> Context<'brillig> {
             }
         }
     }
+
+    fn remove_possibly_mutated_cached_make_arrays(
+        &mut self,
+        instruction: &Instruction,
+        function: &Function,
+    ) {
+        use Instruction::{ArraySet, Store};
+
+        // Should we consider calls to slice_push_back and similar to be mutating operations as well?
+        if let Store { value: array, .. } | ArraySet { array, .. } = instruction {
+            let instruction = match &function.dfg[*array] {
+                Value::Instruction { instruction, .. } => &function.dfg[*instruction],
+                _ => return,
+            };
+
+            if matches!(instruction, Instruction::MakeArray { .. }) {
+                self.cached_instruction_results.remove(instruction);
+            }
+        }
+    }
 }
 
 impl ResultCache {
     /// Records that an `Instruction` in block `block` produced the result values `results`.
     fn cache(&mut self, block: BasicBlockId, results: Vec<ValueId>) {
-        self.results.push((block, results));
+        if self.result.is_none() {
+            self.result = Some((block, results));
+        }
     }
 
     /// Returns a set of [`ValueId`]s produced from a copy of this [`Instruction`] which sits
@@ -626,13 +735,23 @@ impl ResultCache {
     /// We require that the cached instruction's block dominates `block` in order to avoid
     /// cycles causing issues (e.g. two instructions being replaced with the results of each other
     /// such that neither instruction exists anymore.)
-    fn get(&self, block: BasicBlockId, dom: &mut DominatorTree) -> Option<&[ValueId]> {
-        for (origin_block, results) in &self.results {
+    fn get(
+        &self,
+        block: BasicBlockId,
+        dom: &mut DominatorTree,
+        has_side_effects: bool,
+    ) -> Option<CacheResult> {
+        self.result.as_ref().and_then(|(origin_block, results)| {
             if dom.dominates(*origin_block, block) {
-                return Some(results);
+                Some(CacheResult::Cached(results))
+            } else if !has_side_effects {
+                // Insert a copy of this instruction in the common dominator
+                let dominator = dom.common_dominator(*origin_block, block);
+                Some(CacheResult::NeedToHoistToCommonBlock(dominator))
+            } else {
+                None
             }
-        }
-        None
+        })
     }
 }
 
@@ -663,7 +782,7 @@ pub(crate) fn type_to_brillig_parameter(typ: &Type) -> Option<BrilligParameter> 
             for item_typ in item_type.iter() {
                 parameters.push(type_to_brillig_parameter(item_typ)?);
             }
-            Some(BrilligParameter::Array(parameters, *size))
+            Some(BrilligParameter::Array(parameters, *size as usize))
         }
         _ => None,
     }
@@ -940,32 +1059,22 @@ mod test {
     // Regression for #4600
     #[test]
     fn array_get_regression() {
-        // fn main f0 {
-        //   b0(v0: u1, v1: u64):
-        //     enable_side_effects_if v0
-        //     v2 = make_array [Field 0, Field 1]
-        //     v3 = array_get v2, index v1
-        //     v4 = not v0
-        //     enable_side_effects_if v4
-        //     v5 = array_get v2, index v1
-        // }
-        //
         // We want to make sure after constant folding both array_gets remain since they are
         // under different enable_side_effects_if contexts and thus one may be disabled while
         // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which
         // is disabled (only gets from index 0) and thus returns the wrong result.
         let src = "
-            acir(inline) fn main f0 {
-              b0(v0: u1, v1: u64):
-                enable_side_effects v0
-                v4 = make_array [Field 0, Field 1] : [Field; 2]
-                v5 = array_get v4, index v1 -> Field
-                v6 = not v0
-                enable_side_effects v6
-                v7 = array_get v4, index v1 -> Field
-                return
-            }
-            ";
+        acir(inline) fn main f0 {
+          b0(v0: u1, v1: u64):
+            enable_side_effects v0
+            v4 = make_array [Field 0, Field 1] : [Field; 2]
+            v5 = array_get v4, index v1 -> Field
+            v6 = not v0
+            enable_side_effects v6
+            v7 = array_get v4, index v1 -> Field
+            return
+        }
+        ";
         let ssa = Ssa::from_str(src).unwrap();
 
         // Expected output is unchanged
@@ -1032,7 +1141,6 @@ mod test {
         //     v5 = call keccakf1600(v1)
         //     v6 = call keccakf1600(v2)
         // }
-        //
         // Here we're checking a situation where two identical arrays are being initialized twice and being assigned separate `ValueId`s.
         // This would result in otherwise identical instructions not being deduplicated.
         let main_id = Id::test_new(0);
@@ -1071,6 +1179,7 @@ mod test {
         // fn main f0 {
         //   b0(v0: u64):
         //     v1 = make_array [v0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0, u64 0]
+        //     inc_rc v1
         //     v5 = call keccakf1600(v1)
         // }
         let ssa = ssa.fold_constants();
@@ -1080,7 +1189,107 @@ mod test {
         let main = ssa.main();
         let instructions = main.dfg[main.entry_block()].instructions();
         let ending_instruction_count = instructions.len();
-        assert_eq!(ending_instruction_count, 2);
+        assert_eq!(ending_instruction_count, 3);
+    }
+
+    #[test]
+    fn deduplicate_across_blocks() {
+        // fn main f0 {
+        //   b0(v0: u1):
+        //     v1 = not v0
+        //     jmp b1()
+        //   b1():
+        //     v2 = not v0
+        //     return v2
+        // }
+        let main_id = Id::test_new(0);
+
+        // Compiling main
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
+        let b1 = builder.insert_block();
+
+        let v0 = builder.add_parameter(Type::bool());
+        let _v1 = builder.insert_not(v0);
+        builder.terminate_with_jmp(b1, Vec::new());
+
+        builder.switch_to_block(b1);
+        let v2 = builder.insert_not(v0);
+        builder.terminate_with_return(vec![v2]);
+
+        let ssa = builder.finish();
+        let main = ssa.main();
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
+        assert_eq!(main.dfg[b1].instructions().len(), 1);
+
+        // Expected output:
+        //
+        // fn main f0 {
+        //   b0(v0: u1):
+        //     v1 = not v0
+        //     jmp b1()
+        //   b1():
+        //     return v1
+        // }
+        let ssa = ssa.fold_constants_using_constraints();
+        let main = ssa.main();
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
+        assert_eq!(main.dfg[b1].instructions().len(), 0);
+    }
+
+    #[test]
+    fn deduplicate_across_non_dominated_blocks() {
+        let src = "
+            brillig(inline) fn main f0 {
+              b0(v0: u32):
+                v2 = lt u32 1000, v0
+                jmpif v2 then: b1, else: b2
+              b1():
+                v4 = shl v0, u32 1
+                v5 = lt v0, v4
+                constrain v5 == u1 1
+                jmp b2()
+              b2():
+                v7 = lt u32 1000, v0
+                jmpif v7 then: b3, else: b4
+              b3():
+                v8 = shl v0, u32 1
+                v9 = lt v0, v8
+                constrain v9 == u1 1
+                jmp b4()
+              b4():
+                return
+            }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+
+        // v4 has been hoisted, although:
+        // - v5 has not yet been removed since it was encountered earlier in the program
+        // - v8 hasn't been recognized as a duplicate of v6 yet since they still reference v4 and
+        //   v5 respectively
+        let expected = "
+            brillig(inline) fn main f0 {
+              b0(v0: u32):
+                v2 = lt u32 1000, v0
+                v4 = shl v0, u32 1
+                jmpif v2 then: b1, else: b2
+              b1():
+                v5 = shl v0, u32 1
+                v6 = lt v0, v5
+                constrain v6 == u1 1
+                jmp b2()
+              b2():
+                jmpif v2 then: b3, else: b4
+              b3():
+                v8 = lt v0, v4
+                constrain v8 == u1 1
+                jmp b4()
+              b4():
+                return
+            }
+        ";
+
+        let ssa = ssa.fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
@@ -1260,46 +1469,158 @@ mod test {
     }
 
     #[test]
-    fn deduplicate_across_blocks() {
-        // fn main f0 {
-        //   b0(v0: u1):
-        //     v1 = not v0
-        //     jmp b1()
-        //   b1():
-        //     v2 = not v0
-        //     return v2
-        // }
-        let main_id = Id::test_new(0);
-
-        // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-        let b1 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        let _v1 = builder.insert_not(v0);
-        builder.terminate_with_jmp(b1, Vec::new());
-
-        builder.switch_to_block(b1);
-        let v2 = builder.insert_not(v0);
-        builder.terminate_with_return(vec![v2]);
-
-        let ssa = builder.finish();
-        let main = ssa.main();
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
-        assert_eq!(main.dfg[b1].instructions().len(), 1);
-
-        // Expected output:
-        //
-        // fn main f0 {
-        //   b0(v0: u1):
-        //     v1 = not v0
-        //     jmp b1()
-        //   b1():
-        //     return v1
-        // }
+    fn does_not_use_cached_constrain_in_block_that_is_not_dominated() {
+        let src = "
+            brillig(inline) fn main f0 {
+              b0(v0: Field, v1: Field):
+                v3 = eq v0, Field 0
+                jmpif v3 then: b1, else: b2
+              b1():
+                v5 = eq v1, Field 1
+                constrain v1 == Field 1
+                jmp b2()
+              b2():
+                v6 = eq v1, Field 0
+                constrain v1 == Field 0
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
         let ssa = ssa.fold_constants_using_constraints();
-        let main = ssa.main();
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
-        assert_eq!(main.dfg[b1].instructions().len(), 0);
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn does_not_hoist_constrain_to_common_ancestor() {
+        let src = "
+            brillig(inline) fn main f0 {
+              b0(v0: Field, v1: Field):
+                v3 = eq v0, Field 0
+                jmpif v3 then: b1, else: b2
+              b1():
+                constrain v1 == Field 1
+                jmp b2()
+              b2():
+                jmpif v0 then: b3, else: b4
+              b3():
+                constrain v1 == Field 1 // This was incorrectly hoisted to b0 but this condition is not valid when going b0 -> b2 -> b4
+                jmp b4()
+              b4():
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn does_not_hoist_sub_to_common_ancestor() {
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: u32):
+                v2 = eq v0, u32 0
+                jmpif v2 then: b4, else: b1
+              b4():
+                v5 = sub v0, u32 1
+                jmp b5()
+              b5():
+                return
+              b1():
+                jmpif v0 then: b3, else: b2
+              b3():
+                v4 = sub v0, u32 1 // We can't hoist this because v0 is zero here and it will lead to an underflow
+                jmp b5()
+              b2():
+                jmp b5()
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn deduplicates_side_effecting_intrinsics() {
+        let src = "
+        // After EnableSideEffectsIf removal:
+        acir(inline) fn main f0 {
+          b0(v0: Field, v1: Field, v2: u1):
+            v4 = call is_unconstrained() -> u1
+            v7 = call to_be_radix(v0, u32 256) -> [u8; 1]    // `a.to_be_radix(256)`;
+            inc_rc v7
+            v8 = call to_be_radix(v0, u32 256) -> [u8; 1]    // duplicate load of `a`
+            inc_rc v8
+            v9 = cast v2 as Field                            // `if c { a.to_be_radix(256) }`
+            v10 = mul v0, v9                                 // attaching `c` to `a`
+            v11 = call to_be_radix(v10, u32 256) -> [u8; 1]  // calling `to_radix(c * a)`
+            inc_rc v11
+            enable_side_effects v2                           // side effect var for `c` shifted down by removal
+            return
+        }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let expected = "
+        acir(inline) fn main f0 {
+          b0(v0: Field, v1: Field, v2: u1):
+            v4 = call is_unconstrained() -> u1
+            v7 = call to_be_radix(v0, u32 256) -> [u8; 1]
+            inc_rc v7
+            inc_rc v7
+            v8 = cast v2 as Field
+            v9 = mul v0, v8
+            v10 = call to_be_radix(v9, u32 256) -> [u8; 1]
+            inc_rc v10
+            enable_side_effects v2
+            return
+        }
+        ";
+        let ssa = ssa.fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn array_get_from_array_set_with_different_predicates() {
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: [Field; 3], v1: u32, v2: Field):
+            enable_side_effects u1 0
+            v4 = array_set v0, index v1, value v2
+            enable_side_effects u1 1
+            v6 = array_get v4, index v1 -> Field
+            return v6
+        }
+        ";
+
+        let ssa = Ssa::from_str(src).unwrap();
+
+        let ssa = ssa.fold_constants_using_constraints();
+        // We expect the code to be unchanged
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn array_get_from_array_set_same_predicates() {
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: [Field; 3], v1: u32, v2: Field):
+            enable_side_effects u1 1
+            v4 = array_set v0, index v1, value v2
+            v6 = array_get v4, index v1 -> Field
+            return v6
+        }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+
+        let expected = "
+        acir(inline) fn main f0 {
+          b0(v0: [Field; 3], v1: u32, v2: Field):
+            enable_side_effects u1 1
+            v4 = array_set v0, index v1, value v2
+            return v2
+        }
+        ";
+        let ssa = ssa.fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, expected);
     }
 }

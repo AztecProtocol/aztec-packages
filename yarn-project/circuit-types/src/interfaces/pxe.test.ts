@@ -87,6 +87,10 @@ describe('PXESchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
+  it('isL1ToL2MessageSynced', async () => {
+    await context.client.isL1ToL2MessageSynced(Fr.random());
+  });
+
   it('addAuthWitness', async () => {
     await context.client.addAuthWitness(AuthWitness.random());
   });
@@ -326,6 +330,11 @@ class MockPXE implements PXE {
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {}
+
+  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   addAuthWitness(authWitness: AuthWitness): Promise<void> {
     expect(authWitness).toBeInstanceOf(AuthWitness);
     return Promise.resolve();

@@ -43,7 +43,8 @@ contract Escrow {
 
         let note = storage.owner.get_note();
         assert(note.address == sender);
-
+        // docs:start:call_function
         Token::at(token).transfer(recipient, amount).call(&mut context);
+        // docs:end:call_function
     }
 }

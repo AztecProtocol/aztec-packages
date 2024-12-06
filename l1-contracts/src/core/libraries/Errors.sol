@@ -98,6 +98,7 @@ library Errors {
   // Sequencer Selection (Leonidas)
   error Leonidas__EpochNotSetup(); // 0xcf4e597e
   error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
+  error Leonidas__InvalidDeposit(address attester, address proposer); // 0x1ef9a54b
   error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
   error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
 
