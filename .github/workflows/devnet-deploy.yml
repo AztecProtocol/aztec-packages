@@ -113,7 +113,10 @@ jobs:
 
           kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &
           pxe_port_forward_pid=$!
-          kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-ethereum $ETHEREUM_PORT &
+
+          # port-forward directly to the pod because the Eth node does not have a service definition
+          ETH_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=ethereum -o jsonpath='{.items[0].metadata.name}')
+          kubectl port-forward -n $NAMESPACE pod/$ETH_POD_NAME $ETHEREUM_PORT &
           ethereum_port_forward_pid=$!
 
           # wait for port-forwards to establish
