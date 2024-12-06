@@ -22,6 +22,7 @@ type CachedPeer = {
 export class PeerManager {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private peerScoring: PeerScoring;
+  private heartbeatCounter: number = 0;
 
   constructor(
     private libP2PNode: PubSubLibp2p,
@@ -34,9 +35,9 @@ export class PeerManager {
     this.libP2PNode.addEventListener('peer:connect', evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.debug(`Connected to bootstrap peer ${peerId.toString()}`);
+        this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
       } else {
-        this.logger.debug(`Connected to transaction peer ${peerId.toString()}`);
+        this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
       }
     });
 
@@ -44,9 +45,9 @@ export class PeerManager {
     this.libP2PNode.addEventListener('peer:disconnect', evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.debug(`Disconnected from bootstrap peer ${peerId.toString()}`);
+        this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
       } else {
-        this.logger.debug(`Disconnected from transaction peer ${peerId.toString()}`);
+        this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
       }
     });
 
@@ -57,6 +58,7 @@ export class PeerManager {
   }
 
   public heartbeat() {
+    this.heartbeatCounter++;
     this.discover();
     this.peerScoring.decayAllScores();
   }
@@ -64,7 +66,8 @@ export class PeerManager {
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
     const id = peerId.toString();
     const penaltyValue = this.peerScoring.peerPenalties[penalty];
-    this.peerScoring.updateScore(id, -penaltyValue);
+    const newScore = this.peerScoring.updateScore(id, -penaltyValue);
+    this.logger.verbose(`Penalizing peer ${id} with ${penalty} (new score is ${newScore})`);
   }
 
   public getPeerScore(peerId: string): number {
@@ -81,9 +84,13 @@ export class PeerManager {
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - connections.length;
 
-    this.logger.debug(
-      `Connections: ${connections.length}, Peers to connect: ${peersToConnect}, maxPeerCount: ${this.config.maxPeerCount}, cachedPeers: ${this.cachedPeers.size}`,
-    );
+    const logLevel = this.heartbeatCounter % 60 === 0 ? 'info' : 'debug';
+    this.logger[logLevel](`P2P peers status`, {
+      connections: connections.length,
+      maxPeerCount: this.config.maxPeerCount,
+      cachedPeers: this.cachedPeers.size,
+      ...this.peerScoring.getStats(),
+    });
 
     // Exit if no peers to connect
     if (peersToConnect <= 0) {
@@ -119,7 +126,7 @@ export class PeerManager {
 
     // if we need more peers, start randomNodesQuery
     if (peersToConnect > 0) {
-      this.logger.debug('Running random nodes query');
+      this.logger.debug(`Running random nodes query to connect to ${peersToConnect} peers`);
       void this.peerDiscoveryService.runRandomNodesQuery();
     }
   }
@@ -134,11 +141,11 @@ export class PeerManager {
     // check if peer is already connected
     const [peerId, multiaddrTcp] = await Promise.all([enr.peerId(), enr.getFullMultiaddr('tcp')]);
 
-    this.logger.debug(`Handling discovered peer ${peerId.toString()}, ${multiaddrTcp?.toString()}`);
+    this.logger.debug(`Handling discovered peer ${peerId.toString()} at ${multiaddrTcp?.toString()}`);
 
     // throw if no tcp addr in multiaddr
     if (!multiaddrTcp) {
-      this.logger.debug(`No TCP address in discovered node's multiaddr: ${enr.toString()}`);
+      this.logger.warn(`No TCP address in discovered node's multiaddr ${enr.encodeTxt()}`);
       return;
     }
     const connections = this.libP2PNode.getConnections();
@@ -150,7 +157,7 @@ export class PeerManager {
     // check if peer is already in cache
     const id = peerId.toString();
     if (this.cachedPeers.has(id)) {
-      this.logger.debug(`Already in cache ${id}`);
+      this.logger.debug(`Peer already in cache ${id}`);
       return;
     }
 
@@ -164,7 +171,6 @@ export class PeerManager {
 
     // Determine if we should dial immediately or not
     if (this.shouldDialPeer()) {
-      this.logger.debug(`Dialing peer ${id}`);
       void this.dialPeer(cachedPeer);
     } else {
       this.logger.debug(`Caching peer ${id}`);
@@ -182,11 +188,12 @@ export class PeerManager {
     try {
       await this.libP2PNode.dial(peer.multiaddrTcp);
     } catch {
-      this.logger.debug(`Failed to dial peer ${id}`);
       peer.dialAttempts++;
       if (peer.dialAttempts < MAX_DIAL_ATTEMPTS) {
+        this.logger.debug(`Failed to dial peer ${id} (attempt ${peer.dialAttempts})`);
         this.cachedPeers.set(id, peer);
       } else {
+        this.logger.debug(`Failed to dial peer ${id} (dropping)`);
         this.cachedPeers.delete(id);
       }
     }
@@ -194,9 +201,10 @@ export class PeerManager {
 
   private shouldDialPeer(): boolean {
     const connections = this.libP2PNode.getConnections().length;
-    this.logger.debug(`Connections: ${connections}, maxPeerCount: ${this.config.maxPeerCount}`);
     if (connections >= this.config.maxPeerCount) {
-      this.logger.debug('Not dialing peer, maxPeerCount reached');
+      this.logger.debug(
+        `Not dialing peer due to max peer count of ${this.config.maxPeerCount} reached (${connections} current connections)`,
+      );
       return false;
     }
     return true;
@@ -211,6 +219,7 @@ export class PeerManager {
     // Remove the oldest peers
     for (const key of this.cachedPeers.keys()) {
       this.cachedPeers.delete(key);
+      this.logger.debug(`Pruning peer ${key} from cache`);
       peersToDelete--;
       if (peersToDelete <= 0) {
         break;
