@@ -34,7 +34,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { ExtRollupLibAbi, GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ExtRollupLibAbi, GovernanceProposerAbi, LeonidasLibAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -408,12 +408,16 @@ export class L1Publisher {
               to: this.rollupContract.address,
             });
           } catch (estGasErr: unknown) {
-            err = getContractError(estGasErr as BaseError, {
-              args: [],
-              abi: ExtRollupLibAbi,
-              functionName: 'validateHeader',
-              address: this.rollupContract.address,
-              sender: this.account.address,
+            const possibleAbis = [ExtRollupLibAbi, LeonidasLibAbi];
+            possibleAbis.forEach(abi => {
+              const possibleErr = getContractError(estGasErr as BaseError, {
+                args: [],
+                abi: abi,
+                functionName: 'validateHeader',
+                address: this.rollupContract.address,
+                sender: this.account.address,
+              });
+              err = tryGetCustomErrorName(possibleErr) ? possibleErr : err;
             });
           }
           throw err;
