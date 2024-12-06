@@ -31,7 +31,8 @@ bootstrap-noir-bb:
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/sr
   ENV CI=1
-  ENV USE_CACHE=1c
+  ENV TEST=1
+  ENV USE_CACHE=1
 
 bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
@@ -65,7 +66,8 @@ bootstrap:
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
   ENV CI=1
-  ENV USE_CACHE=1c
+  ENV TEST=1
+  ENV USE_CACHE=1
 
 bootstrap-aztec:
   FROM +bootstrap
