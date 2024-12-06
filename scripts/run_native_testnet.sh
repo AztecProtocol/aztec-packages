@@ -32,6 +32,7 @@ PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
 METRICS=false
+LOG_LEVEL="info"
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
