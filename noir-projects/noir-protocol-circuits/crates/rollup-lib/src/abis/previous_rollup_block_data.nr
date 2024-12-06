@@ -1,6 +1,6 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
-    constants::VK_TREE_HEIGHT,
+    constants::{PROOF_TYPE_ROLLUP_HONK, VK_TREE_HEIGHT},
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
         recursive_proof::NestedRecursiveProof,
@@ -23,7 +23,13 @@ impl Verifiable for PreviousRollupBlockData {
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );
-        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+        std::verify_proof_with_type(
+            self.vk.key,
+            self.proof.fields,
+            inputs,
+            self.vk.hash,
+            PROOF_TYPE_ROLLUP_HONK,
+        );
     }
 }
 
