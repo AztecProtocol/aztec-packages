@@ -211,7 +211,6 @@ impl<'context> Elaborator<'context> {
 
         attributes_to_run.push((function, item, arguments, attribute_context, span));
         Ok(())
-
     }
 
     fn run_attribute(
@@ -569,7 +568,7 @@ impl<'context> Elaborator<'context> {
         &mut self,
         module_attributes: &[ModuleAttribute],
         attributes_to_run: &mut CollectedAttributes,
-        ) {
+    ) {
         for module_attribute in module_attributes {
             let local_id = module_attribute.module_id;
             let module_id = ModuleId { krate: self.crate_id, local_id };
@@ -583,7 +582,7 @@ impl<'context> Elaborator<'context> {
                 attribute_module: module_attribute.attribute_module_id,
             };
 
-            self.collect_comptime_attribute_on_item(attribute, &item,  context, attributes_to_run);
+            self.collect_comptime_attribute_on_item(attribute, &item, context, attributes_to_run);
         }
     }
 
