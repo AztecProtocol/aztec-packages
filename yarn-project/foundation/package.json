@@ -103,6 +103,7 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
+    "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
     "elliptic": "^6.5.4",
@@ -117,6 +118,8 @@
     "lodash.clonedeepwith": "^4.5.0",
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
     "zod": "^3.23.8"
   },

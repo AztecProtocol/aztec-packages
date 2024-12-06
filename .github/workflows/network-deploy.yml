@@ -1,6 +1,33 @@
 name: Aztec Network Deployment
 
 on:
+  workflow_call:
+    inputs:
+      namespace:
+        description: The namespace to deploy to, e.g. smoke
+        required: true
+        type: string
+      values_file:
+        description: The values file to use, e.g. 1-validators.yaml
+        required: true
+        type: string
+      aztec_docker_image:
+        description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
+        required: true
+        type: string
+      deployment_mnemonic_secret_name:
+        description: The name of the secret which holds the boot node's contract deployment mnemonic
+        required: true
+        type: string
+        default: testnet-deployment-mnemonic
+      respect_tf_lock:
+        description: Whether to respect the Terraform lock
+        required: false
+        type: string
+        default: "true"
+    secrets:
+      GCP_SA_KEY:
+        required: true
   workflow_dispatch:
     inputs:
       namespace:
@@ -12,6 +39,14 @@ on:
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
+      deployment_mnemonic_secret_name:
+        description: The name of the secret which holds the boot node's contract deployment mnemonic
+        required: true
+        default: testnet-deployment-mnemonic
+      respect_tf_lock:
+        description: Whether to respect the Terraform lock
+        required: false
+        default: "true"
 
 jobs:
   network_deployment:
@@ -26,6 +61,7 @@ jobs:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
+      DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       CHART_PATH: ./spartan/aztec-network
       CLUSTER_NAME: aztec-gke
       REGION: us-west1-a
@@ -62,6 +98,12 @@ jobs:
             echo "Terraform state bucket already exists"
           fi
 
+      - name: Grab the boot node deployment mnemonic
+        id: get-mnemonic
+        run: |
+          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
+          echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -78,12 +120,14 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           terraform plan \
-            -var="release_name=${{ env.NAMESPACE }}" \
-            -var="values_file=${{ env.VALUES_FILE }}" \
-            -var="gke_cluster_context=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="aztec_docker_image=${{ env.AZTEC_DOCKER_IMAGE }}" \
-            -out=tfplan
+            -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+            -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+            -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+            -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+            -out=tfplan \
+            -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan

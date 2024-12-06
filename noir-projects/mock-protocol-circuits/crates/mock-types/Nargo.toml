@@ -5,3 +5,4 @@ authors = [""]
 compiler_version = ">=0.32.0"
 
 [dependencies]
+protocol_types = { path = "../../../noir-protocol-circuits/crates/types" }
