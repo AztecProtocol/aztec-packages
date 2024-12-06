@@ -327,11 +327,17 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
 
-    *out_proof = to_heap_buffer(to_buffer(proof)); // WORKTODO: include size?
+    auto buf = to_buffer_with_size(proof);
+    vinfo("first four bytes", buf[0], buf[1], buf[2], buf[3]);
+    *out_proof = to_heap_buffer(buf); // WORKTODO: include size?
 
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-    *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+
+    buf = to_buffer_with_size(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk });
+    vinfo(buf[0], buf[1], buf[2], buf[3]);
+    vinfo("first four bytes", buf[0], buf[1], buf[2], buf[3]);
+    *out_vk = to_heap_buffer(buf);
 }
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
