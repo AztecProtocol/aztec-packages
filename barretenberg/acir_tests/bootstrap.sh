@@ -1,15 +1,12 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
-shopt -s extglob
 
 cmd=${1:-}
-bb=$(realpath ../cpp/build/bin/bb)
-tests_path=../../noir/noir-repo/test_programs/execution_success
 export CRS_PATH=$PWD/crs
 
 function build {
   if [ ! -d acir_tests ]; then
-    cp -R $tests_path acir_tests
+    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_5045}
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
@@ -23,6 +20,7 @@ function build {
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
+  # local bb=$(realpath ../cpp/build/bin/bb)
   # (cd ./acir_tests/assert_statement && \
   #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
@@ -76,6 +74,11 @@ function test {
       echo "$*" >&3
   }
 
+  local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
+    grep -vE 'verify_honk_proof|double_verify_honk_proof')
+  local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof')
+
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
   run BROWSER=chrome THREAD_MODEL=mt PORT=8080 ./run_test_browser.sh verify_honk_proof
@@ -106,7 +109,7 @@ function test {
 
   # barretenberg-acir-tests-bb-ultra-plonk:
   # Exclude honk tests.
-  for t in ./acir_tests/!(verify_honk_proof|double_verify_honk_proof); do
+  for t in $plonk_tests; do
     run FLOW=prove_then_verify ./run_test.sh $(basename $t)
   done
   run FLOW=prove_then_verify RECURSIVE=true ./run_test.sh assert_statement
@@ -114,7 +117,7 @@ function test {
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.
-  for t in ./acir_tests/!(single_verify_proof|double_verify_proof|double_verify_nested_proof); do
+  for t in $honk_tests; do
     run SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh $(basename $t)
   done
   run SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true ./run_test.sh assert_statement
@@ -124,7 +127,7 @@ function test {
 
   # barretenberg-acir-tests-bb-mega-honk:
   # Construct and separately verify a MegaHonk proof for all acir programs
-  for t in ./acir_tests/!(verify_honk_proof|double_verify_honk_proof); do
+  for t in $plonk_tests; do
     run SYS=mega_honk FLOW=prove_then_verify ./run_test.sh $(basename $t)
     run SYS=mega_honk FLOW=prove_and_verify_program ./run_test.sh $(basename $t)
   done
@@ -137,10 +140,12 @@ function test {
   github_endgroup
 }
 
+export -f build test
+
 case "$cmd" in
   "clean")
     git clean -fdx
-    (cd $tests_path && git clean -fdx)
+    (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
     ;;
   ""|"fast")
     ;;
@@ -148,11 +153,11 @@ case "$cmd" in
     build
     ;;
   "ci")
-    build
-    test
+    denoise build
+    denoise test
     ;;
   "test")
-    test
+    denoise test
     ;;
   *)
     echo "Unknown command: $cmd"
