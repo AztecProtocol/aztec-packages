@@ -596,16 +596,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: Build Bench Binaries
+      - name: Setup
         uses: ./.github/ensure-builder
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            set -eux
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci --artifact +gates-report/gates_report.json
       - name: "Noir Protocol Circuits Report"
         timeout-minutes: 40
         uses: ./.github/run-on-builder
@@ -639,9 +634,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ensure-builder
         with:
-          concurrency_key: public-functions-size-report-x86
+          username: ${{ needs.configure.outputs.username }}
+          runner_type: builder-x86
+      - uses: ./.github/ci-setup-action
       - name: "Aztec Public Functions Bytecode Size Report"
         timeout-minutes: 40
         uses: ./.github/run-on-builder
