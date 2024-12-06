@@ -304,7 +304,6 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    // AvmKernelTraceBuilder kernel_trace_builder;
     AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;

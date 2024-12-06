@@ -3515,7 +3515,6 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    // const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
 
     auto [resolved_addrs, res_error] =
         Addressing<5>::fromWire(indirect, call_ptr)
@@ -3582,20 +3581,6 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     pc += Deserialization::get_pc_increment(opcode);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
-    // is implemented with opcodes (SET and JUMP).
-    // Write the success flag to memory
-    // write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
-    // external_call_counter++;
-
-    // Save return data for later.
-    // nested_returndata = hint.return_data;
-
-    // Adjust the side_effect_counter to the value at the end of the external call but not static call.
-    // if (opcode == OpCode::CALL) {
-    //     side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
-    // }
-    //
     // We push the current ext call ctx onto the stack and initialize a new one
     current_ext_call_ctx.last_pc = pc;
     current_ext_call_ctx.success_offset = resolved_success_offset,
