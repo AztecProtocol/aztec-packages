@@ -17,6 +17,7 @@
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <map>
 namespace bb {
 using ECCVMOperation = ECCOpQueue::ECCVMOperation;
@@ -608,6 +609,7 @@ TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_o
 }
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
+    info("Queue size: ", ecc_op_queue->get_current_size());
     ASSERT(num_gates == 1); // We only expect the ecc_op_queue to be fed in all at once
     using Fq = bb::fq;
     const auto& raw_ops = ecc_op_queue->get_raw_ops();
@@ -639,22 +641,36 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
     size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
     size_t num_threads = bb::calculate_num_threads(raw_ops.size(), min_iterations_per_thread);
     if (num_threads > 1) {
-        // Zero at index 0 + 1 per cell. There are TOTAL_COUNT cells in a row and there 2*raw_ops.size() rows after zero
-        // row
+        // Zero at index 0 + 1 per cell. There are TOTAL_COUNT cells in a row and there 2*raw_ops.size() rows after
+        // zero row
         size_t total_variable_count = (num_threads + (TOTAL_COUNT * 2 * raw_ops.size()));
-        // Resize all variables-related vectors to fit all the elements
-        variables.resize(total_variable_count);
+        parallel_for(5, [&](size_t member_index) {
+            switch (member_index) {
+            case 0:
+                // Resize all variables-related vectors to fit all the elements
+                variables.resize(total_variable_count);
+                break;
+            case 1:
+                // There are no equality constraints in this system, so fill next_var_index, prev_var_index and
+                // real_variable_tags with default values
+                next_var_index.resize(total_variable_count, REAL_VARIABLE);
 
-        // There are no equality constraints in this system, so fill next_var_index, prev_var_index and
-        // real_variable_tags with default values
-        next_var_index.resize(total_variable_count, REAL_VARIABLE);
-        prev_var_index.resize(total_variable_count, FIRST_VARIABLE_IN_CLASS);
-        real_variable_index.resize(total_variable_count);
-        real_variable_tags.resize(total_variable_count, DUMMY_TAG);
+                break;
+            case 2:
+                prev_var_index.resize(total_variable_count, FIRST_VARIABLE_IN_CLASS);
+                break;
+            case 3:
+                real_variable_index.resize(total_variable_count);
+                break;
+            case 4:
+                real_variable_tags.resize(total_variable_count, DUMMY_TAG);
+                break;
+            }
+        });
+
         // Resize each of the wires to be the 0 row + 2 * number of operations
-        for (auto& wire : wires) {
-            wire.resize(1 + raw_ops.size() * 2);
-        }
+        parallel_for(wires.size(), [&](size_t wire_index) { wires[wire_index].resize(1 + raw_ops.size() * 2); });
+
         std::vector<TranslatorCircuitBuilder> builders(num_threads);
         size_t iterations_per_thread = (raw_ops.size() / num_threads) +
                                        ((raw_ops.size() % num_threads == 0) ? 0 : 1); // actual iterations per thread
