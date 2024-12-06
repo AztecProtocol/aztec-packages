@@ -203,8 +203,8 @@ library HeaderLib {
     fields[24] = bytes32(_header.totalManaUsed);
     // fail if the header structure has changed without updating this function
     require(
-      fields.length == Constants.HEADER_LENGTH,
-      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
+      fields.length == Constants.BLOCK_HEADER_LENGTH,
+      Errors.HeaderLib__InvalidHeaderSize(Constants.BLOCK_HEADER_LENGTH, fields.length)
     );
 
     return fields;
@@ -234,7 +234,7 @@ library HeaderLib {
     // When we verify root proofs, this method can be removed => no need for separate named error
     require(
       fields.length == Constants.GLOBAL_VARIABLES_LENGTH,
-      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
+      Errors.HeaderLib__InvalidHeaderSize(Constants.BLOCK_HEADER_LENGTH, fields.length)
     );
 
     return fields;
