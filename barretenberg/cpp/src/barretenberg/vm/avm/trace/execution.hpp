@@ -47,10 +47,6 @@ class Execution {
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership);
 
-    static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
-                                          PublicCallRequest& public_call_request,
-                                          std::vector<FF>& returndata);
-
     // For testing purposes only.
     static void set_trace_builder_constructor(TraceBuilderConstructor constructor)
     {

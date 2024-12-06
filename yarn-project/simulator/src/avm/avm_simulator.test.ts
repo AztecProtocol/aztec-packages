@@ -864,9 +864,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, contractInstanceWithAddress.address.toField());
+        mockNullifierExists(worldStateDB, contractInstanceWithAddress.address.toField());
+        mockNullifierExists(worldStateDB, contractInstanceWithAddress.address.toField());
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
@@ -935,7 +935,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -961,7 +961,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -990,7 +990,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         mockTraceFork(trace);
 
@@ -1015,7 +1015,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1047,7 +1047,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         mockTraceFork(trace);
 
@@ -1072,7 +1072,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
         mockTraceFork(trace);
 
