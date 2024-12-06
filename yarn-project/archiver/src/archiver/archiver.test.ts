@@ -255,7 +255,7 @@ describe('Archiver', () => {
   }, 10_000);
 
   it('skip event search if no changes found', async () => {
-    const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
+    const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
 
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
@@ -294,15 +294,12 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
 
     // For some reason, this is 1-indexed.
-    expect(loggerSpy).toHaveBeenNthCalledWith(
-      1,
-      `Retrieved no new L1 -> L2 messages between L1 blocks ${1n} and ${50}.`,
-    );
-    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(1, `Retrieved no new L1 to L2 messages between L1 blocks 1 and 50.`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from 1 to 50`);
   }, 10_000);
 
   it('handles L2 reorg', async () => {
-    const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
+    const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
 
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
@@ -354,17 +351,13 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
 
     // For some reason, this is 1-indexed.
-    expect(loggerSpy).toHaveBeenNthCalledWith(
-      1,
-      `Retrieved no new L1 -> L2 messages between L1 blocks ${1n} and ${50}.`,
-    );
-    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(1, `Retrieved no new L1 to L2 messages between L1 blocks 1 and 50.`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from 1 to 50`);
 
     // Lets take a look to see if we can find re-org stuff!
     await sleep(1000);
 
-    expect(loggerSpy).toHaveBeenNthCalledWith(6, `L2 prune have occurred, unwind state`);
-    expect(loggerSpy).toHaveBeenNthCalledWith(7, `Unwinding 1 block from block 2`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(9, `L2 prune has been detected.`);
 
     // Should also see the block number be reduced
     latestBlockNum = await archiver.getBlockNumber();
