@@ -140,7 +140,7 @@ case "$cmd" in
     github_group "image-aztec"
     source $ci3/source_tmp
     echo "earthly artifact build:"
-    sripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
     echo "docker image build:"
     docker build -f Dockerfile.aztec -t $image $TMP
     github_endgroup
