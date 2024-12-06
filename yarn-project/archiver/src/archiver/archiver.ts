@@ -1,5 +1,4 @@
 import {
-  EmptyL1RollupConstants,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
