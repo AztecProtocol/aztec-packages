@@ -85,8 +85,7 @@ runs:
         echo "BUILDER_SPOT_IP=${SPOT_IP}" >> $GITHUB_ENV
         echo "BUILDER_SPOT_KEY=${SPOT_KEY}" >> $GITHUB_ENV
     # Set up a context for this run
-    - name: Clone Repo On Builder
-      uses: ./.github/run-on-builder
+    - name: Initialize Builder
       env:
         UNPACK: |
           [ -d ~/run-$RUN_ID ] || (
@@ -97,10 +96,9 @@ runs:
             git fetch --depth 1 origin $GIT_COMMIT
             git checkout FETCH_HEAD >/dev/null
           )
-      with:
-        run: |
-          sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
-          flock /var/lock/git.lock bash -c '$UNPACK'
+      run: |
+        # need to call run_on_builder
+        run_on_builder "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
 
     - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
