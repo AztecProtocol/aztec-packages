@@ -4,7 +4,7 @@
 if [ "${CI:-0}" = 0 ]; then
   # only use earthly-ci if local not set.
   echo "Running earthly-local because CI is not 1."
-  exec "$(dirname $0)/earthly-local"
+  exec "$(dirname $0)/earthly-local" $@
 fi
 set -eu -o pipefail
 
