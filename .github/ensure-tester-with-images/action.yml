@@ -71,7 +71,9 @@ runs:
           set -eux
           export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
           export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
+          sudo apt install brotli
           scripts/run_on_builder "
+            sudo apt install brotli
             sudo mkdir -p /var/lib/docker/tmp-images
 
             sudo flock /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.lock bash -c '
