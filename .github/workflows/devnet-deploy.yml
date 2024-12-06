@@ -95,7 +95,7 @@ jobs:
           trap cleanup EXIT
 
           echo "Waiting for PXE pods to be ready..."
-          if ! kubectl wait --for=condition=ready pod -l app=$NAMESPACE-aztec-network-pxe --timeout=10m; then
+          if ! kubectl wait --for=condition=ready pod -l app=pxe --timeout=10m; then
               echo "Error: PXE pods did not become ready within timeout"
               exit 1
           fi
