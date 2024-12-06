@@ -37,6 +37,7 @@ resource "helm_release" "aztec-gke-cluster" {
   chart            = "aztec-network"
   namespace        = var.RELEASE_NAME
   create_namespace = true
+  upgrade_install  = true
 
   # base values file
   values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
