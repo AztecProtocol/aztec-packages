@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # note: sets CI and USE_CACHE for us
-source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 hash=$(REBUILD_PATTERNS="^build-images/Earthfile" cache_content_hash)
