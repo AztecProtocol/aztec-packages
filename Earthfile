@@ -71,7 +71,7 @@ bootstrap:
   ENV TEST=1
   ENV USE_CACHE=1
   ARG GITHUB_RUN_URL=""
-  ENV GITHUB_RUN_URL
+  ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
 bootstrap-aztec:
   FROM +bootstrap
