@@ -254,7 +254,7 @@ rollup-verifier-contract-with-cache:
   LET artifact=rollup-verifier-contract-$(./noir-projects/bootstrap.sh hash)
   IF ! ci3/cache_download $artifact
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    RUN cache_upload $artifact bb
+    RUN ci3/cache_upload $artifact bb
   END
   SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
