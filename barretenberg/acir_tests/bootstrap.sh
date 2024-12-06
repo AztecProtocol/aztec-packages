@@ -3,7 +3,6 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-bb=$(realpath ../cpp/build/bin/bb)
 
 function build {
   if [ ! -d acir_tests ]; then
@@ -23,6 +22,7 @@ function build {
 
   # Regenerate verify_honk_proof recursive input.
   # cd ./acir_tests/assert_statement
+  # bb=$(realpath ../cpp/build/bin/bb)
   # $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof
 
   # Download ignition up front to ensure no race conditions at runtime.

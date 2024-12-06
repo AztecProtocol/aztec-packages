@@ -228,7 +228,6 @@ export class Ec2Instance {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     // Launch template name already in use
-    const availabilityZone = await this.getSubnetAz();
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
         Version: "$Latest",
