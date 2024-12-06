@@ -120,11 +120,11 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           terraform plan \
-            -var="release_name=${{ env.NAMESPACE }}" \
-            -var="values_file=${{ env.VALUES_FILE }}" \
-            -var="gke_cluster_context=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="aztec_docker_image=${{ env.AZTEC_DOCKER_IMAGE }}" \
-            -var="l1_deployment_mnemonic=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+            -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+            -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+            -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+            -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 
