@@ -57,7 +57,7 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
 
     // Move time forward within the same epoch (less than EPOCH_DURATION) (x 1000 for milliseconds)
-    jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 2) * 1000);
+    jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 4) * 1000);
 
     // Add another validator to the set
     rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator].map(v => v.toString()));
