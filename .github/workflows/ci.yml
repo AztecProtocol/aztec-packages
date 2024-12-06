@@ -609,7 +609,7 @@ jobs:
             scripts/earthly-ci --artifact ./noir-projects/+gates-report/gates_report.json
       - name: Copy Report
         run: |
-          copy_from_builder gates_report.json protocol_circuits_report.json
+          copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
         uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
