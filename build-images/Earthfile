@@ -522,7 +522,6 @@ all-ci:
   # Build all images needed by ci, pushing them to the registry
   BUILD +base-build
   BUILD +wasi-sdk
-  BUILD +osxcross
   BUILD +foundry
   BUILD +build
   BUILD +ci
