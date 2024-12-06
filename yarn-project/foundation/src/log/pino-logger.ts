@@ -11,11 +11,8 @@ import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
-  // TODO(palla/log): Rename all module names to remove the aztec prefix
-  const pinoLogger = logger.child(
-    { module: module.replace(/^aztec:/, '') },
-    { level: getLogLevelFromFilters(logFilters, module) },
-  );
+  module = module.replace(/^aztec:/, '');
+  const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
