@@ -120,14 +120,14 @@ ci-noir-bb:
     END
     RUN ci3/cache_upload_flag $artifact
   END
-  LET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
+  SET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./barretenberg/cpp/+preset-gcc
     END
     RUN ci3/cache_upload_flag $artifact
   END
-  LET artifact=bb-ci-gcc-$(./barretenberg/ts/bootstrap.sh hash)
+  SET artifact=bb-ci-gcc-$(./barretenberg/ts/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./barretenberg/ts/+test
@@ -135,7 +135,7 @@ ci-noir-bb:
     RUN ci3/cache_upload_flag $artifact
   END
   WAIT
-    LET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
+    SET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
     IF ci3/test_should_run $artifact
       BUILD ./barretenberg/acir_tests/+test
       RUN ci3/cache_upload_flag $artifact
