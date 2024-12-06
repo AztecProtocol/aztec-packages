@@ -524,7 +524,7 @@ all-ci:
   BUILD +wasi-sdk
   BUILD +osxcross
   BUILD +foundry
-  BUILD +buil
+  BUILD +build
   BUILD +ci
   BUILD +aztec-base
   BUILD +end-to-end-base
