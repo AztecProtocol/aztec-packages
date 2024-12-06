@@ -50,19 +50,15 @@ export class EpochProvingState {
   private mergeRollupInputs: BlockMergeRollupInputData[] = [];
   public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalProof: Proof | undefined;
-  public blocks: BlockProvingState[] = [];
+  public blocks: (BlockProvingState | undefined)[] = [];
 
   constructor(
     public readonly epochNumber: number,
+    public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {}
-
-  /** Returns the current block proving state */
-  public get currentBlock(): BlockProvingState | undefined {
-    return this.blocks.at(-1);
-  }
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
@@ -110,9 +106,10 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-  ) {
+  ): BlockProvingState {
+    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
-      this.blocks.length,
+      index,
       numTxs,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
@@ -124,11 +121,11 @@ export class EpochProvingState {
       previousBlockHash,
       this,
     );
-    this.blocks.push(block);
-    if (this.blocks.length === this.totalNumBlocks) {
+    this.blocks[index] = block;
+    if (this.blocks.filter(b => !!b).length === this.totalNumBlocks) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
-    return this.blocks.length - 1;
+    return block;
   }
 
   // Returns true if this proving state is still valid, false otherwise
@@ -180,8 +177,8 @@ export class EpochProvingState {
   }
 
   // Returns a specific transaction proving state
-  public getBlockProvingState(index: number) {
-    return this.blocks[index];
+  public getBlockProvingStateByBlockNumber(blockNumber: number) {
+    return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
   // Returns a set of merge rollup inputs

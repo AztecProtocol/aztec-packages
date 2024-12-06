@@ -139,12 +139,13 @@ describe('e2e_prover_coordination', () => {
     proposer: EthAddress;
     prover: EthAddress;
   }) => {
-    const [epochToProve, basisPointFee, bondAmount, prover, proposer] = await rollupContract.read.proofClaim();
+    const { epochToProve, basisPointFee, bondAmount, bondProvider, proposerClaimant } =
+      await rollupContract.read.getProofClaim();
     expect(epochToProve).toEqual(expected.epochToProve);
     expect(basisPointFee).toEqual(BigInt(expected.basisPointFee));
     expect(bondAmount).toEqual(expected.bondAmount);
-    expect(prover).toEqual(expected.prover.toChecksumString());
-    expect(proposer).toEqual(expected.proposer.toChecksumString());
+    expect(bondProvider).toEqual(expected.prover.toChecksumString());
+    expect(proposerClaimant).toEqual(expected.proposer.toChecksumString());
   };
 
   const performEscrow = async (amount: bigint) => {

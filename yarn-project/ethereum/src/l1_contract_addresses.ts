@@ -20,6 +20,7 @@ export const L1ContractsNames = [
   'rewardDistributorAddress',
   'governanceProposerAddress',
   'governanceAddress',
+  'stakingAssetAddress',
 ] as const;
 
 /** Provides the directory of current L1 contract addresses */
@@ -33,6 +34,7 @@ export const L1ContractAddressesSchema = z.object({
   inboxAddress: schemas.EthAddress,
   outboxAddress: schemas.EthAddress,
   feeJuiceAddress: schemas.EthAddress,
+  stakingAssetAddress: schemas.EthAddress,
   feeJuicePortalAddress: schemas.EthAddress,
   coinIssuerAddress: schemas.EthAddress,
   rewardDistributorAddress: schemas.EthAddress,
@@ -66,6 +68,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   feeJuiceAddress: {
     env: 'FEE_JUICE_CONTRACT_ADDRESS',
     description: 'The deployed L1 Fee Juice contract address.',
+    parseEnv,
+  },
+  stakingAssetAddress: {
+    env: 'STAKING_ASSET_CONTRACT_ADDRESS',
+    description: 'The deployed L1 staking asset contract address.',
     parseEnv,
   },
   feeJuicePortalAddress: {

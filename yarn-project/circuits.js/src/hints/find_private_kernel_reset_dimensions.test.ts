@@ -56,7 +56,7 @@ describe('findPrivateKernelResetDimensions', () => {
           standalone: [24],
           cost: 100,
         },
-        ENCRYPTED_LOG_SILOING_AMOUNT: {
+        PRIVATE_LOG_SILOING_AMOUNT: {
           variants: [9],
           standalone: [18],
           cost: 100,
@@ -88,7 +88,7 @@ describe('findPrivateKernelResetDimensions', () => {
       TRANSIENT_DATA_AMOUNT,
       NOTE_HASH_SILOING_AMOUNT,
       NULLIFIER_SILOING_AMOUNT,
-      ENCRYPTED_LOG_SILOING_AMOUNT,
+      PRIVATE_LOG_SILOING_AMOUNT,
     }: Partial<{ [K in DimensionName]: number }> = {},
   ) => {
     const expected = new PrivateKernelResetDimensions(
@@ -100,7 +100,7 @@ describe('findPrivateKernelResetDimensions', () => {
       TRANSIENT_DATA_AMOUNT ?? 6,
       NOTE_HASH_SILOING_AMOUNT ?? 7,
       NULLIFIER_SILOING_AMOUNT ?? 8,
-      ENCRYPTED_LOG_SILOING_AMOUNT ?? 9,
+      PRIVATE_LOG_SILOING_AMOUNT ?? 9,
     );
 
     expect(dimensions).toEqual(expected);
@@ -137,7 +137,7 @@ describe('findPrivateKernelResetDimensions', () => {
         TRANSIENT_DATA_AMOUNT: 4,
         NOTE_HASH_SILOING_AMOUNT: 9,
         NULLIFIER_SILOING_AMOUNT: 11,
-        ENCRYPTED_LOG_SILOING_AMOUNT: 7,
+        PRIVATE_LOG_SILOING_AMOUNT: 7,
       });
 
       expectEqualDimensions(dimensions, {
@@ -149,7 +149,7 @@ describe('findPrivateKernelResetDimensions', () => {
         TRANSIENT_DATA_AMOUNT: 6,
         NOTE_HASH_SILOING_AMOUNT: 14,
         NULLIFIER_SILOING_AMOUNT: 16,
-        ENCRYPTED_LOG_SILOING_AMOUNT: 9,
+        PRIVATE_LOG_SILOING_AMOUNT: 9,
       });
     });
 
@@ -171,21 +171,21 @@ describe('findPrivateKernelResetDimensions', () => {
   describe('with standalone', () => {
     it('uses standalone for one dimension', () => {
       const dimensions = getDimensions({
-        ENCRYPTED_LOG_SILOING_AMOUNT: 8,
+        PRIVATE_LOG_SILOING_AMOUNT: 8,
       });
 
-      expectEqualStandalone(dimensions, 'ENCRYPTED_LOG_SILOING_AMOUNT', 18);
+      expectEqualStandalone(dimensions, 'PRIVATE_LOG_SILOING_AMOUNT', 18);
     });
 
     it('uses variant for one dimension if standalone is more expensive', () => {
       // Increase the cost so it's more expensive running all the extra siloing.
-      config.dimensions.ENCRYPTED_LOG_SILOING_AMOUNT.cost = 9999;
+      config.dimensions.PRIVATE_LOG_SILOING_AMOUNT.cost = 9999;
 
       const dimensions = getDimensions({
-        ENCRYPTED_LOG_SILOING_AMOUNT: 8,
+        PRIVATE_LOG_SILOING_AMOUNT: 8,
       });
 
-      expectEqualDimensions(dimensions, { ENCRYPTED_LOG_SILOING_AMOUNT: 9 });
+      expectEqualDimensions(dimensions, { PRIVATE_LOG_SILOING_AMOUNT: 9 });
     });
   });
 
@@ -228,10 +228,10 @@ describe('findPrivateKernelResetDimensions', () => {
 
     it('picks cheapest option among standalone', () => {
       const dimensions = getDimensions({
-        ENCRYPTED_LOG_SILOING_AMOUNT: 8,
+        PRIVATE_LOG_SILOING_AMOUNT: 8,
       });
 
-      expectEqualStandalone(dimensions, 'ENCRYPTED_LOG_SILOING_AMOUNT', 18);
+      expectEqualStandalone(dimensions, 'PRIVATE_LOG_SILOING_AMOUNT', 18);
     });
   });
 

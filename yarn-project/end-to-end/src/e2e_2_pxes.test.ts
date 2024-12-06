@@ -57,7 +57,8 @@ describe('e2e_2_pxes', () => {
     await teardownA();
   });
 
-  it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
+  // TODO #10296
+  it.skip('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;

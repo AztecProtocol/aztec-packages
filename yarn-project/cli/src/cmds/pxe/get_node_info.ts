@@ -1,8 +1,13 @@
-import { createCompatibleClient } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log: LogFn) {
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
+export async function getNodeInfo(rpcUrl: string, pxeRequest: boolean, debugLogger: DebugLogger, log: LogFn) {
+  let client: AztecNode | PXE;
+  if (pxeRequest) {
+    client = await createCompatibleClient(rpcUrl, debugLogger);
+  } else {
+    client = createAztecNodeClient(rpcUrl);
+  }
   const info = await client.getNodeInfo();
   log(`Node Version: ${info.nodeVersion}`);
   log(`Chain Id: ${info.l1ChainId}`);
@@ -14,6 +19,7 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   log(` L1 -> L2 Inbox Address: ${info.l1ContractAddresses.inboxAddress.toString()}`);
   log(` L2 -> L1 Outbox Address: ${info.l1ContractAddresses.outboxAddress.toString()}`);
   log(` Fee Juice Address: ${info.l1ContractAddresses.feeJuiceAddress.toString()}`);
+  log(` Staking Asset Address: ${info.l1ContractAddresses.stakingAssetAddress.toString()}`);
   log(` Fee Juice Portal Address: ${info.l1ContractAddresses.feeJuicePortalAddress.toString()}`);
   log(` CoinIssuer Address: ${info.l1ContractAddresses.coinIssuerAddress.toString()}`);
   log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);

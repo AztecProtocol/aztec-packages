@@ -57,6 +57,15 @@ output "fee_juice_contract_address" {
   value = var.FEE_JUICE_CONTRACT_ADDRESS
 }
 
+variable "STAKING_ASSET_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "staking_asset_contract_address" {
+  value = var.STAKING_ASSET_CONTRACT_ADDRESS
+}
+
 variable "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   type    = string
   default = ""

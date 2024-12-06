@@ -107,8 +107,8 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
           value = "80"
         },
         {
-          name  = "DEBUG",
-          value = "aztec:*"
+          name  = "LOG_LEVEL",
+          value = "verbose"
         },
         {
           name  = "RPC_URL",
