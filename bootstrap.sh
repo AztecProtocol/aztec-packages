@@ -118,7 +118,6 @@ case "$cmd" in
     exit 0
   ;;
   "test-e2e")
-    ./bootstrap.sh image-aztec
     ./bootstrap.sh image-e2e
     yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
