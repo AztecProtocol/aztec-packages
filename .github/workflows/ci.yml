@@ -179,11 +179,23 @@ jobs:
         uses: ./.github/run-on-builder
         timeout-minutes: 40
         with:
-          # args are passed only for docs, okay for now, going away in future
-          run: scripts/earthly-ci +ci-rest --ENV=staging --PR=${{ github.event.number }} \
-            --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-            --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
-            --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+          run: scripts/earthly-ci +ci-rest
+
+  images-e2e:
+    needs: [ci-noir-bb, configure]
+    runs-on: ubuntu-latest
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: "Setup"
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          runner_type: builder-x86
+          username: ${{ needs.configure.outputs.username }}
       - name: "E2E Images"
         uses: ./.github/run-on-builder
         timeout-minutes: 40
@@ -232,7 +244,7 @@ jobs:
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   e2e:
-    needs: [ci-rest, configure]
+    needs: [images-e2e, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     strategy:
@@ -267,13 +279,13 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [ci-rest, configure]
-    if: needs.ci-rest.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
+    needs: [images-e2e, configure]
+    if: needs.images-e2e.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.ci-rest.outputs.bench_list )}}
+        test: ${{ fromJson( needs.images-e2e.outputs.bench_list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -401,7 +413,7 @@ jobs:
           fi
 
   network-4epochs-test:
-    needs: [ci-rest, configure]
+    needs: [images-e2e, configure]
     if: needs.configure.outputs.yarn-project == 'true' && (github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all'))
     runs-on: ubuntu-latest
     steps:
@@ -420,7 +432,7 @@ jobs:
           run: sudo shutdown -P 60 && scripts/earthly-ci +network-test --test=./test-4epochs.sh
 
   kind-smoke-test:
-    needs: [ci-rest, configure]
+    needs: [images-e2e, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ubuntu-latest
     steps:
@@ -443,7 +455,7 @@ jobs:
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-test:
-    needs: [ci-rest, configure]
+    needs: [images-e2e, configure]
     if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ubuntu-latest
     strategy:
@@ -659,6 +671,7 @@ jobs:
       - base-images
       - ci-noir-bb
       - ci-rest
+      - images-e2e
       - docs
       - e2e
       - bb-native-tests
