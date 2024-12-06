@@ -1,15 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
-if [ "${RECURSIVE}" = "true" ]; then
-    FLAGS="$FLAGS --recursive"
-fi
+[ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
+[ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
 
 # Test we can perform the proof/verify flow.
 # This ensures we test independent pk construction through real/garbage witness data paths.
-$BIN prove -o proof $FLAGS $BFLAG
-$BIN write_vk -o vk $FLAGS $BFLAG
-$BIN verify -k vk -p proof $FLAGS
+$BIN verify$SYS $FLAGS \
+    -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
+    -p <($BIN prove$SYS -o - $FLAGS $BFLAG)

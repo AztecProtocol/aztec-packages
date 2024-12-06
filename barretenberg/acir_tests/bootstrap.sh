@@ -1,42 +1,44 @@
 #!/bin/bash
-# Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+shopt -s extglob
 
 cmd=${1:-}
 bb=$(realpath ../cpp/build/bin/bb)
+tests_path=../../noir/noir-repo/test_programs/execution_success
+export CRS_PATH=$PWD/crs
 
 function build {
   if [ ! -d acir_tests ]; then
-    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # Running these require extra gluecode so they are skipped for the purpose of this script.
+    cp -R $tests_path acir_tests
+    # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_5045}
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
     rm -rf acir_tests/regression_5045
-    # These honk tests just started failing...
-    rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof}
   fi
 
-  # Compile 2 only compiles the tests.
-  COMPILE=2 ./run_acir_tests.sh
+  # COMPILE=2 only compiles the test.
+  github_group "acir_tests compiling"
+  parallel --line-buffered 'COMPILE=2 ./run_test.sh $(basename {})' ::: ./acir_tests/*
+  github_endgroup
 
+  # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
-  # cd ./acir_tests/assert_statement
-  # $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursion
+  # (cd ./acir_tests/assert_statement && \
+  #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
   # Download ignition up front to ensure no race conditions at runtime.
-  # 2^20 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
+  # 2^22 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
+  # We make the file write only to ensure no test can attempt to grow it any larger. 2^22 is already huge...
   # TODO: Make bb just download and append/overwrite required range, then it becomes idempotent.
-  mkdir -p $HOME/.bb-crs
-  curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
-    -o $HOME/.bb-crs/bn254_g1.dat
-}
-
-function test {
-  hash=$(cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns)
-
-  if ! test_should_run barretenberg-acir-test-$hash; then
-    exit 0
-  fi
+  # TODO: Predownload this into AMI and mount into container.
+  # TODO: Grumpkin.
+  local crs_size=$((2**22+1))
+  echo "Downloading crs of size: ${crs_size} ($((crs_size*64/(1024*1024)))MB)"
+  rm -rf $CRS_PATH && mkdir -p $CRS_PATH
+  curl -s -H "Range: bytes=0-$((crs_size*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
+    -o $CRS_PATH/bn254_g1.dat
+  chmod a-w $CRS_PATH/bn254_g1.dat
+  curl -s https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat -o $CRS_PATH/bn254_g2.dat
 
   github_group "acir_tests updating yarn"
   # Update yarn.lock so it can be committed.
@@ -52,47 +54,104 @@ function test {
   # Keep build as part of CI only.
   (cd browser-test-app && yarn build)
   github_endgroup
+}
 
-  github_group "acir_tests run tests"
-  ./run_acir_tests.sh
+function test {
+  local hash=$(cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns)
+  if ! test_should_run barretenberg-acir-tests-$hash; then
+    return
+  fi
 
-  # Serialize these two tests as otherwise servers will conflict. Can we just avoid the servers (or tweak ports)?
-  # function f0 {
-  #   # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-  #   BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof
-  #   # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
-  #   BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
-  # }
+  export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
+  local jobs=$(nproc)
 
-  export BIN=../ts/dest/node/main.js
+  # Create temporary file descriptor 3, and redirects anything written to it, to parallels stdin.
+  exec 3> >(parallel -j$jobs --tag --line-buffered --joblog joblog.txt)
+  local pid=$!
+  trap "kill -SIGTERM $pid 2>/dev/null || true" EXIT
+
+  # Run function for syntactic simplicity.
+  run() {
+      echo "$*" >&3
+  }
+
+  # barretenberg-acir-tests-bb.js:
+  # Browser tests.
+  run BROWSER=chrome THREAD_MODEL=mt PORT=8080 ./run_test_browser.sh verify_honk_proof
+  run BROWSER=chrome THREAD_MODEL=st PORT=8081 ./run_test_browser.sh 1_mul
+  run BROWSER=webkit THREAD_MODEL=mt PORT=8082 ./run_test_browser.sh verify_honk_proof
+  run BROWSER=webkit THREAD_MODEL=st PORT=8083 ./run_test_browser.sh 1_mul
   # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  function f1 { FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x; }
-  # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
-  function f2 { FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
+  run BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_test.sh ecdsa_secp256r1_3x
   # Run the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  function f3 { FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement; }
+  run BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh 6_array
   # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
-  function f4 { FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array; }
+  run BIN=../ts/dest/node/main.js SYS=mega_honk FLOW=prove_and_verify ./run_test.sh 6_array
   # Run fold_basic test through bb.js which runs ClientIVC on fold basic
-  function f5 { FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic; }
+  run BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_test.sh fold_basic
   # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
-  function f6 { FLOW=all_cmds ./run_acir_tests.sh 1_mul; }
+  run BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_test.sh 1_mul
 
-  export -f f0 f1 f2 f3 f4 f5 f6
-  parallel ::: f0 f1 f2 f3 f4 f5 f6
-  cache_upload_flag barretenberg-acir-test-$hash
+  # barretenberg-acir-tests-bb:
+  # Fold and verify an ACIR program stack using ClientIvc
+  run FLOW=fold_and_verify_program ./run_test.sh fold_basic
+  # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
+  run FLOW=prove_then_verify_client_ivc ./run_test.sh fold_basic
+  # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
+  # TODO: Requires 2**31 CRS. Discuss...
+  # run FLOW=prove_then_verify_tube ./run_test.sh fold_basic
+  # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
+  run FLOW=all_cmds ./run_test.sh 1_mul
+
+  # barretenberg-acir-tests-bb-ultra-plonk:
+  # Exclude honk tests.
+  for t in ./acir_tests/!(verify_honk_proof|double_verify_honk_proof); do
+    run FLOW=prove_then_verify ./run_test.sh $(basename $t)
+  done
+  run FLOW=prove_then_verify RECURSIVE=true ./run_test.sh assert_statement
+  run FLOW=prove_then_verify RECURSIVE=true ./run_test.sh double_verify_proof
+
+  # barretenberg-acir-tests-bb-ultra-honk:
+  # Exclude plonk tests.
+  for t in ./acir_tests/!(single_verify_proof|double_verify_proof|double_verify_nested_proof); do
+    run SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh $(basename $t)
+  done
+  run SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true ./run_test.sh assert_statement
+  run SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true ./run_test.sh double_verify_honk_proof
+  # Construct and verify a MegaHonk proof on one non-recursive program using the new witness stack workflow
+  run SYS=ultra_honk FLOW=prove_and_verify_program ./run_test.sh merkle_insert
+
+  # barretenberg-acir-tests-bb-mega-honk:
+  # Construct and separately verify a MegaHonk proof for all acir programs
+  for t in ./acir_tests/!(verify_honk_proof|double_verify_honk_proof); do
+    run SYS=mega_honk FLOW=prove_then_verify ./run_test.sh $(basename $t)
+    run SYS=mega_honk FLOW=prove_and_verify_program ./run_test.sh $(basename $t)
+  done
+
+  # Close parallels input file descriptor and wait for completion.
+  exec 3>&-
+  wait $pid
+
+  cache_upload_flag barretenberg-acir-tests-$hash
   github_endgroup
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
-    (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
+    (cd $tests_path && git clean -fdx)
     ;;
-  ""|"fast"|"full")
+  ""|"fast")
     ;;
-  "test"|"ci")
+  "full")
     build
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  "test")
     test
     ;;
   *)

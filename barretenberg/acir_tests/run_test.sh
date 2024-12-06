@@ -17,11 +17,11 @@ nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
 
 export BIN CRS_PATH RECURSIVE HARDWARE_CONCURRENCY VERBOSE
 
-echo -n "Testing $TEST_NAME... "
+# echo -n "Testing $TEST_NAME... "
 cd ./acir_tests/$TEST_NAME
 
 if [ "$COMPILE" -ne 0 ]; then
-  echo -n "compiling... "
+  echo -n "$TEST_NAME compiling... "
   export RAYON_NUM_THREADS=4
   rm -rf target
   set +e
@@ -47,11 +47,10 @@ if [[ ! -f ./target/program.json || ! -f ./target/witness.gz ]]; then
 fi
 
 set +e
-start=$SECONDS
+SECONDS=0
 output=$($flow_script 2>&1)
 result=$?
-end=$SECONDS
-duration=$((end - start))
+duration=$SECONDS
 set -e
 
 [ "${VERBOSE:-0}" -eq 1 ] && echo -e "\n${compile_output:-}\n$output"

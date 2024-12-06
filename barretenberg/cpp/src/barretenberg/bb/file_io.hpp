@@ -19,28 +19,30 @@ inline size_t get_file_size(std::string const& filename)
 
 inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
 {
+    // Standard input. We'll iterate over the stream and reallocate.
     if (filename == "-") {
         return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
     }
-    // Get the file size.
-    auto size = get_file_size(filename);
-    if (size <= 0) {
-        throw std::runtime_error("File is empty or there's an error reading it: " + filename);
-    }
-
-    auto to_read = bytes == 0 ? size : bytes;
 
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
         throw std::runtime_error("Unable to open file: " + filename);
     }
 
-    // Create a vector with enough space for the file data.
+    // Unseekable, pipe or process substitution. We'll iterate over the stream and reallocate.
+    if (!file.seekg(0, std::ios::end)) {
+        file.clear();
+        return { (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>() };
+    }
+
+    // Get the file size.
+    auto size = static_cast<size_t>(file.tellg());
+    file.seekg(0, std::ios::beg);
+
+    // Create a vector preallocated with enough space for the file data and read it.
+    auto to_read = bytes == 0 ? size : bytes;
     std::vector<uint8_t> fileData(to_read);
-
-    // Read all its contents.
     file.read(reinterpret_cast<char*>(fileData.data()), (std::streamsize)to_read);
-
     return fileData;
 }
 
