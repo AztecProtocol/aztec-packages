@@ -6,8 +6,12 @@ import pkg from '../../package.json';
 it('returns the correct build info', () => {
   let revision: string;
 
+  if (process.env.NOIR_TEST_DISABLE_VERSION_CHECK) {
+    // This was run from e.g. aztec, which uses content hash versions (not git hash)
+    return;
+  }
   try {
-    revision = process.env.GIT_COMMIT || child_process.execSync('git rev-parse HEAD').toString().trim();
+    revision = child_process.execSync('git rev-parse HEAD').toString().trim();
   } catch (error) {
     console.log('Failed to get revision, skipping test.');
     return;

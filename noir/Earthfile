@@ -4,6 +4,7 @@ test:
   WORKDIR /usr/src/noir
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
+  ENV NOIR_TEST_DISABLE_VERSION_CHECK=1
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   RUN ./scripts/test_native.sh
 
@@ -46,7 +47,7 @@ packages-test-build:
   FROM +packages-deps
   ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
   ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
-  ENV GIT_COMMIT="$(echo "$native_hash" | sed 's/-.*//g')"
+  ENV NOIR_TEST_DISABLE_VERSION_CHECK=1
   WORKDIR /usr/src/barretenberg/ts
   RUN yarn --immutable
 
@@ -63,6 +64,7 @@ packages-test-build:
 packages-test-node:
   FROM +packages-test-build
   ENV NODE_OPTIONS=--max_old_space_size=8192
+  ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
   WORKDIR /usr/src/noir/noir-repo
   RUN yarn workspaces foreach \
     --parallel \
