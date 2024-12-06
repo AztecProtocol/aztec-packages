@@ -135,7 +135,8 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Check that the proposal is from the current proposer, or the next proposer.
     const proposalSender = proposal.getSender();
-    const { currentProposer, nextProposer, currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer, nextProposer, currentSlot, nextSlot } =
+      await this.epochCache.getProposerInCurrentOrNextSlot();
     if (!proposalSender.equals(currentProposer) && !proposalSender.equals(nextProposer)) {
       this.log.verbose(`Not the current or next proposer, skipping attestation`);
       return undefined;

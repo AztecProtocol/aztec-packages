@@ -88,17 +88,17 @@ describe('EpochCache', () => {
     // Hence the chosen values for testCommittee below
 
     // Get validator for slot 0
-    let { currentProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer } = await epochCache.getProposerInCurrentOrNextSlot();
     expect(currentProposer).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    let { currentProposer: nextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
     expect(nextProposer).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    let { currentProposer: nextNextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextNextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
