@@ -245,7 +245,7 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     HonkRecursionConstraintOutput output;
     output.agg_obj_indices = verifier_output.agg_obj.get_witness_indices();
     if constexpr (HasIPAAccumulator<Flavor>) {
-        output.ipa_claim_indices = verifier_output.ipa_opening_claim.get_witness_indices();
+        output.ipa_claim = verifier_output.ipa_opening_claim;
     }
     return output;
 }

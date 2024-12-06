@@ -350,17 +350,19 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
 {
     // Add recursion constraints
     size_t idx = 0;
+    std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK) {
-            auto [next_aggregation_object, ipa_claim_indices] =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            auto [next_aggregation_object, _] = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             current_aggregation_object = next_aggregation_object;
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROLLUP_ROOT_HONK) {
-            auto [next_aggregation_object, ipa_claim_indices] =
+            auto [next_aggregation_object, ipa_claim] =
                 create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                     builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             current_aggregation_object = next_aggregation_object;
+
+            nested_ipa_claims.push_back(ipa_claim);
         } else {
             throw_or_abort("Invalid Honk proof type");
         }
