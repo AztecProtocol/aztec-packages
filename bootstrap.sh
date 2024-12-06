@@ -145,10 +145,10 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
+    docker build -f Dockerfile.aztec -t $image $TMP
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
-    docker build -f Dockerfile.aztec -t $image $TMP
     github_endgroup
     exit
   ;;
@@ -167,10 +167,10 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
     docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
+    docker build -f Dockerfile.end-to-end -t $image $TMP
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
-    docker build -f Dockerfile.end-to-end -t $image $TMP
     github_endgroup
     exit
   ;;

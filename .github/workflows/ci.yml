@@ -526,7 +526,7 @@ jobs:
             export CI=1
             export USE_CACHE=1
             # We gate the build with this
-            if ci3/test_should_run bb-bench-$(./barretenberg/cpp/bootstrap.sh hash) bench; then
+            if ci3/test_should_run bb-bench-$(./barretenberg/cpp/bootstrap.sh hash); then
               scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
             fi
       - name: Run Bench
