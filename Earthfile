@@ -109,6 +109,7 @@ bootstrap-aztec-faucet:
 # Simulates noir+bb CI with chunks that use resources
 ci-noir-bb:
   FROM +bootstrap-noir-bb
+  ENV TEST=1
   ENV USE_CACHE=1
   LET artifact=noir-ci-native-tests-$(./noir/bootstrap.sh hash-native)-$(./noir/bootstrap.sh hash-packages)
   IF ci3/test_should_run $artifact
@@ -145,6 +146,7 @@ ci-noir-bb:
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:
   FROM +bootstrap
+  ENV TEST=1
   ENV USE_CACHE=1
   WAIT
     BUILD ./avm-transpiler/+format
