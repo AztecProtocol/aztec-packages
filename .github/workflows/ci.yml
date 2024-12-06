@@ -238,7 +238,7 @@ jobs:
         uses: ./.github/run-on-builder
         timeout-minutes: 40
         with:
-          run: scripts/earthly-ci +docs-helper --ENV=staging --PR=${{ github.event.number }} \
+          run: scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
             --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
             --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
