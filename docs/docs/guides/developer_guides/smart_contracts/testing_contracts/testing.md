@@ -218,10 +218,11 @@ You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here]
 
 :::warning
 Remember to set the following environment variables to activate debug logging:
+
 ```bash
-export DEBUG="aztec:*"
 export LOG_LEVEL="debug"
 ```
+
 :::
 
 ### All Cheatcodes

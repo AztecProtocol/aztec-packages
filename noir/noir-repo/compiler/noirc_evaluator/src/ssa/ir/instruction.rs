@@ -11,7 +11,7 @@ use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
-use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
+use crate::ssa::{ir::function::RuntimeType, opt::flatten_cfg::value_merger::ValueMerger};
 
 use super::{
     basic_block::BasicBlockId,
@@ -394,9 +394,22 @@ impl Instruction {
             // This should never be side-effectful
             MakeArray { .. } => false,
 
+            // Some binary math can overflow or underflow
+            Binary(binary) => match binary.operator {
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    true
+                }
+                BinaryOp::Eq
+                | BinaryOp::Lt
+                | BinaryOp::And
+                | BinaryOp::Or
+                | BinaryOp::Xor
+                | BinaryOp::Shl
+                | BinaryOp::Shr => false,
+            },
+
             // These can have different behavior depending on the EnableSideEffectsIf context.
-            Binary(_)
-            | Cast(_, _)
+            Cast(_, _)
             | Not(_)
             | Truncate { .. }
             | IfElse { .. }
@@ -416,7 +429,7 @@ impl Instruction {
     /// conditional on whether the caller wants the predicate to be taken into account or not.
     pub(crate) fn can_be_deduplicated(
         &self,
-        dfg: &DataFlowGraph,
+        function: &Function,
         deduplicate_with_predicate: bool,
     ) -> bool {
         use Instruction::*;
@@ -430,7 +443,7 @@ impl Instruction {
             | IncrementRc { .. }
             | DecrementRc { .. } => false,
 
-            Call { func, .. } => match dfg[*func] {
+            Call { func, .. } => match function.dfg[*func] {
                 Value::Intrinsic(intrinsic) => {
                     intrinsic.can_be_deduplicated(deduplicate_with_predicate)
                 }
@@ -440,8 +453,11 @@ impl Instruction {
             // We can deduplicate these instructions if we know the predicate is also the same.
             Constrain(..) | RangeCheck { .. } => deduplicate_with_predicate,
 
-            // This should never be side-effectful
-            MakeArray { .. } => true,
+            // Arrays can be mutated in unconstrained code so code that handles this case must
+            // take care to track whether the array was possibly mutated or not before
+            // deduplicating. Since we don't know if the containing pass checks for this, we
+            // can only assume these are safe to deduplicate in constrained code.
+            MakeArray { .. } => function.runtime().is_acir(),
 
             // These can have different behavior depending on the EnableSideEffectsIf context.
             // Replacing them with a similar instruction potentially enables replacing an instruction
@@ -454,7 +470,7 @@ impl Instruction {
             | IfElse { .. }
             | ArrayGet { .. }
             | ArraySet { .. } => {
-                deduplicate_with_predicate || !self.requires_acir_gen_predicate(dfg)
+                deduplicate_with_predicate || !self.requires_acir_gen_predicate(&function.dfg)
             }
         }
     }
@@ -483,8 +499,19 @@ impl Instruction {
             | ArraySet { .. }
             | MakeArray { .. } => true,
 
+            // Store instructions must be removed by DIE in acir code, any load
+            // instructions should already be unused by that point.
+            //
+            // Note that this check assumes that it is being performed after the flattening
+            // pass and after the last mem2reg pass. This is currently the case for the DIE
+            // pass where this check is done, but does mean that we cannot perform mem2reg
+            // after the DIE pass.
+            Store { .. } => {
+                matches!(function.runtime(), RuntimeType::Acir(_))
+                    && function.reachable_blocks().len() == 1
+            }
+
             Constrain(..)
-            | Store { .. }
             | EnableSideEffectsIf { .. }
             | IncrementRc { .. }
             | DecrementRc { .. }
