@@ -198,7 +198,7 @@ export class Ec2Instance {
           {
             DeviceName: "/dev/sda1",
             Ebs: {
-              VolumeSize: 128,
+              VolumeSize: this.config.ec2InstanceTags.includes("Builder") ? 256 : 64,
               VolumeType: 'gp3',
               Throughput: 125,
               Iops: 3000
