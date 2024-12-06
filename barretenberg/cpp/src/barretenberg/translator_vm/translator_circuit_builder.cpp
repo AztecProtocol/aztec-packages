@@ -16,7 +16,6 @@
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <algorithm>
-#include <csignal>
 #include <cstddef>
 #include <map>
 namespace bb {
