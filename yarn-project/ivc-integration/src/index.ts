@@ -1,23 +1,22 @@
 import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circuits.js';
 
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
-import createDebug from 'debug';
 import { ungzip } from 'pako';
 import { type Page } from 'playwright';
 
-import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
-import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
-import MockAppCreatorVk from '../artifacts/keys/app_creator.vk.data.json' assert { type: 'json' };
-import MockAppReaderVk from '../artifacts/keys/app_reader.vk.data.json' assert { type: 'json' };
-import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.vk.data.json' assert { type: 'json' };
-import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' assert { type: 'json' };
-import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' assert { type: 'json' };
-import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' assert { type: 'json' };
-import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' assert { type: 'json' };
-import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
-import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
-import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' assert { type: 'json' };
-import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' assert { type: 'json' };
+import MockAppCreatorCircuit from '../artifacts/app_creator.json' with { type: 'json' };
+import MockAppReaderCircuit from '../artifacts/app_reader.json' with { type: 'json' };
+import MockAppCreatorVk from '../artifacts/keys/app_creator.vk.data.json' with { type: 'json' };
+import MockAppReaderVk from '../artifacts/keys/app_reader.vk.data.json' with { type: 'json' };
+import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.vk.data.json' with { type: 'json' };
+import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' with { type: 'json' };
+import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' with { type: 'json' };
+import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' with { type: 'json' };
+import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' with { type: 'json' };
+import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
+import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' with { type: 'json' };
+import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' with { type: 'json' };
+import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' with { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -50,8 +49,16 @@ export {
   MockPrivateKernelTailVk,
 };
 
-createDebug.enable('*');
-const logger = createDebug('aztec:ivc-test');
+export const mockLogger = {
+  debug: (msg: string, data: any) => console.log(msg, data),
+  info: (msg: string, data: any) => console.log(msg, data),
+  warn: (msg: string, data: any) => console.log(msg, data),
+  error: (msg: string, data: any) => console.error(msg, data),
+  silent: (msg: string, data: any) => console.log(msg, data),
+  verbose: (msg: string, data: any) => console.log(msg, data),
+};
+
+const logger = mockLogger;
 
 /* eslint-disable camelcase */
 
@@ -155,20 +162,20 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
 
   // Witness gen app and kernels
   const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-  logger('generated app mock circuit witness');
+  logger.debug('msg', 'generated app mock circuit witness');
 
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: appWitnessGenResult.publicInputs,
     tx,
     app_vk: getVkAsFields(MockAppCreatorVk),
   });
-  logger('generated mock private kernel init witness');
+  logger.debug('msg', 'generated mock private kernel init witness');
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
   });
-  logger('generated mock private kernel tail witness');
+  logger.debug('msg', 'generated mock private kernel tail witness');
 
   // Create client IVC proof
   const bytecodes = [

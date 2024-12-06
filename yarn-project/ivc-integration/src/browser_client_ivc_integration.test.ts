@@ -1,6 +1,4 @@
 import { jest } from '@jest/globals';
-import chalk from 'chalk';
-import createDebug from 'debug';
 import {
   type Browser,
   type Page,
@@ -11,20 +9,20 @@ import {
 import {
   generate3FunctionTestingIVCStack,
   generate6FunctionTestingIVCStack,
+  mockLogger,
   proveAndVerifyAztecClient,
 } from './index.js';
 
 /* eslint-disable camelcase */
 
-createDebug.enable('*');
-const logger = createDebug('aztec:browser-ivc-test');
+const logger = mockLogger;
 
 jest.setTimeout(120_000);
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split('%c');
   if (parts.length === 1) {
-    logger(parts[0]);
+    logger.debug('msg', parts[0]);
     return;
   }
   if (!parts[0]) {
@@ -40,13 +38,13 @@ function formatAndPrintLog(message: string): void {
     if (colorValue === 'inherit' || !colorValue) {
       formattedMessage += parts[i];
     } else if (colorValue.startsWith('#')) {
-      formattedMessage += chalk.hex(colorValue)(parts[i]);
+      formattedMessage += parts[i];
     } else {
       formattedMessage += parts[i];
     }
   }
 
-  logger(formattedMessage);
+  logger.debug('msg', formattedMessage);
 }
 
 describe('Client IVC Integration', () => {
@@ -72,9 +70,9 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
-    logger(`calling prove and verify...`);
+    logger.debug('msg', `calling prove and verify...`);
     const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
-    logger(`generated and verified proof. result: ${verifyResult}`);
+    logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -89,9 +87,9 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
-    logger(`calling prove and verify...`);
+    logger.debug('msg', `calling prove and verify...`);
     const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
-    logger(`generated and verified proof. result: ${verifyResult}`);
+    logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
