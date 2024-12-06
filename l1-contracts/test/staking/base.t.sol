@@ -19,7 +19,7 @@ contract StakingBase is TestBase {
   address internal constant SLASHER = address(bytes20("SLASHER"));
 
   function setUp() public virtual {
-    stakingAsset = new TestERC20();
+    stakingAsset = new TestERC20("test", "TEST", address(this));
     staking = new StakingCheater(SLASHER, stakingAsset, MINIMUM_STAKE);
   }
 }
