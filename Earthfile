@@ -149,8 +149,7 @@ ci-rest:
   WAIT
     BUILD ./avm-transpiler/+format
     BUILD ./yarn-project/+format-check
-    BUILD +docs-helper
-    # internally uses cache
+    # internally uses cache:
     BUILD ./l1-contracts+test
     BUILD +noir-projects-helper
   END
