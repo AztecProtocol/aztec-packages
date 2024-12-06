@@ -11,6 +11,12 @@ bootstrap-noir-bb:
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
   # Use a cache volume for performance
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
+    mkdir -p $HOME/.aws/ && \
+    echo "[default]" > $HOME/.aws/credentials && \
+    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
+    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
+    chmod 600 $HOME/.aws/credentials
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init >/dev/null 2>&1 && \
@@ -23,7 +29,9 @@ bootstrap-noir-bb:
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/acir_tests/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
-  SAVE ARTIFACT /usr/src /usr/src
+  SAVE ARTIFACT /usr/src /usr/sr
+  ENV CI=1
+  ENV USE_CACHE=1c
 
 bootstrap:
   # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
@@ -33,7 +41,13 @@ bootstrap:
   WORKDIR /build-volume
   # ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
   # Use a cache volume for performance
-  RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
+    mkdir -p $HOME/.aws/ && \
+    echo "[default]" > $HOME/.aws/credentials && \
+    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
+    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
+    chmod 600 $HOME/.aws/credentials
+  RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init >/dev/null 2>&1 && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 && \
@@ -49,6 +63,9 @@ bootstrap:
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./yarn-project/bootstrap.sh && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
+  WORKDIR /usr/src
+  ENV CI=1
+  ENV USE_CACHE=1c
 
 bootstrap-aztec:
   FROM +bootstrap
@@ -109,15 +126,6 @@ bootstrap-aztec-faucet:
 # Simulates noir+bb CI with chunks that use resources
 ci-noir-bb:
   FROM +bootstrap-noir-bb
-  ENV CI=1
-  ENV USE_CACHE=1
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    mkdir -p $HOME/.aws/ && \
-    echo "[default]" > $HOME/.aws/credentials && \
-    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
-    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
-    echo "region = $AWS_REGION" >> $HOME/.aws/credentials && \
-    chmod 600 $HOME/.aws/credentials
   LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
   IF ci3/test_should_run $artifact
     WAIT
@@ -126,7 +134,7 @@ ci-noir-bb:
       BUILD ./noir/+packages-test
       BUILD ./noir/+test
     END
-    RUN ci3/cache_upload_flag $artifact
+    RUN BUILD_SYSTEM_DEBUG=1 ci3/cache_upload_flag $artifact
   END
   SET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
@@ -153,20 +161,12 @@ ci-noir-bb:
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:
   FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    mkdir -p $HOME/.aws/ && \
-    echo "[default]" > $HOME/.aws/credentials && \
-    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
-    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
-    echo "region = $AWS_REGION" >> $HOME/.aws/credentials
   WAIT
     BUILD ./avm-transpiler/+format
     BUILD ./yarn-project/+format-check
     # internally uses cache:
     BUILD ./l1-contracts+test
-    BUILD +noir-projects-helper
+    BUILD +noir-projects-with-cache
   END
   LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
@@ -185,8 +185,7 @@ ci-rest:
 ########################################################################################################################
 # Build helpers
 ########################################################################################################################
-# uses flag cache
-docs-helper:
+docs-with-cache:
   FROM +bootstrap
   ENV USE_CACHE=1
   LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
@@ -197,7 +196,7 @@ docs-helper:
     RUN ci3/cache_upload_flag $artifact
   END
 # uses flag cache
-noir-projects-helper:
+noir-projects-with-cache:
   FROM +bootstrap
   ENV USE_CACHE=1
   LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)
