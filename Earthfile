@@ -111,7 +111,7 @@ ci-noir-bb:
   FROM +bootstrap-noir-bb
   ENV TEST=1
   ENV USE_CACHE=1
-  LET artifact=noir-ci-native-tests-$(./noir/bootstrap.sh hash-native)-$(./noir/bootstrap.sh hash-packages)
+  LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./noir/+format
