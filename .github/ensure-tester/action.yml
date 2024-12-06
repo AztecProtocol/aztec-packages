@@ -100,7 +100,7 @@ runs:
       uses: ./.github/run-on-tester
       with:
         run: |
-          wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq
+          wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
           chmod +x ./yq
           DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
           ci3/earthly_install
