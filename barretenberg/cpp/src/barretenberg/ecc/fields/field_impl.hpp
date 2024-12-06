@@ -404,6 +404,7 @@ template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) no
     batch_invert(std::span{ coeffs, n });
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
 {
     PROFILE_THIS_NAME("fr::batch_invert");
@@ -415,16 +416,14 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
     auto* skipped = skipped_ptr.get();
 
     field accumulator = one();
-    {
-        PROFILE_THIS_NAME("thish");
-        for (size_t i = 0; i < n; ++i) {
-            temporaries[i] = accumulator;
-            if (coeffs[i].is_zero()) {
-                skipped[i] = true;
-            } else {
-                skipped[i] = false;
-                accumulator *= coeffs[i];
-            }
+
+    for (size_t i = 0; i < n; ++i) {
+        temporaries[i] = accumulator;
+        if (coeffs[i].is_zero()) {
+            skipped[i] = true;
+        } else {
+            skipped[i] = false;
+            accumulator *= coeffs[i];
         }
     }
 
@@ -447,14 +446,12 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
     accumulator = accumulator.invert();
 
     field T0;
-    {
-        PROFILE_THIS_NAME("and thish");
-        for (size_t i = n - 1; i < n; --i) {
-            if (!skipped[i]) {
-                T0 = accumulator * temporaries[i];
-                accumulator *= coeffs[i];
-                coeffs[i] = T0;
-            }
+
+    for (size_t i = n - 1; i < n; --i) {
+        if (!skipped[i]) {
+            T0 = accumulator * temporaries[i];
+            accumulator *= coeffs[i];
+            coeffs[i] = T0;
         }
     }
 }

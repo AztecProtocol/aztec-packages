@@ -527,7 +527,7 @@ class MegaFlavor {
 
             // Compute permutation grand product polynomial
             compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override);
+                this->polynomials, relation_parameters, size_override, this->active_block_ranges);
         }
 
         uint64_t estimate_memory()

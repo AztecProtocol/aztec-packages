@@ -239,12 +239,15 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
                                                               proving_key->final_active_wire_idx + 1);
 
+    info("final active wire ", proving_key->final_active_wire_idx + 1);
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
         if (proving_key->get_is_structured()) {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-                    proving_key->proving_key.polynomials.z_perm, proving_key->proving_key.active_block_ranges);
+                    proving_key->proving_key.polynomials.z_perm,
+                    proving_key->proving_key.active_block_ranges,
+                    proving_key->final_active_wire_idx + 1);
         } else {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
