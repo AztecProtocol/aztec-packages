@@ -106,7 +106,7 @@ runs:
         scripts/run_on_tester "
           wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq
           chmod +x ./yq
-          sudo mv ./yq /usr/bin/yq
+          DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
         "
 
     - name: Ensure Tester Cleanup
