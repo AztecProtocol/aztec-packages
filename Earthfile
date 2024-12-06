@@ -46,7 +46,7 @@ bootstrap:
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./l1-contracts/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./avm-transpiler/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./noir-projects/bootstrap.sh && \
-    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./yarn-projects/bootstrap.sh && \
+    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./yarn-project/bootstrap.sh && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
 
