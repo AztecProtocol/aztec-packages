@@ -38,6 +38,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -63,6 +64,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}

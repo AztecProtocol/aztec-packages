@@ -34,14 +34,10 @@ import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
-/**
- * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
- * we check that the revert reason error contains this string. However, the circuit must correctly prove the
- * execution.
- */
 export async function simulateAvmTestContractGenerateCircuitInputs(
   functionName: string,
   calldata: Fr[] = [],
+  expectRevert: boolean = false,
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
   const sender = AztecAddress.random();
@@ -80,13 +76,15 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   const avmResult = await simulator.simulate(tx);
 
-  if (assertionErrString == undefined) {
+  if (!expectRevert) {
     expect(avmResult.revertCode.isOK()).toBe(true);
   } else {
     // Explicit revert when an assertion failed.
     expect(avmResult.revertCode.isOK()).toBe(false);
     expect(avmResult.revertReason).toBeDefined();
-    expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    if (assertionErrString !== undefined) {
+      expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    }
   }
 
   const avmCircuitInputs: AvmCircuitInputs = avmResult.avmProvingRequest.inputs;

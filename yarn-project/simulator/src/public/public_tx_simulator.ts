@@ -290,17 +290,6 @@ export class PublicTxSimulator {
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
-    // TODO(dbanks12): remove once AVM proves entire public tx
-    context.updateProvingRequest(
-      this.realAvmProvingRequests,
-      phase,
-      fnName,
-      stateManager,
-      executionRequest,
-      result,
-      allocatedGas,
-    );
-
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
 
     if (result.reverted) {
