@@ -128,19 +128,19 @@ ci-noir-bb:
     END
     RUN ci3/cache_upload_flag $artifact
   END
-  SET artifact=bb-ci-gcc-$(./barretenberg/ts/bootstrap.sh hash)
+  SET artifact=bb-ts-ci-$(./barretenberg/ts/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./barretenberg/ts/+test
     END
     RUN ci3/cache_upload_flag $artifact
   END
-  WAIT
-    SET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
-    IF ci3/test_should_run $artifact
+  SET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
       BUILD ./barretenberg/acir_tests/+test
-      RUN ci3/cache_upload_flag $artifact
     END
+    RUN ci3/cache_upload_flag $artifact
   END
 
 # Simulates non-noir non-bb CI with chunks that use resources
