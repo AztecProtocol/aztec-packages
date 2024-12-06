@@ -27,7 +27,6 @@ static_assert(KERNEL_OUTPUTS_LENGTH < AVM_PUBLIC_COLUMN_MAX_SIZE,
 // https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/circuits.js/src/structs/public_circuit_public_inputs.ts
 inline const uint32_t SENDER_PCPI_OFFSET = 0;
 inline const uint32_t ADDRESS_PCPI_OFFSET = 1;
-inline const uint32_t FUNCTION_SELECTOR_PCPI_OFFSET = 2;
 inline const uint32_t IS_STATIC_CALL_PCPI_OFFSET = 3;
 
 inline const uint32_t PCPI_GLOBALS_START = PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH - 7 - GLOBAL_VARIABLES_LENGTH;
