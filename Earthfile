@@ -18,7 +18,7 @@ bootstrap-noir-bb:
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
-    git reset --hard FETCH_HEAD && \
+    git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 ./barretenberg/acir_tests/bootstrap.sh && \
     mv $(ls -A) /usr/src
@@ -40,7 +40,7 @@ bootstrap:
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
-    git reset --hard FETCH_HEAD && \
+    git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/acir_tests/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./l1-contracts/bootstrap.sh && \
