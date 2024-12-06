@@ -50,7 +50,8 @@ function run_earthly() {
           --secret S3_BUILD_CACHE_DOWNLOAD="true" \
           --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
           $EARTHLY_ARGS \
-          $@
+          $@ \
+          --GITHUB_RUN_URL="${GITHUB_RUN_URL:-}"
 }
 
 # Handle earthly commands and retries
