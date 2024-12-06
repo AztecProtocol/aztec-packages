@@ -129,9 +129,9 @@ export function getTimeConverter(pinoLogger: any, pinoMod: any) {
 }
 
 interface OTelPinoStreamOptions {
-  messageKey: string;
+  messageKey?: string;
   levels: any; // Pino.LevelMapping
-  otelTimestampFromTime: (time: any) => number;
+  otelTimestampFromTime?: (time: any) => number;
 }
 
 /**
@@ -153,7 +153,7 @@ export class OTelPinoStream extends Writable {
     // to transports. Eventually OTelPinoStream might be able to use this
     // for auto-configuration in newer pino versions. The event currently does
     // not include the `timeSym` value that is needed here, however.
-    this._messageKey = options.messageKey;
+    this._messageKey = options.messageKey ?? 'msg';
     this._levels = options.levels;
 
     // [aztec] The following will break if we set up a custom time function in our logger

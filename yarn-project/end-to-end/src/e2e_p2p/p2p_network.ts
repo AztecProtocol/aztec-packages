@@ -121,7 +121,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort, /*service name*/ `bootstrapnode`);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
     const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
