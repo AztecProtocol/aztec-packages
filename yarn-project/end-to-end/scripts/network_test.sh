@@ -53,11 +53,13 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-STERN_PID=""
+# STERN_PID=""
 function copy_stern_to_log() {
-  ulimit -n 4096
-  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
-  STERN_PID=$!
+  # TODO(AD) we need to figure out a less resource intensive solution than stern
+  # ulimit -n 4096
+  # stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  echo "disabled until less resource intensive solution than stern implemented" > $SCRIPT_DIR/network-test.log &
+  # STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
@@ -113,7 +115,7 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) $STERN_PID &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 
   if [ "$CLEANUP_CLUSTER" = "true" ]; then
     kind delete cluster || true
