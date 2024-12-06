@@ -416,7 +416,6 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
     auto* skipped = skipped_ptr.get();
 
     field accumulator = one();
-
     for (size_t i = 0; i < n; ++i) {
         temporaries[i] = accumulator;
         if (coeffs[i].is_zero()) {
@@ -446,7 +445,6 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
     accumulator = accumulator.invert();
 
     field T0;
-
     for (size_t i = n - 1; i < n; --i) {
         if (!skipped[i]) {
             T0 = accumulator * temporaries[i];

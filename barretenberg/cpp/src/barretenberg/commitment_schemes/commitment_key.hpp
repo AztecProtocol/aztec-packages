@@ -85,7 +85,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
-        // PROFILE_THIS();
+        PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
@@ -133,7 +133,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
-        // PROFILE_THIS();
+        PROFILE_THIS_NAME("commit_sparse");
         const size_t poly_size = polynomial.size();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
@@ -207,7 +207,7 @@ template <class Curve> class CommitmentKey {
                                  const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                  size_t final_active_wire_idx = 0)
     {
-        // BB_OP_COUNT_TIME();
+        PROFILE_THIS_NAME("commit_structured");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
@@ -215,8 +215,8 @@ template <class Curve> class CommitmentKey {
 
         // Compute the number of non-zero coefficients in the polynomial
         size_t total_num_scalars = 0;
-        for (const auto& range : active_ranges) {
-            total_num_scalars += range.second - range.first;
+        for (const auto& [first, second] : active_ranges) {
+            total_num_scalars += second - first;
         }
 
         // Compute "active" percentage of polynomial; resort to standard commit if appropriate
@@ -265,7 +265,7 @@ template <class Curve> class CommitmentKey {
                                                          const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                                          size_t final_active_wire_idx = 0)
     {
-        PROFILE_THIS_NAME("total");
+        PROFILE_THIS_NAME("commit_structured_with_nonzero_complement");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
@@ -277,9 +277,8 @@ template <class Curve> class CommitmentKey {
         // Note: the range from the end of the last active range to the end of the polynomial is excluded from the
         // complement since the polynomial is assumed to be zero there.
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
-        // Compute the total number of scalars in the constant regions
+        // Also compute total number of scalars in the constant regions
         size_t total_num_complement_scalars = 0;
-
         for (size_t i = 0; i < active_ranges.size() - 1; ++i) {
             const size_t start = active_ranges[i].second;
             const size_t end = active_ranges[i + 1].first;
@@ -303,8 +302,7 @@ template <class Curve> class CommitmentKey {
 
         // Copy the raw SRS points (no endo points) corresponding to the constant regions into contiguous memory
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1131): Peak memory usage could be improved by
-        // performing this copy and the subsequent summation as a precomputation prior to constructing the point
-        // table.
+        // performing this copy and the subsequent summation as a precomputation prior to constructing the point table.
         std::vector<G1> points;
 
         points.reserve(total_num_complement_scalars);
@@ -326,8 +324,7 @@ template <class Curve> class CommitmentKey {
         // Reduce each sequence to a single point
         auto reduced_points = BatchedAddition::add_in_place(points, sequence_counts);
 
-        // Compute the full commitment as the sum of the "active" region commitment and the constant region
-        // contribution
+        // Compute the full commitment as the sum of the "active" region commitment and the constant region contribution
         Commitment result = commit_structured(polynomial, active_ranges, final_active_wire_idx);
 
         for (auto [scalar, point] : zip_view(unique_scalars, reduced_points)) {
