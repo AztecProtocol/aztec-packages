@@ -364,7 +364,7 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
-                                       ClientIVC* ivc,
+                                       std::shared_ptr<ClientIVC> ivc,
                                        bool has_valid_witness_assignments)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
@@ -378,6 +378,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
     // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
     if (!has_valid_witness_assignments) {
+        TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+        ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
+
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         for (auto [constraint, queue_entry] :
              zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
@@ -554,7 +557,7 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  * @return MegaCircuitBuilder
  */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         ClientIVC& ivc,
+                                         const std::shared_ptr<ClientIVC>& ivc,
                                          const WitnessVector& witness,
                                          const size_t size_hint)
 {
@@ -563,13 +566,13 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     AcirProgram program{ constraint_system, witness };
     ProgramMetadata metadata;
     metadata.size_hint = size_hint;
-    metadata.ivc = &ivc;
+    metadata.ivc = ivc;
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(program, metadata);
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
+    if (constraint_system.ivc_recursion_constraints.size() != ivc->verification_queue.size()) {
         info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
         ASSERT(false);
     }
@@ -579,7 +582,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     if (witness.empty()) {
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         for (auto [constraint, queue_entry] :
-             zip_view(constraint_system.ivc_recursion_constraints, ivc.verification_queue)) {
+             zip_view(constraint_system.ivc_recursion_constraints, ivc->verification_queue)) {
 
             populate_dummy_vk_in_constraint(circuit, queue_entry.honk_verification_key, constraint.key);
         }
@@ -593,13 +596,13 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
             StdlibVerificationKey::from_witness_indices(circuit, constraint.key)));
     }
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
+    ivc->instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
     // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
     // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
-         zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
+         zip_view(constraint_system.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
 
         // Get the witness indices for the public inputs contained within the proof in the verification queue
         std::vector<uint32_t> public_input_indices = ProofSurgeon::get_public_inputs_witness_indices_from_proof(
@@ -612,7 +615,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-    ivc.complete_kernel_circuit_logic(circuit);
+    ivc->complete_kernel_circuit_logic(circuit);
 
     return circuit;
 };

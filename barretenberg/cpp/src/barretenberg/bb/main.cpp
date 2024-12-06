@@ -848,28 +848,40 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     using Prover = ClientIVC::MegaProver;
     using DeciderProvingKey = ClientIVC::DeciderProvingKey;
     using VerificationKey = ClientIVC::MegaVerificationKey;
+    using Program = acir_format::AcirProgram;
+    using Metadata = acir_format::ProgramMetadata;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << 20);
     init_grumpkin_crs(1 << 15);
 
-    auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
-    acir_format::WitnessVector witness = {};
+    Program program{ get_constraint_system(bytecodePath, /*honk_recursion=*/false), /*witness=*/{} };
+    // auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
-    // The presence of ivc recursion constraints determines whether or not the program is a kernel
-    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
+    // Builder builder;
+    // if (!ivc_constraints.empty()) {
+    //     ClientIVC mock_ivc = create_mock_ivc_from_constraints(ivc_constraints, trace_settings);
+    // }
 
-    Builder builder;
-    if (is_kernel) {
-        // Create a mock IVC instance based on the IVC recursion constraints in the kernel program
-        ClientIVC mock_ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, trace_settings);
-        builder = acir_format::create_kernel_circuit(constraints, mock_ivc, witness);
-    } else {
-        builder = acir_format::create_circuit<Builder>(
-            constraints, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
-    }
+    Metadata metadata{};
+    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
+
+    // // The presence of ivc recursion constraints determines whether or not the program is a kernel
+    // bool is_kernel = !program.constraints.ivc_recursion_constraints.empty();
+
+    // Builder builder;
+    // if (is_kernel) {
+    //     // Create a mock IVC instance based on the IVC recursion constraints in the kernel program
+    //     ClientIVC mock_ivc =
+    //         create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints, trace_settings);
+    //     builder = acir_format::create_kernel_circuit(program.constraints, mock_ivc, program.witness);
+    // } else {
+    //     builder = acir_format::create_circuit<Builder>(
+    //         program.constraints, /*recursive=*/false, 0, program.witness, /*honk_recursion=*/false);
+    // }
+
     // Add public inputs corresponding to pairing point accumulator
     builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
 

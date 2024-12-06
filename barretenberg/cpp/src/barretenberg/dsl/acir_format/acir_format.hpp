@@ -197,7 +197,7 @@ struct ProgramMetadata {
 
     // // WORKTODO: can this go away and we just always use the one in IVC? when do we need this without IVC?
     // std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>();
-    ClientIVC* ivc = nullptr;
+    std::shared_ptr<ClientIVC> ivc = nullptr;
 
     bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
                             // The proof produced when this flag is true should be friendly for recursive verification
