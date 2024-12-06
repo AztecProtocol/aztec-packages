@@ -100,6 +100,8 @@ runs:
       shell: bash
       run: |
         run_on_tester "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
+        ABSOLUTE=1 copy_to_tester ~/.ssh/build_instance_key /home/ubuntu/.ssh/build_instance_key
+        run_on_tester "chmod 600 /home/ubuntu/.ssh/build_instance_key"
 
     - name: Setup yq and earthly
       uses: ./.github/run-on-tester
