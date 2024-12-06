@@ -18,7 +18,8 @@ on:
 
 concurrency:
   # force parallelism in master
-  group: ci-${{ github.ref_name == 'master' && github.run_id || github.event.pull_request.head.ref || github.ref_name }}
+  gro
+  : ci-${{ github.ref_name == 'master' && github.run_id || github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -693,9 +694,7 @@ jobs:
           fi
       - name: Block merge (draft)
         if: github.event.pull_request.draft
-        uses: ./.github/run-on-builder
-        with:
-          run: echo "Can't merge drafts." && exit 1
+        run: echo "Can't merge drafts." && exit 1
 
   rerun-check:
     runs-on: ubuntu-latest
