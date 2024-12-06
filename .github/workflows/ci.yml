@@ -338,7 +338,12 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+            export CI=1
+            export USE_CACHE=1
+            if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
+              scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+              ci3/cache_upload acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
+            fi
 
   bench-summary:
     needs:
@@ -535,6 +540,7 @@ jobs:
           run: |
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
             export CI=1
+            export USE_CACHE=1
             if ci3/test_should_run bb-bench-$HASH bench; then
               scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
               ci3/cache_upload_flag bb-bench-$HASH
