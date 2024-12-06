@@ -284,11 +284,13 @@ jobs:
         run: |
           if [ "${{ github.ref_name }}" == "release/*" ]; then
             DIST_TAG=devnet
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}-devnet
           else
             DIST_TAG=latest
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
           fi
-          TAG=${{ env.DEPLOY_TAG }}
-          VERSION=${TAG#aztec-packages-v}
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "DIST_TAG=$DIST_TAG" >> $GITHUB_OUTPUT
 
