@@ -178,7 +178,6 @@ services:
             - VALIDATOR_PRIVATE_KEY=${KEY}
             - SEQ_PUBLISHER_PRIVATE_KEY=${KEY}
             - L1_PRIVATE_KEY=${KEY}
-            - DEBUG=aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-aztec:libp2p_service,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*
             - LOG_LEVEL=debug
             - AZTEC_PORT=${PORT}
             - P2P_ENABLED=true

@@ -1,6 +1,7 @@
 import { type ProofUri, type ProvingJob, type ProvingJobId, ProvingRequestType } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -17,7 +18,7 @@ describe.each([
   () => ({ database: new InMemoryBrokerDatabase(), cleanup: undefined }),
   () => {
     const store = openTmpStore(true);
-    const database = new KVBrokerDatabase(store);
+    const database = new KVBrokerDatabase(store, new NoopTelemetryClient());
     const cleanup = () => store.close();
     return { database, cleanup };
   },
@@ -35,7 +36,7 @@ describe.each([
     maxRetries = 2;
     ({ database, cleanup } = createDb());
 
-    broker = new ProvingBroker(database, {
+    broker = new ProvingBroker(database, new NoopTelemetryClient(), {
       jobTimeoutMs,
       timeoutIntervalMs: jobTimeoutMs / 4,
       maxRetries,
@@ -409,7 +410,7 @@ describe.each([
       // fake some time passing while the broker restarts
       await jest.advanceTimersByTimeAsync(10_000);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, new NoopTelemetryClient());
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -470,7 +471,7 @@ describe.each([
       // fake some time passing while the broker restarts
       await jest.advanceTimersByTimeAsync(10_000);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, new NoopTelemetryClient());
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -521,7 +522,7 @@ describe.each([
       // fake some time passing while the broker restarts
       await jest.advanceTimersByTimeAsync(100 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, new NoopTelemetryClient());
       await broker.start();
       await assertJobStatus(job1.id, 'in-queue');
 
