@@ -25,6 +25,9 @@ on:
         required: false
         type: string
         default: "true"
+    secrets:
+      GCP_SA_KEY:
+        required: true
   workflow_dispatch:
     inputs:
       namespace:
