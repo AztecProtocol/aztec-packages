@@ -142,8 +142,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
 
     // Check that the proposal is for the current or next slot
-    const { slotNumber } = proposal.payload.header.globalVariables;
-    if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
+    const slotNumberBigInt = proposal.slotNumber.toBigInt();
+    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
       this.log.verbose(`Not the current or next slot, skipping attestation`);
       return undefined;
     }
