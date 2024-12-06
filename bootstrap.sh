@@ -134,6 +134,7 @@ case "$cmd" in
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
     if docker_has_image $image; then
       exit
     fi
@@ -144,6 +145,9 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     docker build -f Dockerfile.aztec -t $image $TMP
     github_endgroup
     exit
@@ -151,6 +155,7 @@ case "$cmd" in
   "image-e2e")
     ./bootstrap.sh image-aztec
     image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
     if docker_has_image $image; then
       echo "Image $image already exists." && exit
     fi
@@ -162,6 +167,9 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
     docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     docker build -f Dockerfile.end-to-end -t $image $TMP
     github_endgroup
     exit
@@ -178,6 +186,9 @@ case "$cmd" in
     scripts/earthly-ci --artifact +bootstrap-faucet/usr/src $TMP/usr/src
     echo "docker image build:"
     docker build -f Dockerfile.aztec-faucet -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     github_endgroup
     exit
   ;;
