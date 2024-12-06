@@ -250,7 +250,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.ci-rest.outputs.e2e_list )}}
+        test: ${{ fromJson( needs.images-e2e.outputs.e2e_list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
