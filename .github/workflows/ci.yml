@@ -379,28 +379,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
-        uses: ./.github/ensure-builder
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
       - name: "Native Prover Tests"
-        uses: ./.github/run-on-builder
-        with:
-          run: |
-            # Ensure we can SSH into the spot instances we request
-            mkdir -p ~/.ssh
-            echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-            chmod 600 ~/.ssh/build_instance_key
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+        run: |
+          # Ensure we can SSH into the spot instances we request
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
       - name: "Native Prover Tests"
         env:
           GITHUB_LOG: 1
-        uses: ./.github/run-on-builder
-        with:
-          run: |
-            export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
-            ./ci.sh ec2 "./barretenberg/cpp/bootstrap.sh ci"
+        run: |
+          export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
+          ./ci.sh ec2 "./barretenberg/cpp/bootstrap.sh ci"
 
   network-4epochs-test:
     needs: [ci-rest, configure]
