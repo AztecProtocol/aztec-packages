@@ -127,23 +127,31 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 4
+  replicas: 64
   bb:
-    hardwareConcurrency: 16
+    hardwareConcurrency: 31
   gke:
     spotEnabled: true
   resources:
     requests:
-      memory: "64Gi"
-      cpu: "16"
-    limits:
-      memory: "96Gi"
-      cpu: "16"
+      memory: "63Gi"
+      cpu: "15"
 
 bot:
-  followChain: "NONE"
+  replicas: 4
   enabled: true
-  txIntervalSeconds: 10
+  txIntervalSeconds: 1
+  botPrivateKey: ""
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
+  followChain: "PENDING"
+  bb:
+    hardwareConcurrency: 7
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "7"
+      ephemeral-storage: "8Gi"
 
 jobs:
   deployL1Verifier:

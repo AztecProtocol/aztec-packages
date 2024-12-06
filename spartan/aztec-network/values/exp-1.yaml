@@ -6,13 +6,12 @@ aztec:
   epochDuration: 32
   realProofs: false
 
+telemetry:
+  enabled: true
+
 images:
   aztec:
     pullPolicy: Always
-
-telemetry:
-  enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 1
@@ -20,7 +19,6 @@ validator:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
   validatorAddresses:
     - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-
   resources:
     requests:
       memory: "512Mi"
@@ -34,17 +32,6 @@ bootNode:
 
 proverAgent:
   replicas: 4
-  bb:
-    hardwareConcurrency: 16
-  gke:
-    spotEnabled: true
-  resources:
-    requests:
-      memory: "64Gi"
-      cpu: "16"
-    limits:
-      memory: "96Gi"
-      cpu: "16"
 
 bot:
   followChain: "NONE"
