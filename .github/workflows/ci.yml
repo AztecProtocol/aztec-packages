@@ -524,11 +524,10 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
           run: |
-            set -eux
             export CI=1
             export USE_CACHE=1
             # We gate the build with this
-            if ci3/test_should_run bb-bench-$HASH bench; then
+            if ci3/test_should_run bb-bench-$(./barretenberg/cpp/bootstrap.sh hash) bench; then
               scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
             fi
       - name: Run Bench
@@ -585,7 +584,7 @@ jobs:
             export CI=1
             export USE_CACHE=1
             if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
-              USE_CACHE=1 CI=1 ./bootstrap.sh test-boxes
+              ./bootstrap.sh test-boxes
             fi
 
   protocol-circuits-gates-report:
