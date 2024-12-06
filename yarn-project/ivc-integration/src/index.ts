@@ -246,24 +246,11 @@ export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: U
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
   const backend = new AztecClientBackend(preparedBytecodes, { threads });
-  const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-
-  await backend.destroy();
-  return verified;
-}
-
-export async function proveBrowser(
-  bytecodes: string[],
-  witnessStack: Uint8Array[],
-  threads?: number,
-): Promise<[Uint8Array, Uint8Array]> {
-  const { AztecClientBackend } = await import('@aztec/bb.js');
-  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
-  const backend = new AztecClientBackend(preparedBytecodes, { threads });
   const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-
+  logger(`proof length: ${proof.length}`);
+  logger(`vk    length: ${vk.length}`);
   await backend.destroy(); // WORKTODO: share backend?
-  return [proof, vk];
+  return true;
 }
 
 // export async function verifyBrowser(proof: Uint8Array, threads?: number): Promise<boolean> {
@@ -287,29 +274,6 @@ export async function proveAndVerifyAztecClient(
     ([acir, witness, numThreads]) => {
       (window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
       return (window as any).proveAndVerifyBrowser(acir, witness, numThreads);
-    },
-    [bytecodes, witnessStack, threads],
-  );
-
-  return result;
-}
-
-// WORKTODO: This functions will construct a proof using the `prove` flow, then verify
-// the proof using the accompanying vk using the `verify` flow. proveAndVerify instead just
-// receives a boolean signal via a single call to a backend function.
-export async function proveThenVerifyAztecClient(
-  page: Page,
-  bytecodes: string[],
-  witnessStack: Uint8Array[],
-): Promise<boolean> {
-  const threads = 16;
-
-  const result: boolean = await page.evaluate(
-    ([acir, witness, numThreads]) => {
-      console.log('trying to assign proveBrowser');
-      (window as any).proveBrowser = proveBrowser;
-      const _proof = (window as any).proveBrowser(acir, witness, numThreads);
-      return true;
     },
     [bytecodes, witnessStack, threads],
   );

@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import createDebug from 'debug';
 import { type Browser, type Page, chromium } from 'playwright';
 
-import { generate3FunctionTestingIVCStack, proveThenVerifyAztecClient } from './index.js';
+import { generate3FunctionTestingIVCStack, proveAndVerifyAztecClient } from './index.js';
 
 /* eslint-disable camelcase */
 
@@ -64,7 +64,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     logger(`calling prove then verify...`);
-    const result = await proveThenVerifyAztecClient(page, bytecodes, witnessStack);
+    const result = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
     expect(result).toEqual(true);
   });
 });

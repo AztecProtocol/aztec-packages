@@ -559,14 +559,15 @@ export class BarretenbergApi {
 
   async acirProveAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+    const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_aztec_client',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    // console.log(`number of things in out: ${out.length}`);
+    console.log(`number of things in outTypes: ${outTypes.length}`);
+    console.log(`number of things in out: ${out.length}`);
     return [out[0], out[1]];
   }
 
