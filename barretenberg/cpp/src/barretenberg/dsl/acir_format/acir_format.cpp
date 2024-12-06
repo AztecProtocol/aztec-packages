@@ -229,7 +229,9 @@ template <typename Builder> void build_constraints(Builder& builder, AcirProgram
         if (!constraint_system.avm_recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
         }
-        process_ivc_recursion_constraints(builder, constraint_system, metadata.ivc, has_valid_witness_assignments);
+        if (!constraint_system.ivc_recursion_constraints.empty()) {
+            process_ivc_recursion_constraints(builder, constraint_system, metadata.ivc, has_valid_witness_assignments);
+        }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         PairingPointAccumulatorIndices current_aggregation_object =
