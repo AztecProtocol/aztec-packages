@@ -1,14 +1,10 @@
 FROM aztecprotocol/aztec-base
-# ensure we retry apt
-RUN echo 'Acquire::Retries "3"; Acquire::https::Timeout "240"; Acquire::http::Timeout "240"; APT::Get::Assume-Yes "true"; APT::Install-Recommends "false"; APT::Install-Suggests "false";' \
-    > /etc/apt/apt.conf.d/99-aztec-build
-RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-COPY /usr/src /usr/src
 ENV BB_WORKING_DIRECTORY=/usr/src/bb
 ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
+COPY /usr/src /usr/src
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
 ARG PORT=8080
 ENV PORT=$PORT

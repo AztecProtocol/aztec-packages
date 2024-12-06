@@ -473,11 +473,6 @@ sysbox:
 aztec-base:
   FROM ubuntu:noble
   RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  ENV BB_WORKING_DIRECTORY=/usr/src/bb
-  ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-  ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-  ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-  RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
 
@@ -500,16 +495,6 @@ end-to-end-base:
     && ./get_helm.sh \
     && rm get_helm.sh \
     && npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
-  ENV CHROME_BIN="/usr/bin/chromium"
-  ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
-  ENV HARDWARE_CONCURRENCY=""
-  ENV FAKE_PROOFS=""
-  ENV BB_WORKING_DIRECTORY=/usr/src/bb
-  ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-  ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-  ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-  ENV PROVER_AGENT_CONCURRENCY=8
-  RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
 
