@@ -87,6 +87,8 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       sleep 20
     elif grep 'killing buildkit' $OUTPUT_FILE >/dev/null; then
       sleep 20
+    elif grep "could not connect to buildkitd to shut down container" $OUTPUT_FILE >/dev/null; then
+      sleep 20
     elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; then
       if [ $ATTEMPT_COUNT -lt 3 ] ; then
         echo "Detected earthly bootstrap happening in parallel and failing, waiting and trying again."
