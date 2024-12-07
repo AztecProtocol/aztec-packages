@@ -246,13 +246,6 @@ export interface PXE {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
-   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
-   * @param filter - The filter to apply to the notes.
-   * @returns The requested notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]>;
-
-  /**
    * Adds a note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
@@ -510,7 +503,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
-  getOutgoingNotes: z.function().args(OutgoingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
   addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
   getBlock: z

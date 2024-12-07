@@ -203,11 +203,6 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
-  it('getOutgoingNotes', async () => {
-    const result = await context.client.getOutgoingNotes({ contractAddress: address });
-    expect(result).toEqual([expect.any(UniqueNote)]);
-  });
-
   it('addNote', async () => {
     await context.client.addNote(ExtendedNote.random(), address);
   });
@@ -423,10 +418,6 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
-  }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve([UniqueNote.random()]);
   }
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
