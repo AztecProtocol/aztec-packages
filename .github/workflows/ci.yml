@@ -178,6 +178,7 @@ jobs:
 
   images-e2e:
     needs: [ci-noir-bb, configure]
+    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
