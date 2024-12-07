@@ -24,10 +24,6 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       // Check that the account is correctly registered using the getAccounts and getRecipients methods
       const accounts = await pxe.getRegisteredAccounts();
       expect(accounts).toContainEqual(completeAddress);
-
-      // Check that the account is correctly registered using the getAccount and getRecipient methods
-      const account = await pxe.getRegisteredAccount(completeAddress.address);
-      expect(account).toEqual(completeAddress);
     });
 
     it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {

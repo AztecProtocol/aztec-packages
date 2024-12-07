@@ -110,11 +110,6 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(CompleteAddress)]);
   });
 
-  it('getRegisteredAccount', async () => {
-    const result = await context.client.getRegisteredAccount(address);
-    expect(result).toBeInstanceOf(CompleteAddress);
-  });
-
   it('registerContact', async () => {
     const result = await context.client.registerContact(address);
     expect(result).toEqual(address);

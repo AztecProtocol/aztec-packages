@@ -4,7 +4,9 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 export async function getAccount(aztecAddress: AztecAddress, rpcUrl: string, debugLogger: DebugLogger, log: LogFn) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const account = await client.getRegisteredAccount(aztecAddress);
+  const account = (await client.getRegisteredAccounts()).find(completeAddress =>
+    completeAddress.address.equals(aztecAddress),
+  );
 
   if (!account) {
     log(`Unknown account ${aztecAddress.toString()}`);
