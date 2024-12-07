@@ -19,12 +19,21 @@ key_dir=./target/keys
 
 # Circuits matching these patterns we have megahonk keys computed, rather than ultrahonk.
 megahonk_patterns=(
-  "private_kernel_init"
-  "private_kernel_inner"
-  "private_kernel_reset.*"
-  "private_kernel_tail.*"
+  "^private_kernel_init"
+  "^private_kernel_inner"
+  "^private_kernel_reset.*"
+  "^private_kernel_tail.*"
+)
+ivc_patterns=(
+  "mock_private_kernel_init"
+  "mock_private_kernel_inner"
+  "mock_private_kernel_reset.*"
+  "mock_private_kernel_tail.*"
+  "app_creator"
+  "app_reader"
 )
 megahonk_regex=$(IFS="|"; echo "${megahonk_patterns[*]}")
+ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 
 function on_exit() {
   rm -rf $tmp_dir
@@ -38,7 +47,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 megahonk_regex
+export tmp_dir key_dir ci3 megahonk_regex ivc_regex
 
 function compile {
   set -eu
@@ -46,7 +55,6 @@ function compile {
   local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
-  local proto=$(echo "$name" | grep -qE "${megahonk_regex}" && echo "mega_honk" || echo "ultra_honk")
   local program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
   local hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
   if ! cache_download circuit-$hash.tar.gz 2> /dev/null; then
@@ -54,6 +62,20 @@ function compile {
     $NARGO compile --package $name --silence-warnings
     echo "Compilation complete for: $name (${SECONDS}s)"
     cache_upload circuit-$hash.tar.gz $json_path 2> /dev/null
+  fi
+
+  if echo "$name" | grep -qE "${megahonk_regex}"; then
+    local proto="mega_honk"
+    local write_vk_cmd="write_vk_mega_honk"
+    local vk_as_fields_cmd="vk_as_fields_mega_honk"
+  elif echo "$name" | grep -qE "${ivc_regex}"; then
+    local proto="client_ivc"
+    local write_vk_cmd="write_vk_for_ivc"
+    local vk_as_fields_cmd="vk_as_fields_mega_honk"
+  else
+    local proto="ultra_honk"
+    local write_vk_cmd="write_vk_ultra_honk"
+    local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
 
   # No vks needed for simulated circuits.
@@ -67,8 +89,8 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
-    local vk=$(jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk_$proto -h -b - -o - --recursive 2>/dev/null | base64 -w 0)
-    local vk_fields=$(echo "$vk" | base64 -d | $BB vk_as_fields_$proto -k - -o - 2>/dev/null)
+    local vk=$(jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive 2>/dev/null | base64 -w 0)
+    local vk_fields=$(echo "$vk" | base64 -d | $BB $vk_as_fields_cmd -k - -o - 2>/dev/null)
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo "Key output at: $key_path (${SECONDS}s)"
     cache_upload vk-$hash.tar.gz $key_path 2> /dev/null

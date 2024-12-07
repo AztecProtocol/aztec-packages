@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED: USE bootstrap.sh test
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
@@ -22,10 +23,6 @@ if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
   TEST_NAMES=$(cd ./acir_tests; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
 fi
 
-<<<<<<< HEAD
-jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-parallel -j$jobs --line-buffered --joblog joblog.txt ./run_acir_test.sh {} ::: "${TEST_NAMES[@]}"
-=======
 export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 
 # copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
@@ -122,4 +119,3 @@ wait
 
 # Check for parallel errors
 check_error_file
->>>>>>> cl/ci3-fake-base
