@@ -205,7 +205,7 @@ jobs:
             set -eu
             LABELS=""
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+              LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "${{ github.event_path }}")
             fi
             echo Labels: $LABELS
             # Install yq
