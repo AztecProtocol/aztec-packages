@@ -204,7 +204,7 @@ jobs:
           run: |
             set -eu
             LABELS=""
-            if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
             fi
             echo Labels: $LABELS
