@@ -21,6 +21,7 @@ spec:
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
       volumes:
         - name: config
