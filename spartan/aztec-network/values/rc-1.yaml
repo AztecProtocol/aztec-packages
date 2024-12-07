@@ -12,7 +12,7 @@ images:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://34.150.160.154:4318
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 48
@@ -127,18 +127,15 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 4
+  replicas: 8
   bb:
-    hardwareConcurrency: 16
+    hardwareConcurrency: 31
   gke:
     spotEnabled: true
   resources:
     requests:
-      memory: "64Gi"
-      cpu: "16"
-    limits:
-      memory: "96Gi"
-      cpu: "16"
+      memory: "116Gi"
+      cpu: "31"
 
 bot:
   followChain: "PENDING"
