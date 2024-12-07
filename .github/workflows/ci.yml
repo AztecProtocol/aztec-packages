@@ -161,9 +161,6 @@ jobs:
     needs: [ci-noir-bb, configure]
     runs-on: ubuntu-latest
     if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
-      bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -204,12 +201,15 @@ jobs:
         id: e2e_list
         with:
           run: |
+            set -eu
             LABELS=""
             if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
               LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
             fi
             echo Labels: $LABELS
-            sudo apt install yq
+            # Install yq
+            sudo curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
+              -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
             echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
