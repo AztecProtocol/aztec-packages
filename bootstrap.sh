@@ -199,5 +199,5 @@ projects=(
 for project in "${projects[@]}"; do
   echo
   echo
-  (cd $project && ./bootstrap.sh $cmd)
+  $project/bootstrap.sh $cmd
 done
