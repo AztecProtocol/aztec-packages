@@ -50,7 +50,7 @@ mkdir -p $key_dir
 export tmp_dir key_dir ci3 megahonk_regex ivc_regex
 
 function compile {
-  set -eu
+  set -euo pipefail
   local dir=$1
   local name=${dir//-/_}
   local filename="$name.json"

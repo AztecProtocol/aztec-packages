@@ -171,7 +171,7 @@ case "$cmd" in
   ""|"fast")
     ;;
   "full")
-    build
+    denoise build
     ;;
   "ci")
     denoise build

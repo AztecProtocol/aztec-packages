@@ -1,13 +1,13 @@
 # Usage 'source ci3/base/source'
 # This is a basis for shell scripts that use the ci3 framework.
 # Set BASH best practices for early error exit and undefined variables.
-set -eu
+set -euo pipefail
 
 # Enter our script directory, allowing usage of scripts from any directory.
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
 
 # Add ci3 to path.
-ci3="$(git rev-parse --show-toplevel)/ci3"
+export ci3="$(git rev-parse --show-toplevel)/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
 # Conditionally print all statements ran in CI scripts.
@@ -19,8 +19,4 @@ function hash_str {
 }
 export -f hash_str
 
-yellow="\033[93m"
-blue="\033[34m"
-green="\033[32m"
-bold="\033[1m"
-reset="\033[0m"
+source $ci3/source_color
