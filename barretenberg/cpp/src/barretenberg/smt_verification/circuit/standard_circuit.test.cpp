@@ -377,6 +377,8 @@ TEST(standard_circuit, check_double_xor_bug)
     StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
 }
 
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
 TEST(standard_circuit, optimized_range_witness)
 {
     uint32_t rbit = engine.get_random_uint8() & 1;
@@ -404,6 +406,8 @@ TEST(standard_circuit, optimized_range_witness)
     }
 }
 
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
 TEST(standard_circuit, optimized_logic_witness)
 {
     StandardCircuitBuilder builder;
@@ -433,6 +437,8 @@ TEST(standard_circuit, optimized_logic_witness)
     }
 }
 
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
 TEST(standard_circuit, optimized_shr_witness)
 {
     StandardCircuitBuilder builder;
@@ -458,6 +464,8 @@ TEST(standard_circuit, optimized_shr_witness)
     }
 }
 
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
 TEST(standard_circuit, optimized_shl_witness)
 {
     StandardCircuitBuilder builder;
@@ -483,6 +491,8 @@ TEST(standard_circuit, optimized_shl_witness)
     }
 }
 
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
 TEST(standard_circuit, optimized_ror_witness)
 {
     StandardCircuitBuilder builder;
