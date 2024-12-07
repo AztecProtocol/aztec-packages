@@ -839,7 +839,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator/(const bigfield& other) cons
 
     return internal_div({ *this }, other, true);
 }
-
 /**
  * @brief Create constraints for summing these terms
  *
