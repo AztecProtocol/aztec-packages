@@ -202,6 +202,7 @@ jobs:
         id: e2e_list
         with:
           run: |
+            sudo apt install jq
             set -eu
             LABELS=""
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -211,7 +212,6 @@ jobs:
             # Install yq
             sudo curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
               -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-            sudo apt install jq
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
             echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
             echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> .github-output
