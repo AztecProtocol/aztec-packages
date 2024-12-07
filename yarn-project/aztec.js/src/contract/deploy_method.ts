@@ -153,7 +153,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     // Register the contract class if it hasn't been published already.
     if (!options.skipClassRegistration) {
-      if (await this.wallet.isContractClassPubliclyRegistered(contractClass.id)) {
+      if ((await this.wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
         this.log.debug(
           `Skipping registration of already registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
         );

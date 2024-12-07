@@ -519,7 +519,9 @@ export async function publicDeployAccounts(
   waitUntilProven = false,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
-  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const instances = (
+    await Promise.all(accountAddressesToDeploy.map(account => sender.getContractMetadata(account)))
+  ).map(contractMetadata => contractMetadata.contractInstance);
   const batch = new BatchCall(sender, [
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
     ...instances.map(instance => deployInstance(sender, instance!).request()),

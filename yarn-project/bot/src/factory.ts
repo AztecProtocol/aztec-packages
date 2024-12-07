@@ -63,7 +63,7 @@ export class BotFactory {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
     const account = getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
-    const isInit = await this.pxe.isContractInitialized(account.getAddress());
+    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
@@ -122,7 +122,7 @@ export class BotFactory {
     }
 
     const address = deploy.getInstance(deployOpts).address;
-    if (await this.pxe.isContractPubliclyDeployed(address)) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {

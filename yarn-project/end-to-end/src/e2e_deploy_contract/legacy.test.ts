@@ -42,8 +42,8 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
     const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
-    expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();
-    expect(await pxe.isContractPubliclyDeployed(deploymentData.address)).toBeDefined();
+    expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
+    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPubliclyDeployed).toBeTrue();
   });
 
   /**
@@ -113,7 +113,10 @@ describe('e2e_deploy_contract legacy', () => {
 
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
+    const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
+      badDeploy.getInstance().contractClassId,
+    );
     // But the bad tx did not deploy
-    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().contractClassId)).resolves.toBeFalsy();
+    expect(isContractClassPubliclyRegistered).toBeFalse();
   });
 });

@@ -158,13 +158,33 @@ export class PXEService implements PXE {
     return this.db.getContractInstance(address);
   }
 
-  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  public async getContractClassMetadata(
+    id: Fr,
+    includeArtifact: boolean = false,
+  ): Promise<{
+    contractClass: ContractClassWithId | undefined;
+    isContractClassPubliclyRegistered: boolean;
+    artifact: ContractArtifact | undefined;
+  }> {
     const artifact = await this.db.getContractArtifact(id);
-    return artifact && getContractClassFromArtifact(artifact);
+
+    return {
+      contractClass: artifact && getContractClassFromArtifact(artifact),
+      isContractClassPubliclyRegistered: await this.#isContractClassPubliclyRegistered(id),
+      artifact: includeArtifact ? artifact : undefined,
+    };
   }
 
-  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    return this.db.getContractArtifact(id);
+  public async getContractMetadata(address: AztecAddress): Promise<{
+    contractInstance: ContractInstanceWithAddress | undefined;
+    isContractInitialized: boolean;
+    isContractPubliclyDeployed: boolean;
+  }> {
+    return {
+      contractInstance: await this.db.getContractInstance(address),
+      isContractInitialized: await this.#isContractInitialized(address),
+      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+    };
   }
 
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
@@ -873,15 +893,15 @@ export class PXEService implements PXE {
     return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
-  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+  async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
   }
 
-  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
   }
 
-  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
+  async #isContractInitialized(address: AztecAddress): Promise<boolean> {
     const initNullifier = siloNullifier(address, address.toField());
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }

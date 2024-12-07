@@ -52,12 +52,12 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const instance = randomContractInstanceWithAddress({ contractClassId });
 
       await pxe.registerContractClass(artifact);
-      expect(await pxe.getContractClass(contractClassId)).toMatchObject(
+      expect((await pxe.getContractClassMetadata(contractClassId)).contractClass).toMatchObject(
         omit(contractClass, 'privateFunctionsRoot', 'publicBytecodeCommitment'),
       );
 
       await pxe.registerContract({ instance });
-      expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+      expect((await pxe.getContractMetadata(instance.address)).contractInstance).toEqual(instance);
     });
 
     it('refuses to register a class with a mismatched address', async () => {

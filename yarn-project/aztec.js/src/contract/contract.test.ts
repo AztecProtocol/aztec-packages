@@ -147,7 +147,11 @@ describe('Contract Class', () => {
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractInstance.mockResolvedValue(contractInstance);
+    wallet.getContractMetadata.mockResolvedValue({
+      contractInstance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);

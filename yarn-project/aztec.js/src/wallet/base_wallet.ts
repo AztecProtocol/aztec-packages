@@ -1,5 +1,7 @@
 import {
   type AuthWitness,
+  ContractClassMetadata,
+  ContractMetadata,
   type EventMetadataDefinition,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
@@ -64,15 +66,6 @@ export abstract class BaseWallet implements Wallet {
 
   getAddress() {
     return this.getCompleteAddress().address;
-  }
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.pxe.getContractInstance(address);
-  }
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
-    return this.pxe.getContractClass(id);
-  }
-  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    return this.pxe.getContractArtifact(id);
   }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
@@ -181,17 +174,14 @@ export abstract class BaseWallet implements Wallet {
   getAuthWitness(messageHash: Fr) {
     return this.pxe.getAuthWitness(messageHash);
   }
-  isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
-    return this.pxe.isContractClassPubliclyRegistered(id);
-  }
-  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
-    return this.pxe.isContractPubliclyDeployed(address);
-  }
-  isContractInitialized(address: AztecAddress): Promise<boolean> {
-    return this.pxe.isContractInitialized(address);
-  }
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();
+  }
+  getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {
+    return this.pxe.getContractClassMetadata(id, includeArtifact);
+  }
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata> {
+    return this.pxe.getContractMetadata(address);
   }
   getEncryptedEvents<T>(
     event: EventMetadataDefinition,
