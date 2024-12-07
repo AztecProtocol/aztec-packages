@@ -465,6 +465,9 @@ size_t StandardCircuit::handle_range_constraint(size_t cursor)
         num_quads += num_bits & 1;
         uint32_t processed_gates = 0;
 
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the decompose_into_base4_accumulators gate by gate using BitVectors/Integers
         for (size_t i = num_quads - 1; i < num_quads; i--) {
             uint32_t lo_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
             processed_gates += 1;
@@ -604,7 +607,9 @@ size_t StandardCircuit::handle_shr_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        // Simulate the shr circuit using bitwise ops
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's operator>> gate by gate using BitVectors/Integers
         uint32_t shift = nr.second;
         if ((shift & 1) == 1) {
             size_t processed_gates = 0;
@@ -738,7 +743,9 @@ size_t StandardCircuit::handle_shl_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        // Simulate the shr circuit using bitwise ops
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's operator<< gate by gate using BitVectors/Integers
         uint32_t num_bits = nr.first;
         uint32_t shift = nr.second;
         if ((shift & 1) == 1) {
@@ -874,7 +881,9 @@ size_t StandardCircuit::handle_ror_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        // Simulate the ror circuit using bitwise ops
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's rotate_right gate by gate using BitVectors/Integers
         uint32_t num_bits = nr.first;
         uint32_t rotation = nr.second;
         if ((rotation & 1) == 1) {
