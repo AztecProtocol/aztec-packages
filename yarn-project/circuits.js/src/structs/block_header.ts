@@ -8,14 +8,14 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
+import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
-export class Header {
+export class BlockHeader {
   constructor(
     /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
@@ -41,10 +41,10 @@ export class Header {
         totalFees: schemas.Fr,
         totalManaUsed: schemas.Fr,
       })
-      .transform(Header.from);
+      .transform(BlockHeader.from);
   }
 
-  static getFields(fields: FieldsOf<Header>) {
+  static getFields(fields: FieldsOf<BlockHeader>) {
     // Note: The order here must match the order in the HeaderLib solidity library.
     return [
       fields.lastArchive,
@@ -56,8 +56,8 @@ export class Header {
     ] as const;
   }
 
-  static from(fields: FieldsOf<Header>) {
-    return new Header(...Header.getFields(fields));
+  static from(fields: FieldsOf<BlockHeader>) {
+    return new BlockHeader(...BlockHeader.getFields(fields));
   }
 
   getSize() {
@@ -72,25 +72,25 @@ export class Header {
   }
 
   toBuffer() {
-    return serializeToBuffer(...Header.getFields(this));
+    return serializeToBuffer(...BlockHeader.getFields(this));
   }
 
   toFields(): Fr[] {
-    const fields = serializeToFields(...Header.getFields(this));
-    if (fields.length !== HEADER_LENGTH) {
-      throw new Error(`Invalid number of fields for Header. Expected ${HEADER_LENGTH}, got ${fields.length}`);
+    const fields = serializeToFields(...BlockHeader.getFields(this));
+    if (fields.length !== BLOCK_HEADER_LENGTH) {
+      throw new Error(`Invalid number of fields for Header. Expected ${BLOCK_HEADER_LENGTH}, got ${fields.length}`);
     }
     return fields;
   }
 
-  clone(): Header {
-    return Header.fromBuffer(this.toBuffer());
+  clone(): BlockHeader {
+    return BlockHeader.fromBuffer(this.toBuffer());
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): Header {
+  static fromBuffer(buffer: Buffer | BufferReader): BlockHeader {
     const reader = BufferReader.asReader(buffer);
 
-    return new Header(
+    return new BlockHeader(
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(ContentCommitment),
       reader.readObject(StateReference),
@@ -100,10 +100,10 @@ export class Header {
     );
   }
 
-  static fromFields(fields: Fr[] | FieldReader): Header {
+  static fromFields(fields: Fr[] | FieldReader): BlockHeader {
     const reader = FieldReader.asReader(fields);
 
-    return new Header(
+    return new BlockHeader(
       AppendOnlyTreeSnapshot.fromFields(reader),
       ContentCommitment.fromFields(reader),
       StateReference.fromFields(reader),
@@ -113,8 +113,8 @@ export class Header {
     );
   }
 
-  static empty(fields: Partial<FieldsOf<Header>> = {}): Header {
-    return Header.from({
+  static empty(fields: Partial<FieldsOf<BlockHeader>> = {}): BlockHeader {
+    return BlockHeader.from({
       lastArchive: AppendOnlyTreeSnapshot.zero(),
       contentCommitment: ContentCommitment.empty(),
       state: StateReference.empty(),
@@ -144,8 +144,8 @@ export class Header {
     return bufferToHex(this.toBuffer());
   }
 
-  static fromString(str: string): Header {
-    return Header.fromBuffer(hexToBuffer(str));
+  static fromString(str: string): BlockHeader {
+    return BlockHeader.fromBuffer(hexToBuffer(str));
   }
 
   hash(): Fr {

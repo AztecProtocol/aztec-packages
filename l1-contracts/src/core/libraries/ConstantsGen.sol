@@ -204,7 +204,7 @@ library Constants {
   uint256 internal constant TX_REQUEST_LENGTH = 12;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
-  uint256 internal constant HEADER_LENGTH = 25;
+  uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 739;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;

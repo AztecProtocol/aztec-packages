@@ -2,9 +2,9 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -188,7 +188,7 @@ describe('NativeWorldState', () => {
 
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,
@@ -218,7 +218,7 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork(3);
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,

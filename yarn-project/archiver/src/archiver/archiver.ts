@@ -22,12 +22,12 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
-  type Header,
   type PrivateLog,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
@@ -617,7 +617,7 @@ export class Archiver implements ArchiveSource {
     return blocks.length === 0 ? undefined : blocks[0].data;
   }
 
-  public async getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
@@ -1014,7 +1014,7 @@ class ArchiverStoreHelper
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
     return this.store.getBlocks(from, limit);
   }
-  getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
   getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {

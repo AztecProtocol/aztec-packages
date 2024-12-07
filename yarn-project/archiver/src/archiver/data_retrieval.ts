@@ -1,5 +1,5 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Blob } from '@aztec/foundation/blob';
 import { type EthAddress } from '@aztec/foundation/eth-address';
@@ -153,7 +153,7 @@ async function getBlockFromRollupTx(
     Hex,
   ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.

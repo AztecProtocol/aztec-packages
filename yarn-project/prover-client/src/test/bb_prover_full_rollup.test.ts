@@ -39,7 +39,7 @@ describe('prover/bb_prover/full-rollup', () => {
     async (blockCount, totalBlocks, nonEmptyTxs, totalTxs) => {
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
-      const initialHeader = context.getHeader(0);
+      const initialHeader = context.getBlockHeader(0);
       context.orchestrator.startNewEpoch(1, 1, totalBlocks);
 
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
@@ -96,7 +96,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }),
     );
     for (const tx of txs) {
-      tx.data.constants.historicalHeader = context.getHeader(0);
+      tx.data.constants.historicalHeader = context.getBlockHeader(0);
     }
 
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(

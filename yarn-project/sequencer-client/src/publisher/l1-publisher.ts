@@ -11,9 +11,9 @@ import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circu
 import {
   AGGREGATION_OBJECT_LENGTH,
   AZTEC_MAX_EPOCH_DURATION,
+  type BlockHeader,
   EthAddress,
   type FeeRecipient,
-  type Header,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -369,7 +369,7 @@ export class L1Publisher {
    *
    */
   public async validateBlockForSubmission(
-    header: Header,
+    header: BlockHeader,
     attestationData: { digest: Buffer; signatures: Signature[] } = {
       digest: Buffer.alloc(32),
       signatures: [],

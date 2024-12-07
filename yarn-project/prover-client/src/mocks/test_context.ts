@@ -8,7 +8,7 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { type AppendOnlyTreeSnapshot, type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, BlockHeader, type Gas, type GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
@@ -39,7 +39,7 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
-  private headers: Map<number, Header> = new Map();
+  private headers: Map<number, BlockHeader> = new Map();
 
   constructor(
     public publicTxSimulator: PublicTxSimulator,
@@ -82,7 +82,7 @@ export class TestContext {
     const processor = new PublicProcessor(
       publicDb,
       globalVariables,
-      Header.empty(),
+      BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
       telemetry,
@@ -137,9 +137,9 @@ export class TestContext {
     return this.worldState.fork();
   }
 
-  public getHeader(blockNumber: 0): Header;
-  public getHeader(blockNumber: number): Header | undefined;
-  public getHeader(blockNumber = 0) {
+  public getBlockHeader(blockNumber: 0): BlockHeader;
+  public getBlockHeader(blockNumber: number): BlockHeader | undefined;
+  public getBlockHeader(blockNumber = 0) {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
   }
 
@@ -155,7 +155,7 @@ export class TestContext {
   public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): ProcessedTx {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
-    const header = this.getHeader(blockNum - 1);
+    const header = this.getBlockHeader(blockNum - 1);
     return makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),

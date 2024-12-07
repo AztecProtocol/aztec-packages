@@ -1,4 +1,4 @@
-import { Header } from '@aztec/circuits.js';
+import { BlockHeader } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -14,7 +14,7 @@ export class ConsensusPayload implements Signable {
 
   constructor(
     /** The block header the attestation is made over */
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
     /** The sequence of transactions in the block */
@@ -51,7 +51,7 @@ export class ConsensusPayload implements Signable {
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
     return new ConsensusPayload(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readArray(reader.readNumber(), TxHash),
     );
@@ -62,7 +62,7 @@ export class ConsensusPayload implements Signable {
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(Header.empty(), Fr.ZERO, []);
+    return new ConsensusPayload(BlockHeader.empty(), Fr.ZERO, []);
   }
 
   /**

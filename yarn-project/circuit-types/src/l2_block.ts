@@ -1,4 +1,4 @@
-import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader } from '@aztec/circuits.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -17,7 +17,7 @@ export class L2Block {
     /** Snapshot of archive tree after the block is applied. */
     public archive: AppendOnlyTreeSnapshot,
     /** L2 block header. */
-    public header: Header,
+    public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
   ) {}
@@ -26,7 +26,7 @@ export class L2Block {
     return z
       .object({
         archive: AppendOnlyTreeSnapshot.schema,
-        header: Header.schema,
+        header: BlockHeader.schema,
         body: Body.schema,
       })
       .transform(({ archive, header, body }) => new L2Block(archive, header, body));
@@ -38,7 +38,7 @@ export class L2Block {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const header = reader.readObject(Header);
+    const header = reader.readObject(BlockHeader);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
 
@@ -101,7 +101,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.zero(), Header.empty(), Body.empty());
+    return new L2Block(AppendOnlyTreeSnapshot.zero(), BlockHeader.empty(), Body.empty());
   }
 
   get number(): number {
