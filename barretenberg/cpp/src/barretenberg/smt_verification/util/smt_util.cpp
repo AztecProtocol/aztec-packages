@@ -96,6 +96,10 @@ std::vector<std::vector<bb::fr>> default_model(const std::vector<std::string>& s
     myfile << "};";
     myfile.close();
 
+    // Accessing post processing functionality of the symbolic circuit
+    // Once we obtained the witness, compatible with current configuration(e.g. BVTerm)
+    // We can further compute the remaining witness entries, which were optimized and hence
+    // are not provided by the solver
     for (const auto& post : c1.post_process) {
         uint32_t res_idx = post.first;
         auto left_idx = static_cast<uint32_t>(post.second[0]);
@@ -181,6 +185,10 @@ std::vector<bb::fr> default_model_single(const std::vector<std::string>& special
     myfile << "};";
     myfile.close();
 
+    // Accessing post processing functionality of the symbolic circuit
+    // Once we obtained the witness, compatible with current configuration(e.g. BVTerm)
+    // We can further compute the remaining witness entries, which were optimized and hence
+    // are not provided by the solver
     for (const auto& post : c.post_process) {
         uint32_t res_idx = post.first;
         auto left_idx = static_cast<uint32_t>(post.second[0]);
