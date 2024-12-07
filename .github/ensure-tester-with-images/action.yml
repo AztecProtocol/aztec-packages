@@ -7,17 +7,13 @@ inputs:
     required: true
   spot_strategy:
     default: BestEffort
-  builder_type:
-    required: true
-  builder_images_to_copy:
-    required: true
-  builder_command:
+  images_to_pull:
     required: true
   username:
     required: false
   run:
     required: true
-  tester_ttl:
+  ttl:
     required: false
     description: "Time to live for the tester instance in minutes"
     default: 45
@@ -25,53 +21,16 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - name: Ensure Builder And Images
-      uses: ./.github/ensure-builder
-      with:
-        username: ${{ inputs.username }}
-        runner_type: ${{ inputs.builder_type }}
-        run: |
-          # run builder_command if inputs don't exist
-          set -eux
-          for image in ${{ inputs.builder_images_to_copy }} ; do
-            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
-              export FORCE_COLOR=1
-              flock /var/lock/submodule.lock git submodule update --init --recursive --recommend-shallow
-              ${{ inputs.builder_command }}
-              break
-            fi
-          done
-
-    - name: Compute Success Key
-      shell: bash
-      run: |
-        scripts/run_on_builder "
-          for image in ${{ inputs.builder_images_to_copy }} ; do
-            docker images --no-trunc --quiet \$image
-          done" > .success_key
-        # TODO better image key
-        echo "IMAGE_KEY=$(cat .success_key | md5sum | awk '{print $1}')-$(git rev-parse HEAD)" >> $GITHUB_ENV
-        echo "${{ inputs.run }}" >> .success_key
-        echo "SUCCESS_KEY=$(cat .success_key | md5sum | awk '{print $1}')" >> $GITHUB_ENV
-
-    - name: Check Cached Success
-      uses: ./.github/cache-success
-      with:
-        success_key: ${{ env.SUCCESS_KEY }}
-
-    - name: Copy Docker Images To Tester
+    - name: Pull Docker Images
       uses: ./.github/ensure-tester
-      if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
         username: ${{ inputs.username }}
         runner_type: ${{ inputs.runner_type}}
         spot_strategy: ${{ inputs.spot_strategy }}
-        ttl: ${{ inputs.tester_ttl }}
+        ttl: ${{ inputs.ttl }}
         run: |
           set -eux
-          export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
-          export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
-          for image in ${{ inputs.builder_images_to_copy }}; do
+          for image in ${{ inputs.images_to_pull }}; do
             docker pull $image
           done
 

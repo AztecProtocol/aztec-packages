@@ -156,6 +156,14 @@ case "$cmd" in
     fi
     exit 0
     ;;
+  "test-kind-network")
+    test=${2:-transfer.test.ts}
+    values=${3:-3-validators}
+    ./bootstrap.sh image-e2e
+    cd yarn-project/end-to-end
+    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
+    exit 0
+    ;;
   "gha-url")
     # TODO(ci3) change over to CI3 once fully enabled.
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
@@ -168,7 +176,7 @@ case "$cmd" in
     exit 0
     ;;
   *)
-    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|gha-url"
+    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|test-kind-network|gha-url"
     exit 1
     ;;
 esac

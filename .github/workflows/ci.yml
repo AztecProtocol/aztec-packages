@@ -257,9 +257,7 @@ jobs:
           PULL_REQUEST: ${{ github.event.pull_request.number }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
-          builder_type: builder-x86
-          builder_images_to_copy: ./bootstrap.sh image-e2e
-          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
@@ -291,13 +289,8 @@ jobs:
         timeout-minutes: 45
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-          tester_ttl: 40
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          ttl: 40
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
@@ -438,10 +431,8 @@ jobs:
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: 8core-tester-x86
-          builder_type: builder-x86
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-          tester_ttl: 60
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          ttl: 60
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
@@ -481,15 +472,10 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
-          builder_type: builder-x86
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          builder_command: flock /var/lock/build.lock ./bootstrap.sh image-e2e
-          tester_ttl: ${{ matrix.config.timeout }}
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          ttl: ${{ matrix.config.timeout }}
           run: |
-            cd yarn-project/end-to-end
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            test=${{ matrix.config.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+            ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
       - name: Copy Network Logs
         if: always()
         run: copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
@@ -530,7 +516,7 @@ jobs:
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
             export CI=1
             export USE_CACHE=1
-            if ci3/test_should_run bb-bench-$HASH bench; then
+            if ci3/test_should_run bb-bench-$HASH; then
               scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
               ci3/cache_upload_flag bb-bench-$HASH
             fi

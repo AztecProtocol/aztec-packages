@@ -62,19 +62,11 @@ jobs:
         timeout-minutes: 90
         with:
           runner_type: 16core-tester-x86
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: ./bootstrap.sh image-e2e
-          tester_ttl: 90
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          ttl: 90
           run: |
             set -eux
-            ./spartan/scripts/setup_local_k8s.sh
-            cd yarn-project/end-to-end
-            export FORCE_COLOR=1
-            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true CLEANUP_CLUSTER=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
+            FORCE_COLOR=1 CLEANUP_CLUSTER=true ./ci.sh test-kind-network ${{ matrix.test }}.test.ts 16-validators || true
 
   proving-test:
     needs: build
@@ -89,19 +81,11 @@ jobs:
         timeout-minutes: 90
         with:
           runner_type: 128core-tester-x86
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: ./bootstrap.sh image-e2e
-          tester_ttl: 90
+          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          ttl: 90
           run: |
-            set -eux
-            ./spartan/scripts/setup_local_k8s.sh
-            cd yarn-project/end-to-end
-            export FORCE_COLOR=1
-            NAMESPACE=proving FRESH_INSTALL=true CLEANUP_CLUSTER=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
+            INSTALL_TIMEOUT=45m FORCE_COLOR=1 CLEANUP_CLUSTER=true \
+              ./ci.sh test-kind-network proving.test.ts 1-validator-with-proving || true
 
   success-check:
     runs-on: ubuntu-20.04
