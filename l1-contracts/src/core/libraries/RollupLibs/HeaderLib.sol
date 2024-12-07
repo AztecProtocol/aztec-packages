@@ -106,7 +106,7 @@ struct Header {
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
-  uint256 private constant HEADER_LENGTH = Constants.HEADER_LENGTH_BYTES; // Header byte length
+  uint256 private constant HEADER_LENGTH = Constants.BLOCK_HEADER_LENGTH_BYTES; // Header byte length
 
   /**
    * @notice Decodes the header
