@@ -4,35 +4,6 @@ build:
     FROM ../+bootstrap
     WORKDIR /usr/src/yarn-project
 
-cli-base:
-    FROM +build
-    # Remove a bunch of stuff that we don't need that takes up space.
-    RUN rm -rf \
-        ../noir-projects \
-        ../l1-contracts \
-        ../barretenberg/ts/src \
-        ../barretenberg/ts/dest/node-cjs \
-        ../barretenberg/ts/dest/browser
-
-bb-cli:
-    FROM +cli-base
-
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
-
-    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
-    RUN rm -rf \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src
-
-    # yarn symlinks the binary to node_modules/.bin
-    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
-
 txe:
     FROM +cli-base
     RUN yarn workspaces focus @aztec/txe && yarn cache clean
