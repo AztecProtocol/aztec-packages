@@ -246,22 +246,16 @@ export interface PXE {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
-   * Adds a note to the database.
-   * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
+   * Delivers a previously created note to the database. This note can be non-nullified or nullified.
+   * @param note - The note to deliver.
+   * @param nullified - Whether or not the note we want to deliver is nullified. Currently optional.
    * @param scope - The scope to add the note under. Currently optional.
-   */
-  addNote(note: ExtendedNote, scope?: AztecAddress): Promise<void>;
-
-  /**
-   * Adds a nullified note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
-   * @dev We are not deriving a nullifier in this function since that would require having the nullifier secret key
+   * @dev When we deliver a nullified note, we are not deriving a nullifier in this function since that would require having the nullifier secret key
    * which is undesirable. Instead, we are just adding the note to the database as nullified and the nullifier is set
    * to 0 in the db.
    */
-  addNullifiedNote(note: ExtendedNote): Promise<void>;
+  deliverNote(note: ExtendedNote, nullified?: boolean, scope?: AztecAddress): Promise<void>;
 
   /**
    * Get the given block.
@@ -503,8 +497,10 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
-  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
-  addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
+  deliverNote: z
+    .function()
+    .args(ExtendedNote.schema, optional(z.boolean()), optional(schemas.AztecAddress))
+    .returns(z.void()),
   getBlock: z
     .function()
     .args(z.number())

@@ -164,7 +164,7 @@ export class BlacklistTokenContractTest {
       TokenBlacklistContract.notes.TransparentNote.id,
       txHash,
     );
-    await this.wallets[accountIndex].addNote(extendedNote);
+    await this.wallets[accountIndex].deliverNote(extendedNote);
   }
 
   async applyMintSnapshot() {

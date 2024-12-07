@@ -338,7 +338,15 @@ export class PXEService implements PXE {
     return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
-  public async addNote(note: ExtendedNote, scope?: AztecAddress) {
+  public async deliverNote(note: ExtendedNote, nullified: boolean = false, scope?: AztecAddress) {
+    if (!nullified) {
+      await this.#addNote(note, scope);
+    } else {
+      await this.#addNullifiedNote(note);
+    }
+  }
+
+  async #addNote(note: ExtendedNote, scope?: AztecAddress) {
     const owner = await this.db.getCompleteAddress(note.owner);
     if (!owner) {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
@@ -392,7 +400,7 @@ export class PXEService implements PXE {
     }
   }
 
-  public async addNullifiedNote(note: ExtendedNote) {
+  async #addNullifiedNote(note: ExtendedNote) {
     const { data: nonces, l2BlockHash, l2BlockNumber } = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);

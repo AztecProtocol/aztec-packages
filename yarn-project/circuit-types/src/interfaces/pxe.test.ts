@@ -203,12 +203,9 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
-  it('addNote', async () => {
-    await context.client.addNote(ExtendedNote.random(), address);
-  });
-
-  it('addNullifiedNote', async () => {
-    await context.client.addNullifiedNote(ExtendedNote.random());
+  it('deliverNote', async () => {
+    await context.client.deliverNote(ExtendedNote.random(), false, address);
+    await context.client.deliverNote(ExtendedNote.random(), true, address);
   });
 
   it('getBlock', async () => {
@@ -419,13 +416,10 @@ class MockPXE implements PXE {
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
-  addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
+  deliverNote(note: ExtendedNote, isNullified: boolean = false, scope?: AztecAddress): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
+    expect(typeof isNullified).toBe('boolean');
     expect(scope).toEqual(this.address);
-    return Promise.resolve();
-  }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
     return Promise.resolve();
   }
   getBlock(number: number): Promise<L2Block | undefined> {

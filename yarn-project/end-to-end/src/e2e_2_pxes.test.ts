@@ -271,7 +271,7 @@ describe('e2e_2_pxes', () => {
     {
       // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_optionally_a_nullifier(...)
       await pxeB.registerContract(testContract);
-      await pxeB.addNullifiedNote(note);
+      await pxeB.deliverNote(note, true);
     }
 
     // 5. Try fetching the nullified note

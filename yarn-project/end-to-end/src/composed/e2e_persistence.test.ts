@@ -337,6 +337,6 @@ async function addPendingShieldNoteToPXE(
     TokenBlacklistContract.notes.TransparentNote.id,
     txHash,
   );
-  await wallet.addNote(extendedNote);
+  await wallet.deliverNote(extendedNote);
   // docs:end:pxe_add_note
 }

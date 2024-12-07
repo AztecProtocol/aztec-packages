@@ -26,5 +26,5 @@ export async function addNote(
   }
 
   const extendedNote = new ExtendedNote(note, address, contractAddress, storageField.slot, contractNote.id, txHash);
-  await wallet.addNote(extendedNote);
+  await wallet.deliverNote(extendedNote);
 }

@@ -67,7 +67,7 @@ describe('e2e_non_contract_account', () => {
       TestContract.notes.TestNote.id,
       txHash,
     );
-    await wallet.addNote(extendedNote);
+    await wallet.deliverNote(extendedNote);
 
     expect(await contract.methods.get_constant().simulate()).toEqual(value);
   });
