@@ -18,7 +18,7 @@ validator:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "8"
+      cpu: "4"
   storage: "128Gi"
 
 bootNode:
@@ -28,7 +28,7 @@ bootNode:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "8"
+      cpu: "4"
   storage: "128Gi"
 
 proverNode:
@@ -36,11 +36,11 @@ proverNode:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "8"
+      cpu: "4"
   storage: "128Gi"
 
 proverAgent:
-  replicas: 120
+  replicas: 4
   realProofs: true
   bb:
     hardwareConcurrency: 31
@@ -48,15 +48,23 @@ proverAgent:
     requests:
       memory: "116Gi"
       cpu: "31"
+  gke:
+    spotEnabled: true
+
+proverBroker:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "4"
 
 pxe:
   proverEnabled: true
 
 bot:
-  replicas: 16
+  replicas: 1
   enabled: true
   pxeProverEnabled: true
-  txIntervalSeconds: 1
+  txIntervalSeconds: 200
   proverRealProofs: true
   botPrivateKey: ""
   privateTransfersPerTx: 1
@@ -74,8 +82,16 @@ jobs:
   deployL1Verifier:
     enable: true
 
-fullnameOverride: sp
+fullnameOverride: az
 
 aztec:
   slotDuration: 36
   epochDuration: 32
+
+# images:
+#   aztec:
+#     image: philwindle/aztec
+#     pullPolicy: Always
+
+network:
+  setupL2Contracts: false
