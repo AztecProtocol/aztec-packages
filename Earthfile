@@ -89,7 +89,9 @@ bootstrap-aztec:
     noir-projects \
     l1-contracts \
     barretenberg/cpp/src \
-    barretenberg/ts \
+    barretenberg/ts/node-cjs \
+    barretenberg/ts/browser \
+    barretenberg/ts/src \
     build-system \
     docs \
     yarn-project/end-to-end \
@@ -107,7 +109,6 @@ bootstrap-end-to-end:
     docs \
     barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs \
-    barretenberg/ts/dest/browser
   WORKDIR /usr/src/yarn-project
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
