@@ -108,7 +108,7 @@ bootstrap-end-to-end:
     build-system \
     docs \
     barretenberg/ts/src \
-    barretenberg/ts/dest/node-cjs \
+    barretenberg/ts/dest/node-cjs
   WORKDIR /usr/src/yarn-project
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
