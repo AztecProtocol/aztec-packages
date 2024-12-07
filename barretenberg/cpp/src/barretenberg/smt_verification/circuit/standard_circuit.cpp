@@ -305,7 +305,9 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
         STerm right = this->symbolic_vars[right_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        // Simulate the logic constraint circuit using the bitwise operations
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the create_logic_constraint gate by gate using BitVectors/Integers
         size_t num_bits = res;
         size_t processed_gates = 0;
         for (size_t i = num_bits - 1; i < num_bits; i -= 2) {
