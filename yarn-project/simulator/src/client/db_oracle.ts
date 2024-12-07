@@ -8,9 +8,9 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
-  type BlockHeader,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';

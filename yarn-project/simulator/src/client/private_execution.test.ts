@@ -10,13 +10,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   CallContext,
   CompleteAddress,
   GasFees,
   GasSettings,
   GeneratorIndex,
   type GrumpkinScalar,
-  BlockHeader,
   IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,

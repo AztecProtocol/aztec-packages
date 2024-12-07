@@ -7,9 +7,9 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   EthAddress,
   Fr,
-  BlockHeader,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

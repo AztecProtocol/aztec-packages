@@ -1,8 +1,8 @@
 import {
+  BlockHeader,
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  BlockHeader,
   PrivateLog,
   PublicFunctionSchema,
 } from '@aztec/circuits.js';

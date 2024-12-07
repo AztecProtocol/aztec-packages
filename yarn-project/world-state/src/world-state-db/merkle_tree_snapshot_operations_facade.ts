@@ -5,7 +5,13 @@ import {
   type MerkleTreeReadOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { AppendOnlyTreeSnapshot, Fr, type BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import {
+  AppendOnlyTreeSnapshot,
+  type BlockHeader,
+  Fr,
+  PartialStateReference,
+  StateReference,
+} from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type IndexedTreeSnapshot } from '@aztec/merkle-tree';
 

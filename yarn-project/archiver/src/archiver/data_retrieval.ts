@@ -1,5 +1,5 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, BlockHeader, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';

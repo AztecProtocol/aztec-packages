@@ -1,6 +1,7 @@
 import { PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
+  BlockHeader,
   CallContext,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -10,7 +11,6 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  BlockHeader,
   MAX_L2_GAS_PER_ENQUEUED_CALL,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,

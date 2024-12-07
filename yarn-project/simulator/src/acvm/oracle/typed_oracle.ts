@@ -9,8 +9,8 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type ContractInstance,
   type BlockHeader,
+  type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,

@@ -5,8 +5,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { GlobalVariables } from '../global_variables.js';
 import { BlockHeader } from '../block_header.js';
+import { GlobalVariables } from '../global_variables.js';
 import { TxContext } from '../tx_context.js';
 import { type TxConstantData } from './tx_constant_data.js';
 

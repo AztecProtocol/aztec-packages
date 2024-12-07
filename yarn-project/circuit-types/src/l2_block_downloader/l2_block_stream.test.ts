@@ -1,4 +1,4 @@
-import { Fr, type BlockHeader } from '@aztec/circuits.js';
+import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { compactArray } from '@aztec/foundation/collection';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

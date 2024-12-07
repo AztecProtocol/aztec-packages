@@ -1,10 +1,10 @@
 import {
   AztecAddress,
+  BlockHeader,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Gas,
   GlobalVariables,
-  BlockHeader,
   L2ToL1Message,
   LogHash,
   MAX_ENQUEUED_CALLS_PER_CALL,

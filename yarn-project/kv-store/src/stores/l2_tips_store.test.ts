@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { Fr, type BlockHeader } from '@aztec/circuits.js';
+import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';

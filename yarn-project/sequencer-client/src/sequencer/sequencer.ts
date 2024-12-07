@@ -13,10 +13,10 @@ import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@a
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   ContentCommitment,
   GENESIS_ARCHIVE_ROOT,
   type GlobalVariables,
-  BlockHeader,
   StateReference,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

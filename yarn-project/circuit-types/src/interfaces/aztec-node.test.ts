@@ -1,12 +1,12 @@
 import {
   ARCHIVE_HEIGHT,
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  BlockHeader,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,

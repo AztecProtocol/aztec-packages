@@ -1,7 +1,7 @@
 import { serializeToFields } from '@aztec/foundation/serialize';
 
-import { CallContext } from '../call_context.js';
 import { BlockHeader } from '../block_header.js';
+import { CallContext } from '../call_context.js';
 import { TxContext } from '../tx_context.js';
 
 export class PrivateContextInputs {

@@ -9,11 +9,11 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
   GasSettings,
-  type BlockHeader,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';

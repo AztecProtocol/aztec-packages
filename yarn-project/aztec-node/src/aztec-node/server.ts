@@ -34,13 +34,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   type GasFees,
-  type BlockHeader,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,

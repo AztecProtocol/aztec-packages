@@ -8,7 +8,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { GeneratorIndex, BLOCK_HEADER_LENGTH } from '../constants.gen.js';
+import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';

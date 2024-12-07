@@ -1,6 +1,6 @@
 import {
-  type Fr,
   type BlockHeader,
+  type Fr,
   type NullifierLeaf,
   type PublicDataTreeLeaf,
   type StateReference,

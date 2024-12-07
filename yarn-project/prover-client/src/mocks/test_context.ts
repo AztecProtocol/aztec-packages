@@ -9,7 +9,7 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { type AppendOnlyTreeSnapshot, type Gas, type GlobalVariables, BlockHeader } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, BlockHeader, type Gas, type GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';

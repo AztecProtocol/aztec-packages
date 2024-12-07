@@ -14,11 +14,11 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
   Fr,
   type FunctionSelector,
-  type BlockHeader,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,

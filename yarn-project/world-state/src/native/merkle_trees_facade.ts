@@ -10,8 +10,8 @@ import {
   type TreeInfo,
 } from '@aztec/circuit-types';
 import {
-  Fr,
   type BlockHeader,
+  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
   PartialStateReference,

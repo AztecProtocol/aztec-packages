@@ -2,9 +2,9 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   EthAddress,
   Fr,
-  BlockHeader,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,

@@ -7,12 +7,12 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  BlockHeader,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,

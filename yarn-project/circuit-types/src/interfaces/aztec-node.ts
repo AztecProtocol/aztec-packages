@@ -1,11 +1,11 @@
 import {
   ARCHIVE_HEIGHT,
+  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  BlockHeader,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,

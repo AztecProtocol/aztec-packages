@@ -70,7 +70,7 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code block_header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
+#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
 
 ### Transaction Context
 

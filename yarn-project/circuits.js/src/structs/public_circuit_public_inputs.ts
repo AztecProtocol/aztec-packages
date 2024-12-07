@@ -27,12 +27,12 @@ import {
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { isEmptyArray } from '../utils/index.js';
+import { BlockHeader } from './block_header.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 import { Gas } from './gas.js';
 import { GlobalVariables } from './global_variables.js';
-import { BlockHeader } from './block_header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { LogHash } from './log_hash.js';
 import { NoteHash } from './note_hash.js';

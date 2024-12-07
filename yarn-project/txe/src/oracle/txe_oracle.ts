@@ -11,13 +11,13 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  BlockHeader,
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
   Gas,
   GasFees,
   GlobalVariables,
-  BlockHeader,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,

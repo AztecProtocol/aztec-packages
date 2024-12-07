@@ -13,10 +13,10 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type ContractDataSource,
   Fr,
   type GlobalVariables,
-  type BlockHeader,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,

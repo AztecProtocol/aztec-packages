@@ -7,9 +7,9 @@ import {
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  BlockHeader,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  BlockHeader,
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,

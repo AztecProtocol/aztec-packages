@@ -1,10 +1,10 @@
 import {
+  type BlockHeader,
   ClientIvcProof,
   CombinedConstantData,
   Fr,
   Gas,
   type GlobalVariables,
-  type BlockHeader,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,

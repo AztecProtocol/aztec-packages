@@ -22,12 +22,12 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
-  type BlockHeader,
   type PrivateLog,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,

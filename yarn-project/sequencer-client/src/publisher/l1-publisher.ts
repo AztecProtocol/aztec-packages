@@ -11,9 +11,9 @@ import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circu
 import {
   AGGREGATION_OBJECT_LENGTH,
   AZTEC_MAX_EPOCH_DURATION,
+  type BlockHeader,
   EthAddress,
   type FeeRecipient,
-  type BlockHeader,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';

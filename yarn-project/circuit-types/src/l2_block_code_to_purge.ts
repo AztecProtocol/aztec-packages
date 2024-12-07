@@ -1,12 +1,12 @@
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
+  BlockHeader,
   ContentCommitment,
   EthAddress,
   Fr,
   GasFees,
   GlobalVariables,
-  BlockHeader,
   NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,

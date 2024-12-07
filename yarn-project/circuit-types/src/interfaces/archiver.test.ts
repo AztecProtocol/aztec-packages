@@ -1,11 +1,11 @@
 import {
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  BlockHeader,
   PrivateLog,
   type PublicFunction,
   PublicKeys,

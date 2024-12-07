@@ -8,8 +8,8 @@ import {
   type PublicDataWitness,
 } from '@aztec/circuit-types';
 import {
-  type ContractInstance,
   type BlockHeader,
+  type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';

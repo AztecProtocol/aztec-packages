@@ -1,4 +1,4 @@
-import { type EthAddress, type BlockHeader } from '@aztec/circuits.js';
+import { type BlockHeader, type EthAddress } from '@aztec/circuits.js';
 
 import { z } from 'zod';
 

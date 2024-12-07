@@ -10,8 +10,8 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  Fr,
   BlockHeader,
+  Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,

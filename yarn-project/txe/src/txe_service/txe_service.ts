@@ -1,9 +1,9 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   Fr,
   FunctionSelector,
-  BlockHeader,
   PublicDataTreeLeaf,
   PublicKeys,
   computePartialAddress,

@@ -117,12 +117,12 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
+import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
 import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
-import { BlockHeader } from '../structs/block_header.js';
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,

@@ -11,9 +11,9 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   CallContext,
   FunctionSelector,
-  type BlockHeader,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,

@@ -1,8 +1,8 @@
 import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type BlockHeader,
   type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
