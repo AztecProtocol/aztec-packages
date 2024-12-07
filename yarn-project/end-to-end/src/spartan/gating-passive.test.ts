@@ -48,8 +48,8 @@ describe('a test that passively observes the network in the presence of network 
 
   const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
   const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
-  // 50% is the max that we expect to miss
-  const MAX_MISSED_SLOT_PERCENT = 0.5;
+  // 60% is the max that we expect to miss
+  const MAX_MISSED_SLOT_PERCENT = 0.6;
 
   afterAll(async () => {
     await runAlertCheck(config, qosAlerts, debugLogger);

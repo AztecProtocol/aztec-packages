@@ -588,27 +588,27 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
  * - Filesystem: The proof and vk are written to the paths output_path/proof and output_path/{vk, vk_fields.json}
  *
  * @param bytecode_path Path to the file containing the serialised bytecode
- * @param calldata_path Path to the file containing the serialised calldata (could be empty)
  * @param public_inputs_path Path to the file containing the serialised avm public inputs
  * @param hints_path Path to the file containing the serialised avm circuit hints
  * @param output_path Path (directory) to write the output proof and verification keys
  */
-void avm_prove(const std::filesystem::path& calldata_path,
-               const std::filesystem::path& public_inputs_path,
+void avm_prove(const std::filesystem::path& public_inputs_path,
                const std::filesystem::path& hints_path,
                const std::filesystem::path& output_path)
 {
-    std::vector<fr> const calldata = many_from_buffer<fr>(read_file(calldata_path));
-    auto const avm_new_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+
+    auto const avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
-    vinfo("calldata size: ", calldata.size());
-    vinfo("hints.storage_value_hints size: ", avm_hints.storage_value_hints.size());
-    vinfo("hints.note_hash_exists_hints size: ", avm_hints.note_hash_exists_hints.size());
-    vinfo("hints.nullifier_exists_hints size: ", avm_hints.nullifier_exists_hints.size());
-    vinfo("hints.l1_to_l2_message_exists_hints size: ", avm_hints.l1_to_l2_message_exists_hints.size());
+    vinfo("hints.storage_read_hints size: ", avm_hints.storage_read_hints.size());
+    vinfo("hints.storage_write_hints size: ", avm_hints.storage_write_hints.size());
+    vinfo("hints.nullifier_read_hints size: ", avm_hints.nullifier_read_hints.size());
+    vinfo("hints.nullifier_write_hints size: ", avm_hints.nullifier_write_hints.size());
+    vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
+    vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
+    vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
     vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
     vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
@@ -618,7 +618,7 @@ void avm_prove(const std::filesystem::path& calldata_path,
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
-        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(calldata, avm_new_public_inputs, avm_hints));
+        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(avm_public_inputs, avm_hints));
 
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
@@ -1243,7 +1243,6 @@ int main(int argc, char* argv[])
             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
-            std::filesystem::path avm_calldata_path = get_option(args, "--avm-calldata", "./target/avm_calldata.bin");
             std::filesystem::path avm_public_inputs_path =
                 get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
             std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
@@ -1251,7 +1250,7 @@ int main(int argc, char* argv[])
             std::filesystem::path output_path = get_option(args, "-o", "./proofs");
             extern std::filesystem::path avm_dump_trace_path;
             avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
-            avm_prove(avm_calldata_path, avm_public_inputs_path, avm_hints_path, output_path);
+            avm_prove(avm_public_inputs_path, avm_hints_path, output_path);
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
 #endif

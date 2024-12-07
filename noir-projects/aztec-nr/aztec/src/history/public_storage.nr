@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-    hash::poseidon2_hash_with_separator, header::Header, utils::field::full_field_less_than,
+    address::AztecAddress, block_header::BlockHeader, constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    hash::poseidon2_hash_with_separator, utils::field::full_field_less_than,
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
@@ -8,13 +8,13 @@ use crate::oracle::get_public_data_witness::get_public_data_witness;
 
 trait PublicStorageHistoricalRead {
     fn public_storage_historical_read(
-        header: Header,
+        header: BlockHeader,
         storage_slot: Field,
         contract_address: AztecAddress,
     ) -> Field;
 }
 
-impl PublicStorageHistoricalRead for Header {
+impl PublicStorageHistoricalRead for BlockHeader {
     fn public_storage_historical_read(
         self,
         storage_slot: Field,

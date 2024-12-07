@@ -38,15 +38,13 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, contract_class_id::ContractClassId,
-        storage::map::derive_storage_slot_in_map,
-    };
-    use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
-    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
+    use dep::aztec::protocol_types::{
+        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+    };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -379,11 +377,6 @@ contract AvmTest {
     }
 
     #[public]
-    fn get_function_selector() -> FunctionSelector {
-        context.selector()
-    }
-
-    #[public]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
@@ -435,14 +428,6 @@ contract AvmTest {
     }
 
     #[public]
-    fn check_selector() {
-        assert(
-            context.selector() == comptime { FunctionSelector::from_signature("check_selector()") },
-            "Unexpected selector!",
-        );
-    }
-
-    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
@@ -471,6 +456,41 @@ contract AvmTest {
     #[public]
     fn new_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
+    }
+
+    #[public]
+    fn n_storage_writes(num: u32) {
+        for i in 0..num {
+            storage.map.at(AztecAddress::from_field(i as Field)).write(i);
+        }
+    }
+
+    #[public]
+    fn n_new_note_hashes(num: u32) {
+        for i in 0..num {
+            context.push_note_hash(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_nullifiers(num: u32) {
+        for i in 0..num {
+            context.push_nullifier(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_l2_to_l1_msgs(num: u32) {
+        for i in 0..num {
+            context.message_portal(EthAddress::from_field(i as Field), i as Field)
+        }
+    }
+
+    #[public]
+    fn n_new_unencrypted_logs(num: u32) {
+        for i in 0..num {
+            context.emit_unencrypted_log(/*message=*/ [i as Field]);
+        }
     }
 
     // Use the standard context interface to check for a nullifier
@@ -624,8 +644,6 @@ contract AvmTest {
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
         let _ = get_sender();
-        dep::aztec::oracle::debug_log::debug_log("get_function_selector");
-        let _ = get_function_selector();
         dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
         let _ = get_transaction_fee();
         dep::aztec::oracle::debug_log::debug_log("get_chain_id");

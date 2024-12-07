@@ -1,6 +1,7 @@
 import { PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
+  BlockHeader,
   CallContext,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -10,7 +11,6 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  Header,
   MAX_L2_GAS_PER_ENQUEUED_CALL,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -34,14 +34,10 @@ import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
-/**
- * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
- * we check that the revert reason error contains this string. However, the circuit must correctly prove the
- * execution.
- */
 export async function simulateAvmTestContractGenerateCircuitInputs(
   functionName: string,
   calldata: Fr[] = [],
+  expectRevert: boolean = false,
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
   const sender = AztecAddress.random();
@@ -80,13 +76,15 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   const avmResult = await simulator.simulate(tx);
 
-  if (assertionErrString == undefined) {
+  if (!expectRevert) {
     expect(avmResult.revertCode.isOK()).toBe(true);
   } else {
     // Explicit revert when an assertion failed.
     expect(avmResult.revertCode.isOK()).toBe(false);
     expect(avmResult.revertReason).toBeDefined();
-    expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    if (assertionErrString !== undefined) {
+      expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    }
   }
 
   const avmCircuitInputs: AvmCircuitInputs = avmResult.avmProvingRequest.inputs;
@@ -117,7 +115,7 @@ export function createTxForPublicCall(
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const constantData = new TxConstantData(Header.empty(), txContext, Fr.zero(), Fr.zero());
+  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,

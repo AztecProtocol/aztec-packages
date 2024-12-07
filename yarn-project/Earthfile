@@ -315,7 +315,7 @@ network-test:
     ENV LOG_LEVEL=verbose
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
         "$test" \
-        ./deploy-l1-contracts.sh \
+        "./deploy-l1-contracts.sh $validators" \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
