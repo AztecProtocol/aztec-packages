@@ -161,7 +161,7 @@ export class AvmPersistableStateManager {
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
     if (this.doMerkleOperations) {
       const result = await this.merkleTrees.writePublicStorage(leafSlot, value);
-      assert(result !== undefined, 'Public data tree insertion error. You might want to disable skipMerkleOperations.');
+      assert(result !== undefined, 'Public data tree insertion error. You might want to disable doMerkleOperations.');
       this.log.debug(`Inserted public data tree leaf at leafSlot ${leafSlot}, value: ${value}`);
 
       const lowLeafInfo = result.lowWitness;
@@ -525,15 +525,22 @@ export class AvmPersistableStateManager {
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.debug(`Getting contract instance for address ${contractAddress}`);
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
-    const contractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractAddress.toField(),
-    );
     const exists = instanceWithAddress !== undefined;
-    const [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] =
-      await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
 
+    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
+      exists,
+      NullifierLeafPreimage.empty(),
+      Fr.ZERO,
+      new Array<Fr>(),
+    ];
     if (!contractAddressIsCanonical(contractAddress)) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractAddress.toField(),
+      );
+      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
+        /*siloedNullifier=*/ contractAddressNullifier,
+      );
       assert(
         exists == existsInTree,
         'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
@@ -584,14 +591,21 @@ export class AvmPersistableStateManager {
     this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
-    const contractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractAddress.toField(),
-    );
-    const [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] =
-      await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
 
+    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
+      exists,
+      NullifierLeafPreimage.empty(),
+      Fr.ZERO,
+      new Array<Fr>(),
+    ];
     if (!contractAddressIsCanonical(contractAddress)) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractAddress.toField(),
+      );
+      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
+        /*siloedNullifier=*/ contractAddressNullifier,
+      );
       assert(
         exists == existsInTree,
         'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',

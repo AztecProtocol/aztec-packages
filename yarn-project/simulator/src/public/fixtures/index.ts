@@ -73,7 +73,6 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     worldStateDB,
     new NoopTelemetryClient(),
     globalVariables,
-    /*realAvmProving=*/ true,
     /*doMerkleOperations=*/ true,
   );
 

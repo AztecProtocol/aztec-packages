@@ -660,7 +660,6 @@ export class TXE implements TypedOracle {
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
       globalVariables,
-      /*realAvmProvingRequests=*/ false,
     );
 
     // When setting up a teardown call, we tell it that
