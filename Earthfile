@@ -82,36 +82,40 @@ bootstrap-aztec:
   COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   WORKDIR /usr/src
   # Focus on the biggest chunks to remove
+  RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
+    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
+    # noir-projects \
+    # l1-contracts \
   RUN rm -rf \
     .git \
     .github \
     .yarn \
-    noir-projects \
-    l1-contracts \
     barretenberg/cpp/src \
     barretenberg/ts/node-cjs \
     barretenberg/ts/browser \
     barretenberg/ts/src \
     build-system \
     docs \
-    yarn-project/end-to-end \
-    yarn-project/*/src
+    yarn-project/end-to-end
   SAVE ARTIFACT /usr/src /usr/src
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
   FROM +bootstrap
+  WORKDIR /usr/src
+  # Focus on the biggest chunks to remove
+  RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
+    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
+  WORKDIR /usr/src/yarn-project
+  RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
+  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   RUN rm -rf \
     .git .github \
-    noir-projects \
     l1-contracts \
     build-system \
     docs \
     barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs
-  WORKDIR /usr/src/yarn-project
-  RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
 

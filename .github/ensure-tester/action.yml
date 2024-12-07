@@ -101,8 +101,8 @@ runs:
           )
       shell: bash
       run: |
-        run_on_tester "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
-        run_on_tester "
+        scripts/run_on_tester "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
+        scripts/run_on_tester "
           mkdir -p ~/.ssh
           echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
