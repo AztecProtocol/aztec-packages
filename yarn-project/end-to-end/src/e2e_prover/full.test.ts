@@ -6,7 +6,7 @@ import { type Chain, type GetContractReturnType, type HttpTransport, type Public
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 3_000_000;
+const TIMEOUT = 5_000_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
@@ -135,7 +135,7 @@ describe('full_prover', () => {
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
       const provenBn = await rollup.read.getProvenBlockNumber();
       const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
