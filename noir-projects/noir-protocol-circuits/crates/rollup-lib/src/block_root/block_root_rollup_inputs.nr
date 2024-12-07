@@ -8,6 +8,7 @@ use crate::{
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
@@ -15,7 +16,6 @@ use types::{
         PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
     content_commitment::ContentCommitment,
-    header::Header,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
     state_reference::StateReference,
     traits::Empty,
@@ -116,7 +116,7 @@ impl BlockRootRollupInputs {
         //     debug_log_format("header.total_fees={0}", [total_fees]);
         //     debug_log_format("header.total_mana_used={0}", [total_mana_used]);
         // }
-        let header = Header {
+        let header = BlockHeader {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,

@@ -10,11 +10,11 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
@@ -71,7 +71,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers.
    */
-  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
 
   /**
    * Gets a tx effect.

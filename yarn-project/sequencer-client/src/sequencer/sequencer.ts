@@ -13,10 +13,10 @@ import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@a
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   ContentCommitment,
   GENESIS_ARCHIVE_ROOT,
   type GlobalVariables,
-  Header,
   StateReference,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -289,7 +289,7 @@ export class Sequencer {
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
     // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = new Header(
+    const proposalHeader = new BlockHeader(
       new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
       ContentCommitment.empty(),
       StateReference.empty(),
@@ -343,7 +343,7 @@ export class Sequencer {
   }
 
   /** Whether to skip the check of min txs per block if more than maxSecondsBetweenBlocks has passed since the previous block. */
-  private skipMinTxsPerBlockCheck(historicalHeader: Header | undefined): boolean {
+  private skipMinTxsPerBlockCheck(historicalHeader: BlockHeader | undefined): boolean {
     const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
     const currentTime = Math.floor(Date.now() / 1000);
     const elapsed = currentTime - lastBlockTime;
@@ -422,7 +422,7 @@ export class Sequencer {
     this.state = proposedState;
   }
 
-  shouldProposeBlock(historicalHeader: Header | undefined, args: ShouldProposeArgs): boolean {
+  shouldProposeBlock(historicalHeader: BlockHeader | undefined, args: ShouldProposeArgs): boolean {
     if (this.isFlushing) {
       this.log.verbose(`Flushing all pending txs in new block`);
       return true;
@@ -501,7 +501,7 @@ export class Sequencer {
   private async buildBlock(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: Header,
+    historicalHeader?: BlockHeader,
     interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
   ) {
     this.log.debug('Requesting L1 to L2 messages from contract');
@@ -569,8 +569,8 @@ export class Sequencer {
   }))
   private async buildBlockAndAttemptToPublish(
     validTxs: Tx[],
-    proposalHeader: Header,
-    historicalHeader: Header | undefined,
+    proposalHeader: BlockHeader,
+    historicalHeader: BlockHeader | undefined,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
