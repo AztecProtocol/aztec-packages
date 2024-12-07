@@ -50,8 +50,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
 #ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
-#endif
         process_range_lists();
+#endif
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once

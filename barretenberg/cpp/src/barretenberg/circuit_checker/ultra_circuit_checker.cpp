@@ -57,13 +57,14 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
         return false;
     }
 #endif
-
+#ifndef ULTRA_FUZZ
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
     if (!result) {
         info("Failed tag check.");
         return false;
     }
+#endif
 
     return result;
 };
@@ -114,8 +115,8 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
 #else
+        // Bigfield related auxiliary gates
         if (values.q_aux == 1) {
-            // Bigfield related auxiliary gates
             bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
             bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
             if (f0 && f1) {
@@ -323,6 +324,18 @@ void UltraCircuitChecker::populate_values(
 }
 
 #ifdef ULTRA_FUZZ
+
+/**
+ * @brief Check that delta range relation is satisfied
+ * @details For fuzzing purposes, we skip delta range finalization step
+ * because of its complexity. Instead, we simply check all the range constraints
+ * in the old-fashioned way.
+ * In case there're any processed sort constraints, we also check them using ranges.
+ *
+ * @tparam Builder
+ * @param builder Circuit Builder
+ * @return all the variables are properly range constrained
+ */
 template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_relation(Builder& builder)
 {
     std::unordered_map<uint32_t, uint64_t> range_tags;
@@ -343,7 +356,7 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
         }
     }
 
-    // Processed block check
+    // Processed blocks check
     auto block = builder.blocks.delta_range;
     for (size_t idx = 0; idx < block.size(); idx++) {
         if (block.q_delta_range()[idx] == 0) {
@@ -380,6 +393,19 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
     return true;
 }
 
+/**
+ * @brief Check that aux relation is satisfied
+ * @details For fuzzing purposes, we skip RAM/ROM finalization step
+ * because of its complexity.
+ * Instead
+ * - For ROM gates we simply check that the state is consistent with read calls
+ * - For RAM gates we simulate the call trace for the state and compare the final
+ * result with the state in builder, hence checking it's overall consistency
+ *
+ * @tparam Builder
+ * @param builder Circuit Builder
+ * @return all the memory calls are valid
+ */
 template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation(Builder& builder)
 {
     for (size_t i = 0; i < builder.rom_arrays.size(); i++) {
@@ -395,11 +421,11 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
             uint32_t table_witness_2 = rom_array.state[index][1];
 
             if (builder.get_variable(value_witness_1) != builder.get_variable(table_witness_1)) {
-                info("Failed SET/Read ROM in table = ", i, " at idx = ", index);
+                info("Failed SET/Read ROM[0] in table = ", i, " at idx = ", index);
                 return false;
             }
             if (builder.get_variable(value_witness_2) != builder.get_variable(table_witness_2)) {
-                info("Failed SET/Read ROM in table = ", i, " at idx = ", index);
+                info("Failed SET/Read ROM[1] in table = ", i, " at idx = ", index);
                 return false;
             }
         }
@@ -410,9 +436,8 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
 
         std::vector<uint32_t> tmp_state(ram_array.state.size());
 
-        // check write and read RAM records
+        // Simulate the memory call trace
         for (auto& rr : ram_array.records) {
-            // uint32_t index = rr.index;
             uint32_t index = static_cast<uint32_t>(builder.get_variable(rr.index_witness));
             uint32_t value_witness = rr.value_witness;
             auto access_type = rr.access_type;
