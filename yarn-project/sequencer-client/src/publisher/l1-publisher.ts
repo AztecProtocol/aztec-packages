@@ -208,6 +208,10 @@ export class L1Publisher {
     this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
   }
 
+  get publisherAddress() {
+    return this.account.address;
+  }
+
   protected createWalletClient(
     account: PrivateKeyAccount,
     chain: EthereumChain,

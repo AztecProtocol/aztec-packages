@@ -680,7 +680,12 @@ export class EphemeralAvmTree {
     for (let i = 0; i < siblingPath.length; i++) {
       // Flip(XOR) the last bit because we are inserting siblings of the leaf
       const sibIndex = index ^ 1n;
-      this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      const node = this.getNode(sibIndex, this.depth - i);
+      // If we are inserting a sibling path and we already have a branch at that index in our
+      // ephemeral tree, we should not overwrite it
+      if (node === undefined || node.tag === TreeType.LEAF) {
+        this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      }
       index >>= 1n;
     }
   }

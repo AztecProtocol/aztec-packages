@@ -2,6 +2,7 @@ import {
   type AvmProvingRequest,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -9,17 +10,20 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
+  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
+  TreeSnapshots,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -27,13 +31,12 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
+import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
@@ -59,7 +62,6 @@ export class PublicTxContext {
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
     private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
@@ -92,7 +94,7 @@ export class PublicTxContext {
       /*publicDataWrites*/ 0,
       /*protocolPublicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+      /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
@@ -108,7 +110,6 @@ export class PublicTxContext {
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
-      tx.data.constants.historicalHeader,
       await db.getStateReference(),
       tx.data.gasUsed,
       tx.data.constants.txContext.gasSettings,
@@ -305,11 +306,24 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    // TODO(dbanks12): use the state roots from ephemeral trees
-    endStateReference.partial.nullifierTree.root = this.state
-      .getActiveStateManager()
-      .merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!
-      .getRoot();
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+
+    const getAppendSnaphot = (id: MerkleTreeId) => {
+      const tree = ephemeralTrees.get(id)!;
+      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
+    };
+
+    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      noteHashTree,
+      nullifierTree,
+      publicDataTree,
+    );
+
     return generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
@@ -321,7 +335,7 @@ export class PublicTxContext {
       this.teardownCallRequests,
       this.nonRevertibleAccumulatedDataFromPrivate,
       this.revertibleAccumulatedDataFromPrivate,
-      endStateReference,
+      endTreeSnapshots,
       /*endGasUsed=*/ this.gasUsed,
       this.getTransactionFeeUnsafe(),
       this.revertCode,
@@ -332,38 +346,17 @@ export class PublicTxContext {
    * Generate the proving request for the AVM circuit.
    */
   generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
-    // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
-    // proving request for the first time
-    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
-    return this.avmProvingRequest!;
-  }
-
-  // TODO(dbanks12): remove once AVM proves entire public tx
-  updateProvingRequest(
-    real: boolean,
-    phase: TxExecutionPhase,
-    fnName: string,
-    stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest,
-    result: AvmFinalizedCallResult,
-    allocatedGas: Gas,
-  ) {
-    if (this.avmProvingRequest === undefined) {
-      // Propagate the very first avmProvingRequest of the tx for now.
-      // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = generateAvmProvingRequest(
-        real,
-        fnName,
-        stateManager,
-        this.historicalHeader,
-        this.globalVariables,
-        executionRequest,
-        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
-        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
-        allocatedGas,
-        this.getTransactionFee(phase),
-      );
-    }
+    const hints = this.trace.getAvmCircuitHints();
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(
+        'public_dispatch',
+        [],
+        PublicCircuitPublicInputs.empty(),
+        hints,
+        this.generateAvmCircuitPublicInputs(endStateReference),
+      ),
+    };
   }
 }
 

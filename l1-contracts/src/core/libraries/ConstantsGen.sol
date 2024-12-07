@@ -248,7 +248,6 @@ library Constants {
   uint256 internal constant MEM_TAG_U128 = 6;
   uint256 internal constant SENDER_KERNEL_INPUTS_COL_OFFSET = 0;
   uint256 internal constant ADDRESS_KERNEL_INPUTS_COL_OFFSET = 1;
-  uint256 internal constant FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET = 2;
   uint256 internal constant IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET = 3;
   uint256 internal constant CHAIN_ID_KERNEL_INPUTS_COL_OFFSET = 4;
   uint256 internal constant VERSION_KERNEL_INPUTS_COL_OFFSET = 5;
