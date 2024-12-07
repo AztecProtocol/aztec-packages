@@ -109,14 +109,6 @@ void build_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.sha256_compression[i]);
     }
 
-    // Add schnorr constraints
-    for (size_t i = 0; i < constraint_system.schnorr_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.schnorr_constraints.at(i);
-        create_schnorr_verify_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.schnorr_constraints.at(i));
-    }
-
     // Add ECDSA k1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);

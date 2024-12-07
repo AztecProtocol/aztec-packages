@@ -55,7 +55,9 @@ describe('e2e_fees gas_estimation', () => {
   const sendTransfers = (paymentMethod: FeePaymentMethod) =>
     Promise.all(
       [true, false].map(estimateGas =>
-        makeTransferRequest().send({ estimateGas, fee: { gasSettings, paymentMethod }, estimatedGasPad: 0 }).wait(),
+        makeTransferRequest()
+          .send({ fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
+          .wait(),
       ),
     );
 
@@ -68,8 +70,7 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const estimatedGas = await makeTransferRequest().estimateGas({
-      fee: { gasSettings, paymentMethod },
-      estimatedGasPad: 0,
+      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
@@ -96,8 +97,7 @@ describe('e2e_fees gas_estimation', () => {
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({
-      fee: { gasSettings, paymentMethod },
-      estimatedGasPad: 0,
+      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
@@ -121,17 +121,16 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);
-    const deployOpts = { fee: { gasSettings, paymentMethod }, skipClassRegistration: true };
-    const estimatedGas = await deployMethod().estimateGas({ ...deployOpts, estimatedGasPad: 0 });
+    const deployOpts = (estimateGas = false) => ({
+      fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
+      skipClassRegistration: true,
+    });
+    const estimatedGas = await deployMethod().estimateGas(deployOpts());
     logGasEstimate(estimatedGas);
 
     const [withEstimate, withoutEstimate] = await Promise.all([
-      deployMethod()
-        .send({ ...deployOpts, estimateGas: true })
-        .wait(),
-      deployMethod()
-        .send({ ...deployOpts, estimateGas: false })
-        .wait(),
+      deployMethod().send(deployOpts(true)).wait(),
+      deployMethod().send(deployOpts(false)).wait(),
     ]);
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown

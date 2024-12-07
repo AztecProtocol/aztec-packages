@@ -21,6 +21,8 @@ use crate::{
     utils::reader::Reader,
 };
 
+use std::hash::{poseidon2, poseidon2_permutation};
+
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
@@ -178,6 +180,37 @@ pub struct AvmProofData {
     pub public_inputs: AvmCircuitPublicInputs,
     pub proof: AvmProof,
     pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+}
+
+// The number of columns for the AVM recursive verifier we want to fake, i.e., the resulting
+// verify() routine below will create a similar number of gates as a real AVM recursive verifier
+// with the number of columns set by this constant.
+pub global DUMMY_AVM_VERIFIER_NUM_COLUMNS: u32 = 2200;
+
+// Current AVM recursive verifier has 9500 gates per column.
+// Note that the addition of a single column in AVM recursive verifier incurs 8500 gates.
+// (some additional costs are due to lookups, relations, ...).
+// 78 gates per Poseidon permutation
+// 9500/78 = 121.8
+pub global DUMMY_AVM_VERIFIER_NUM_ITERATIONS: u32 = DUMMY_AVM_VERIFIER_NUM_COLUMNS * 122;
+
+// Warning: This is a fake avm recursive verification whose sole goal is to reproduce a similar
+// computational effort (number of gates) as the real recursive verifier.
+// TODO(#8470): Replace with the real AVM recursive verifier
+impl AvmProofData {
+    pub fn fake_verify(self) {
+        let mut input_hash = poseidon2::Poseidon2::hash(
+            [self.public_inputs.transaction_fee, self.proof.fields[0], self.vk_data.vk.key[0]],
+            3,
+        );
+
+        let mut result: [Field; 4] = [input_hash, 0, 0, 0];
+        for i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
+            result = poseidon2_permutation(result, 4);
+        }
+
+        assert(!result[0].lt(1));
+    }
 }
 
 impl Verifiable for AvmProofData {

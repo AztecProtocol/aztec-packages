@@ -10,7 +10,10 @@
 
 namespace bb::crypto::merkle_tree {
 
-void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess)
+void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db,
+                                      block_number_t blockNumber,
+                                      fr root,
+                                      bool expectedSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -25,7 +28,7 @@ void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t block
 }
 
 void inline check_block_and_root_data(
-    LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
+    LMDBTreeStore::SharedPtr db, block_number_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -40,7 +43,7 @@ void inline check_block_and_root_data(
 }
 
 void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
-                                      index_t blockNumber,
+                                      block_number_t blockNumber,
                                       index_t expectedSize,
                                       bool expectedSuccess)
 {

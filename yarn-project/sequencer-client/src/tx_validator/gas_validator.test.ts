@@ -1,5 +1,5 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -31,7 +31,7 @@ describe('GasTxValidator', () => {
   beforeEach(() => {
     tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = AztecAddress.random();
-    tx.data.constants.txContext.gasSettings = GasSettings.default();
+    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
     payer = tx.data.feePayer;
     expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();

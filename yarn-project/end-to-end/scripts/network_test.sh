@@ -142,7 +142,7 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 # Find 3 free ports between 9000 and 10000
 FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
 
-# Extract the two free ports from the list
+# Extract the free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
@@ -165,7 +165,7 @@ fi
 
 docker run --rm --network=host \
   -v ~/.kube:/root/.kube \
-  -e K8S=true \
+  -e K8S=local \
   -e INSTANCE_NAME="spartan" \
   -e SPARTAN_DIR="/usr/src/spartan" \
   -e NAMESPACE="$NAMESPACE" \
@@ -176,7 +176,7 @@ docker run --rm --network=host \
   -e HOST_METRICS_PORT=$METRICS_PORT \
   -e CONTAINER_METRICS_PORT=80 \
   -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-  -e DEBUG="aztec:*" \
+  -e DEBUG=${DEBUG:-""} \
   -e LOG_JSON=1 \
-  -e LOG_LEVEL=debug \
+  -e LOG_LEVEL=verbose \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST

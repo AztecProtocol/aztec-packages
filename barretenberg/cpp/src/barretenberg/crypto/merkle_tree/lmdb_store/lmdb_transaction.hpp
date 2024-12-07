@@ -46,6 +46,8 @@ class LMDBTransaction {
 
     template <typename T, typename K> bool get_value_or_previous(T& key, K& data, const LMDBDatabase& db) const;
 
+    template <typename T, typename K> bool get_value_or_greater(T& key, K& data, const LMDBDatabase& db) const;
+
     template <typename T> bool get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
     template <typename T> bool get_value(T& key, index_t& data, const LMDBDatabase& db) const;
@@ -86,6 +88,12 @@ template <typename T, typename K>
 bool LMDBTransaction::get_value_or_previous(T& key, K& data, const LMDBDatabase& db) const
 {
     return lmdb_queries::get_value_or_previous(key, data, db, *this);
+}
+
+template <typename T, typename K>
+bool LMDBTransaction::get_value_or_greater(T& key, K& data, const LMDBDatabase& db) const
+{
+    return lmdb_queries::get_value_or_greater(key, data, db, *this);
 }
 
 template <typename T, typename K>

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.1...aztec-package-v0.65.2) (2024-11-28)
+
+
+### Features
+
+* New proving broker ([#10174](https://github.com/AztecProtocol/aztec-packages/issues/10174)) ([6fd5fc1](https://github.com/AztecProtocol/aztec-packages/commit/6fd5fc18bd973b539fb9edfb372181fbe4617f75))
+
 ## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.0...aztec-package-v0.65.1) (2024-11-27)
 
 

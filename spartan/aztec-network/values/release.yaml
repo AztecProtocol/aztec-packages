@@ -1,6 +1,11 @@
 network:
   public: true
 
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: true
+
 images:
   aztec:
     pullPolicy: Always
@@ -10,7 +15,6 @@ telemetry:
   otelCollectorEndpoint: http://34.150.160.154:4318
 
 validator:
-  realProofs: true
   replicas: 48
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -118,16 +122,12 @@ validator:
     disabled: false
 
 bootNode:
-  realProofs: true
+  peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
   validator:
     disabled: true
 
-proverNode:
-  realProofs: true
-
 proverAgent:
   replicas: 4
-  realProofs: true
   bb:
     hardwareConcurrency: 16
   gke:
@@ -140,19 +140,11 @@ proverAgent:
       memory: "96Gi"
       cpu: "16"
 
-pxe:
-  proverEnabled: true
-
 bot:
   followChain: "PENDING"
   enabled: true
-  pxeProverEnabled: true
   txIntervalSeconds: 200
 
 jobs:
   deployL1Verifier:
     enable: true
-
-aztec:
-  slotDuration: 36
-  epochDuration: 32

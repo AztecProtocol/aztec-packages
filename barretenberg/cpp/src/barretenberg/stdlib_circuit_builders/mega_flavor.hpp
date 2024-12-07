@@ -570,7 +570,7 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(ProvingKey& proving_key)
+        void set_metadata(const ProvingKey& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;

@@ -296,9 +296,9 @@ async function setupFromFresh(
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
     salt: opts.salt,
-    initialValidators: opts.initialValidators,
     ...deployL1ContractsArgs,
     ...getL1ContractsConfigEnvVars(),
+    initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
@@ -317,7 +317,7 @@ async function setupFromFresh(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 

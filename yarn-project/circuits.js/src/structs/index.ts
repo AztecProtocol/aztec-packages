@@ -52,6 +52,8 @@ export * from './parity/root_parity_inputs.js';
 export * from './partial_state_reference.js';
 export * from './private_call_request.js';
 export * from './private_circuit_public_inputs.js';
+export * from './private_log.js';
+export * from './private_log_data.js';
 export * from './private_validation_requests.js';
 export * from './proof.js';
 export * from './public_call_request.js';

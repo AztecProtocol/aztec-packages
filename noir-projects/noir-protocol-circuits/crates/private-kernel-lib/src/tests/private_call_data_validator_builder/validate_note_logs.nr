@@ -16,18 +16,7 @@ fn validate_note_logs_random_note_hash_counter_fails() {
 
     builder.private_call.append_note_hashes_with_logs(2);
     // Tweak the note_hash_counter to not match any note hash's counter.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter += 100;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "could not link a note log to a note hash in another contract")]
-fn validate_note_logs_zero_note_hash_counter_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_note_hashes_with_logs(2);
-    // Tweak the note_hash_counter to be 0.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter = 0;
+    builder.private_call.private_logs.storage[1].inner.note_hash_counter += 100;
 
     builder.validate();
 }
@@ -41,8 +30,8 @@ fn validate_note_logs_mismatch_contract_address_fails() {
     let previous_note_hash = NoteHash { value: 1, counter: 17 }.scope(another_contract_address);
     builder.previous_note_hashes.push(previous_note_hash);
 
-    // Add a not log linked to the previous note hash.
-    builder.private_call.add_note_encrypted_log_hash(123, 2, previous_note_hash.counter());
+    // Add a note log linked to the previous note hash.
+    builder.private_call.append_private_logs_for_note(1, previous_note_hash.counter());
 
     builder.validate();
 }

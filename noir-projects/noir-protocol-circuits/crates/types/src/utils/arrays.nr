@@ -14,7 +14,8 @@ pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+    assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+    assert_array_appended_scoped,
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};

@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.65.1...aztec-packages-v0.65.2) (2024-11-28)
+
+
+### Features
+
+* Fee foresight support ([#10262](https://github.com/AztecProtocol/aztec-packages/issues/10262)) ([9e19244](https://github.com/AztecProtocol/aztec-packages/commit/9e19244c01440ce7900ba91c0557567e57f017a0))
+* New proving broker ([#10174](https://github.com/AztecProtocol/aztec-packages/issues/10174)) ([6fd5fc1](https://github.com/AztecProtocol/aztec-packages/commit/6fd5fc18bd973b539fb9edfb372181fbe4617f75))
+* Sequential insertion in indexed trees ([#10111](https://github.com/AztecProtocol/aztec-packages/issues/10111)) ([bfd9fa6](https://github.com/AztecProtocol/aztec-packages/commit/bfd9fa68be4147acb3e3feeaf83ed3c9247761be))
+* Swap polys to facilitate dynamic trace overflow ([#9976](https://github.com/AztecProtocol/aztec-packages/issues/9976)) ([b7b282c](https://github.com/AztecProtocol/aztec-packages/commit/b7b282cd0fb306abbe3951a55a1a4f4d42ed7f8e))
+
+
+### Bug Fixes
+
+* Don't store indices of zero leaves. ([#10270](https://github.com/AztecProtocol/aztec-packages/issues/10270)) ([c22be8b](https://github.com/AztecProtocol/aztec-packages/commit/c22be8b23e6d16cf4a60509494b979c3edfdba9b))
+* Expect proper duplicate nullifier error patterns in e2e tests ([#10256](https://github.com/AztecProtocol/aztec-packages/issues/10256)) ([4ee8344](https://github.com/AztecProtocol/aztec-packages/commit/4ee83448a24be1944ca8c71d42ae8aa15049af10))
+
+
+### Miscellaneous
+
+* Check artifact consistency ([#10271](https://github.com/AztecProtocol/aztec-packages/issues/10271)) ([6a49405](https://github.com/AztecProtocol/aztec-packages/commit/6a494050f85510c18870117f376280d8e10ed486))
+* Dont import things that themselves import jest in imported functions ([#10260](https://github.com/AztecProtocol/aztec-packages/issues/10260)) ([9440c1c](https://github.com/AztecProtocol/aztec-packages/commit/9440c1cf3834eea380014d55eef6e81cff8ffee8))
+* Fix bad merge in integration l1 publisher ([#10272](https://github.com/AztecProtocol/aztec-packages/issues/10272)) ([b5a6aa4](https://github.com/AztecProtocol/aztec-packages/commit/b5a6aa4ce51a27b220162d48ba065a0077b9fcd8))
+* Fixing sol warnings ([#10276](https://github.com/AztecProtocol/aztec-packages/issues/10276)) ([3d113b2](https://github.com/AztecProtocol/aztec-packages/commit/3d113b212b4641b2a97e6b2b0b4835908f3957c8))
+* Pull out sync changes ([#10274](https://github.com/AztecProtocol/aztec-packages/issues/10274)) ([391a6b7](https://github.com/AztecProtocol/aztec-packages/commit/391a6b7377a5253f2c47fa5ec949f255b284da00))
+* Pull value merger code from sync ([#10080](https://github.com/AztecProtocol/aztec-packages/issues/10080)) ([3392629](https://github.com/AztecProtocol/aztec-packages/commit/3392629818e6d51c01ca4c75c1ad916bb4b4fdb1))
+* Remove default gas settings ([#10163](https://github.com/AztecProtocol/aztec-packages/issues/10163)) ([c9a4d88](https://github.com/AztecProtocol/aztec-packages/commit/c9a4d88b15c320e6cc6d79e0721d0f4062d2d840))
+* Replace relative paths to noir-protocol-circuits ([654d801](https://github.com/AztecProtocol/aztec-packages/commit/654d801dc762ce69589a300ef6a2d8fe590527a8))
+* Teardown context in prover coordination test ([#10257](https://github.com/AztecProtocol/aztec-packages/issues/10257)) ([7ea3888](https://github.com/AztecProtocol/aztec-packages/commit/7ea38887e514a4bbdc7ff847efe19bd2d1b74baf))
+
 ## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.65.0...aztec-packages-v0.65.1) (2024-11-27)
 
 

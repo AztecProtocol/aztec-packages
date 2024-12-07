@@ -30,7 +30,7 @@ async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
   }

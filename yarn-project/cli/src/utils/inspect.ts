@@ -39,7 +39,7 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, notes] = await Promise.all([
+  const [receipt, effectsInBlock, incomingNotes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
     pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
@@ -85,15 +85,15 @@ export async function inspectTx(
   }
 
   // Created notes
-  const noteEncryptedLogsCount = effects.noteEncryptedLogs.unrollLogs().length;
-  if (noteEncryptedLogsCount > 0) {
+  const notes = effects.noteHashes;
+  if (notes.length > 0) {
     log(' Created notes:');
-    const notVisibleNotes = noteEncryptedLogsCount - notes.length;
-    if (notVisibleNotes > 0) {
-      log(`  ${notVisibleNotes} notes not visible in the PXE`);
-    }
-    for (const note of notes) {
-      inspectNote(note, artifactMap, log);
+    log(`  Total: ${notes.length}. Incoming: ${incomingNotes.length}.`);
+    if (incomingNotes.length) {
+      log('  Incoming notes:');
+      for (const note of incomingNotes) {
+        inspectNote(note, artifactMap, log);
+      }
     }
   }
 

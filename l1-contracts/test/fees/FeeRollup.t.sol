@@ -6,8 +6,8 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -36,9 +36,11 @@ import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {OracleInput} from "@aztec/core/libraries/FeeMath.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  ProposeArgs, OracleInput, ProposeLib
+} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {FeeMath, MANA_TARGET} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {
   FeeHeader as FeeHeaderModel,
@@ -80,6 +82,8 @@ contract FakeCanonical {
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using SlotLib for Slot;
   using EpochLib for Epoch;
+  using FeeMath for uint256;
+  using FeeMath for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
   // the empty blocks, but otherwise populate using the fee model test points.
 
@@ -89,7 +93,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes header;
     bytes body;
     bytes32[] txHashes;
-    SignatureLib.Signature[] signatures;
+    Signature[] signatures;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -110,21 +114,24 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20();
+    asset = new TestERC20("test", "TEST", address(this));
 
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
+    asset.transferOwnership(address(fakeCanonical));
+
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
+      asset,
       bytes32(0),
       bytes32(0),
       address(this),
-      new address[](0),
       Config({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16
+        aztecEpochProofClaimWindowInL2Slots: 16,
+        minimumStake: 100 ether
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -153,7 +160,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 blockHash = 0x267f79fe7e757b20e924fac9f78264a0d1c8c4b481fea21d0bbe74650d87a1f1;
 
     bytes32[] memory txHashes = new bytes32[](0);
-    SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+    Signature[] memory signatures = new Signature[](0);
 
     bytes memory body = full.block.body;
     bytes memory header = full.block.header;
@@ -171,7 +178,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
     );
 
-    assertEq(manaBaseFee, rollup.getManaBaseFee(true), "mana base fee mismatch");
+    assertEq(
+      manaBaseFee,
+      rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+      "mana base fee mismatch"
+    );
 
     uint256 manaSpent = point.block_header.mana_spent;
 
@@ -212,12 +223,92 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
+  function test__FeeModelPrune() public {
+    // Submit a few blocks, then compute what the fees would be with/without a potential prune
+    // and ensure that they match what happens.
+    Slot nextSlot = Slot.wrap(1);
+    for (uint256 i = 0; i < SLOT_DURATION / 12 * 5; i++) {
+      _loadL1Metadata(i);
+
+      if (rollup.getCurrentSlot() == nextSlot) {
+        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        Block memory b = getBlock();
+
+        rollup.propose(
+          ProposeArgs({
+            header: b.header,
+            archive: b.archive,
+            blockHash: b.blockHash,
+            oracleInput: OracleInput({
+              provingCostModifier: point.oracle_input.proving_cost_modifier,
+              feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
+            }),
+            txHashes: b.txHashes
+          }),
+          b.signatures,
+          b.body
+        );
+        nextSlot = nextSlot + Slot.wrap(1);
+      }
+    }
+
+    FeeHeader memory parentFeeHeaderNoPrune =
+      rollup.getBlock(rollup.getPendingBlockNumber()).feeHeader;
+    uint256 excessManaNoPrune = (
+      parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed
+    ).clampedAdd(-int256(MANA_TARGET));
+
+    FeeHeader memory parentFeeHeaderPrune = rollup.getBlock(rollup.getProvenBlockNumber()).feeHeader;
+    uint256 excessManaPrune = (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed)
+      .clampedAdd(-int256(MANA_TARGET));
+
+    assertGt(excessManaNoPrune, excessManaPrune, "excess mana should be lower if we prune");
+
+    // Find the point in time where we can prune. We can be smarter, but I'm not trying to be smart here
+    // trying to be foolproof, for I am a fool.
+    uint256 timeOfPrune = block.timestamp;
+    while (!rollup.canPruneAtTime(Timestamp.wrap(timeOfPrune))) {
+      timeOfPrune += SLOT_DURATION;
+    }
+
+    ManaBaseFeeComponents memory componentsPrune =
+      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
+
+    // If we assume that everything is proven, we will see what the fee would be if we did not prune.
+    rollup.setAssumeProvenThroughBlockNumber(10000);
+    ManaBaseFeeComponents memory componentsNoPrune =
+      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
+
+    // The congestion multipliers should be different, with the no-prune being higher
+    // as it is based on the accumulated excess mana.
+    assertGt(
+      componentsNoPrune.congestionMultiplier,
+      componentsPrune.congestionMultiplier,
+      "congestion multiplier should be higher if we do not prune"
+    );
+
+    assertEq(
+      componentsPrune.congestionMultiplier,
+      FeeMath.congestionMultiplier(excessManaPrune),
+      "congestion multiplier mismatch for prune"
+    );
+    assertEq(
+      componentsNoPrune.congestionMultiplier,
+      FeeMath.congestionMultiplier(excessManaNoPrune),
+      "congestion multiplier mismatch for no-prune"
+    );
+  }
+
   function test_FeeModelEquivalence() public {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
+      // Predict what the fee will be before we jump in time!
+      uint256 baseFeePrediction =
+        rollup.getManaBaseFeeAt(Timestamp.wrap(l1Metadata[i].timestamp), true);
+
       _loadL1Metadata(i);
 
       // For every "new" slot we encounter, we construct a block using current L1 Data
@@ -226,11 +317,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
 
-        L1FeeData memory fees = rollup.getCurrentL1Fees();
+        L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = rollup.getFeeAssetPrice();
 
-        ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponents(false);
-        ManaBaseFeeComponents memory componentsFeeAsset = rollup.getManaBaseFeeComponents(true);
+        ManaBaseFeeComponents memory components =
+          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
+        ManaBaseFeeComponents memory componentsFeeAsset =
+          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
         BlockLog memory parentBlockLog = rollup.getBlock(nextSlot.unwrap() - 1);
 
         Block memory b = getBlock();
@@ -251,6 +344,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         );
 
         BlockLog memory blockLog = rollup.getBlock(nextSlot.unwrap());
+
+        assertEq(
+          baseFeePrediction, componentsFeeAsset.summedBaseFee(), "base fee prediction mismatch"
+        );
 
         assertEq(
           componentsFeeAsset.congestionCost,

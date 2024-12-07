@@ -1,4 +1,3 @@
-import { compact } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -60,27 +59,24 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty());
   }
 
-  /** Default gas settings to use when user has not provided them. */
-  // @todo @lherskind The `MAX_FEES_PER_GAS` should be not be set as a default.
-  // deleting the default values, and trying to figure out the plumbing.
-  // Issue: #10104
-  static default(overrides: Partial<FieldsOf<GasSettings>> = {}) {
+  /** Default gas settings to use when user has not provided them. Requires explicit max fees per gas. */
+  static default(overrides: { gasLimits?: Gas; teardownGasLimits?: Gas; maxFeesPerGas: GasFees }) {
     return GasSettings.from({
-      gasLimits: { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
-      teardownGasLimits: { l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT, daGas: DEFAULT_TEARDOWN_GAS_LIMIT },
-      maxFeesPerGas: { feePerL2Gas: new Fr(10), feePerDaGas: new Fr(10) },
-      ...compact(overrides),
+      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
+      teardownGasLimits: overrides.teardownGasLimits ?? {
+        l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT,
+        daGas: DEFAULT_TEARDOWN_GAS_LIMIT,
+      },
+      maxFeesPerGas: overrides.maxFeesPerGas,
     });
   }
 
   /** Default gas settings with no teardown */
-  static teardownless() {
-    return GasSettings.default({ teardownGasLimits: Gas.from({ l2Gas: 0, daGas: 0 }) });
-  }
-
-  /** Gas settings to use for simulating a contract call. */
-  static simulation() {
-    return GasSettings.default();
+  static teardownless(opts: { maxFeesPerGas: GasFees }) {
+    return GasSettings.default({
+      teardownGasLimits: Gas.from({ l2Gas: 0, daGas: 0 }),
+      maxFeesPerGas: opts.maxFeesPerGas,
+    });
   }
 
   isEmpty() {

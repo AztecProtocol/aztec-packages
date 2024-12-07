@@ -109,8 +109,6 @@ TEST_F(AvmRecursiveTests, recursion)
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-
-    vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
@@ -138,6 +136,8 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);
+
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
     auto recursion_proof = ultra_prover.construct_proof();
     bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);

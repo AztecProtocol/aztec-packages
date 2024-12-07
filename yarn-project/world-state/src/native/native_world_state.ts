@@ -178,18 +178,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
       .map(nullifier => new NullifierLeaf(nullifier));
 
-    // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    const batchesOfPublicDataWrites: PublicDataTreeLeaf[][] = [];
-    for (const txEffect of paddedTxEffects) {
-      batchesOfPublicDataWrites.push(
-        txEffect.publicDataWrites.map(write => {
-          if (write.isEmpty()) {
-            throw new Error('Public data write must not be empty when syncing');
-          }
-          return new PublicDataTreeLeaf(write.leafSlot, write.value);
-        }),
-      );
-    }
+    const publicDataWrites: PublicDataTreeLeaf[] = paddedTxEffects.flatMap(txEffect => {
+      return txEffect.publicDataWrites.map(write => {
+        if (write.isEmpty()) {
+          throw new Error('Public data write must not be empty when syncing');
+        }
+        return new PublicDataTreeLeaf(write.leafSlot, write.value);
+      });
+    });
 
     return await this.instance.call(
       WorldStateMessageType.SYNC_BLOCK,
@@ -199,7 +195,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
         paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-        batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
+        publicDataWrites: publicDataWrites.map(serializeLeaf),
         blockStateRef: blockStateReference(l2Block.header.state),
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),

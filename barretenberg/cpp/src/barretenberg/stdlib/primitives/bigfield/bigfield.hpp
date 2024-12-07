@@ -450,7 +450,7 @@ template <typename Builder, typename T> class bigfield {
 
     void set_origin_tag(const bb::OriginTag& tag) const
     {
-        for (size_t i = 0; i < 4; i++) {
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
             binary_basis_limbs[i].element.set_origin_tag(tag);
         }
         prime_basis_limb.set_origin_tag(tag);

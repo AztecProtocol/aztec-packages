@@ -12,9 +12,7 @@ import {
   type ContractMethod,
   type DebugLogger,
   type DeployL1Contracts,
-  EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
-  LogType,
   NoFeePaymentMethod,
   type PXE,
   type SentTx,
@@ -30,13 +28,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import {
-  type EthAddress,
-  FEE_JUICE_INITIAL_MINT,
-  Fr,
-  GasSettings,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
   NULL_KEY,
@@ -385,7 +377,7 @@ export async function setup(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 
@@ -558,26 +550,6 @@ export function getLogger() {
 }
 
 /**
- * Checks the number of encrypted logs in the last block is as expected.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
- * @param numEncryptedLogs - The number of expected logs.
- */
-export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNode | undefined,
-  numEncryptedLogs: number,
-) => {
-  if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the PXE Service so we have to use the node
-    // This means we can't perform this check if there is no node
-    return;
-  }
-  const l2BlockNum = await aztecNode.getBlockNumber();
-  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
-  const unrolledLogs = EncryptedNoteL2BlockL2Logs.unrollLogs(encryptedLogs);
-  expect(unrolledLogs.length).toBe(numEncryptedLogs);
-};
-
-/**
  * Checks that the last block contains the given expected unencrypted log messages.
  * @param tx - An instance of SentTx for which to retrieve the logs.
  * @param logMessages - The set of expected log messages.
@@ -664,7 +636,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
   try {
     await feeJuice.methods
       .initialize(feeJuicePortalAddress, FEE_JUICE_INITIAL_MINT)
-      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: { teardownGasLimits: Gas.empty() } } })
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {
@@ -707,9 +679,10 @@ export async function createAndSyncProverNode(
     dataDirectory: undefined,
     proverId: new Fr(42),
     realProofs: false,
-    proverAgentConcurrency: 2,
+    proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 10,
+    proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,

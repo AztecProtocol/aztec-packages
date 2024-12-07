@@ -1,4 +1,5 @@
 #!/bin/sh
+# prove_and_verify produces no output, so is parallel safe.
 set -eu
 
 VFLAG=${VERBOSE:+-v}

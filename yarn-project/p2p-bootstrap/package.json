@@ -25,6 +25,7 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "dotenv": "^16.0.3",

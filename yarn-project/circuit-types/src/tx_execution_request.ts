@@ -4,6 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AuthWitness } from './auth_witness.js';
@@ -140,5 +141,9 @@ export class TxExecutionRequest {
       [PackedValues.random()],
       [AuthWitness.random()],
     );
+  }
+
+  [inspect.custom]() {
+    return `TxExecutionRequest(${this.origin} called ${this.functionSelector})`;
   }
 }

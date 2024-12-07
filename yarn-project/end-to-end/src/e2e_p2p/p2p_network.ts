@@ -1,10 +1,9 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/circuits.js';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
@@ -14,10 +13,10 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
-  PRIVATE_KEYS_START_INDEX,
+  ATTESTER_PRIVATE_KEYS_START_INDEX,
+  PROPOSER_PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
-  generateNodePrivateKeys,
-  generatePeerIdPrivateKeys,
+  generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
 import {
   type ISnapshotManager,
@@ -40,8 +39,9 @@ export class P2PNetworkTest {
   public logger: DebugLogger;
 
   public ctx!: SubsystemsContext;
-  public nodePrivateKeys: `0x${string}`[] = [];
-  public nodePublicKeys: string[] = [];
+  public attesterPrivateKeys: `0x${string}`[] = [];
+  public attesterPublicKeys: string[] = [];
+  public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
 
   public bootstrapNodeEnr: string = '';
@@ -55,7 +55,6 @@ export class P2PNetworkTest {
     public bootstrapNode: BootstrapNode,
     public bootNodePort: number,
     private numberOfNodes: number,
-    initialValidatorAddress: string,
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     metricsPort?: number,
@@ -64,19 +63,16 @@ export class P2PNetworkTest {
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    this.nodePrivateKeys = generateNodePrivateKeys(PRIVATE_KEYS_START_INDEX, numberOfNodes);
-    this.nodePublicKeys = this.nodePrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
-    this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfNodes);
+    this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
-    const initialValidators = [EthAddress.fromString(initialValidatorAddress)];
 
     this.snapshotManager = createSnapshotManager(`e2e_p2p_network/${testName}`, process.env.E2E_DATA_PATH, {
       ...initialValidatorConfig,
       ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
       salt: 420,
-      initialValidators,
       metricsPort: metricsPort,
     });
   }
@@ -99,16 +95,8 @@ export class P2PNetworkTest {
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
-    const intiailValidatorAddress = privateKeyToAccount(initialValidatorConfig.publisherPrivateKey).address;
 
-    return new P2PNetworkTest(
-      testName,
-      bootstrapNode,
-      port,
-      numberOfNodes,
-      intiailValidatorAddress,
-      initialValidatorConfig,
-    );
+    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
   }
 
   async applyBaseSnapshots() {
@@ -121,24 +109,43 @@ export class P2PNetworkTest {
 
       this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
 
-      const txHashes: `0x${string}`[] = [];
-      for (let i = 0; i < this.numberOfNodes; i++) {
-        const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
-        this.logger.debug(`Adding ${account.address} as validator`);
-        const txHash = await rollup.write.addValidator([account.address]);
-        txHashes.push(txHash);
+      const stakingAsset = getContract({
+        address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+        abi: TestERC20Abi,
+        client: deployL1ContractsValues.walletClient,
+      });
 
-        this.logger.debug(`Adding ${account.address} as validator`);
+      const stakeNeeded = MINIMUM_STAKE * BigInt(this.numberOfNodes);
+      await Promise.all(
+        [
+          await stakingAsset.write.mint([deployL1ContractsValues.walletClient.account.address, stakeNeeded], {} as any),
+          await stakingAsset.write.approve(
+            [deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(), stakeNeeded],
+            {} as any,
+          ),
+        ].map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash })),
+      );
+
+      const validators = [];
+
+      for (let i = 0; i < this.numberOfNodes; i++) {
+        const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
+        const proposer = privateKeyToAccount(this.proposerPrivateKeys[i]!);
+        validators.push({
+          attester: attester.address,
+          proposer: proposer.address,
+          withdrawer: attester.address,
+          amount: MINIMUM_STAKE,
+        } as const);
+
+        this.logger.verbose(
+          `Adding (attester, proposer) pair: (${attester.address}, ${proposer.address}) as validator`,
+        );
       }
 
-      // Wait for all the transactions adding validators to be mined
-      await Promise.all(
-        txHashes.map(txHash =>
-          deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-            hash: txHash,
-          }),
-        ),
-      );
+      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+        hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
+      });
 
       //@note   Now we jump ahead to the next epoch such that the validator committee is picked
       //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
@@ -197,47 +204,9 @@ export class P2PNetworkTest {
   }
 
   async removeInitialNode() {
-    await this.snapshotManager.snapshot(
-      'remove-inital-validator',
-      async ({ deployL1ContractsValues, aztecNodeConfig }) => {
-        const rollup = getContract({
-          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-          abi: RollupAbi,
-          client: deployL1ContractsValues.walletClient,
-        });
-
-        // Remove the setup validator
-        const initialValidatorAddress = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`).address;
-        const txHash = await rollup.write.removeValidator([initialValidatorAddress]);
-
-        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: txHash,
-        });
-
-        //@note   Now we jump ahead to the next epoch such that the validator committee is picked
-        //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
-        //        Which means that the validator set will still be empty! So anyone can propose.
-        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
-        try {
-          await cheatCodes.warp(Number(timestamp));
-        } catch (err) {
-          this.logger.debug('Warp failed, time already satisfied');
-        }
-
-        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await deployL1ContractsValues.walletClient.sendTransaction({
-            to: this.baseAccount.address,
-            value: 1n,
-            account: this.baseAccount,
-          }),
-        });
-
-        await this.ctx.aztecNode.stop();
-      },
-    );
+    await this.snapshotManager.snapshot('remove-inital-validator', async () => {
+      await this.ctx.aztecNode.stop();
+    });
   }
 
   async setup() {

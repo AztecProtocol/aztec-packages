@@ -9,7 +9,6 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
-import { setupConsoleJsonLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { aztecStartOptions } from './aztec_start_options.js';
@@ -39,11 +38,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   startCmd.helpInformation = printAztecStartHelpText;
 
   startCmd.action(async options => {
-    // setup json logging
-    if (['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '')) {
-      setupConsoleJsonLog();
-    }
-
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
     const services: NamespacedApiHandlers = {};
@@ -96,9 +90,12 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
         await startP2PBootstrap(options, userLog, debugLogger);
-      } else if (options.prover) {
+      } else if (options.proverAgent) {
         const { startProverAgent } = await import('./cmds/start_prover_agent.js');
         await startProverAgent(options, signalHandlers, services, userLog);
+      } else if (options.proverBroker) {
+        const { startProverBroker } = await import('./cmds/start_prover_broker.js');
+        await startProverBroker(options, signalHandlers, services, userLog);
       } else if (options.txe) {
         const { startTXE } = await import('./cmds/start_txe.js');
         await startTXE(options, debugLogger);

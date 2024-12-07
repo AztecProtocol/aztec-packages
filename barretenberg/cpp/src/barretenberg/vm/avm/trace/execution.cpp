@@ -125,7 +125,7 @@ void show_trace_info(const auto& trace)
           100 * nonzero_elements / total_elements,
           "%)");
     const size_t non_zero_columns = [&]() {
-        bool column_is_nonzero[trace.front().SIZE];
+        std::vector<bool> column_is_nonzero(trace.front().SIZE, false);
         for (auto const& row : trace) {
             const auto row_vec = row.as_vector();
             for (size_t col = 0; col < row.SIZE; col++) {
@@ -134,7 +134,7 @@ void show_trace_info(const auto& trace)
                 }
             }
         }
-        return static_cast<size_t>(std::count(column_is_nonzero, column_is_nonzero + trace.front().SIZE, true));
+        return static_cast<size_t>(std::count(column_is_nonzero.begin(), column_is_nonzero.end(), true));
     }();
     vinfo("Number of non-zero columns: ",
           non_zero_columns,

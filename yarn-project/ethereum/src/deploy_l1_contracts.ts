@@ -5,6 +5,8 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  ExtRollupLibAbi,
+  ExtRollupLibBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   GovernanceAbi,
@@ -13,6 +15,8 @@ import {
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
+  LeonidasLibAbi,
+  LeonidasLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -22,12 +26,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
-  SampleLibAbi,
-  SampleLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
-  TxsDecoderAbi,
-  TxsDecoderBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -53,8 +53,10 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { type L1ContractsConfig } from './config.js';
+import { MINIMUM_STAKE } from './constants.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -127,9 +129,13 @@ export interface L1ContractArtifactsForDeployment {
    */
   rollup: ContractArtifacts;
   /**
+   * The token to stake.
+   */
+  stakingAsset: ContractArtifacts;
+  /**
    * The token to pay for gas. This will be bridged to L2 via the feeJuicePortal below
    */
-  feeJuice: ContractArtifacts;
+  feeAsset: ContractArtifacts;
   /**
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
@@ -171,18 +177,22 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     libraries: {
       linkReferences: RollupLinkReferences,
       libraryCode: {
-        TxsDecoder: {
-          contractAbi: TxsDecoderAbi,
-          contractBytecode: TxsDecoderBytecode,
+        LeonidasLib: {
+          contractAbi: LeonidasLibAbi,
+          contractBytecode: LeonidasLibBytecode,
         },
-        SampleLib: {
-          contractAbi: SampleLibAbi,
-          contractBytecode: SampleLibBytecode,
+        ExtRollupLib: {
+          contractAbi: ExtRollupLibAbi,
+          contractBytecode: ExtRollupLibBytecode,
         },
       },
     },
   },
-  feeJuice: {
+  stakingAsset: {
+    contractAbi: TestERC20Abi,
+    contractBytecode: TestERC20Bytecode,
+  },
+  feeAsset: {
     contractAbi: TestERC20Abi,
     contractBytecode: TestERC20Bytecode,
   },
@@ -306,8 +316,19 @@ export const deployL1Contracts = async (
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
-  logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
+  const feeAssetAddress = await govDeployer.deploy(l1Artifacts.feeAsset, [
+    'FeeJuice',
+    'FEE',
+    account.address.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice at ${feeAssetAddress}`);
+
+  const stakingAssetAddress = await govDeployer.deploy(l1Artifacts.stakingAsset, [
+    'Staking',
+    'STK',
+    account.address.toString(),
+  ]);
+  logger.info(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
   // @todo  #8084
   // @note These numbers are just chosen to make testing simple.
@@ -320,21 +341,23 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
+  // @note @LHerskind the assets are expected to be the same at some point, but for better
+  // configurability they are different for now.
   const governanceAddress = await govDeployer.deploy(l1Artifacts.governance, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.info(`Deployed Governance at ${governanceAddress}`);
 
   const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
     governanceAddress.toString(),
   ]);
   logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     registryAddress.toString(),
     governanceAddress.toString(),
   ]);
@@ -347,27 +370,29 @@ export const deployL1Contracts = async (
 
   const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
     registryAddress.toString(),
-    feeJuiceAddress.toString(),
+    feeAssetAddress.toString(),
     args.l2FeeJuiceAddress.toString(),
   ]);
   logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
-  const rollupArgs = {
+  const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
     aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+    minimumStake: MINIMUM_STAKE,
   };
-  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
+  const rollupArgs = [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
+    stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
-    args.initialValidators?.map(v => v.toString()) ?? [],
-    rollupArgs,
-  ]);
-  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupArgs);
+    rollupConfigArgs,
+  ];
+  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
+  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   await deployer.waitForDeployments();
   logger.info(`All core contracts deployed`);
@@ -378,9 +403,15 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
-  const feeJuice = getContract({
-    address: feeJuiceAddress.toString(),
-    abi: l1Artifacts.feeJuice.contractAbi,
+  const feeAsset = getContract({
+    address: feeAssetAddress.toString(),
+    abi: l1Artifacts.feeAsset.contractAbi,
+    client: walletClient,
+  });
+
+  const stakingAsset = getContract({
+    address: stakingAssetAddress.toString(),
+    abi: l1Artifacts.stakingAsset.contractAbi,
     client: walletClient,
   });
 
@@ -393,12 +424,40 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
+  {
+    const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
+    logger.info(`Fee asset set to free for all in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
+  if (args.initialValidators && args.initialValidators.length > 0) {
+    // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+    const stakeNeeded = MINIMUM_STAKE * BigInt(args.initialValidators.length);
+    await Promise.all(
+      [
+        await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
+        await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
+      ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+    );
+
+    const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([
+      args.initialValidators.map(v => ({
+        attester: v.toString(),
+        proposer: v.toString(),
+        withdrawer: v.toString(),
+        amount: MINIMUM_STAKE,
+      })),
+    ]);
+    txHashes.push(initiateValidatorSetTxHash);
+    logger.info(`Initialized validator set (${args.initialValidators.join(', ')}) in tx ${initiateValidatorSetTxHash}`);
+  }
+
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 20000000000000000000;
-  const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000n;
+  const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
   //        otherwise we execute subsequent transactions too soon
@@ -414,7 +473,7 @@ export const deployL1Contracts = async (
   }
 
   logger.info(
-    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {
@@ -492,7 +551,8 @@ export const deployL1Contracts = async (
     registryAddress,
     inboxAddress,
     outboxAddress,
-    feeJuiceAddress,
+    feeJuiceAddress: feeAssetAddress,
+    stakingAssetAddress,
     feeJuicePortalAddress,
     coinIssuerAddress,
     rewardDistributorAddress,
@@ -607,10 +667,21 @@ export async function deployL1Contract(
   logger?: DebugLogger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
-  let address: Hex | null | undefined = undefined;
+  let resultingAddress: Hex | null | undefined = undefined;
+
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
 
   if (libraries) {
-    // @note  Assumes that we wont have nested external libraries.
+    // Note that this does NOT work well for linked libraries having linked libraries.
+
+    // Verify that all link references have corresponding code
+    for (const linkRef in libraries.linkReferences) {
+      for (const contractName in libraries.linkReferences[linkRef]) {
+        if (!libraries.libraryCode[contractName]) {
+          throw new Error(`Missing library code for ${contractName}`);
+        }
+      }
+    }
 
     const replacements: Record<string, EthAddress> = {};
 
@@ -659,21 +730,31 @@ export async function deployL1Contract(
     const salt = padHex(maybeSalt, { size: 32 });
     const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
     const calldata = encodeDeployData({ abi, bytecode, args });
-    address = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
-    const existing = await publicClient.getBytecode({ address });
+    resultingAddress = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const existing = await publicClient.getBytecode({ address: resultingAddress });
 
     if (existing === undefined || existing === '0x') {
-      txHash = await walletClient.sendTransaction({ to: deployer, data: concatHex([salt, calldata]) });
-      logger?.verbose(`Deploying contract with salt ${salt} to address ${address} in tx ${txHash}`);
+      const res = await l1TxUtils.sendTransaction({
+        to: deployer,
+        data: concatHex([salt, calldata]),
+      });
+      txHash = res.txHash;
+
+      logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {
-      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
+      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
     }
   } else {
-    txHash = await walletClient.deployContract({ abi, bytecode, args });
-    logger?.verbose(`Deploying contract in tx ${txHash}`);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, pollingInterval: 100 });
-    address = receipt.contractAddress;
-    if (!address) {
+    // Regular deployment path
+    const deployData = encodeDeployData({ abi, bytecode, args });
+    const receipt = await l1TxUtils.sendAndMonitorTransaction({
+      to: null,
+      data: deployData,
+    });
+
+    txHash = receipt.transactionHash;
+    resultingAddress = receipt.contractAddress;
+    if (!resultingAddress) {
       throw new Error(
         `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
           typeof val === 'bigint' ? String(val) : val,
@@ -682,6 +763,6 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(address!), txHash };
+  return { address: EthAddress.fromString(resultingAddress!), txHash };
 }
 // docs:end:deployL1Contract

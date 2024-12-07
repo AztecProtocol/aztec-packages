@@ -108,6 +108,7 @@ class ClientIVC {
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
+    HonkProof mega_proof;
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
@@ -132,6 +133,10 @@ class ClientIVC {
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
     GoblinProver goblin;
+
+    // We dynamically detect whether the input stack consists of one circuit, in which case we do not construct the
+    // hiding circuit and instead simply prove the single input circuit.
+    bool one_circuit = false;
 
     bool initialized = false; // Is the IVC accumulator initialized
 
@@ -168,8 +173,9 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
+                    const bool _one_circuit = false,
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    bool mock_vk = false);
+                    const bool mock_vk = false);
 
     Proof prove();
 

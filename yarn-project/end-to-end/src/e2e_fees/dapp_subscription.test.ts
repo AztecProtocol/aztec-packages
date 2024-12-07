@@ -1,15 +1,14 @@
+import { DefaultDappInterface } from '@aztec/accounts/dapp';
 import {
-  type AccountWallet,
+  AccountWallet,
   type AztecAddress,
   type FeePaymentMethod,
   Fr,
   type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
-  SentTx,
 } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings } from '@aztec/circuits.js';
-import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
 import {
   type AppSubscriptionContract,
   type TokenContract as BananaCoin,
@@ -92,11 +91,6 @@ describe('e2e_fees dapp_subscription', () => {
   });
 
   beforeEach(async () => {
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
-
     [initialSubscriptionContractGasBalance, initialSequencerGasBalance, initialFPCGasBalance] =
       (await t.getGasBalanceFn(subscriptionContract, sequencerAddress, bananaFPC)) as Balances;
     initialBananasPublicBalances = (await t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC)) as Balances;
@@ -177,19 +171,14 @@ describe('e2e_fees dapp_subscription', () => {
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
 
-    const dappPayload = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
+    const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
+    const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
+
     // Emitting the outgoing logs to Alice below
-    const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
-    const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-
-    const txSimulationResult = await pxe.simulateTx(txExReq, true);
-
-    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
-
-    const sentTx = new SentTx(pxe, pxe.sendTx(txProvingResult.toTx()));
-
-    const { transactionFee } = await sentTx.wait();
-
+    const { transactionFee } = await counterContractViaDappEntrypoint.methods
+      .increment(bobAddress, aliceAddress)
+      .send()
+      .wait();
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
@@ -231,17 +220,10 @@ describe('e2e_fees dapp_subscription', () => {
       .wait();
   }
 
-  async function dappIncrement() {
-    const dappEntrypoint = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
-    // Emitting the outgoing logs to Alice below
-    const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
-    const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
-    const txSimulationResult = await pxe.simulateTx(txExReq, true);
-    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
-    const tx = txProvingResult.toTx();
-    expect(tx.data.feePayer).toEqual(subscriptionContract.address);
-    const sentTx = new SentTx(pxe, pxe.sendTx(tx));
-    return sentTx.wait();
+  function dappIncrement() {
+    const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
+    const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
+    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress).send().wait();
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>
