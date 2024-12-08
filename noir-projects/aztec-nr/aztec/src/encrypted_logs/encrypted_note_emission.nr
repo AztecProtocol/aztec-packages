@@ -1,4 +1,4 @@
-use dep::protocol_types::debug_log::{ debug_log, debug_log_format };
+use dep::protocol_types::debug_log::{debug_log, debug_log_format};
 
 use crate::{
     context::PrivateContext,
@@ -23,8 +23,10 @@ where
     let note_hash_counter = note_header.note_hash_counter;
     let storage_slot = note_header.storage_slot;
 
-    debug_log_format("\nMIKE Looking for note: (note_hash_counter: {0}, storage_slot: {1})", [note_hash_counter as Field, storage_slot]);
-
+    debug_log_format(
+        "\nMIKE Looking for note: (note_hash_counter: {0}, storage_slot: {1})",
+        [note_hash_counter as Field, storage_slot],
+    );
 
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
