@@ -47,8 +47,12 @@ function get_ip_for_instance {
 
 case "$cmd" in
   "ec2")
-    # Spin up ec2 instance and bootstrap.
-    bootstrap_ec2 "$@"
+    # Spin up ec2 instance and execute given command or default (fast bootstrap with shell on failure).
+    bootstrap_ec2 "${1:-}" ${2:-}
+    ;;
+  "ec2-full")
+    # Spin up ec2 instance and full bootstrap.
+    bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${2:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance and drop into shell.

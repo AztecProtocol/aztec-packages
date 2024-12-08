@@ -7,7 +7,7 @@ services:
       - aztec-node-url
       - faucet-url
     environment:
-      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOST:
       JOB_NAME: ${JOB_NAME:-''}
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
