@@ -281,8 +281,19 @@ update_node() {
 }
 
 show_logs() {
-    echo -e "${BLUE}Fetching logs...${NC}"
-    if ! docker compose logs --tail 50 -f; then
+    local tail_count=50 # default
+
+    if [[ $# -gt 0 ]]; then
+        if [[ $1 =~ ^--?[0-9]+$ ]]; then
+            tail_count=${1#--}
+        else
+            echo -e "${RED}Invalid argument for logs. Please provide a number like '--100'.${NC}"
+            exit 1
+        fi
+    fi
+
+    echo -e "${BLUE}Fetching the last ${tail_count} logs...${NC}"
+    if ! docker compose logs --tail "$tail_count" -f; then
         echo -e "${RED}Failed to fetch logs${NC}"
         exit 1
     fi
@@ -305,7 +316,7 @@ case "$1" in
         update_node
         ;;
     "logs")
-        show_logs
+        show_logs "${@:2}"
         ;;
     *)
         echo "Usage: $0 {config|start|stop|update|logs}"
@@ -314,8 +325,7 @@ case "$1" in
         echo "  start   - Start Aztec Testnet node"
         echo "  stop    - Stop Aztec Testnet node"
         echo "  update  - Update Aztec Testnet node images"
-        echo "  logs    - Show Aztec Testnet node logs"
+        echo "  logs    - Show Aztec Testnet node logs. Optionally specify number of lines with --<number>."
         exit 1
         ;;
 esac
-
