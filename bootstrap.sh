@@ -224,7 +224,5 @@ projects=(
 
 # Build projects.
 for project in "${projects[@]}"; do
-  echo
-  echo
   $project/bootstrap.sh $cmd
 done

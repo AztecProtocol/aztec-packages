@@ -2,10 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-<<<<<<< HEAD
-=======
 export CRS_PATH=$PWD/crs
->>>>>>> origin/cl/ci3
 
 function build {
   if [ ! -d acir_tests ]; then
@@ -14,15 +11,10 @@ function build {
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
     rm -rf acir_tests/regression_5045
-<<<<<<< HEAD
     if [ "{CI25:-0}" = "0" ]; then
-      # These honk tests just started failing...
-      rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof}
+      # These just started failing.
+      rm -rf acir_tests/{reference_counts,schnorr,regression}
     fi
-=======
-    # These just started failing.
-    rm -rf acir_tests/{reference_counts,schnorr,regression}
->>>>>>> origin/cl/ci3
   fi
 
   # COMPILE=2 only compiles the test.
@@ -32,36 +24,14 @@ function build {
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
-<<<<<<< HEAD
-  # cd ./acir_tests/assert_statement
-  # bb=$(realpath ../cpp/build/bin/bb)
-  # $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof
-=======
   # local bb=$(realpath ../cpp/build/bin/bb)
   # (cd ./acir_tests/assert_statement && \
   #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
->>>>>>> origin/cl/ci3
 
   # Download ignition up front to ensure no race conditions at runtime.
   # 2^22 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
   # We make the file write only to ensure no test can attempt to grow it any larger. 2^22 is already huge...
   # TODO: Make bb just download and append/overwrite required range, then it becomes idempotent.
-<<<<<<< HEAD
-  mkdir -p $HOME/.bb-crs
-  curl -s -H "Range: bytes=0-$(((2**20+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
-    -o $HOME/.bb-crs/bn254_g1.dat
-}
-
-function hash() {
-  cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
-}
-
-function test {
-  hash=$(hash)
-  if ! test_should_run barretenberg-acir-test-$hash; then
-    exit 0
-  fi
-=======
   # TODO: Predownload this into AMI and mount into container.
   # TODO: Grumpkin.
   local crs_size=$((2**22+1))
@@ -71,7 +41,6 @@ function test {
     -o $CRS_PATH/bn254_g1.dat
   chmod a-w $CRS_PATH/bn254_g1.dat
   curl -s https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat -o $CRS_PATH/bn254_g2.dat
->>>>>>> origin/cl/ci3
 
   github_group "acir_tests updating yarn"
   # Update yarn.lock so it can be committed.
@@ -141,12 +110,6 @@ function test {
   # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
   run BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_test.sh 1_mul
 
-<<<<<<< HEAD
-  export -f f1 f2 f3 f4 f5 f6
-  parallel ::: f1 f2 f3 f4 f5 f6
-
-  cache_upload_flag barretenberg-acir-test-$hash
-=======
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIvc
   # run INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_test.sh fold_basic
@@ -197,7 +160,6 @@ function test {
   wait $pid
 
   cache_upload_flag barretenberg-acir-tests-$hash
->>>>>>> origin/cl/ci3
   github_endgroup
 }
 
@@ -210,14 +172,6 @@ case "$cmd" in
     ;;
   ""|"fast")
     ;;
-<<<<<<< HEAD
-  "build")
-    build
-    ;;
-  "test"|"ci")
-    build
-    test
-=======
   "full")
     denoise build
     ;;
@@ -227,7 +181,6 @@ case "$cmd" in
     ;;
   "test")
     denoise test
->>>>>>> origin/cl/ci3
     ;;
   "hash")
     hash
