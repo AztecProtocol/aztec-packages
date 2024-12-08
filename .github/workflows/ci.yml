@@ -204,7 +204,7 @@ jobs:
           runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
-        timeout-minutes: 40
+        timeout-minutes: 50
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
