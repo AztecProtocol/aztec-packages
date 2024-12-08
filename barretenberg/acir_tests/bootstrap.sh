@@ -63,9 +63,9 @@ function test {
     return
   fi
 
-  export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
   # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-  local jobs=$(nproc)
+  local jobs=64
 
   # Create temporary file descriptor 3, and redirects anything written to it, to parallels stdin.
   exec 3> >(parallel -j$jobs --tag --line-buffered --joblog joblog.txt)

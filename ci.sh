@@ -50,6 +50,10 @@ case "$cmd" in
     # Spin up ec2 instance and bootstrap.
     bootstrap_ec2 "$@"
     ;;
+  "ec2-shell")
+    # Spin up ec2 instance and drop into shell.
+    bootstrap_ec2 "exec bash"
+    ;;
   "ec2-e2e")
     bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" $1
     ;;

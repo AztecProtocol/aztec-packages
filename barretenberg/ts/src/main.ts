@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'source-map-support/register.js';
 import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
@@ -140,11 +141,11 @@ async function initClientIVC(crsPath: string) {
   return { api };
 }
 
-async function initLite() {
+async function initLite(crsPath: string) {
   const api = await Barretenberg.new({ threads: 1 });
 
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(1);
+  const crs = await Crs.new(1, crsPath);
 
   // Load CRS into wasm global CRS state.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
@@ -304,8 +305,8 @@ export async function gateCountUltra(bytecodePath: string, recursive: boolean, h
   }
 }
 
-export async function verify(proofPath: string, vkPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function verify(proofPath: string, vkPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath));
@@ -316,8 +317,8 @@ export async function verify(proofPath: string, vkPath: string) {
   }
 }
 
-export async function contract(outputPath: string, vkPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function contract(outputPath: string, vkPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const contract = await api.acirGetSolidityVerifier(acirComposer);
@@ -375,8 +376,8 @@ export async function writePk(bytecodePath: string, recursive: boolean, crsPath:
   }
 }
 
-export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
 
   try {
     debug('serializing proof byte array into field elements');
@@ -402,8 +403,8 @@ export async function proofAsFields(proofPath: string, vkPath: string, outputPat
   }
 }
 
-export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function vkAsFields(vkPath: string, vkeyOutputPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
 
   try {
     debug('serializing vk byte array into field elements');
@@ -472,8 +473,8 @@ export async function writeVkUltraHonk(bytecodePath: string, recursive: boolean,
   }
 }
 
-export async function verifyUltraHonk(proofPath: string, vkPath: string) {
-  const { api } = await initLite();
+export async function verifyUltraHonk(proofPath: string, vkPath: string, crsPath: string) {
+  const { api } = await initLite(crsPath);
   try {
     const verified = await api.acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
     debug(`verified: ${verified}`);
@@ -483,8 +484,8 @@ export async function verifyUltraHonk(proofPath: string, vkPath: string) {
   }
 }
 
-export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: string) {
-  const { api } = await initLite();
+export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: string, crsPath: string) {
+  const { api } = await initLite(crsPath);
   try {
     debug('outputting proof as vector of fields');
     const proofAsFields = await api.acirProofAsFieldsUltraHonk(readFileSync(proofPath));
@@ -504,8 +505,8 @@ export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: stri
   }
 }
 
-export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string) {
-  const { api } = await initLite();
+export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string, crsPath: string) {
+  const { api } = await initLite(crsPath);
 
   try {
     debug('serializing vk byte array into field elements');
@@ -535,6 +536,7 @@ function handleGlobalOptions() {
   if (program.opts().verbose) {
     createDebug.enable('bb.js*');
   }
+  return { crsPath: program.opts().crsPath };
 }
 
 program
@@ -543,8 +545,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerify(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -555,8 +557,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyUltraHonk(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -567,8 +569,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyMegaHonk(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -578,8 +580,8 @@ program
   .description('Generate a ClientIVC proof.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.msgpack.b64')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -590,8 +592,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await foldAndVerifyProgram(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -603,8 +605,8 @@ program
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, recursive, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await prove(bytecodePath, recursive, witnessPath, crsPath, outputPath);
   });
 
@@ -625,8 +627,8 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ proofPath, vk }) => {
-    handleGlobalOptions();
-    const result = await verify(proofPath, vk);
+    const { crsPath } = handleGlobalOptions();
+    const result = await verify(proofPath, vk, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -637,8 +639,8 @@ program
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vkPath }) => {
-    handleGlobalOptions();
-    await contract(outputPath, vkPath);
+    const { crsPath } = handleGlobalOptions();
+    await contract(outputPath, vkPath, crsPath);
   });
 
 program
@@ -647,8 +649,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await writeVk(bytecodePath, recursive, crsPath, outputPath);
   });
 
@@ -658,8 +660,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await writePk(bytecodePath, recursive, crsPath, outputPath);
   });
 
@@ -670,8 +672,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
   .action(async ({ proofPath, vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await proofAsFields(proofPath, vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await proofAsFields(proofPath, vkPath, outputPath, crsPath);
   });
 
 program
@@ -680,8 +682,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields and key hash')
   .action(async ({ vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await vkAsFields(vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await vkAsFields(vkPath, outputPath, crsPath);
   });
 
 program
@@ -691,8 +693,8 @@ program
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, recursive, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await proveUltraHonk(bytecodePath, recursive, witnessPath, crsPath, outputPath);
   });
 
@@ -702,8 +704,8 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, recursive, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
     await writeVkUltraHonk(bytecodePath, recursive, crsPath, outputPath);
   });
 
@@ -713,8 +715,8 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ proofPath, vk }) => {
-    handleGlobalOptions();
-    const result = await verifyUltraHonk(proofPath, vk);
+    const { crsPath } = handleGlobalOptions();
+    const result = await verifyUltraHonk(proofPath, vk, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -724,8 +726,8 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
   .action(async ({ proofPath, outputPath }) => {
-    handleGlobalOptions();
-    await proofAsFieldsUltraHonk(proofPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await proofAsFieldsUltraHonk(proofPath, outputPath, crsPath);
   });
 
 program
@@ -734,8 +736,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields.')
   .action(async ({ vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await vkAsFieldsUltraHonk(vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await vkAsFieldsUltraHonk(vkPath, outputPath, crsPath);
   });
 
 program.name('bb.js').parse(process.argv);

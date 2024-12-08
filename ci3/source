@@ -1,4 +1,4 @@
-# Usage 'source ci3/base/source'
+# Usage 'source ci3/source'
 # This is a basis for shell scripts that use the ci3 framework.
 # Set BASH best practices for early error exit and undefined variables.
 set -euo pipefail
