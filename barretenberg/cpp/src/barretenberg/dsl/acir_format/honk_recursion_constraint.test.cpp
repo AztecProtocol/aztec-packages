@@ -228,7 +228,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 
     auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_2_circuit);
     typename TestFixture::Prover prover(proving_key);
