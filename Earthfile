@@ -72,6 +72,7 @@ bootstrap:
   ENV USE_CACHE=1
   ARG GITHUB_RUN_URL=""
   ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
+  RUN false
 
 bootstrap-aztec:
   FROM +bootstrap
@@ -84,12 +85,11 @@ bootstrap-aztec:
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
-    # noir-projects \
-    # l1-contracts \
   RUN rm -rf \
     .git \
     .github \
     .yarn \
+    noir-projects \
     barretenberg/cpp/src \
     barretenberg/ts/node-cjs \
     barretenberg/ts/browser \
@@ -113,6 +113,7 @@ bootstrap-end-to-end:
     .git .github \
     l1-contracts \
     build-system \
+    noir-projects \
     docs \
     barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs

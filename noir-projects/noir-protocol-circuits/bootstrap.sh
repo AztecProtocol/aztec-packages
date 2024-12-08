@@ -93,7 +93,7 @@ function build {
 
 function test {
   set -eu
-  # Wether we run the tests or not is corse grained.
+  # Whether we run the tests or not is corse grained.
   name=$(basename "$PWD")
   export REBUILD_PATTERNS="^noir-projects/$name"
   export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns)

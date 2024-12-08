@@ -1,17 +1,11 @@
 VERSION 0.8
 
-build:
+bootstrap:
     FROM ../+bootstrap
     WORKDIR /usr/src/yarn-project
 
-txe:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/txe && yarn cache clean
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/txe/dest/bin/index.js"]
-    SAVE ARTIFACT /usr/src /usr/src
-
 cli-wallet-build:
-    FROM +cli-base
+    FROM +bootstrap
     RUN yarn workspaces focus @aztec/cli-wallet --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -33,20 +27,16 @@ anvil:
     SAVE ARTIFACT /opt/foundry/bin/anvil
 
 scripts-prod:
-    FROM +build
+    FROM +bootstrap
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
-all:
-    BUILD +aztec
-    BUILD +end-to-end
-
 format-check:
-    FROM +build
+    FROM +bootstrap
     RUN yarn formatting
 
 test:
-    FROM +build
+    FROM +bootstrap
     RUN yarn test
     # TODO move into build image
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
@@ -55,19 +45,18 @@ test:
 run-e2e:
     ARG test
     ARG debug=""
-    FROM +end-to-end
+    FROM +bootstrap
     RUN DEBUG=$debug yarn test $test
 
 prover-client-test:
-    FROM +build
+    FROM +bootstrap
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
 
 publish-npm:
-    FROM +build
+    FROM +bootstrap
     ARG DIST_TAG="latest"
     ARG VERSION
     ARG DRY_RUN=0
-    WORKDIR /usr/src/yarn-project
     RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN
