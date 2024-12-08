@@ -7,11 +7,12 @@ import {
     type TxSimulationResult,
 } from '@aztec/circuit-types';
 import {
-    AztecAddress,
-    CompleteAddress,
-    type ContractInstanceWithAddress,
-    EthAddress,
-    type NodeInfo,
+  AztecAddress,
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  EthAddress,
+  GasFees,
+  type NodeInfo,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
@@ -40,6 +41,7 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
     governanceAddress: EthAddress.random(),
     coinIssuerAddress: EthAddress.random(),
@@ -153,6 +155,7 @@ describe('Contract Class', () => {
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {

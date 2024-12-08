@@ -39,10 +39,10 @@ describe('Control Flow Opcodes', () => {
       const buf = Buffer.from([
         JumpI.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12340000', 'hex'), // loc
         ...Buffer.from('a234', 'hex'), // condOffset
+        ...Buffer.from('12340000', 'hex'), // loc
       ]);
-      const inst = new JumpI(/*indirect=*/ 1, /*loc=*/ 0x12340000, /*condOffset=*/ 0xa234);
+      const inst = new JumpI(/*indirect=*/ 1, /*condOffset=*/ 0xa234, /*loc=*/ 0x12340000);
 
       expect(JumpI.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -57,12 +57,12 @@ describe('Control Flow Opcodes', () => {
       context.machineState.memory.set(0, new Uint16(1n));
       context.machineState.memory.set(1, new Uint16(2n));
 
-      const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(jumpLocation);
 
       // Truthy can be greater than 1
-      const instruction1 = new JumpI(/*indirect=*/ 0, jumpLocation1, /*condOffset=*/ 1);
+      const instruction1 = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 1, jumpLocation1);
       await instruction1.execute(context);
       expect(context.machineState.pc).toBe(jumpLocation1);
     });
@@ -75,7 +75,7 @@ describe('Control Flow Opcodes', () => {
 
       context.machineState.memory.set(0, new Uint16(0n));
 
-      const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(30);
     });

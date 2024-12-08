@@ -8,7 +8,7 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Gas, GasSettings } from '@aztec/circuits.js';
+import { Gas } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
 
@@ -141,15 +141,14 @@ export class Bot {
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
-      gasSettings = GasSettings.default({ gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) });
+      gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
       estimateGas = false;
       this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
     } else {
-      gasSettings = GasSettings.default();
       estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
     }
     this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { estimateGas, fee: { paymentMethod, gasSettings }, skipPublicSimulation };
+    return { fee: { estimateGas, paymentMethod, gasSettings }, skipPublicSimulation };
   }
 }

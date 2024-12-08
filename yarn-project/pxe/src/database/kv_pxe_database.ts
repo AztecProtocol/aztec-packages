@@ -7,13 +7,12 @@ import {
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  BlockHeader,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  Header,
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
-  computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -326,8 +325,8 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner ? await computePoint(filter.owner) : undefined;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
+    const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
@@ -534,7 +533,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve();
   }
 
-  async setHeader(header: Header): Promise<void> {
+  async setHeader(header: BlockHeader): Promise<void> {
     await this.#synchronizedBlock.set(header.toBuffer());
   }
 
@@ -544,16 +543,16 @@ export class KVPxeDatabase implements PxeDatabase {
       return undefined;
     }
 
-    return Number(Header.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
+    return Number(BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
   }
 
-  getHeader(): Header {
+  getBlockHeader(): BlockHeader {
     const headerBuffer = this.#synchronizedBlock.get();
     if (!headerBuffer) {
       throw new Error(`Header not set`);
     }
 
-    return Header.fromBuffer(headerBuffer);
+    return BlockHeader.fromBuffer(headerBuffer);
   }
 
   async #addScope(scope: AztecAddress): Promise<boolean> {
@@ -669,25 +668,19 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void> {
-    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
-  }
-
-  async #incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<void> {
-    const indexes = await this.#getTaggingSecretsIndexes(appTaggingSecrets, storageMap);
-    await this.db.transaction(() => {
-      indexes.forEach((taggingSecretIndex, listIndex) => {
-        const nextIndex = taggingSecretIndex + 1;
-        void storageMap.set(appTaggingSecrets[listIndex].toString(), nextIndex);
-      });
-    });
+  async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
+    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders);
   }
 
   async setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
-    await this.db.transaction(() => {
-      indexedSecrets.forEach(indexedSecret => {
-        void this.#taggingSecretIndexesForRecipients.set(indexedSecret.secret.toString(), indexedSecret.index);
-      });
+    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients);
+  }
+
+  #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecMap<string, number>) {
+    return this.db.transaction(() => {
+      indexedSecrets.forEach(
+        indexedSecret => void storageMap.set(indexedSecret.secret.toString(), indexedSecret.index),
+      );
     });
   }
 
@@ -701,5 +694,16 @@ export class KVPxeDatabase implements PxeDatabase {
 
   #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<number[]> {
     return this.db.transaction(() => appTaggingSecrets.map(secret => storageMap.get(`${secret.toString()}`) ?? 0));
+  }
+
+  async resetNoteSyncData(): Promise<void> {
+    await this.db.transaction(() => {
+      for (const recipient of this.#taggingSecretIndexesForRecipients.keys()) {
+        void this.#taggingSecretIndexesForRecipients.delete(recipient);
+      }
+      for (const sender of this.#taggingSecretIndexesForSenders.keys()) {
+        void this.#taggingSecretIndexesForSenders.delete(sender);
+      }
+    });
   }
 }

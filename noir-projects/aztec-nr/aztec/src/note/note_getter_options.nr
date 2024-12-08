@@ -27,7 +27,7 @@ pub struct SortOrderEnum {
     pub ASC: u8,
 }
 
-pub global SortOrder = SortOrderEnum { DESC: 1, ASC: 2 };
+pub global SortOrder: SortOrderEnum = SortOrderEnum { DESC: 1, ASC: 2 };
 
 pub struct Sort {
     pub(crate) property_selector: PropertySelector,
@@ -45,7 +45,7 @@ pub struct NoteStatusEnum {
     pub ACTIVE_OR_NULLIFIED: u8,
 }
 
-pub global NoteStatus = NoteStatusEnum {
+pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
     ACTIVE: 1,
     ACTIVE_OR_NULLIFIED: 2,
     // TODO 4217: add 'NULLIFIED'

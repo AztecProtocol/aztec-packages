@@ -10,6 +10,8 @@ import {
 } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import {
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
@@ -25,12 +27,12 @@ import {
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { isEmptyArray } from '../utils/index.js';
+import { BlockHeader } from './block_header.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 import { Gas } from './gas.js';
 import { GlobalVariables } from './global_variables.js';
-import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { LogHash } from './log_hash.js';
 import { NoteHash } from './note_hash.js';
@@ -119,7 +121,7 @@ export class PublicCircuitPublicInputs {
      * Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
      * previous to the one in which the tx is included.
      */
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     /** Global variables for the block. */
     public globalVariables: GlobalVariables,
     /**
@@ -173,7 +175,7 @@ export class PublicCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
-      Header.empty(),
+      BlockHeader.empty(),
       GlobalVariables.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
@@ -285,7 +287,7 @@ export class PublicCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(GlobalVariables),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
@@ -315,7 +317,7 @@ export class PublicCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
-      Header.fromFields(reader),
+      BlockHeader.fromFields(reader),
       GlobalVariables.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),
@@ -323,5 +325,67 @@ export class PublicCircuitPublicInputs {
       Gas.fromFields(reader),
       reader.readField(),
     );
+  }
+
+  [inspect.custom]() {
+    return `PublicCircuitPublicInputs {
+      callContext: ${inspect(this.callContext)},
+      argsHash: ${inspect(this.argsHash)},
+      returnsHash: ${inspect(this.returnsHash)},
+      noteHashReadRequests: [${this.noteHashReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifierReadRequests: [${this.nullifierReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifierNonExistentReadRequests: [${this.nullifierNonExistentReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      l1ToL2MsgReadRequests: [${this.l1ToL2MsgReadRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      contractStorageUpdateRequests: [${this.contractStorageUpdateRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      contractStorageReads: [${this.contractStorageReads
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      publicCallRequests: [${this.publicCallRequests
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      noteHashes: [${this.noteHashes
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      nullifiers: [${this.nullifiers
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      l2ToL1Msgs: [${this.l2ToL1Msgs
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
+      endSideEffectCounter: ${inspect(this.endSideEffectCounter)},
+      startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
+      unencryptedLogsHashes: [${this.unencryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(h => inspect(h))
+        .join(', ')}]},
+      historicalHeader: ${inspect(this.historicalHeader)},
+      globalVariables: ${inspect(this.globalVariables)},
+      proverAddress: ${inspect(this.proverAddress)},
+      revertCode: ${inspect(this.revertCode)},
+      startGasLeft: ${inspect(this.startGasLeft)},
+      endGasLeft: ${inspect(this.endGasLeft)},
+      transactionFee: ${inspect(this.transactionFee)},
+      }`;
   }
 }

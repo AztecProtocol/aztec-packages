@@ -20,9 +20,9 @@ describe('avm public storage', () => {
       const contractAddress = AztecAddress.fromNumber(1);
       const slot = new Fr(2);
       // never written!
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      publicDb.storageRead.mockResolvedValue(Fr.ZERO);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // doesn't exist, value is zero
-      expect(exists).toEqual(false);
       expect(gotValue).toEqual(Fr.ZERO);
       expect(cached).toEqual(false);
     });
@@ -33,9 +33,8 @@ describe('avm public storage', () => {
       const value = new Fr(3);
       // Write to cache
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // exists because it was previously written
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
@@ -47,9 +46,8 @@ describe('avm public storage', () => {
       // ensure that fallback to host gets a value
       publicDb.storageRead.mockResolvedValue(storedValue);
 
-      const { exists, value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await publicStorage.read(contractAddress, slot);
       // it exists in the host, so it must've been written before
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(storedValue);
       expect(cached).toEqual(false);
     });
@@ -61,9 +59,8 @@ describe('avm public storage', () => {
       const childStorage = new PublicStorage(publicDb, publicStorage);
 
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await childStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await childStorage.read(contractAddress, slot);
       // exists because it was previously written!
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
@@ -76,9 +73,8 @@ describe('avm public storage', () => {
       const grandChildStorage = new PublicStorage(publicDb, childStorage);
 
       publicStorage.write(contractAddress, slot, value);
-      const { exists, value: gotValue, cached } = await grandChildStorage.read(contractAddress, slot);
+      const { value: gotValue, cached } = await grandChildStorage.read(contractAddress, slot);
       // exists because it was previously written!
-      expect(exists).toEqual(true);
       expect(gotValue).toEqual(value);
       expect(cached).toEqual(true);
     });
@@ -136,8 +132,7 @@ describe('avm public storage', () => {
     publicStorage.acceptAndMerge(childStorage);
 
     // Read from parent gives latest value written in child before merge (valueT1)
-    const { exists, value: result } = await publicStorage.read(contractAddress, slot);
-    expect(exists).toEqual(true);
+    const { value: result } = await publicStorage.read(contractAddress, slot);
     expect(result).toEqual(valueT1);
   });
 });

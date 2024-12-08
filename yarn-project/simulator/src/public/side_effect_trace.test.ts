@@ -140,7 +140,7 @@ describe('Side Effect Trace', () => {
   it('Should trace nullifier checks', () => {
     const exists = true;
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-    trace.traceNullifierCheck(address, utxo, exists, lowLeafPreimage, Fr.ZERO, []);
+    trace.traceNullifierCheck(utxo, exists, lowLeafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -157,7 +157,7 @@ describe('Side Effect Trace', () => {
   it('Should trace non-existent nullifier checks', () => {
     const exists = false;
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-    trace.traceNullifierCheck(address, utxo, exists, lowLeafPreimage, Fr.ZERO, []);
+    trace.traceNullifierCheck(utxo, exists, lowLeafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -173,7 +173,7 @@ describe('Side Effect Trace', () => {
 
   it('Should trace nullifiers', async () => {
     const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-    await trace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
+    trace.traceNewNullifier(utxo, lowLeafPreimage, Fr.ZERO, [], []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
@@ -302,43 +302,42 @@ describe('Side Effect Trace', () => {
     it('Should enforce maximum number of nullifier checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
-        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
+        trace.traceNullifierCheck(new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
-      expect(() =>
-        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true, lowLeafPreimage, Fr.ZERO, []),
-      ).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNullifierCheck(new Fr(42), true, lowLeafPreimage, Fr.ZERO, [])).toThrow(
+        SideEffectLimitReachedError,
+      );
       // NOTE: also cannot do a non-existent check once existent checks have filled up
-      expect(() =>
-        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false, lowLeafPreimage, Fr.ZERO, []),
-      ).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNullifierCheck(new Fr(42), false, lowLeafPreimage, Fr.ZERO, [])).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of nullifier non-existent checks', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
-        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
+        trace.traceNullifierCheck(new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
-      expect(() =>
-        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), false, lowLeafPreimage, Fr.ZERO, []),
-      ).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNullifierCheck(new Fr(42), false, lowLeafPreimage, Fr.ZERO, [])).toThrow(
+        SideEffectLimitReachedError,
+      );
       // NOTE: also cannot do a existent check once non-existent checks have filled up
-      expect(() =>
-        trace.traceNullifierCheck(AztecAddress.fromNumber(42), new Fr(42), true, lowLeafPreimage, Fr.ZERO, []),
-      ).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNullifierCheck(new Fr(42), true, lowLeafPreimage, Fr.ZERO, [])).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of new nullifiers', async () => {
       for (let i = 0; i < MAX_NULLIFIERS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i + 1), Fr.ZERO, 0n);
-        await trace.traceNewNullifier(AztecAddress.fromNumber(i), new Fr(i), lowLeafPreimage, Fr.ZERO, [], []);
+        trace.traceNewNullifier(new Fr(i), lowLeafPreimage, Fr.ZERO, [], []);
       }
       const lowLeafPreimage = new NullifierLeafPreimage(new Fr(41), Fr.ZERO, 0n);
-      await expect(
-        async () =>
-          await trace.traceNewNullifier(AztecAddress.fromNumber(42), new Fr(42), lowLeafPreimage, Fr.ZERO, [], []),
-      ).rejects.toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceNewNullifier(new Fr(42), lowLeafPreimage, Fr.ZERO, [], [])).toThrow(
+        SideEffectLimitReachedError,
+      );
     });
 
     it('Should enforce maximum number of L1 to L2 message checks', () => {
@@ -371,7 +370,7 @@ describe('Side Effect Trace', () => {
     it('Should enforce maximum number of nullifier checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
-        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
+        trace.traceNullifierCheck(new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
@@ -385,7 +384,7 @@ describe('Side Effect Trace', () => {
     it('Should enforce maximum number of nullifier non-existent checks for GETCONTRACTINSTANCE', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new NullifierLeafPreimage(new Fr(i), Fr.ZERO, 0n);
-        trace.traceNullifierCheck(AztecAddress.fromNumber(i), new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
+        trace.traceNullifierCheck(new Fr(i + 1), true, lowLeafPreimage, Fr.ZERO, []);
       }
       expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
@@ -412,11 +411,11 @@ describe('Side Effect Trace', () => {
     // counter does not increment for note hash checks
     await nestedTrace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
     testCounter++;
-    await nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
+    nestedTrace.traceNullifierCheck(utxo, true, lowLeafPreimage, Fr.ZERO, []);
     testCounter++;
-    await nestedTrace.traceNullifierCheck(address, utxo, true, lowLeafPreimage, Fr.ZERO, []);
+    nestedTrace.traceNullifierCheck(utxo, true, lowLeafPreimage, Fr.ZERO, []);
     testCounter++;
-    await nestedTrace.traceNewNullifier(address, utxo, lowLeafPreimage, Fr.ZERO, [], []);
+    nestedTrace.traceNewNullifier(utxo, lowLeafPreimage, Fr.ZERO, [], []);
     testCounter++;
     await nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault, []);
     // counter does not increment for l1tol2 message checks

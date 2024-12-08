@@ -519,6 +519,8 @@ void StandardCircuitBuilder_<FF>::assert_equal_constant(uint32_t const a_idx, FF
  */
 template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circuit()
 {
+    this->set_variable_name(this->zero_idx, "zero");
+    this->set_variable_name(this->one_idx, "one");
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 

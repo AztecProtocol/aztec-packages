@@ -1,8 +1,8 @@
 import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type Header,
   type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
@@ -115,7 +115,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getHeader(): Header;
+  getBlockHeader(): BlockHeader;
 
   /**
    * Set the latest Block Header.
@@ -124,7 +124,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHeader(header: Header): Promise<void>;
+  setHeader(header: BlockHeader): Promise<void>;
 
   /**
    * Adds contact address to the database.
@@ -202,11 +202,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets in the senders database
-   * To be used when the generated tags have been used as sender
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+  setTaggingSecretsIndexesAsSender(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 
   /**
    * Sets the index for the provided app siloed tagging secrets
@@ -226,4 +226,12 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param blockNumber - All nullifiers strictly after this block are removed.
    */
   unnullifyNotesAfter(blockNumber: number): Promise<void>;
+
+  /**
+   * Resets the indexes used to sync notes to 0 for every sender and recipient, causing the next sync process to
+   * start from scratch, taking longer than usual.
+   * This can help fix desynchronization issues, including finding logs that had previously been overlooked, and
+   * is also required to deal with chain reorgs.
+   */
+  resetNoteSyncData(): Promise<void>;
 }

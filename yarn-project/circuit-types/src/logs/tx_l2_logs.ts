@@ -2,37 +2,27 @@ import {
   Fr,
   type LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
-import { type EncryptedL2Log } from './encrypted_l2_log.js';
-import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
-import {
-  EncryptedFunctionL2Logs,
-  EncryptedNoteFunctionL2Logs,
-  type FunctionL2Logs,
-  UnencryptedFunctionL2Logs,
-} from './function_l2_logs.js';
+import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 tx.
  */
-export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> {
+export abstract class TxL2Logs {
   abstract hash(): Buffer;
 
   constructor(
     /** * An array containing logs emitted in individual function invocations in this tx. */
-    public readonly functionLogs: FunctionL2Logs<TLog>[],
+    public readonly functionLogs: UnencryptedFunctionL2Logs[],
   ) {}
 
   /**
@@ -72,25 +62,15 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
    * @param functionLogs - The function logs to add
    * @remarks Used by sequencer to append unencrypted logs emitted in public function calls.
    */
-  public addFunctionLogs(functionLogs: FunctionL2Logs<TLog>[]) {
+  public addFunctionLogs(functionLogs: UnencryptedFunctionL2Logs[]) {
     this.functionLogs.push(...functionLogs);
-  }
-
-  /**
-   * Convert a TxL2Logs class object to a plain JSON object.
-   * @returns A plain object with TxL2Logs properties.
-   */
-  public toJSON() {
-    return {
-      functionLogs: this.functionLogs.map(log => log.toJSON()),
-    };
   }
 
   /**
    * Unrolls logs from this tx.
    * @returns Unrolled logs.
    */
-  public unrollLogs(): TLog[] {
+  public unrollLogs(): UnencryptedL2Log[] {
     return this.functionLogs.flatMap(functionLog => functionLog.logs);
   }
 
@@ -99,7 +79,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
    * @param other - Another TxL2Logs object to compare with.
    * @returns True if the two objects are equal, false otherwise.
    */
-  public equals(other: TxL2Logs<TLog>): boolean {
+  public equals(other: TxL2Logs): boolean {
     return isEqual(this, other);
   }
 
@@ -110,7 +90,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
    * @param output our aggregation
    * @returns our aggregation
    */
-  public filter(logHashes: LogHash[], output: TxL2Logs<TLog>): TxL2Logs<TLog> {
+  public filter(logHashes: LogHash[], output: TxL2Logs): TxL2Logs {
     for (const fnLogs of this.functionLogs) {
       let include = false;
       for (const log of fnLogs.logs) {
@@ -132,15 +112,13 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
    * @param output our aggregation
    * @returns our aggregation
    */
-  public filterScoped(scopedLogHashes: ScopedLogHash[], output: TxL2Logs<TLog>): TxL2Logs<TLog> {
+  public filterScoped(scopedLogHashes: ScopedLogHash[], output: TxL2Logs): TxL2Logs {
     for (const fnLogs of this.functionLogs) {
       let include = false;
       for (const log of fnLogs.logs) {
         let contractAddress: any;
         if ('contractAddress' in log) {
           contractAddress = log.contractAddress;
-        } else if ('maskedContractAddress' in log) {
-          contractAddress = new AztecAddress(log.maskedContractAddress);
         } else {
           throw new Error("Can't run filterScoped in logs without contractAddress or maskedContractAddress");
         }
@@ -160,7 +138,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
   }
 }
 
-export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+export class UnencryptedTxL2Logs extends TxL2Logs {
   static get schema() {
     return z
       .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
@@ -193,7 +171,6 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
    * @param numCalls - The number of function calls in the tx.
    * @param numLogsPerCall - The number of logs emitted in each function call.
-   * @param logType - The type of logs to generate.
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): UnencryptedTxL2Logs {
@@ -206,16 +183,6 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
     }
-    return new UnencryptedTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
     return new UnencryptedTxL2Logs(functionLogs);
   }
 
@@ -254,194 +221,7 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
   }
 }
 
-export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
-  static get schema() {
-    return z
-      .object({ functionLogs: z.array(EncryptedNoteFunctionL2Logs.schema) })
-      .transform(({ functionLogs }) => new EncryptedNoteTxL2Logs(functionLogs));
-  }
-
-  /** Creates an empty instance. */
-  public static empty() {
-    return new EncryptedNoteTxL2Logs([]);
-  }
-
-  /**
-   * Deserializes logs from a buffer.
-   * @param buf - The buffer containing the serialized logs.
-   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
-   * @returns A new L2Logs object.
-   */
-  public static fromBuffer(buf: Buffer | BufferReader, isLengthPrefixed = true): EncryptedNoteTxL2Logs {
-    const reader = BufferReader.asReader(buf);
-
-    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
-    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
-    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
-
-    const functionLogs = serializedFunctionLogs.map(logs => EncryptedNoteFunctionL2Logs.fromBuffer(logs, false));
-    return new EncryptedNoteTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
-   * @param numCalls - The number of function calls in the tx.
-   * @param numLogsPerCall - The number of logs emitted in each function call.
-   * @param logType - The type of logs to generate.
-   * @returns A new `TxL2Logs` object.
-   */
-  public static async random(numCalls: number, numLogsPerCall: number): Promise<EncryptedNoteTxL2Logs> {
-    if (numCalls * numLogsPerCall > MAX_NOTE_ENCRYPTED_LOGS_PER_TX) {
-      throw new Error(
-        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_NOTE_ENCRYPTED_LOGS_PER_TX})`,
-      );
-    }
-    const functionLogs: EncryptedNoteFunctionL2Logs[] = [];
-    for (let i = 0; i < numCalls; i++) {
-      functionLogs.push(await EncryptedNoteFunctionL2Logs.random(numLogsPerCall));
-    }
-    return new EncryptedNoteTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => EncryptedNoteFunctionL2Logs.fromJSON(log));
-    return new EncryptedNoteTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Computes encrypted logs hash as is done in the kernel and decoder contract.
-   * @param logs - Logs to be hashed.
-   * @returns The hash of the logs.
-   * Note: This is a TS implementation of `computeKernelNoteEncryptedLogsHash` function in Decoder.sol. See that function documentation
-   *       for more details.
-   */
-  public override hash(): Buffer {
-    return EncryptedNoteTxL2Logs.hashNoteLogs(this.unrollLogs().map(log => log.hash()));
-  }
-
-  /**
-   * Hashes encrypted note logs hashes as in the same way as the base rollup would.
-   * @param siloedLogHashes - The note log hashes
-   * @returns The hash of the log hashes.
-   */
-  public static hashNoteLogs(logHashes: Buffer[]): Buffer {
-    if (logHashes.length == 0) {
-      return Buffer.alloc(32);
-    }
-
-    let allSiloedLogHashes = Buffer.alloc(0);
-    for (const siloedLogHash of logHashes) {
-      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
-    }
-    // pad the end of logs with 0s
-    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - logHashes.length; i++) {
-      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
-    }
-
-    return sha256Trunc(allSiloedLogHashes);
-  }
-}
-
-export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
-  static get schema() {
-    return z
-      .object({ functionLogs: z.array(EncryptedFunctionL2Logs.schema) })
-      .transform(({ functionLogs }) => new EncryptedTxL2Logs(functionLogs));
-  }
-
-  /** Creates an empty instance. */
-  public static empty() {
-    return new EncryptedTxL2Logs([]);
-  }
-
-  /**
-   * Deserializes logs from a buffer.
-   * @param buf - The buffer containing the serialized logs.
-   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
-   * @returns A new L2Logs object.
-   */
-  public static fromBuffer(buf: Buffer | BufferReader, isLengthPrefixed = true): EncryptedTxL2Logs {
-    const reader = BufferReader.asReader(buf);
-
-    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
-    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
-    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
-
-    const functionLogs = serializedFunctionLogs.map(logs => EncryptedFunctionL2Logs.fromBuffer(logs, false));
-    return new EncryptedTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
-   * @param numCalls - The number of function calls in the tx.
-   * @param numLogsPerCall - The number of logs emitted in each function call.
-   * @param logType - The type of logs to generate.
-   * @returns A new `TxL2Logs` object.
-   */
-  public static async random(numCalls: number, numLogsPerCall: number): Promise<EncryptedTxL2Logs> {
-    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
-      throw new Error(
-        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
-      );
-    }
-    const functionLogs: EncryptedFunctionL2Logs[] = [];
-    for (let i = 0; i < numCalls; i++) {
-      functionLogs.push(await EncryptedFunctionL2Logs.random(numLogsPerCall));
-    }
-    return new EncryptedTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => EncryptedFunctionL2Logs.fromJSON(log));
-    return new EncryptedTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Computes encrypted logs hash as is done in the kernel and decoder contract.
-   * @param logs - Logs to be hashed.
-   * @returns The hash of the logs.
-   * Note: This is a TS implementation of `computeKernelEncryptedLogsHash` function in Decoder.sol. See that function documentation
-   *       for more details.
-   */
-  public override hash(): Buffer {
-    const unrolledLogs = this.unrollLogs();
-    return EncryptedTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
-  }
-
-  /**
-   * Hashes siloed unencrypted logs as in the same way as the base rollup would.
-   * @param siloedLogHashes - The siloed log hashes
-   * @returns The hash of the logs.
-   */
-  public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
-    if (siloedLogHashes.length == 0) {
-      return Buffer.alloc(32);
-    }
-
-    let allSiloedLogHashes = Buffer.alloc(0);
-    for (const siloedLogHash of siloedLogHashes) {
-      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
-    }
-    // pad the end of logs with 0s
-    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - siloedLogHashes.length; i++) {
-      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
-    }
-
-    return sha256Trunc(allSiloedLogHashes);
-  }
-}
-
-export class ContractClassTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+export class ContractClassTxL2Logs extends TxL2Logs {
   static get schema() {
     return z
       .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
@@ -474,7 +254,6 @@ export class ContractClassTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
    * @param numCalls - The number of function calls in the tx.
    * @param numLogsPerCall - The number of logs emitted in each function call.
-   * @param logType - The type of logs to generate.
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): ContractClassTxL2Logs {
@@ -487,16 +266,6 @@ export class ContractClassTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
     }
-    return new ContractClassTxL2Logs(functionLogs);
-  }
-
-  /**
-   * Convert a plain JSON object to a TxL2Logs class object.
-   * @param obj - A plain TxL2Logs JSON object.
-   * @returns A TxL2Logs class object.
-   */
-  public static fromJSON(obj: any) {
-    const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
     return new ContractClassTxL2Logs(functionLogs);
   }
 

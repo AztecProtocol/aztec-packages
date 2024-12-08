@@ -4,14 +4,18 @@ mod validate_propagated_sorted_values;
 mod validate_propagated_values;
 
 use crate::components::{
-    tail_output_composer::meter_gas_used::meter_gas_used,
+    tail_output_composer::meter_gas_used,
     tail_output_validator::{
         tail_output_hints::{generate_tail_output_hints, TailOutputHints},
         TailOutputValidator,
     },
 };
 use dep::types::{
-    abis::{gas_settings::GasSettings, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
+    abis::{
+        gas::Gas, gas_fees::GasFees, gas_settings::GasSettings,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    },
+    constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -22,10 +26,16 @@ pub struct TailOutputValidatorBuilder {
 
 impl TailOutputValidatorBuilder {
     pub fn new() -> Self {
+        let gas_settings = GasSettings::new(
+            Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
+            Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
+            GasFees::new(10, 10),
+        );
+
         let mut output = FixtureBuilder::new();
         let mut previous_kernel = FixtureBuilder::new();
-        output.tx_context.gas_settings = GasSettings::default();
-        previous_kernel.tx_context.gas_settings = GasSettings::default();
+        output.tx_context.gas_settings = gas_settings;
+        previous_kernel.tx_context.gas_settings = gas_settings;
         output.set_first_nullifier();
         previous_kernel.set_first_nullifier();
         TailOutputValidatorBuilder { output, previous_kernel }

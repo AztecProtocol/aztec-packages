@@ -8,6 +8,7 @@ import {
   type DebugLogger,
   Fq,
   Fr,
+  L1EventPayload,
   L1NotePayload,
   type PXE,
   TxStatus,
@@ -18,7 +19,7 @@ import {
 } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -299,8 +300,8 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const notePayload = L1NotePayload.decryptAsIncoming(l.data, thisWallet.getEncryptionSecret());
+      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
+        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
         // In this test we care only about the privately delivered values
         return notePayload?.privateNoteValues[0];
       });
@@ -319,8 +320,10 @@ describe('e2e_block_building', () => {
       const outgoingViewer = thisWallet.getAddress();
 
       // call test contract
+      const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
+      const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
       const action = testContract.methods.emit_array_as_encrypted_log(
-        [5, 4, 3, 2, 1],
+        values,
         thisWallet.getAddress(),
         outgoingViewer,
         true,
@@ -330,19 +333,20 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const encryptedLogs = tx.encryptedLogs.unrollLogs();
-      expect(encryptedLogs[0].maskedContractAddress).toEqual(
-        await poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
-      );
-      expect(encryptedLogs[1].maskedContractAddress).toEqual(
-        await poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
-      );
-      // Setting randomness = 0 in app means 'do not mask the address'
-      expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
+      const privateLogs = tx.data.getNonEmptyPrivateLogs();
+      expect(privateLogs.length).toBe(3);
 
-      // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
-      // will likely not be useful when complete.
-      // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
+      // The first two logs are encrypted.
+      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      expect(event0.event.items).toEqual(values);
+
+      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      expect(event1.event.items).toEqual(nestedValues);
+
+      // The last log is not encrypted.
+      // The first field is the first value and is siloed with contract address by the kernel circuit.
+      const expectedFirstField = poseidon2Hash([testContract.address, values[0]]);
+      expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
     }, 60_000);
   });
 

@@ -1,14 +1,18 @@
 import {
   ARCHIVE_HEIGHT,
+  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  Header,
+  GasFees,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
+  NodeInfoSchema,
   PUBLIC_DATA_TREE_HEIGHT,
+  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
@@ -25,13 +29,10 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   GetUnencryptedLogsResponseSchema,
-  L2BlockL2Logs,
   type LogFilter,
   LogFilterSchema,
-  LogType,
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -62,13 +63,26 @@ export interface AztecNode
    * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The values to search for
+   * @param leafValues - The values to search for
    * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
+
+  /**
+   * Find the indexes of the given leaves in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * @param treeId - The tree to search in.
+   * @param leafIndices - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   */
+  findBlockNumbersForIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafIndices: bigint[],
   ): Promise<(bigint | undefined)[]>;
 
   /**
@@ -219,12 +233,25 @@ export interface AztecNode
   isReady(): Promise<boolean>;
 
   /**
+   * Returns the information about the server's node. Includes current Node version, compatible Noir version,
+   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * @returns - The node information.
+   */
+  getNodeInfo(): Promise<NodeInfo>;
+
+  /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
    * @param limit - The maximum number of blocks to return.
    * @returns The blocks requested.
    */
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
+
+  /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  getCurrentBaseFees(): Promise<GasFees>;
 
   /**
    * Method to fetch the version of the package.
@@ -263,17 +290,12 @@ export interface AztecNode
   addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -357,7 +379,7 @@ export interface AztecNode
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getBlockHeader(blockNumber?: L2BlockNumber): Promise<Header>;
+  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -430,6 +452,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
     .returns(z.array(optional(schemas.BigInt))),
 
+  findBlockNumbersForIndexes: z
+    .function()
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.BigInt))
+    .returns(z.array(optional(schemas.BigInt))),
+
   findNullifiersIndexesWithBlock: z
     .function()
     .args(L2BlockNumberSchema, z.array(schemas.Fr))
@@ -490,7 +517,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   isReady: z.function().returns(z.boolean()),
 
+  getNodeInfo: z.function().returns(NodeInfoSchema),
+
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+
+  getCurrentBaseFees: z.function().returns(GasFees.schema),
 
   getNodeVersion: z.function().returns(z.string()),
 
@@ -504,7 +535,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
 
-  getLogs: z.function().args(z.number(), z.number(), z.nativeEnum(LogType)).returns(z.array(L2BlockL2Logs.schema)),
+  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
 
@@ -529,7 +560,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
+  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
 
   simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
 

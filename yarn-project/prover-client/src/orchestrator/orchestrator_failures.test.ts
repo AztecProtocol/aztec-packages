@@ -1,17 +1,12 @@
+import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { Fr } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
+import { timesAsync } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -34,31 +29,20 @@ describe('prover/orchestrator/failures', () => {
 
     beforeEach(() => {
       mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
+      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
     });
 
     const run = async (message: string) => {
-      orchestrator.startNewEpoch(1, 3);
+      // We need at least 3 blocks, 3 txs, and 1 message to ensure all circuits are used
+      // We generate them and add them as part of the pending chain
+      const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      // We need at least 3 blocks and 3 txs to ensure all circuits are used
-      for (let i = 0; i < 3; i++) {
-        const globalVariables = makeGlobals(i + 1);
-        const txs = await Promise.all(
-          times(3, async j =>
-            makeBloatedProcessedTx({
-              db: context.actualDb,
-              globalVariables,
-              vkTreeRoot: await getVKTreeRoot(),
-              protocolContractTreeRoot,
-              seed: i * 10 + j + 1,
-              privateOnly: j === 1,
-            }),
-          ),
-        );
-        const msgs = [new Fr(i + 100)];
+      orchestrator.startNewEpoch(1, 1, 3);
+
+      for (const { block, txs, msgs } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, globalVariables, msgs);
+          await orchestrator.startNewBlock(txs.length, block.header.globalVariables, msgs);
           let allTxsAdded = true;
           for (const tx of txs) {
             try {
@@ -70,9 +54,11 @@ describe('prover/orchestrator/failures', () => {
           }
 
           if (!allTxsAdded) {
-            await expect(orchestrator.setBlockCompleted()).rejects.toThrow(`Block proving failed: ${message}`);
+            await expect(orchestrator.setBlockCompleted(block.number)).rejects.toThrow(
+              `Block proving failed: ${message}`,
+            );
           } else {
-            await orchestrator.setBlockCompleted();
+            await orchestrator.setBlockCompleted(block.number);
           }
         } catch (err) {
           break;

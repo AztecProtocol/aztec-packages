@@ -1,11 +1,8 @@
-import { EncryptedFunctionL2Logs, EncryptedNoteFunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-function shouldBehaveLikeFunctionL2Logs(
-  FunctionL2Logs:
-    | typeof UnencryptedFunctionL2Logs
-    | typeof EncryptedNoteFunctionL2Logs
-    | typeof EncryptedFunctionL2Logs,
-) {
+import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
+
+function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFunctionL2Logs) {
   describe(FunctionL2Logs.name, () => {
     it('can encode L2Logs to buffer and back', async () => {
       const l2Logs = await FunctionL2Logs.random(3);
@@ -19,8 +16,8 @@ function shouldBehaveLikeFunctionL2Logs(
     it('can encode L2Logs to JSON and back', async () => {
       const l2Logs = await FunctionL2Logs.random(3);
 
-      const buffer = JSON.stringify(l2Logs.toJSON());
-      const recovered = FunctionL2Logs.fromJSON(JSON.parse(buffer));
+      const buffer = jsonStringify(l2Logs);
+      const recovered = FunctionL2Logs.schema.parse(JSON.parse(buffer));
 
       expect(recovered).toEqual(l2Logs);
     });
@@ -49,6 +46,4 @@ function shouldBehaveLikeFunctionL2Logs(
   });
 }
 
-shouldBehaveLikeFunctionL2Logs(EncryptedNoteFunctionL2Logs);
 shouldBehaveLikeFunctionL2Logs(UnencryptedFunctionL2Logs);
-shouldBehaveLikeFunctionL2Logs(EncryptedFunctionL2Logs);

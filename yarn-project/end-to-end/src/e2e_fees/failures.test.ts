@@ -36,8 +36,8 @@ describe('e2e_fees failures', () => {
   });
 
   it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
-    const outrageousPublicAmountAliceDoesNotHave = BigInt(1e8);
-    const privateMintedAlicePrivateBananas = BigInt(1e15);
+    const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
+    const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
     const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
@@ -126,8 +126,8 @@ describe('e2e_fees failures', () => {
   });
 
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
-    const outrageousPublicAmountAliceDoesNotHave = BigInt(1e15);
-    const publicMintedAlicePublicBananas = BigInt(1e12);
+    const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
+    const publicMintedAlicePublicBananas = t.ALICE_INITIAL_BANANAS;
 
     const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
@@ -235,7 +235,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/Transaction [0-9a-f]{64} was dropped\. Reason: Tx dropped by P2P node\./);
+    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped\. Reason: Tx dropped by P2P node\./);
   });
 
   it('includes transaction that error in teardown', async () => {

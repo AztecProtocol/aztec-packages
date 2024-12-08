@@ -23,6 +23,7 @@ import {
   type SiblingPath,
   SimulationError,
   type Tx,
+  type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   TxProvingResult,
@@ -36,6 +37,7 @@ import {
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
+  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -43,7 +45,6 @@ import {
   computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
-  computePoint,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
@@ -65,6 +66,8 @@ import {
   protocolContractNames,
 } from '@aztec/protocol-contracts';
 import { type AcirSimulator } from '@aztec/simulator';
+
+import { inspect } from 'util';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -132,6 +135,10 @@ export class PXEService implements PXE {
     this.log.info('Cancelled Job Queue');
     await this.synchronizer.stop();
     this.log.info('Stopped Synchronizer');
+  }
+
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
   /** Returns an estimate of the db size in bytes. */
@@ -250,10 +257,7 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
-      if (
-        // Computed address from the instance does not match address inside instance
-        !(await computeContractAddressFromInstance(instance)).equals(instance.address)
-      ) {
+      if (!computeContractAddressFromInstance(instance).equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
@@ -295,16 +299,9 @@ export class PXEService implements PXE {
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (
-          await Promise.all(
-            (
-              await this.db.getCompleteAddresses()
-            ).map(async completeAddress => {
-              const point = await computePoint(completeAddress.address);
-              return point.equals(dao.addressPoint) ? completeAddress : undefined;
-            }),
-          )
-        ).find(completeAddress => !!completeAddress);
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
+          completeAddress.address.toAddressPoint().equals(dao.addressPoint),
+        );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
@@ -405,7 +402,7 @@ export class PXEService implements PXE {
           noteHash,
           siloedNullifier,
           index,
-          await computePoint(owner.address),
+          owner.address.toAddressPoint(),
         ),
         scope,
       );
@@ -450,7 +447,7 @@ export class PXEService implements PXE {
           noteHash,
           Fr.ZERO, // We are not able to derive
           index,
-          await computePoint(note.owner),
+          note.owner.toAddressPoint(),
         ),
       );
     }
@@ -502,6 +499,10 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.node.getCurrentBaseFees();
+  }
+
   async #simulateKernels(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
@@ -524,8 +525,7 @@ export class PXEService implements PXE {
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       });
   }
 
@@ -581,8 +581,15 @@ export class PXEService implements PXE {
         );
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `simulatePublic=${simulatePublic}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `skipTxValidation=${skipTxValidation}`,
+          `profile=${profile}`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -593,8 +600,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
-      this.log.error(err);
-      throw err;
+      throw this.contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
@@ -618,8 +624,12 @@ export class PXEService implements PXE {
         return executionResult;
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
+        throw this.contextualizeError(
+          err,
+          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -627,7 +637,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash) {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.node.getTxEffect(txHash);
   }
 
@@ -813,7 +823,11 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+        try {
+          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+        } catch (enrichErr) {
+          this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
+        }
       }
       throw err;
     }
@@ -897,9 +911,7 @@ export class PXEService implements PXE {
     const blocks = await this.node.getBlocks(from, limit);
 
     const txEffects = blocks.flatMap(block => block.body.txEffects);
-    const encryptedTxLogs = txEffects.flatMap(txEffect => txEffect.encryptedLogs);
-
-    const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
+    const privateLogs = txEffects.flatMap(txEffect => txEffect.privateLogs);
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
@@ -920,14 +932,13 @@ export class PXEService implements PXE {
       }),
     );
 
-    const visibleEvents = await Promise.all(
-      encryptedLogs.flatMap(encryptedLog => {
-        for (const sk of vsks) {
-          const decryptedEvent =
-            L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
-          if (decryptedEvent !== undefined) {
-            return [decryptedEvent];
-          }
+    const visibleEvents = privateLogs.flatMap(log => {
+      for (const sk of vsks) {
+        // TODO: Verify that the first field of the log is the tag siloed with contract address.
+        // Or use tags to query logs, like we do with notes.
+        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk) ?? L1EventPayload.decryptAsOutgoing(log, sk);
+        if (decryptedEvent !== undefined) {
+          return [decryptedEvent];
         }
 
         return [];
@@ -985,5 +996,18 @@ export class PXEService implements PXE {
       .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
 
     return decodedEvents;
+  }
+
+  async resetNoteSyncData() {
+    return await this.db.resetNoteSyncData();
+  }
+
+  private contextualizeError(err: Error, ...context: string[]): Error {
+    this.log.error(err.name, err);
+    this.log.debug('Context:');
+    for (const c of context) {
+      this.log.debug(c);
+    }
+    return err;
   }
 }

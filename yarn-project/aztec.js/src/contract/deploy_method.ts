@@ -89,6 +89,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+    const deployment = await this.getDeploymentFunctionCalls(options);
+
+    // NOTE: MEGA HACK. Remove with #10007
+    // register the contract after generating deployment function calls in order to publicly register the class and (optioanlly) emit its bytecode
+    //
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
     // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
     // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
@@ -97,25 +102,21 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // once this tx has gone through.
     await this.wallet.registerContract({ artifact: this.artifact, instance: await this.getInstance(options) });
 
-    const deployment = await this.getDeploymentFunctionCalls(options);
     const bootstrap = await this.getInitializeFunctionCalls(options);
 
     if (deployment.calls.length + bootstrap.calls.length === 0) {
       throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
     }
 
-    const request = {
-      calls: [...deployment.calls, ...bootstrap.calls],
-      authWitnesses: [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])],
-      packedArguments: [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])],
-      fee: options.fee,
-    };
+    const calls = [...deployment.calls, ...bootstrap.calls];
+    const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
+    const packedArguments = [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])];
+    const { cancellable, nonce, fee: userFee } = options;
 
-    if (options.estimateGas) {
-      request.fee = await this.getFeeOptionsFromEstimatedGas(request);
-    }
+    const request = { calls, authWitnesses, packedArguments, cancellable, fee: userFee, nonce };
 
-    return request;
+    const fee = await this.getFeeOptions(request);
+    return { ...request, fee };
   }
 
   /**
@@ -133,7 +134,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+  protected async getDeploymentFunctionCalls(
+    options: DeployOptions = {},
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -167,9 +170,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       calls.push(await (await deployInstance(this.wallet, instance)).request());
     }
 
-    return {
-      calls,
-    };
+    return { calls };
   }
 
   /**
@@ -177,8 +178,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
-    const { address } = await this.getInstance(options);
+  protected getInitializeFunctionCalls(
+    options: DeployOptions,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+    const { address } = this.getInstance(options);
     const calls: FunctionCall[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const constructorCall = new ContractFunctionInteraction(
@@ -189,9 +192,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       );
       calls.push(await constructorCall.request());
     }
-    return Promise.resolve({
-      calls,
-    });
+    return Promise.resolve({ calls });
   }
 
   /**

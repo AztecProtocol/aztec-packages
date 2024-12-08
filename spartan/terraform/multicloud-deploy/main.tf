@@ -58,12 +58,28 @@ resource "helm_release" "aztec-eks-cluster" {
   # base values file
   values = [file("../../aztec-network/values/${var.values-file}")]
 
-  # removing prover nodes
+  # network customization
+  set {
+    name  = "images.aztec.image"
+    value = var.image
+  }
+
+  set {
+    name  = "telemetry.enabled"
+    value = var.telemetry
+  }
+
   set {
     name  = "network.public"
     value = true
   }
 
+  set {
+    name  = "validator.replicas"
+    value = 16
+  }
+
+  # removing prover nodes
   set {
     name  = "proverNode.replicas"
     value = "0"
@@ -75,7 +91,7 @@ resource "helm_release" "aztec-eks-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 600 # 10 minutes in seconds
+  timeout       = 1200 # 20 minutes in seconds
   wait          = true
   wait_for_jobs = true
 }
@@ -92,10 +108,15 @@ resource "helm_release" "aztec-gke-cluster" {
   # base values file
   values = [file("../../aztec-network/values/${var.values-file}")]
 
-  # disabling all nodes except provers
+  # network customization
   set {
-    name  = "network.setupL2Contracts"
-    value = false
+    name  = "images.aztec.image"
+    value = var.image
+  }
+
+  set {
+    name  = "telemetry.enabled"
+    value = var.telemetry
   }
 
   set {
@@ -103,6 +124,27 @@ resource "helm_release" "aztec-gke-cluster" {
     value = true
   }
 
+  set {
+    name  = "proverAgent.replicas"
+    value = 32
+  }
+
+  set {
+    name  = "proverAgent.gke.spotEnabled"
+    value = true
+  }
+
+  set {
+    name  = "network.setupL2Contracts"
+    value = false
+  }
+
+  set {
+    name  = "proverAgent.bb.hardwareConcurrency"
+    value = 16
+  }
+
+  # disabling all nodes except provers
   set {
     name  = "bootNode.replicas"
     value = "0"
@@ -160,7 +202,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 600 # 10 minutes in seconds
+  timeout       = 1200 # 20 minutes in seconds
   wait          = true
   wait_for_jobs = true
 

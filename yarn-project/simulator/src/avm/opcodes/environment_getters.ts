@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint32, Uint64 } from '../avm_memory_types.js';
+import { Field, Uint64 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -8,7 +8,6 @@ import { Instruction } from './instruction.js';
 export enum EnvironmentVariable {
   ADDRESS,
   SENDER,
-  FUNCTIONSELECTOR,
   TRANSACTIONFEE,
   CHAINID,
   VERSION,
@@ -27,8 +26,6 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
       return new Field(ctx.environment.address.toField());
     case EnvironmentVariable.SENDER:
       return new Field(ctx.environment.sender.toField());
-    case EnvironmentVariable.FUNCTIONSELECTOR:
-      return new Uint32(ctx.environment.functionSelector.value);
     case EnvironmentVariable.TRANSACTIONFEE:
       return new Field(ctx.environment.transactionFee);
     case EnvironmentVariable.CHAINID:
@@ -60,11 +57,11 @@ export class GetEnvVar extends Instruction {
   static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
-    OperandType.UINT8, // variable enum (immediate)
     OperandType.UINT16, // dstOffset
+    OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private varEnum: number, private dstOffset: number) {
+  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
     super();
   }
 

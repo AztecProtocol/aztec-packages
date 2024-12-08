@@ -1,8 +1,10 @@
 import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AuthWitness } from './auth_witness.js';
@@ -101,7 +103,7 @@ export class TxExecutionRequest {
    * @returns The string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -127,7 +129,7 @@ export class TxExecutionRequest {
    * @returns The deserialized TxRequest object.
    */
   static fromString(str: string): TxExecutionRequest {
-    return TxExecutionRequest.fromBuffer(Buffer.from(str, 'hex'));
+    return TxExecutionRequest.fromBuffer(hexToBuffer(str));
   }
 
   static async random() {
@@ -139,5 +141,9 @@ export class TxExecutionRequest {
       [await PackedValues.random()],
       [AuthWitness.random()],
     );
+  }
+
+  [inspect.custom]() {
+    return `TxExecutionRequest(${this.origin} called ${this.functionSelector})`;
   }
 }

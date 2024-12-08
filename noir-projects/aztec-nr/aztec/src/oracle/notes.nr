@@ -204,14 +204,9 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
-/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag as an array of bytes, ready to be included in a
-/// log.
-pub unconstrained fn get_app_tag_bytes_as_sender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> [u8; 32] {
-    let tag = get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient);
-    tag.to_be_bytes()
+/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
+    get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
 }
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.

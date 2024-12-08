@@ -11,13 +11,13 @@ You control this storage in Aztec using a struct annotated with `#[storage]`. Th
 
 These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract. A state variable with both public and private components is said to be [shared](./shared_state.md).
 
-Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PrivateSet, and SharedImmutable.
+Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PublicImmutable, PrivateSet, and SharedMutable.
 
 On this and the following pages in this section, you’ll learn:
 
 - How to manage a smart contract's storage structure
 - The distinctions and applications of public and private state variables
-- How to use PrivateMutable, PrivateImmutable, PrivateSet, PublicMutable, SharedImmutable and Map
+- How to use PrivateMutable, PrivateImmutable, PrivateSet, PublicMutable, SharedMutable and Map
 - An overview of 'notes' and the UTXO model
 - Practical implications of Storage in real smart contracts
   In an Aztec.nr contract, storage is to be defined as a single struct, that contains both public and private state variables.
@@ -101,6 +101,6 @@ require(minters[msg.sender], "caller is not minter");
 
 ## Concepts mentioned
 
-- [State Model](../../../../aztec/concepts/state_model/index.md)
+- [State Model](../../../../aztec/concepts/storage/state_model/index.md)
 - [Public-private execution](../../../../aztec/smart_contracts/functions/public_private_calls.md)
 - [Function Contexts](../../../../aztec/smart_contracts/functions/context.md)

@@ -33,7 +33,7 @@ use dep::types::{
     traits::is_empty,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -140,6 +140,7 @@ impl PrivateBaseRollupInputs {
             txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: transaction_fee,
+            accumulated_mana_used: self.tube_data.public_inputs.gas_used.l2_gas as Field,
         }
     }
 
@@ -263,9 +264,9 @@ mod tests {
     }
 
     global MAX_NULLIFIERS_PER_TEST: u32 = 4;
-    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST = 64;
-    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST = 6;
-    global PRE_EXISTING_PUBLIC_DATA_LEAVES = 10;
+    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST: u32 = 64;
+    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST: u32 = 6;
+    global PRE_EXISTING_PUBLIC_DATA_LEAVES: u32 = 10;
 
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,

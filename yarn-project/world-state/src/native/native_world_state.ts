@@ -7,9 +7,9 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -32,6 +32,7 @@ import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkl
 import {
   WorldStateMessageType,
   type WorldStateStatusFull,
+  type WorldStateStatusSummary,
   blockStateReference,
   sanitiseFullStatus,
   sanitiseSummary,
@@ -51,7 +52,9 @@ export const WORLD_STATE_VERSION_FILE = 'version';
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
-  protected initialHeader: Header | undefined;
+  protected initialHeader: BlockHeader | undefined;
+  // This is read heavily and only changes when data is persisted, so we cache it
+  private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
     protected readonly instance: NativeWorldState,
@@ -153,7 +156,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 
-  public getInitialHeader(): Header {
+  public getInitialHeader(): BlockHeader {
     return this.initialHeader!;
   }
 
@@ -175,29 +178,29 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
       .map(nullifier => new NullifierLeaf(nullifier));
 
-    // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    const batchesOfPublicDataWrites: PublicDataTreeLeaf[][] = [];
-    for (const txEffect of paddedTxEffects) {
-      batchesOfPublicDataWrites.push(
-        txEffect.publicDataWrites.map(write => {
-          if (write.isEmpty()) {
-            throw new Error('Public data write must not be empty when syncing');
-          }
-          return new PublicDataTreeLeaf(write.leafSlot, write.value);
-        }),
-      );
-    }
-
-    const response = await this.instance.call(WorldStateMessageType.SYNC_BLOCK, {
-      blockNumber: l2Block.number,
-      blockHeaderHash: await l2Block.header.hash(),
-      paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-      paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-      paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-      batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
-      blockStateRef: blockStateReference(l2Block.header.state),
+    const publicDataWrites: PublicDataTreeLeaf[] = paddedTxEffects.flatMap(txEffect => {
+      return txEffect.publicDataWrites.map(write => {
+        if (write.isEmpty()) {
+          throw new Error('Public data write must not be empty when syncing');
+        }
+        return new PublicDataTreeLeaf(write.leafSlot, write.value);
+      });
     });
-    return sanitiseFullStatus(response);
+
+    return await this.instance.call(
+      WorldStateMessageType.SYNC_BLOCK,
+      {
+        blockNumber: l2Block.number,
+        blockHeaderHash: l2Block.header.hash(),
+        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+        publicDataWrites: publicDataWrites.map(serializeLeaf),
+        blockStateRef: blockStateReference(l2Block.header.state),
+      },
+      this.sanitiseAndCacheSummaryFromFull.bind(this),
+      this.deleteCachedSummary.bind(this),
+    );
   }
 
   public async close(): Promise<void> {
@@ -205,9 +208,25 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await this.cleanup();
   }
 
-  private async buildInitialHeader(): Promise<Header> {
+  private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return Header.empty({ state });
+    return BlockHeader.empty({ state });
+  }
+
+  private sanitiseAndCacheSummaryFromFull(response: WorldStateStatusFull) {
+    const sanitised = sanitiseFullStatus(response);
+    this.cachedStatusSummary = { ...sanitised.summary };
+    return sanitised;
+  }
+
+  private sanitiseAndCacheSummary(response: WorldStateStatusSummary) {
+    const sanitised = sanitiseSummary(response);
+    this.cachedStatusSummary = { ...sanitised };
+    return sanitised;
+  }
+
+  private deleteCachedSummary(_: string) {
+    this.cachedStatusSummary = undefined;
   }
 
   /**
@@ -216,10 +235,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.FINALISE_BLOCKS, {
-      toBlockNumber,
-    });
-    return sanitiseSummary(response);
+    await this.instance.call(
+      WorldStateMessageType.FINALISE_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      this.sanitiseAndCacheSummary.bind(this),
+      this.deleteCachedSummary.bind(this),
+    );
+    return this.getStatusSummary();
   }
 
   /**
@@ -228,10 +252,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS, {
-      toBlockNumber,
-    });
-    return sanitiseFullStatus(response);
+    return await this.instance.call(
+      WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      this.sanitiseAndCacheSummaryFromFull.bind(this),
+      this.deleteCachedSummary.bind(this),
+    );
   }
 
   /**
@@ -240,15 +268,21 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    const response = await this.instance.call(WorldStateMessageType.UNWIND_BLOCKS, {
-      toBlockNumber,
-    });
-    return sanitiseFullStatus(response);
+    return await this.instance.call(
+      WorldStateMessageType.UNWIND_BLOCKS,
+      {
+        toBlockNumber,
+      },
+      this.sanitiseAndCacheSummaryFromFull.bind(this),
+      this.deleteCachedSummary.bind(this),
+    );
   }
 
   public async getStatusSummary() {
-    const response = await this.instance.call(WorldStateMessageType.GET_STATUS, void 0);
-    return sanitiseSummary(response);
+    if (this.cachedStatusSummary !== undefined) {
+      return { ...this.cachedStatusSummary };
+    }
+    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0, this.sanitiseAndCacheSummary.bind(this));
   }
 
   updateLeaf<ID extends IndexedTreeId>(

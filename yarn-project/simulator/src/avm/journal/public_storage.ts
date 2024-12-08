@@ -5,7 +5,6 @@ import type { PublicStateDB } from '../../index.js';
 
 type PublicStorageReadResult = {
   value: Fr;
-  exists: boolean;
   cached: boolean;
 };
 
@@ -77,17 +76,17 @@ export class PublicStorage {
     let value = this.readHereOrParent(contractAddress, slot);
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(contractAddress, slot);
+      // This functions returns Fr.ZERO if it has never been written to before
+      // we explicity coalesce to Fr.ZERO in case we have some implementations that cause this to return undefined
+      value = (await this.hostPublicStorage.storageRead(contractAddress, slot)) ?? Fr.ZERO;
       // TODO(dbanks12): if value retrieved from host storage, we can cache it here
       // any future reads to the same slot can read from cache instead of more expensive
       // DB access
     } else {
       cached = true;
     }
-    // if value is undefined, that means this slot has never been written to!
-    const exists = value !== undefined;
-    const valueOrZero = exists ? value : Fr.ZERO;
-    return Promise.resolve({ value: valueOrZero, exists, cached });
+    // if value is Fr.ZERO here, it that means this slot has never been written to!
+    return Promise.resolve({ value, cached });
   }
 
   /**

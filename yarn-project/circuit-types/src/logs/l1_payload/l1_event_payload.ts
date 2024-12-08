@@ -1,10 +1,8 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, type PrivateLog } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type EncryptedL2Log } from '../encrypted_l2_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Event } from './payload.js';
 
@@ -22,10 +20,6 @@ export class L1EventPayload {
      */
     public contractAddress: AztecAddress,
     /**
-     * Randomness used to mask the contract address.
-     */
-    public randomness: Fr,
-    /**
      * Type identifier for the underlying event, required to determine how to compute its hash and nullifier.
      */
     public eventTypeId: EventSelector,
@@ -34,30 +28,26 @@ export class L1EventPayload {
   static #fromIncomingBodyPlaintextAndContractAddress(
     plaintext: Buffer,
     contractAddress: AztecAddress,
-    maskedContractAddress: Fr,
   ): L1EventPayload | undefined {
     let payload: L1EventPayload;
     try {
       const reader = BufferReader.asReader(plaintext);
       const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
-      const randomness = fields[0];
-      const eventTypeId = EventSelector.fromField(fields[1]);
+      const eventTypeId = EventSelector.fromField(fields[0]);
 
-      const event = new Event(fields.slice(2));
+      const event = new Event(fields.slice(1));
 
-      payload = new L1EventPayload(event, contractAddress, randomness, eventTypeId);
+      payload = new L1EventPayload(event, contractAddress, eventTypeId);
     } catch (e) {
       return undefined;
     }
 
-    ensureMatchedMaskedContractAddress(contractAddress, payload.randomness, maskedContractAddress);
-
     return payload;
   }
 
-  static async decryptAsIncoming(log: EncryptedL2Log, sk: Fq): Promise<L1EventPayload | undefined> {
-    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -65,12 +55,11 @@ export class L1EventPayload {
     return this.#fromIncomingBodyPlaintextAndContractAddress(
       decryptedLog.incomingBodyPlaintext,
       decryptedLog.contractAddress,
-      log.maskedContractAddress,
     );
   }
 
-  static async decryptAsOutgoing(log: EncryptedL2Log, sk: Fq): Promise<L1EventPayload | undefined> {
-    const decryptedLog = await EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+  static decryptAsOutgoing(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -78,7 +67,6 @@ export class L1EventPayload {
     return this.#fromIncomingBodyPlaintextAndContractAddress(
       decryptedLog.incomingBodyPlaintext,
       decryptedLog.contractAddress,
-      log.maskedContractAddress,
     );
   }
 
@@ -87,7 +75,7 @@ export class L1EventPayload {
    * @returns Buffer representation of the L1EventPayload object.
    */
   toIncomingBodyPlaintext() {
-    const fields = [this.randomness, this.eventTypeId.toField(), ...this.event.items];
+    const fields = [this.eventTypeId.toField(), ...this.event.items];
     return serializeToBuffer(fields);
   }
 
@@ -97,27 +85,14 @@ export class L1EventPayload {
    * @returns A random L1EventPayload object.
    */
   static random(contract = AztecAddress.random()) {
-    return new L1EventPayload(Event.random(), contract, Fr.random(), EventSelector.random());
+    return new L1EventPayload(Event.random(), contract, EventSelector.random());
   }
 
   public equals(other: L1EventPayload) {
     return (
       this.event.equals(other.event) &&
       this.contractAddress.equals(other.contractAddress) &&
-      this.randomness.equals(other.randomness) &&
       this.eventTypeId.equals(other.eventTypeId)
-    );
-  }
-}
-
-async function ensureMatchedMaskedContractAddress(
-  contractAddress: AztecAddress,
-  randomness: Fr,
-  maskedContractAddress: Fr,
-) {
-  if (!(await poseidon2HashWithSeparator([contractAddress, randomness], 0)).equals(maskedContractAddress)) {
-    throw new Error(
-      'The provided masked contract address does not match with the incoming address from header and randomness from body',
     );
   }
 }

@@ -146,10 +146,10 @@ export class Oracle {
     return witness.toFields().map(toACVMField);
   }
 
-  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    const header = await this.typedOracle.getBlockHeader(parsedBlockNumber);
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
@@ -304,36 +304,6 @@ export class Oracle {
   async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
     const newValues = await this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
     return newValues.map(toACVMField);
-  }
-
-  async emitEncryptedEventLog(
-    [contractAddress]: ACVMField[],
-    [randomness]: ACVMField[],
-    encryptedEvent: ACVMField[],
-    [counter]: ACVMField[],
-  ): Promise<void> {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedEvent.map(fromACVMField).map(f => f.toNumber()));
-    await this.typedOracle.emitEncryptedEventLog(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(randomness),
-      processedInput,
-      +counter,
-    );
-  }
-
-  emitEncryptedNoteLog([noteHashCounter]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedNote.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedNoteLog(+noteHashCounter, processedInput, +counter);
-  }
-
-  emitUnencryptedLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
-
-    this.typedOracle.emitUnencryptedLog(log, +counter);
-    return toACVMField(0);
   }
 
   emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {

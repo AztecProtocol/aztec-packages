@@ -9,14 +9,15 @@
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-#include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 
 namespace bb::avm_trace {
@@ -28,6 +29,11 @@ struct ReturnDataError {
     AvmError error;
 };
 
+struct RowWithError {
+    Row row;
+    AvmError error;
+};
+
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
 // At the end of circuit building, mainTrace can be moved to AvmCircuitBuilder by calling
@@ -35,10 +41,16 @@ struct ReturnDataError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs,
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
+
+    void set_public_call_request(PublicCallRequest const& public_call_request)
+    {
+        this->current_public_call_request = public_call_request;
+    }
+    void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
@@ -85,20 +97,19 @@ class AvmTraceBuilder {
                      OpCode op_code = OpCode::CAST_16);
 
     // Execution Environment
-    AvmError op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
-    void op_address(uint8_t indirect, uint32_t dst_offset);
-    void op_sender(uint8_t indirect, uint32_t dst_offset);
-    void op_function_selector(uint8_t indirect, uint32_t dst_offset);
-    void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
-    void op_is_static_call(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var);
+    AvmError op_address(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_sender(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Globals
-    void op_chain_id(uint8_t indirect, uint32_t dst_offset);
-    void op_version(uint8_t indirect, uint32_t dst_offset);
-    void op_block_number(uint8_t indirect, uint32_t dst_offset);
-    void op_timestamp(uint8_t indirect, uint32_t dst_offset);
-    void op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
-    void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_chain_id(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_version(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_block_number(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_timestamp(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Calldata
     AvmError op_calldata_copy(uint8_t indirect,
@@ -112,13 +123,13 @@ class AvmTraceBuilder {
                                 uint32_t dst_offset);
 
     // Machine State - Gas
-    void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
-    void op_dagasleft(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
+    AvmError op_dagasleft(uint8_t indirect, uint32_t dst_offset);
 
     // Machine State - Internal Control Flow
     // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
     AvmError op_jump(uint32_t jmp_dest, bool skip_gas = false);
-    AvmError op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
+    AvmError op_jumpi(uint8_t indirect, uint32_t cond_offset, uint32_t jmp_dest);
     AvmError op_internal_call(uint32_t jmp_dest);
     AvmError op_internal_return();
 
@@ -133,8 +144,8 @@ class AvmTraceBuilder {
     AvmError op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code = OpCode::MOV_16);
 
     // World State
-    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);
-    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset);
+    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t dest_offset);
+    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset);
     AvmError op_note_hash_exists(uint8_t indirect,
                                  uint32_t note_hash_offset,
                                  uint32_t leaf_index_offset,
@@ -150,7 +161,7 @@ class AvmTraceBuilder {
                                     uint32_t leaf_index_offset,
                                     uint32_t dest_offset);
     AvmError op_get_contract_instance(
-        uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset);
+        uint8_t indirect, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset, uint8_t member_enum);
 
     // Accrued Substate
     AvmError op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset);
@@ -176,9 +187,9 @@ class AvmTraceBuilder {
     // Misc
     AvmError op_debug_log(uint8_t indirect,
                           uint32_t message_offset,
-                          uint32_t message_size,
                           uint32_t fields_offset,
-                          uint32_t fields_size_offset);
+                          uint32_t fields_size_offset,
+                          uint32_t message_size);
 
     // Gadgets
     AvmError op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
@@ -209,8 +220,13 @@ class AvmTraceBuilder {
                             uint32_t num_limbs,
                             uint8_t output_bits);
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
+
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
+    std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -237,6 +253,8 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
 
     std::vector<FF> calldata;
+    AvmPublicInputs public_inputs;
+    PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
 
     // Return/revert data of the last nested call.
@@ -246,6 +264,16 @@ class AvmTraceBuilder {
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
+    // These are some counters for the tree acceess hints that we probably dont need in the future
+    uint32_t note_hash_read_counter = 0;
+    uint32_t note_hash_write_counter = 0;
+    uint32_t nullifier_read_counter = 0;
+    uint32_t nullifier_write_counter = 0;
+    uint32_t l1_to_l2_msg_read_counter = 0;
+    uint32_t l2_to_l1_msg_write_counter = 0;
+    uint32_t storage_read_counter = 0;
+    uint32_t storage_write_counter = 0;
+    uint32_t unencrypted_log_write_counter = 0;
 
     // These exist due to testing only.
     bool range_check_required = true;
@@ -254,7 +282,7 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    AvmKernelTraceBuilder kernel_trace_builder;
+    // AvmKernelTraceBuilder kernel_trace_builder;
     AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
@@ -264,17 +292,18 @@ class AvmTraceBuilder {
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
     AvmBytecodeTraceBuilder bytecode_trace_builder;
+    AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
-    Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
+    RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
-    Row create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
+    RowWithError create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
 
-    Row create_kernel_output_opcode_with_metadata(uint8_t indirect,
-                                                  uint32_t clk,
-                                                  uint32_t data_offset,
-                                                  AvmMemoryTag data_r_tag,
-                                                  uint32_t metadata_offset,
-                                                  AvmMemoryTag metadata_r_tag);
+    RowWithError create_kernel_output_opcode_with_metadata(uint8_t indirect,
+                                                           uint32_t clk,
+                                                           uint32_t data_offset,
+                                                           AvmMemoryTag data_r_tag,
+                                                           uint32_t metadata_offset,
+                                                           AvmMemoryTag metadata_r_tag);
 
     Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
                                                                        uint32_t data_offset,
@@ -286,10 +315,10 @@ class AvmTraceBuilder {
                                                    uint32_t leaf_index,
                                                    uint32_t metadata_offset);
 
-    Row create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                             uint32_t clk,
-                                                             uint32_t data_offset,
-                                                             uint32_t metadata_offset);
+    RowWithError create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
+                                                                      uint32_t clk,
+                                                                      uint32_t data_offset,
+                                                                      uint32_t metadata_offset);
 
     AvmError constrain_external_call(OpCode opcode,
                                      uint16_t indirect,
@@ -299,7 +328,7 @@ class AvmTraceBuilder {
                                      uint32_t args_size_offset,
                                      uint32_t success_offset);
 
-    void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
+    AvmError execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 

@@ -51,6 +51,8 @@ contract DecoderBase is TestBase {
     GlobalVariables globalVariables;
     AppendOnlyTreeSnapshot lastArchive;
     StateReference stateReference;
+    uint256 totalFees;
+    uint256 totalManaUsed;
   }
 
   struct GasFees {

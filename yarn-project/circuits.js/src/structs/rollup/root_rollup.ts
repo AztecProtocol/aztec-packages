@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
@@ -36,7 +37,7 @@ export class RootRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -76,17 +77,17 @@ export class RootRollupInputs {
    * @returns A new RootRollupInputs instance.
    */
   static fromString(str: string) {
-    return RootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return RootRollupInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
+  /** Creates an instance from a string. */
   static get schema() {
-    return hexSchemaFor(RootRollupInputs);
+    return bufferSchemaFor(RootRollupInputs);
   }
 }
 
@@ -163,20 +164,20 @@ export class RootRollupPublicInputs {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string) {
-    return RootRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return RootRollupPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
+  /** Creates an instance from a string. */
   static get schema() {
-    return hexSchemaFor(RootRollupPublicInputs);
+    return bufferSchemaFor(RootRollupPublicInputs);
   }
 }

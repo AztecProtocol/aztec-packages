@@ -26,6 +26,7 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type Fr,
+  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -42,6 +43,8 @@ import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
  */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
+
+  abstract isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -144,6 +147,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
+  }
+  getCurrentBaseFees(): Promise<GasFees> {
+    return this.pxe.getCurrentBaseFees();
   }
   simulateUnconstrained(
     functionName: string,

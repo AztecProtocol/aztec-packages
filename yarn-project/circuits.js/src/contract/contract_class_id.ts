@@ -1,5 +1,5 @@
 import { bufferAsFields } from '@aztec/foundation/abi';
-import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashAccumulate, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
@@ -66,10 +66,5 @@ export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
   const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
   assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
 
-  let bytecodeCommitment = new Fr(0);
-  for (let i = 0; i < bytecodeLength; i++) {
-    // We skip the first element, which is the length of the bytecode
-    bytecodeCommitment = await poseidon2Hash([encodedBytecode[i + 1], bytecodeCommitment]);
-  }
-  return bytecodeCommitment;
+  return bytecodeLength == 0 ? new Fr(0) : poseidon2HashAccumulate(encodedBytecode.slice(1, bytecodeLength + 1));
 }

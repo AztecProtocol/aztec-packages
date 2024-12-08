@@ -58,8 +58,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
 
+#ifndef __wasm__
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
+#endif
 }
 
 /**
@@ -204,8 +206,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
-        witness_commitments.lookup_inverses =
-            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
+        witness_commitments.lookup_inverses = proving_key->proving_key.commitment_key->commit_sparse(
+            proving_key->proving_key.polynomials.lookup_inverses);
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);

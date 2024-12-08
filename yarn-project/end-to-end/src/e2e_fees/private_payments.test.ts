@@ -1,5 +1,5 @@
 import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod, sleep } from '@aztec/aztec.js';
-import { type GasSettings } from '@aztec/circuits.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, FPCContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
@@ -43,12 +43,11 @@ describe('e2e_fees private_payment', () => {
 
   let initialSequencerGas: bigint;
 
-  let maxFee: bigint;
-
   beforeEach(async () => {
-    maxFee = BigInt(20e9);
-
-    expect(gasSettings.getFeeLimit().toBigInt()).toEqual(maxFee);
+    gasSettings = GasSettings.from({
+      ...gasSettings,
+      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
+    });
 
     initialSequencerL1Gas = await t.getCoinbaseBalance();
 

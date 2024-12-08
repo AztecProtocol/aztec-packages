@@ -46,8 +46,8 @@ export async function computeArtifactHash(
   }
 
   const preimage = computeArtifactHashPreimage(artifact);
-  const artifactHash = await computeArtifactHash(await computeArtifactHashPreimage(artifact));
-  getLogger().debug('Computed artifact hash', { artifactHash, ...preimage });
+  const artifactHash = computeArtifactHash(computeArtifactHashPreimage(artifact));
+  getLogger().trace('Computed artifact hash', { artifactHash, ...preimage });
   return artifactHash;
 }
 
@@ -100,12 +100,11 @@ export async function computeFunctionArtifactHash(
     | FunctionArtifact
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
 ) {
-  const selector = 'selector' in fn ? fn.selector : await FunctionSelector.fromNameAndParameters(fn);
-  // TODO(#5860): make bytecode part of artifact hash preimage again
-  // const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
-  // const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  // return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer()]));
+  const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
+
+  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
+  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {

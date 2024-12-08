@@ -1,10 +1,29 @@
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
 import { schemas } from '../schemas/schemas.js';
 import { updateInlineTestData } from '../testing/test_data.js';
 import { Fr } from './fields.js';
 import { Point } from './point.js';
 
 describe('Point', () => {
-  it('converts to and from x and sign of y coordinate', async () => {
+  describe('random', () => {
+    it('always returns a valid point', () => {
+      for (let i = 0; i < 100; ++i) {
+        const point = Point.random();
+        expect(point.isOnGrumpkin()).toEqual(true);
+      }
+    });
+
+    it('returns a different points on each call', () => {
+      const set = new Set();
+      for (let i = 0; i < 100; ++i) {
+        set.add(Point.random());
+      }
+
+      expect(set.size).toEqual(100);
+    });
+  });
+
+  it('converts to and from x and sign of y coordinate', () => {
     const p = new Point(
       new Fr(0x30426e64aee30e998c13c8ceecda3a77807dbead52bc2f3bf0eae851b4b710c1n),
       new Fr(0x113156a068f603023240c96b4da5474667db3b8711c521c748212a15bc034ea6n),
@@ -17,13 +36,8 @@ describe('Point', () => {
     expect(p.equals(p2)).toBeTruthy();
   });
 
-  it('creates a valid random point', async () => {
-    const point = await Point.random();
-    expect(point.isOnGrumpkin()).toBeTruthy();
-  });
-
-  it('converts to and from buffer', async () => {
-    const p = await Point.random();
+  it('converts to and from buffer', () => {
+    const p = Point.random();
     const p2 = Point.fromBuffer(p.toBuffer());
 
     expect(p.equals(p2)).toBeTruthy();
@@ -80,7 +94,7 @@ describe('Point', () => {
 
   it('serializes from and to JSON', () => {
     const p = Point.random();
-    const p2 = schemas.Point.parse(JSON.parse(JSON.stringify(p)));
+    const p2 = jsonParseWithSchema(jsonStringify(p), schemas.Point);
     expect(p).toEqual(p2);
     expect(p2).toBeInstanceOf(Point);
   });

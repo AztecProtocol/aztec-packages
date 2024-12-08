@@ -1,15 +1,18 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import { getContract } from 'viem';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_NODES = 6;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40800;
 
@@ -24,9 +27,12 @@ describe('e2e_p2p_reqresp_tx', () => {
       testName: 'e2e_p2p_reqresp_tx',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -37,10 +43,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     }
   });
 
-  // NOTE: If this test fails in a PR where the shuffling algorithm is changed, then it is failing as the node with
-  // the mocked p2p layer is being picked as the sequencer, and it does not have any transactions in it's mempool.
-  // If this is the case, then we should update the test to switch off the mempool of a different node.
-  // adjust `nodeToTurnOffTxGossip` in the test below.
   it('should produce an attestation by requesting tx data over the p2p network', async () => {
     /**
      * Birds eye overview of the test
@@ -63,22 +65,25 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    t.logger.info('Turning off tx gossip');
+    const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
+
+    t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip}`);
+    t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
+
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
-    // We have chosen nodes 0,3 as they do not get chosen to be the sequencer in this test.
-    const nodeToTurnOffTxGossip = [0, 3];
-    for (const nodeIndex of nodeToTurnOffTxGossip) {
+    // We chose the first 2 nodes that will be the proposers for the next few slots
+    for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
         .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
         .mockImplementation((): Promise<void> => {
@@ -87,10 +92,9 @@ describe('e2e_p2p_reqresp_tx', () => {
     }
 
     t.logger.info('Submitting transactions');
-    // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
-    // If the shuffling algorithm changes, then this will need to be updated.
-    for (let i = 1; i < 3; i++) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, nodes[i], NUM_TXS_PER_NODE);
+
+    for (const nodeIndex of proposerIndexes.slice(0, 2)) {
+      const context = await createPXEServiceAndSubmitTransactions(t.logger, nodes[nodeIndex], NUM_TXS_PER_NODE);
       contexts.push(context);
     }
 
@@ -107,4 +111,41 @@ describe('e2e_p2p_reqresp_tx', () => {
     );
     t.logger.info('All transactions mined');
   });
+
+  /**
+   * Get the indexes in the nodes array that will produce the next few blocks
+   */
+  async function getProposerIndexes() {
+    // Get the nodes for the next set of slots
+    const rollupContract = getContract({
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: t.ctx.deployL1ContractsValues.publicClient,
+    });
+
+    const attesters = await rollupContract.read.getAttesters();
+    const mappedProposers = await Promise.all(
+      attesters.map(async attester => await rollupContract.read.getProposerForAttester([attester])),
+    );
+
+    const currentTime = await t.ctx.cheatCodes.eth.timestamp();
+    const slotDuration = await rollupContract.read.SLOT_DURATION();
+
+    const proposers = [];
+
+    for (let i = 0; i < 3; i++) {
+      const nextSlot = BigInt(currentTime) + BigInt(i) * BigInt(slotDuration);
+      const proposer = await rollupContract.read.getProposerAt([nextSlot]);
+      proposers.push(proposer);
+    }
+    // Get the indexes of the nodes that are responsible for the next two slots
+    const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
+
+    t.logger.info('proposerIndexes: ' + proposerIndexes.join(', '));
+
+    const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
+      i => !proposerIndexes.includes(i),
+    );
+    return { proposerIndexes, nodesToTurnOffTxGossip };
+  }
 });

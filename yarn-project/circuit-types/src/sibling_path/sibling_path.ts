@@ -1,12 +1,13 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchema, hexSchemaFor } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
 import {
   type Tuple,
   assertLength,
   deserializeArrayFromVector,
   serializeArrayOfBufferableToVector,
 } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type Hasher } from '@aztec/types/interfaces';
 
 /**
@@ -37,17 +38,18 @@ export class SiblingPath<N extends number> {
   }
 
   static get schema() {
-    return hexSchemaFor(SiblingPath);
+    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b));
   }
 
   static schemaFor<N extends number>(size: N) {
-    return hexSchema
-      .transform(str => SiblingPath.fromString(str) as SiblingPath<N>)
-      .refine(path => path.pathSize === size, 'Unexpected size');
+    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b) as SiblingPath<N>).refine(
+      path => path.pathSize === size,
+      path => ({ message: `Expected sibling path size ${size} but got ${path.pathSize}` }),
+    );
   }
 
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /**
@@ -137,7 +139,7 @@ export class SiblingPath<N extends number> {
    * @returns A hex string representation of the sibling path.
    */
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -146,7 +148,7 @@ export class SiblingPath<N extends number> {
    * @returns A SiblingPath object.
    */
   public static fromString<N extends number>(repr: string): SiblingPath<N> {
-    return SiblingPath.fromBuffer<N>(Buffer.from(repr, 'hex'));
+    return SiblingPath.fromBuffer<N>(hexToBuffer(repr));
   }
 
   /**

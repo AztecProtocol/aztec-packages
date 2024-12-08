@@ -1,6 +1,5 @@
 import {
   type AztecNode,
-  EncryptedL2NoteLog,
   EncryptedLogPayload,
   L1NotePayload,
   Note,
@@ -38,10 +37,12 @@ import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { ContractDataOracle } from '../index.js';
-import { type SimulatorOracle } from './index.js';
+import { SimulatorOracle } from './index.js';
 
 const TXS_PER_BLOCK = 4;
 const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NOTE_HASHES_PER_TX;
+
+jest.setTimeout(30_000);
 
 function getRandomNoteLogPayload(tag = Fr.random(), app = AztecAddress.random()): EncryptedLogPayload {
   return new EncryptedLogPayload(tag, app, L1NotePayload.random(app).toIncomingBodyPlaintext());
@@ -74,10 +75,10 @@ class MockNoteRequest {
     }
   }
 
-  async encrypt(): Promise<EncryptedL2NoteLog> {
+  encrypt(): Buffer {
     const ephSk = GrumpkinScalar.random();
-    const log = await this.logPayload.encrypt(ephSk, this.recipient, this.ovKeys);
-    return new EncryptedL2NoteLog(log);
+    const log = this.logPayload.generatePayload(ephSk, this.recipient, this.ovKeys);
+    return log.toBuffer();
   }
 
   get indexWithinNoteHashTree(): bigint {
@@ -101,15 +102,16 @@ class MockNoteRequest {
   }
 }
 
-async function computeTagForIndex(
+function computeSiloedTagForIndex(
   sender: { completeAddress: CompleteAddress; ivsk: Fq },
   recipient: AztecAddress,
   contractAddress: AztecAddress,
   index: number,
 ) {
-  const sharedSecret = await computeTaggingSecret(sender.completeAddress, sender.ivsk, recipient);
-  const siloedSecret = await poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-  return await poseidon2Hash([siloedSecret, recipient, index]);
+  const sharedSecret = computeTaggingSecret(sender.completeAddress, sender.ivsk, recipient);
+  const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+  const tag = poseidon2Hash([siloedSecret, recipient, index]);
+  return poseidon2Hash([contractAddress, tag]);
 }
 
 describe('Simulator oracle', () => {
@@ -130,8 +132,7 @@ describe('Simulator oracle', () => {
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    const simulatorOracleModule = await import('../simulator_oracle/index.js');
-    simulatorOracle = new simulatorOracleModule.SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
+    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
@@ -144,7 +145,7 @@ describe('Simulator oracle', () => {
   describe('sync tagged logs', () => {
     const NUM_SENDERS = 10;
     const SENDER_OFFSET_WINDOW_SIZE = 10;
-    let senders: { completeAddress: CompleteAddress; ivsk: Fq }[];
+    let senders: { completeAddress: CompleteAddress; ivsk: Fq; secretKey: Fr }[];
 
     async function generateMockLogs(senderOffset: number) {
       const logs: { [k: string]: TxScopedL2Log[] } = {};
@@ -152,7 +153,7 @@ describe('Simulator oracle', () => {
       // Add a random note from every address in the address book for our account with index senderOffset
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
-        const tag = await computeTagForIndex(sender, recipient.address, contractAddress, senderOffset);
+        const tag = computeSiloedTagForIndex(sender, recipient.address, contractAddress, senderOffset);
         const blockNumber = 1;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -162,7 +163,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, (await randomNote.encrypt()).data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -170,8 +171,10 @@ describe('Simulator oracle', () => {
       // Add a random note from the first sender in the address book, repeating the tag
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
-      const tag = await computeTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, (await EncryptedL2NoteLog.random(tag)).data);
+      const tag = computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
+      const payload = getRandomNoteLogPayload(tag, contractAddress);
+      const logData = payload.generatePayload(GrumpkinScalar.random(), recipient.address, recipientOvKeys).toBuffer();
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, logData);
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -179,7 +182,7 @@ describe('Simulator oracle', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (let i = NUM_SENDERS / 2; i < NUM_SENDERS; i++) {
         const sender = senders[i];
-        const tag = await computeTagForIndex(sender, recipient.address, contractAddress, senderOffset + 1);
+        const tag = computeSiloedTagForIndex(sender, recipient.address, contractAddress, senderOffset + 1);
         const blockNumber = 2;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -189,7 +192,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, (await randomNote.encrypt()).data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -199,8 +202,8 @@ describe('Simulator oracle', () => {
       for (const sender of senders) {
         const keys = await deriveKeys(Fr.random());
         const partialAddress = Fr.random();
-        const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
-        const tag = await computeTagForIndex(sender, randomRecipient, contractAddress, senderOffset);
+        const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
+        const tag = computeSiloedTagForIndex(sender, randomRecipient, contractAddress, senderOffset);
         const blockNumber = 3;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -213,7 +216,7 @@ describe('Simulator oracle', () => {
             await computeOvskApp(keys.masterOutgoingViewingSecretKey, contractAddress),
           ),
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, (await randomNote.encrypt()).data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -227,15 +230,13 @@ describe('Simulator oracle', () => {
 
     beforeEach(async () => {
       // Set up the address book
-      senders = await Promise.all(
-        times(NUM_SENDERS).map(async (_, index) => {
-          const keys = await deriveKeys(new Fr(index));
-          const partialAddress = Fr.random();
-          const address = await computeAddress(keys.publicKeys, partialAddress);
-          const completeAddress = new CompleteAddress(address, keys.publicKeys, partialAddress);
-          return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey };
-        }),
-      );
+      senders = times(NUM_SENDERS).map((_, index) => {
+        const keys = deriveKeys(new Fr(index));
+        const partialAddress = Fr.random();
+        const address = computeAddress(keys.publicKeys, partialAddress);
+        const completeAddress = new CompleteAddress(address, keys.publicKeys, partialAddress);
+        return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey, secretKey: new Fr(index) };
+      });
       for (const sender of senders) {
         await database.addContactAddress(sender.completeAddress.address);
       }
@@ -272,6 +273,59 @@ describe('Simulator oracle', () => {
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
+    it('should sync tagged logs as senders', async () => {
+      for (const sender of senders) {
+        await database.addCompleteAddress(sender.completeAddress);
+        await keyStore.addAccount(sender.secretKey, sender.completeAddress.partialAddress);
+      }
+
+      let senderOffset = 0;
+      generateMockLogs(senderOffset);
+
+      // Recompute the secrets (as recipient) to ensure indexes are updated
+      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      const secrets = senders.map(sender => {
+        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+      });
+
+      const indexesAsSender = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
+
+      for (let i = 0; i < senders.length; i++) {
+        await simulatorOracle.syncTaggedLogsAsSender(
+          contractAddress,
+          senders[i].completeAddress.address,
+          recipient.address,
+        );
+      }
+
+      let indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+
+      // Two windows are fetch for each sender
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+      aztecNode.getLogsByTags.mockReset();
+
+      // We add more logs at the end of the window to make sure we only detect them and bump the indexes if it lies within our window
+      senderOffset = 10;
+      generateMockLogs(senderOffset);
+      for (let i = 0; i < senders.length; i++) {
+        await simulatorOracle.syncTaggedLogsAsSender(
+          contractAddress,
+          senders[i].completeAddress.address,
+          recipient.address,
+        );
+      }
+
+      indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
+      expect(indexesAsSenderAfterSync).toStrictEqual([11, 11, 11, 11, 11, 12, 12, 12, 12, 12]);
+
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+    });
+
     it('should sync tagged logs with a sender index offset', async () => {
       const senderOffset = 5;
       generateMockLogs(senderOffset);
@@ -297,7 +351,7 @@ describe('Simulator oracle', () => {
       expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
 
       // We should have called the node 17 times:
-      // 5 times with no results (sender offset) + 2 times with logs (slide the window) + 10 times with no results (window size)
+      // 5 times with no results (sender offset) + 2 times with logs (sliding the window) + 10 times with no results (window size)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(5 + 2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
@@ -314,19 +368,29 @@ describe('Simulator oracle', () => {
         }),
       );
 
+      // Increase our indexes to 2
       await database.setTaggingSecretsIndexesAsRecipient(secrets.map(secret => new IndexedTaggingSecret(secret, 2)));
 
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
-      // Even if our index as recipient is higher than what the recipient sent, we should be able to find the logs
+      // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
+      // since the window starts at Math.max(0, 2 - window_size) = 0
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+
+      // First sender should have 2 logs, but keep index 2 since they were built using the same tag
+      // Next 4 senders hould also have index 2 = offset + 1
+      // Last 5 senders should have index 3 = offset + 2
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
 
       // We should have called the node 13 times:
       // 1 time without logs + 2 times with logs (sliding the window) + 10 times with no results (window size)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(3 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
-    it("should sync not tagged logs for which indexes are not updated if they're outside the window", async () => {
+    it("should not sync tagged logs for which indexes are not updated if they're outside the window", async () => {
       const senderOffset = 0;
       generateMockLogs(senderOffset);
 
@@ -345,12 +409,60 @@ describe('Simulator oracle', () => {
 
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
-      // Only half of the logs should be synced since we start from index 1 = offset + 1, the other half should be skipped
+      // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
+
+      // Indexes should remain where we set them (window_size + 1)
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
 
       // We should have called the node SENDER_OFFSET_WINDOW_SIZE + 1 (with logs) + SENDER_OFFSET_WINDOW_SIZE:
       // Once for index 1 (NUM_SENDERS/2 logs) + 2 times the sliding window (no logs each time)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1 + 2 * SENDER_OFFSET_WINDOW_SIZE);
+    });
+
+    it('should sync tagged logs from scratch after a DB wipe', async () => {
+      const senderOffset = 0;
+      generateMockLogs(senderOffset);
+
+      // Recompute the secrets (as recipient) to update indexes
+      const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      const secrets = senders.map(sender => {
+        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+      });
+
+      await database.setTaggingSecretsIndexesAsRecipient(
+        secrets.map(secret => new IndexedTaggingSecret(secret, SENDER_OFFSET_WINDOW_SIZE + 2)),
+      );
+
+      let syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+
+      // No logs should be synced since we start from index 2 = 12 - window_size
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
+      // We should have called the node 21 times (window size + current_index + window size)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 * SENDER_OFFSET_WINDOW_SIZE + 1);
+
+      aztecNode.getLogsByTags.mockClear();
+
+      // Wipe the database
+      await database.resetNoteSyncData();
+
+      syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+
+      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
+      // Next 4 senders hould also have index 1 = offset + 1
+      // Last 5 senders should have index 2 = offset + 2
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
+
+      expect(indexes).toHaveLength(NUM_SENDERS);
+      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+
+      // We should have called the node 12 times:
+      // 2 times with logs (sliding the window) + 10 times with no results (window size)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
@@ -422,13 +534,7 @@ describe('Simulator oracle', () => {
             }
             const dataStartIndex =
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
-            const taggedLog = new TxScopedL2Log(
-              txHash,
-              dataStartIndex,
-              blockNumber,
-              false,
-              (await request.encrypt()).data,
-            );
+            const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, request.encrypt());
             const note = request.snippetOfNoteDao.note;
             const noteHash = await pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;

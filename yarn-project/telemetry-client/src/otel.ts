@@ -1,4 +1,4 @@
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, type LogData, addLogDataHandler } from '@aztec/foundation/log';
 
 import {
   DiagConsoleLogger,
@@ -6,28 +6,23 @@ import {
   type Meter,
   type Tracer,
   type TracerProvider,
+  context,
   diag,
+  isSpanContextValid,
+  trace,
 } from '@opentelemetry/api';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
-import { awsEc2Detector, awsEcsDetector } from '@opentelemetry/resource-detector-aws';
-import {
-  type IResource,
-  detectResourcesSync,
-  envDetectorSync,
-  osDetectorSync,
-  processDetectorSync,
-  serviceInstanceIdDetectorSync,
-} from '@opentelemetry/resources';
+import { type IResource } from '@opentelemetry/resources';
 import { type LoggerProvider } from '@opentelemetry/sdk-logs';
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
-import { aztecDetector } from './aztec_resource_detector.js';
 import { type TelemetryClientConfig } from './config.js';
-import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
+import { registerOtelLoggerProvider } from './otel_logger_provider.js';
+import { getOtelResource } from './otel_resource.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
@@ -43,19 +38,33 @@ export class OpenTelemetryClient implements TelemetryClient {
   ) {}
 
   getMeter(name: string): Meter {
-    return this.meterProvider.getMeter(name, this.resource.attributes[SEMRESATTRS_SERVICE_VERSION] as string);
+    return this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
   }
 
   getTracer(name: string): Tracer {
-    return this.traceProvider.getTracer(name, this.resource.attributes[SEMRESATTRS_SERVICE_VERSION] as string);
+    return this.traceProvider.getTracer(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
   }
 
   public start() {
     this.log.info('Starting OpenTelemetry client');
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
+    // Add a callback to the logger to set context data from current trace
+    // Adapted from open-telemetry/opentelemetry-js-contrib PinoInstrumentation._getMixinFunction
+    addLogDataHandler((data: LogData) => {
+      const spanContext = trace.getSpan(context.active())?.spanContext();
+      return spanContext && isSpanContextValid(spanContext)
+        ? {
+            ...data,
+            ['trace_id']: spanContext.traceId,
+            ['span_id']: spanContext.spanId,
+            ['trace_flags']: `0${spanContext.traceFlags.toString(16)}`,
+          }
+        : data;
+    });
+
     this.hostMetrics = new HostMetrics({
-      name: this.resource.attributes[SEMRESATTRS_SERVICE_NAME] as string,
+      name: this.resource.attributes[ATTR_SERVICE_NAME] as string,
       meterProvider: this.meterProvider,
     });
 
@@ -75,36 +84,28 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
-    await Promise.all([this.meterProvider.shutdown(), this.loggerProvider.shutdown()]);
+    const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
+      await provider.forceFlush();
+      await provider.shutdown();
+    };
+
+    await Promise.all([
+      flushAndShutdown(this.meterProvider),
+      flushAndShutdown(this.loggerProvider),
+      this.traceProvider instanceof NodeTracerProvider ? flushAndShutdown(this.traceProvider) : Promise.resolve(),
+    ]);
   }
 
   public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
-    const resource = detectResourcesSync({
-      detectors: [
-        osDetectorSync,
-        envDetectorSync,
-        processDetectorSync,
-        serviceInstanceIdDetectorSync,
-        awsEc2Detector,
-        awsEcsDetector,
-        aztecDetector,
-      ],
-    });
+    const resource = await getOtelResource();
 
-    if (resource.asyncAttributesPending) {
-      await resource.waitForAsyncAttributes!();
-    }
-
+    // TODO(palla/log): Should we show traces as logs in stdout when otel collection is disabled?
     const tracerProvider = new NodeTracerProvider({
       resource,
+      spanProcessors: config.tracesCollectorUrl
+        ? [new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }))]
+        : [],
     });
-
-    // optionally push traces to an OTEL collector instance
-    if (config.tracesCollectorUrl) {
-      tracerProvider.addSpanProcessor(
-        new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href })),
-      );
-    }
 
     tracerProvider.register();
 
@@ -120,7 +121,8 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
       ],
     });
-    const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
+
+    const loggerProvider = await registerOtelLoggerProvider(resource, config.logsCollectorUrl);
 
     const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();

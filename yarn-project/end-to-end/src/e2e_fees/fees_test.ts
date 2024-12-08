@@ -10,7 +10,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
+import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import {
@@ -64,8 +64,7 @@ export class FeesTest {
 
   public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
 
-  public gasSettings = GasSettings.default();
-  public maxFee = this.gasSettings.getFeeLimit().toBigInt();
+  public gasSettings!: GasSettings;
 
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
@@ -79,9 +78,8 @@ export class FeesTest {
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
 
-  public readonly INITIAL_GAS_BALANCE = BigInt(1e15);
-  public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
-  public readonly SUBSCRIPTION_AMOUNT = 10_000n;
+  public readonly ALICE_INITIAL_BANANAS = BigInt(1e22);
+  public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
@@ -136,6 +134,7 @@ export class FeesTest {
       async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
+        this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -232,7 +231,7 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, bananaFPC.address);
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(FEE_FUNDING_FOR_TESTER_ACCOUNT, bananaFPC.address);
 
         return {
           bananaFPCAddress: bananaFPC.address,
@@ -290,7 +289,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fund_alice_with_fee_juice',
       async () => {
-        await this.mintAndBridgeFeeJuice(this.aliceAddress, this.INITIAL_GAS_BALANCE);
+        await this.mintAndBridgeFeeJuice(this.aliceAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT);
       },
       () => Promise.resolve(),
     );
@@ -320,7 +319,7 @@ export class FeesTest {
 
         // Mint some Fee Juice to the subscription contract
         // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
-        await this.mintAndBridgeFeeJuice(subscriptionContract.address, this.INITIAL_GAS_BALANCE);
+        await this.mintAndBridgeFeeJuice(subscriptionContract.address, FEE_FUNDING_FOR_TESTER_ACCOUNT);
         return {
           counterContractAddress: counterContract.address,
           subscriptionContractAddress: subscriptionContract.address,

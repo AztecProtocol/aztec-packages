@@ -20,10 +20,13 @@ import {
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+
+import { strict as assert } from 'assert';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
@@ -55,14 +58,18 @@ export class PublicTxSimulator {
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    client: TelemetryClient,
+    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private realAvmProvingRequests: boolean = true,
+    private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(client, 'PublicTxSimulator');
+    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
+  get tracer(): Tracer {
+    return this.metrics.tracer;
+  }
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
@@ -71,7 +78,13 @@ export class PublicTxSimulator {
   async simulate(tx: Tx): Promise<PublicTxResult> {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
 
-    const context = await PublicTxContext.create(this.db, this.worldStateDB, tx, this.globalVariables);
+    const context = await PublicTxContext.create(
+      this.db,
+      this.worldStateDB,
+      tx,
+      this.globalVariables,
+      this.doMerkleOperations,
+    );
 
     // add new contracts to the contracts db so that their functions may be found and called
     // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
@@ -82,11 +95,14 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
+    await this.insertNonRevertiblesFromPrivate(context);
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
+
+    await this.insertRevertiblesFromPrivate(context);
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
@@ -142,9 +158,7 @@ export class PublicTxSimulator {
    * @returns The phase result.
    */
   private async simulateAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    // Fork the state manager so that we can rollback state if app logic or teardown reverts.
-    // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
-    context.state.fork();
+    assert(context.state.isForked(), 'App logic phase should operate with forked state.');
 
     const result = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
 
@@ -168,7 +182,7 @@ export class PublicTxSimulator {
    */
   private async simulateTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
     if (!context.state.isForked()) {
-      // If state isn't forked (app logic was empty or reverted), fork now
+      // If state isn't forked (app logic reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
       context.state.fork();
     }
@@ -237,6 +251,12 @@ export class PublicTxSimulator {
    * @param executionRequest - The execution request (includes args)
    * @returns The result of execution.
    */
+  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
+    [Attributes.TX_HASH]: context.getTxHash().toString(),
+    [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
+    [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
+    [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
+  }))
   private async simulateEnqueuedCall(
     phase: TxExecutionPhase,
     context: PublicTxContext,
@@ -270,17 +290,6 @@ export class PublicTxSimulator {
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
-    // TODO(dbanks12): remove once AVM proves entire public tx
-    await context.updateProvingRequest(
-      this.realAvmProvingRequests,
-      phase,
-      fnName,
-      stateManager,
-      executionRequest,
-      result,
-      allocatedGas,
-    );
-
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
 
     if (result.reverted) {
@@ -305,6 +314,12 @@ export class PublicTxSimulator {
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
+  @trackSpan(
+    'PublicTxSimulator.simulateEnqueuedCallInternal',
+    (_stateManager, _executionRequest, _allocatedGas, _transactionFee, fnName) => ({
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
+    }),
+  )
   private async simulateEnqueuedCallInternal(
     stateManager: AvmPersistableStateManager,
     executionRequest: PublicExecutionRequest,
@@ -349,9 +364,44 @@ export class PublicTxSimulator {
     if (result.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
-      this.metrics.recordFunctionSimulation(timer.ms());
+      this.metrics.recordFunctionSimulation(timer.ms(), allocatedGas.sub(result.gasLeft).l2Gas, fnName);
     }
 
     return result;
+  }
+
+  /**
+   * Insert the non-revertible accumulated data from private into the public state.
+   */
+  public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
+    const stateManager = context.state.getActiveStateManager();
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\n.Stack:${e.stack}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Insert the revertible accumulated data from private into the public state.
+   * Start by forking state so we can rollback to the end of setup if app logic or teardown reverts.
+   */
+  public async insertRevertiblesFromPrivate(context: PublicTxContext) {
+    // Fork the state manager so we can rollback to end of setup if app logic reverts.
+    context.state.fork();
+    const stateManager = context.state.getActiveStateManager();
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
+        );
+      }
+    }
   }
 }

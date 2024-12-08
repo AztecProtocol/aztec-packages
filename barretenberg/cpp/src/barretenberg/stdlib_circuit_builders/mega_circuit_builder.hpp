@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
@@ -45,7 +47,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
-        , op_queue(op_queue_in)
+        , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
 
@@ -75,7 +77,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
-        , op_queue(op_queue_in)
+        , op_queue(std::move(op_queue_in))
     {
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
@@ -153,7 +155,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_estimated_finalized_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;

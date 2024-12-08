@@ -1,5 +1,9 @@
 import { type ArchiverApi, type Service } from '@aztec/circuit-types';
-import { type ContractClassPublic, getContractClassFromArtifact } from '@aztec/circuits.js';
+import {
+  type ContractClassPublic,
+  computePublicBytecodeCommitment,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -40,7 +44,8 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       unconstrainedFunctions: [],
     };
     await store.addContractArtifact(contract.address, contract.artifact);
-    await store.addContractClasses([contractClassPublic], blockNumber);
+    const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
+    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
   }
 }
@@ -53,12 +58,11 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
 async function registerCommonContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   const artifacts = [TokenBridgeContractArtifact, TokenContractArtifact];
-  const classes = await Promise.all(
-    artifacts.map(async artifact => ({
-      ...(await getContractClassFromArtifact(artifact)),
-      privateFunctions: [],
-      unconstrainedFunctions: [],
-    })),
-  );
-  await store.addContractClasses(classes, blockNumber);
+  const classes = artifacts.map(artifact => ({
+    ...getContractClassFromArtifact(artifact),
+    privateFunctions: [],
+    unconstrainedFunctions: [],
+  }));
+  const bytecodeCommitments = classes.map(x => computePublicBytecodeCommitment(x.packedBytecode));
+  await store.addContractClasses(classes, bytecodeCommitments, blockNumber);
 }

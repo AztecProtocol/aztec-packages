@@ -1,4 +1,4 @@
-import { type BatchInsertionResult, type LowLeafWitnessData, SiblingPath } from '@aztec/circuit-types';
+import { type BatchInsertionResult, type LeafUpdateWitnessData, SiblingPath } from '@aztec/circuit-types';
 import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
@@ -44,7 +44,7 @@ export interface LeafFactory {
 function getEmptyLowLeafWitness<N extends number>(
   treeHeight: N,
   leafPreimageFactory: PreimageFactory,
-): LowLeafWitnessData<N> {
+): LeafUpdateWitnessData<N> {
   return {
     leafPreimage: leafPreimageFactory.empty(),
     index: 0n,
@@ -480,7 +480,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     const insertedKeys = new Map<bigint, boolean>();
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
-    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
+    const lowLeavesWitnesses: LeafUpdateWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
     const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.empty());
 
     // Start info
@@ -523,7 +523,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
       const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true))!;
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
-      const witness: LowLeafWitnessData<TreeHeight> = {
+      const witness: LeafUpdateWitnessData<TreeHeight> = {
         leafPreimage: lowLeafPreimage,
         index: BigInt(indexOfPrevious.index),
         siblingPath,

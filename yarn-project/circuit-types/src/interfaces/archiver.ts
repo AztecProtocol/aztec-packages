@@ -1,8 +1,9 @@
 import {
+  BlockHeader,
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  Header,
+  PrivateLog,
   PublicFunctionSchema,
 } from '@aztec/circuits.js';
 import { ContractArtifactSchema } from '@aztec/foundation/abi';
@@ -14,10 +15,8 @@ import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
 import { GetUnencryptedLogsResponseSchema, TxScopedL2Log } from '../logs/get_logs_response.js';
-import { L2BlockL2Logs } from '../logs/l2_block_l2_logs.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
-import { LogType } from '../logs/log_type.js';
 import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { type NullifierWithBlockSource } from '../nullifier_with_block_source.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -39,7 +38,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeader: z
     .function()
     .args(z.union([schemas.Integer, z.literal('latest')]))
-    .returns(Header.schema.optional()),
+    .returns(BlockHeader.schema.optional()),
   getBlocks: z
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
@@ -51,10 +50,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
   isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getLogs: z
-    .function()
-    .args(schemas.Integer, schemas.Integer, z.nativeEnum(LogType))
-    .returns(z.array(L2BlockL2Logs.schema)),
+  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
@@ -70,6 +66,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(schemas.AztecAddress, schemas.FunctionSelector)
     .returns(PublicFunctionSchema.optional()),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   getContractArtifact: z.function().args(schemas.AztecAddress).returns(ContractArtifactSchema.optional()),
@@ -78,4 +75,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
+  getContractFunctionName: z
+    .function()
+    .args(schemas.AztecAddress, schemas.FunctionSelector)
+    .returns(optional(z.string())),
 };

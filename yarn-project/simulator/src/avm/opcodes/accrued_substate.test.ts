@@ -1,4 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 
 import { mock } from 'jest-mock-extended';
 
@@ -35,6 +36,7 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
+  const siloedNullifier0 = siloNullifier(address, value0);
 
   beforeEach(() => {
     worldStateDB = mock<WorldStateDB>();
@@ -170,7 +172,7 @@ describe('Accrued Substate', () => {
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
         const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, exists);
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, exists);
       });
     });
   });
@@ -192,7 +194,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
@@ -204,7 +206,7 @@ describe('Accrued Substate', () => {
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {

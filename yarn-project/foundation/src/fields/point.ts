@@ -1,7 +1,9 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { randomBoolean } from '../crypto/random/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
+import { bufferToHex, hexToBuffer } from '../string/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -32,6 +34,14 @@ export class Point {
     public readonly isInfinite: boolean,
   ) {
     // TODO(#7386): check if on curve
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Point);
   }
 
   /**
@@ -84,14 +94,14 @@ export class Point {
 
   /**
    * Create a Point instance from a hex-encoded string.
-   * The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
+   * The input should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
    * Throws an error if the input length is invalid or coordinate values are out of range.
    *
-   * @param address - The hex-encoded string representing the Point coordinates.
+   * @param str - The hex-encoded string representing the Point coordinates.
    * @returns A Point instance.
    */
-  static fromString(address: string) {
-    return this.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+  static fromString(str: string) {
+    return this.fromBuffer(hexToBuffer(str));
   }
 
   /**
@@ -116,15 +126,9 @@ export class Point {
    * Instead it is a boolean flag that determines whether the y coordinate is <= (Fr.MODULUS - 1) / 2
    * @returns The point as an array of 2 fields
    */
-  static async fromXAndSign(x: Fr, sign: boolean) {
-    // Calculate y^2 = x^3 - 17
-    const ySquared = x.square().mul(x).sub(new Fr(17));
-
-    // Calculate the square root of ySquared
-    const y = await ySquared.sqrt();
-
-    // If y is null, the x-coordinate is not on the curve
-    if (y === null) {
+  static fromXAndSign(x: Fr, sign: boolean) {
+    const y = Point.YFromX(x);
+    if (y == null) {
       throw new NotOnCurveError(x);
     }
 
@@ -136,6 +140,18 @@ export class Point {
 
     // Create and return the new Point
     return new this(x, finalY, false);
+  }
+
+  /**
+   * @returns
+   */
+  static YFromX(x: Fr): Fr | null {
+    // Calculate y^2 = x^3 - 17 (i.e. the Grumpkin curve equation)
+    const ySquared = x.square().mul(x).sub(new Fr(17));
+
+    // y is then simply the square root. Note however that not all square roots exist in the field: if sqrt returns null
+    // then there is no point in the curve with this x coordinate.
+    return ySquared.sqrt();
   }
 
   /**
@@ -205,7 +221,7 @@ export class Point {
    * @returns A hex-encoded string representing the Point instance.
    */
   toString() {
-    return '0x' + this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -267,10 +283,10 @@ export class Point {
       return true;
     }
 
-    // p.y * p.y == p.x * p.x * p.x - 17
-    const A = new Fr(17);
+    // The Grumpkin equation is y^2 = x^3 - 17. We could use `YFromX` and then compare to `this.y`, but this would
+    // involve computing the square root of y, of which there are two possible valid values. This method is also faster.
     const lhs = this.y.square();
-    const rhs = this.x.square().mul(this.x).sub(A);
+    const rhs = this.x.mul(this.x).mul(this.x).sub(new Fr(17));
     return lhs.equals(rhs);
   }
 }

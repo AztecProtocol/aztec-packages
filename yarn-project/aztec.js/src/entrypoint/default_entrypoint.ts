@@ -1,5 +1,5 @@
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { GasSettings, TxContext } from '@aztec/circuits.js';
+import { TxContext } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 
 import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoint.js';
@@ -10,8 +10,8 @@ import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoin
 export class DefaultEntrypoint implements EntrypointInterface {
   constructor(private chainId: number, private protocolVersion: number) {}
 
-  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses = [], packedArguments = [] } = exec;
+  createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    const { fee, calls, authWitnesses = [], packedArguments = [] } = exec;
 
     if (calls.length > 1) {
       throw new Error(`Expected a single call, got ${calls.length}`);
@@ -23,9 +23,8 @@ export class DefaultEntrypoint implements EntrypointInterface {
       throw new Error('Public entrypoints are not allowed');
     }
 
-    const entrypointPackedValues = await PackedValues.fromValues(call.args);
-    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
-    const txContext = new TxContext(this.chainId, this.protocolVersion, gasSettings);
+    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const txContext = new TxContext(this.chainId, this.protocolVersion, fee.gasSettings);
     return Promise.resolve(
       new TxExecutionRequest(
         call.to,

@@ -34,6 +34,10 @@ export class AccountWallet extends BaseWallet {
     return this.account.getVersion();
   }
 
+  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
+  }
+
   /**
    * Computes an authentication witness from either a message hash or an intent.
    *

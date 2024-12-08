@@ -58,6 +58,41 @@ describe('External Calls', () => {
       expect(inst.serialize()).toEqual(buf);
     });
 
+    it('Call to non-existent bytecode returns failure', async () => {
+      const gasOffset = 0;
+      const l2Gas = 2e6;
+      const daGas = 3e6;
+      const addrOffset = 2;
+      const addr = new Fr(123456n);
+      const argsOffset = 3;
+      const args = [new Field(1), new Field(2), new Field(3)];
+      const argsSize = args.length;
+      const argsSizeOffset = 20;
+      const successOffset = 6;
+
+      const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
+
+      context.machineState.memory.set(0, new Field(l2Gas));
+      context.machineState.memory.set(1, new Field(daGas));
+      context.machineState.memory.set(2, new Field(addr));
+      context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
+      context.machineState.memory.setSlice(3, args);
+
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset);
+      await instruction.execute(context);
+
+      const successValue = context.machineState.memory.get(successOffset);
+      expect(successValue).toEqual(new Uint1(0n)); // failure, contract non-existent!
+
+      const retValue = context.machineState.nestedReturndata;
+      expect(retValue).toEqual([]);
+
+      // should charge for the CALL instruction itself, and all allocated gas should be consumed
+      expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas - l2Gas);
+      expect(context.machineState.daGasLeft).toEqual(initialDaGas - daGas);
+      expect(context.machineState.collectedRevertInfo?.recursiveRevertReason?.message).toMatch(/No bytecode found/);
+    });
+
     it('Should execute a call correctly', async () => {
       const gasOffset = 0;
       const l2Gas = 2e6;
@@ -72,9 +107,9 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 0, /*dstOffset=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 2, /*dstOffset=*/ 2).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
           new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
         ]),
@@ -122,11 +157,11 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new GetEnvVar(/*indirect=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT, /*dstOffset=*/ 0).as(
+          new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
             Opcode.GETENVVAR_16,
             GetEnvVar.wireFormat16,
           ),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 1, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );

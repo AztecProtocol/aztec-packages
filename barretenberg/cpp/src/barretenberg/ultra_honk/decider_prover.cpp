@@ -57,12 +57,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    if (proving_key->proving_key.commitment_key == nullptr) {
-        proving_key->proving_key.commitment_key =
-            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
-    }
-    vinfo("made commitment key");
     using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    auto& ck = proving_key->proving_key.commitment_key;
+    ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
@@ -70,20 +68,20 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               proving_key->proving_key.polynomials.get_unshifted(),
                                                               proving_key->proving_key.polynomials.get_to_be_shifted(),
                                                               sumcheck_output.challenge,
-                                                              proving_key->proving_key.commitment_key,
+                                                              ck,
                                                               transcript);
     } else {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
                                                               proving_key->proving_key.polynomials.get_to_be_shifted(),
                                                               sumcheck_output.challenge,
-                                                              proving_key->proving_key.commitment_key,
+                                                              ck,
                                                               transcript,
                                                               zk_sumcheck_data.libra_univariates_monomial,
                                                               sumcheck_output.claimed_libra_evaluations);
     }
-    vinfo("executed multivariate-to-univarite reduction");
-    PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
+    vinfo("executed multivariate-to-univariate reduction");
+    PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
     vinfo("computed opening proof");
 }
 

@@ -51,49 +51,47 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                    }));
 
     // catch-all with fully formed polynomials
-    AVM_TRACK_TIME(
-        "circuit_builder/init_polys_unshifted", ({
-            auto unshifted = polys.get_unshifted();
+    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
+                       auto unshifted = polys.get_unshifted();
 
-            // An array which stores for each column of the trace the smallest size of the
-            // truncated column containing all non-zero elements.
-            // It is used to allocate the polynomials without memory overhead for the tail of zeros.
-            std::array<size_t, Row::SIZE> col_nonzero_size{};
+                       // An array which stores for each column of the trace the smallest size of the
+                       // truncated column containing all non-zero elements.
+                       // It is used to allocate the polynomials without memory overhead for the tail of zeros.
+                       std::array<size_t, Row::SIZE> col_nonzero_size{};
 
-            // Computation of size of columns.
-            // Non-parallel version takes 0.5 second for a trace size of 200k rows.
-            // A parallel version might be considered in the future.
-            for (size_t i = 0; i < num_rows; i++) {
-                const auto row = rows[i].as_vector();
-                for (size_t col = 0; col < Row::SIZE; col++) {
-                    if (!row[col].is_zero()) {
-                        col_nonzero_size[col] = i + 1;
-                    }
-                }
-            }
+                       // Computation of size of columns.
+                       // Non-parallel version takes 0.5 second for a trace size of 200k rows.
+                       // A parallel version might be considered in the future.
+                       for (size_t i = 0; i < num_rows; i++) {
+                           const auto row = rows[i].as_vector();
+                           for (size_t col = 0; col < Row::SIZE; col++) {
+                               if (!row[col].is_zero()) {
+                                   col_nonzero_size[col] = i + 1;
+                               }
+                           }
+                       }
 
-            // Set of the labels for derived/inverse polynomials.
-            const auto derived_labels = polys.get_derived_labels();
-            std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
+                       // Set of the labels for derived/inverse polynomials.
+                       const auto derived_labels = polys.get_derived_labels();
+                       std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
 
-            bb::parallel_for(num_unshifted, [&](size_t i) {
-                auto& poly = unshifted[i];
-                const auto col_idx = polys_to_cols_unshifted_idx[i];
-                size_t col_size = 0;
+                       bb::parallel_for(num_unshifted, [&](size_t i) {
+                           auto& poly = unshifted[i];
+                           const auto col_idx = polys_to_cols_unshifted_idx[i];
+                           const bool is_derived = derived_labels_set.contains(labels[i]);
 
-                // We fully allocate the inverse polynomials. We leave this potential memory optimization for later.
-                if (derived_labels_set.contains(labels[i])) {
-                    col_size = num_rows;
-                } else {
-                    col_size = col_nonzero_size[col_idx];
-                }
-
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ /*memory size*/ col_size, /*largest possible index*/ circuit_subgroup_size };
-                }
-            });
-        }));
+                           if (poly.is_empty()) {
+                               // Not set above. Non-derived unshifted polynomials are initialized below. The
+                               // non-derived ones do need to be initialized with zeros and are fully allocated (size ==
+                               // num_rows).
+                               poly = is_derived
+                                          ? Polynomial::create_non_parallel_zero_init(num_rows, circuit_subgroup_size)
+                                          : Polynomial{ col_nonzero_size[col_idx],
+                                                        circuit_subgroup_size,
+                                                        Polynomial::DontZeroMemory::FLAG };
+                           }
+                       });
+                   }));
 
     AVM_TRACK_TIME(
         "circuit_builder/set_polys_unshifted", ({
@@ -263,12 +261,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_dyn_da_gas_op_cost.set_if_valid_index(i, rows[i].main_dyn_da_gas_op_cost);
                 polys.main_dyn_gas_multiplier.set_if_valid_index(i, rows[i].main_dyn_gas_multiplier);
                 polys.main_dyn_l2_gas_op_cost.set_if_valid_index(i, rows[i].main_dyn_l2_gas_op_cost);
-                polys.main_emit_l2_to_l1_msg_write_offset.set_if_valid_index(
-                    i, rows[i].main_emit_l2_to_l1_msg_write_offset);
-                polys.main_emit_note_hash_write_offset.set_if_valid_index(i, rows[i].main_emit_note_hash_write_offset);
-                polys.main_emit_nullifier_write_offset.set_if_valid_index(i, rows[i].main_emit_nullifier_write_offset);
-                polys.main_emit_unencrypted_log_write_offset.set_if_valid_index(
-                    i, rows[i].main_emit_unencrypted_log_write_offset);
                 polys.main_ia.set_if_valid_index(i, rows[i].main_ia);
                 polys.main_ib.set_if_valid_index(i, rows[i].main_ib);
                 polys.main_ic.set_if_valid_index(i, rows[i].main_ic);
@@ -282,10 +274,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_inv.set_if_valid_index(i, rows[i].main_inv);
                 polys.main_is_fake_row.set_if_valid_index(i, rows[i].main_is_fake_row);
                 polys.main_is_gas_accounted.set_if_valid_index(i, rows[i].main_is_gas_accounted);
-                polys.main_kernel_in_offset.set_if_valid_index(i, rows[i].main_kernel_in_offset);
-                polys.main_kernel_out_offset.set_if_valid_index(i, rows[i].main_kernel_out_offset);
-                polys.main_l1_to_l2_msg_exists_write_offset.set_if_valid_index(
-                    i, rows[i].main_l1_to_l2_msg_exists_write_offset);
                 polys.main_l2_gas_remaining.set_if_valid_index(i, rows[i].main_l2_gas_remaining);
                 polys.main_l2_gas_u16_r0.set_if_valid_index(i, rows[i].main_l2_gas_u16_r0);
                 polys.main_l2_gas_u16_r1.set_if_valid_index(i, rows[i].main_l2_gas_u16_r1);
@@ -294,12 +282,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_mem_addr_b.set_if_valid_index(i, rows[i].main_mem_addr_b);
                 polys.main_mem_addr_c.set_if_valid_index(i, rows[i].main_mem_addr_c);
                 polys.main_mem_addr_d.set_if_valid_index(i, rows[i].main_mem_addr_d);
-                polys.main_note_hash_exist_write_offset.set_if_valid_index(i,
-                                                                           rows[i].main_note_hash_exist_write_offset);
-                polys.main_nullifier_exists_write_offset.set_if_valid_index(i,
-                                                                            rows[i].main_nullifier_exists_write_offset);
-                polys.main_nullifier_non_exists_write_offset.set_if_valid_index(
-                    i, rows[i].main_nullifier_non_exists_write_offset);
                 polys.main_op_err.set_if_valid_index(i, rows[i].main_op_err);
                 polys.main_opcode_val.set_if_valid_index(i, rows[i].main_opcode_val);
                 polys.main_pc.set_if_valid_index(i, rows[i].main_pc);
@@ -313,8 +295,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_calldata.set_if_valid_index(i, rows[i].main_sel_calldata);
                 polys.main_sel_execution_end.set_if_valid_index(i, rows[i].main_sel_execution_end);
                 polys.main_sel_execution_row.set_if_valid_index(i, rows[i].main_sel_execution_row);
-                polys.main_sel_kernel_inputs.set_if_valid_index(i, rows[i].main_sel_kernel_inputs);
-                polys.main_sel_kernel_out.set_if_valid_index(i, rows[i].main_sel_kernel_out);
                 polys.main_sel_mem_op_a.set_if_valid_index(i, rows[i].main_sel_mem_op_a);
                 polys.main_sel_mem_op_b.set_if_valid_index(i, rows[i].main_sel_mem_op_b);
                 polys.main_sel_mem_op_c.set_if_valid_index(i, rows[i].main_sel_mem_op_c);
@@ -343,7 +323,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_fdiv.set_if_valid_index(i, rows[i].main_sel_op_fdiv);
                 polys.main_sel_op_fee_per_da_gas.set_if_valid_index(i, rows[i].main_sel_op_fee_per_da_gas);
                 polys.main_sel_op_fee_per_l2_gas.set_if_valid_index(i, rows[i].main_sel_op_fee_per_l2_gas);
-                polys.main_sel_op_function_selector.set_if_valid_index(i, rows[i].main_sel_op_function_selector);
                 polys.main_sel_op_get_contract_instance.set_if_valid_index(i,
                                                                            rows[i].main_sel_op_get_contract_instance);
                 polys.main_sel_op_internal_call.set_if_valid_index(i, rows[i].main_sel_op_internal_call);
@@ -390,10 +369,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_rng_16.set_if_valid_index(i, rows[i].main_sel_rng_16);
                 polys.main_sel_rng_8.set_if_valid_index(i, rows[i].main_sel_rng_8);
                 polys.main_sel_slice_gadget.set_if_valid_index(i, rows[i].main_sel_slice_gadget);
-                polys.main_side_effect_counter.set_if_valid_index(i, rows[i].main_side_effect_counter);
-                polys.main_sload_write_offset.set_if_valid_index(i, rows[i].main_sload_write_offset);
                 polys.main_space_id.set_if_valid_index(i, rows[i].main_space_id);
-                polys.main_sstore_write_offset.set_if_valid_index(i, rows[i].main_sstore_write_offset);
                 polys.main_tag_err.set_if_valid_index(i, rows[i].main_tag_err);
                 polys.main_w_in_tag.set_if_valid_index(i, rows[i].main_w_in_tag);
                 polys.mem_addr.set_if_valid_index(i, rows[i].mem_addr);
@@ -833,8 +809,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.lookup_l2_gas_rng_chk_1_counts.set_if_valid_index(i, rows[i].lookup_l2_gas_rng_chk_1_counts);
                 polys.lookup_da_gas_rng_chk_0_counts.set_if_valid_index(i, rows[i].lookup_da_gas_rng_chk_0_counts);
                 polys.lookup_da_gas_rng_chk_1_counts.set_if_valid_index(i, rows[i].lookup_da_gas_rng_chk_1_counts);
-                polys.kernel_output_lookup_counts.set_if_valid_index(i, rows[i].kernel_output_lookup_counts);
-                polys.lookup_into_kernel_counts.set_if_valid_index(i, rows[i].lookup_into_kernel_counts);
                 polys.lookup_cd_value_counts.set_if_valid_index(i, rows[i].lookup_cd_value_counts);
                 polys.lookup_ret_value_counts.set_if_valid_index(i, rows[i].lookup_ret_value_counts);
                 polys.incl_main_tag_err_counts.set_if_valid_index(i, rows[i].incl_main_tag_err_counts);

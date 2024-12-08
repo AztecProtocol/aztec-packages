@@ -20,7 +20,7 @@ describe('e2e_l1_with_wall_time', () => {
 
     ({ teardown, logger, pxe } = await setup(0, {
       initialValidators,
-      l1BlockTime: ethereumSlotDuration,
+      ethereumSlotDuration,
       salt: 420,
     }));
   });

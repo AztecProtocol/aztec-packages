@@ -8,13 +8,13 @@ import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from '
 import {
   applyProverFailure,
   deleteResourceByLabel,
-  getConfig,
   isK8sConfig,
+  setupEnvironment,
   startPortForward,
   waitForResourceByLabel,
 } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
@@ -47,13 +47,13 @@ describe('reorg test', () => {
 
   it('survives a reorg', async () => {
     await startPortForward({
-      resource: 'svc/spartan-aztec-network-pxe',
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_PXE_PORT,
       hostPort: HOST_PXE_PORT,
     });
     await startPortForward({
-      resource: 'svc/spartan-aztec-network-ethereum',
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
       hostPort: HOST_ETHEREUM_PORT,
@@ -99,7 +99,7 @@ describe('reorg test', () => {
     await waitForResourceByLabel({ resource: 'pods', namespace: NAMESPACE, label: 'app=pxe' });
     await sleep(30 * 1000);
     await startPortForward({
-      resource: 'svc/spartan-aztec-network-pxe',
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_PXE_PORT,
       hostPort: HOST_PXE_PORT,

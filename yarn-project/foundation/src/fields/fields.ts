@@ -4,6 +4,7 @@ import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
@@ -301,12 +302,12 @@ export class Fr extends BaseField {
     return Fr.fromBuffer(rootBuf);
   }
 
-  // TODO(palla/schemas): Use toString instead of structured type
   toJSON() {
-    return {
-      type: 'Fr',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fr);
   }
 }
 
@@ -386,10 +387,11 @@ export class Fq extends BaseField {
   }
 
   toJSON() {
-    return {
-      type: 'Fq',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fq);
   }
 }
 

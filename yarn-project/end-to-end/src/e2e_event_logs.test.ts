@@ -38,26 +38,18 @@ describe('Logs', () => {
 
   describe('functionality around emitting an encrypted log', () => {
     it('emits multiple events as encrypted logs and decodes them one manually', async () => {
-      const randomness = makeTuple(2, Fr.random);
       const preimage = makeTuple(4, Fr.random);
 
-      const tx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness, preimage)
-        .send()
-        .wait();
+      const tx = await testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait();
 
       const txEffect = await node.getTxEffect(tx.txHash);
 
-      const encryptedLogs = txEffect!.data.encryptedLogs.unrollLogs();
-      expect(encryptedLogs.length).toBe(3);
+      const privateLogs = txEffect!.data.privateLogs;
+      expect(privateLogs.length).toBe(3);
 
-      const decryptedEvent0 = (await L1EventPayload.decryptAsIncoming(
-        encryptedLogs[0],
-        await wallets[0].getEncryptionSecret(),
-      ))!;
+      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(privateLogs[0], wallets[0].getEncryptionSecret())!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent0.randomness).toStrictEqual(randomness[0]);
       expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
 
       // We decode our event into the event type
@@ -68,10 +60,7 @@ describe('Logs', () => {
       expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
       expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
-      const decryptedEvent1 = (await L1EventPayload.decryptAsIncoming(
-        encryptedLogs[2],
-        await wallets[0].getEncryptionSecret(),
-      ))!;
+      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(privateLogs[2], wallets[0].getEncryptionSecret())!;
 
       const event1Metadata = new EventMetadata<ExampleEvent1>(TestLogContract.events.ExampleEvent1);
 
@@ -83,7 +72,6 @@ describe('Logs', () => {
       expect(badEvent0).toBe(undefined);
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent1.randomness).toStrictEqual(randomness[1]);
       expect(decryptedEvent1.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
 
       // We expect the fields to have been populated correctly
@@ -97,54 +85,44 @@ describe('Logs', () => {
     });
 
     it('emits multiple events as encrypted logs and decodes them', async () => {
-      const randomness = makeTuple(5, makeTuple.bind(undefined, 2, Fr.random)) as Tuple<Tuple<Fr, 2>, 5>;
-      const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
+      const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
-      let i = 0;
-      const firstTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness[i], preimage[i])
-        .send()
-        .wait();
-      await Promise.all(
-        [...new Array(3)].map(() =>
-          testLogContract.methods
-            .emit_encrypted_events(wallets[1].getAddress(), randomness[++i], preimage[i])
-            .send()
-            .wait(),
+      const txs = await Promise.all(
+        preimages.map(preimage =>
+          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
         ),
       );
-      const lastTx = await testLogContract.methods
-        .emit_encrypted_events(wallets[1].getAddress(), randomness[++i], preimage[i])
-        .send()
-        .wait();
+      const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
+      const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
+      const numBlocks = lastBlockNumber - firstBlockNumber + 1;
 
       // We get all the events we can decrypt with either our incoming or outgoing viewing keys
 
       const collectedEvent0s = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
       );
 
       const collectedEvent0sWithIncoming = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         // This function can be called specifying the viewing public keys associated with the encrypted event.
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
       const collectedEvent0sWithOutgoing = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
       );
 
       const collectedEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
@@ -155,8 +133,8 @@ describe('Logs', () => {
 
       const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        firstBlockNumber,
+        numBlocks,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
       );
 
@@ -164,13 +142,13 @@ describe('Logs', () => {
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0sWithIncoming.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
       );
 
       expect(collectedEvent0sWithOutgoing.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
       );
@@ -181,7 +159,7 @@ describe('Logs', () => {
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
       expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
-        preimage
+        preimages
           .map(preimage => ({
             value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8

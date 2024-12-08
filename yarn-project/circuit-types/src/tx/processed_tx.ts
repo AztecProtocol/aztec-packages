@@ -1,10 +1,10 @@
 import {
+  type BlockHeader,
   ClientIvcProof,
   CombinedConstantData,
   Fr,
   Gas,
   type GlobalVariables,
-  type Header,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
@@ -86,7 +86,7 @@ export type FailedTx = {
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(
-  header: Header,
+  header: BlockHeader,
   chainId: Fr,
   version: Fr,
   vkTreeRoot: Fr,
@@ -138,12 +138,9 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    data.end.noteEncryptedLogPreimagesLength,
-    data.end.encryptedLogPreimagesLength,
+    data.end.privateLogs.filter(l => !l.isEmpty()),
     data.end.unencryptedLogPreimagesLength,
     data.end.contractClassLogPreimagesLength,
-    tx.noteEncryptedLogs,
-    tx.encryptedLogs,
     tx.unencryptedLogs,
     tx.contractClassLogs,
   );
@@ -188,8 +185,11 @@ export function makeProcessedTxFromTxWithPublicCalls(
     }
   }
 
-  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.getKernelLength();
-  const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
+  const privateLogs = [
+    ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
+    ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
+  ].filter(l => !l.isEmpty());
+
   // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
   const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
   const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
@@ -203,12 +203,9 @@ export function makeProcessedTxFromTxWithPublicCalls(
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
-    new Fr(noteEncryptedLogPreimagesLength),
-    new Fr(encryptedLogPreimagesLength),
+    privateLogs,
     new Fr(unencryptedLogPreimagesLength),
     new Fr(contractClassLogPreimagesLength),
-    tx.noteEncryptedLogs,
-    tx.encryptedLogs,
     tx.unencryptedLogs,
     tx.contractClassLogs,
   );

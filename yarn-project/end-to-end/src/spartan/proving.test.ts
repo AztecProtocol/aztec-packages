@@ -4,11 +4,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import { type ChildProcess } from 'child_process';
 
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 jest.setTimeout(2_400_000); // 40 minutes
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 const debugLogger = createDebugLogger('aztec:spartan-test:proving');
 const SLEEP_MS = 1000;
 
@@ -19,7 +19,7 @@ describe('proving test', () => {
     let PXE_URL;
     if (isK8sConfig(config)) {
       proc = await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,

@@ -51,6 +51,7 @@ class GoblinProver {
      */
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
+    std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
 
     MergeProof merge_proof;
     GoblinProof goblin_proof;
@@ -70,11 +71,12 @@ class GoblinProver {
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
-    GoblinProver()
+    GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
     { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
       // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
       // first round of the merge protocol. To be removed once the issue has been resolved.
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+        commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
+        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue, commitment_key);
     }
     /**
      * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
@@ -160,7 +162,7 @@ class GoblinProver {
             merge_proof_exists = true;
         }
 
-        MergeProver merge_prover{ circuit_builder.op_queue };
+        MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
         return merge_prover.construct_proof();
     };
 
@@ -209,7 +211,7 @@ class GoblinProver {
 
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
+            translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript, commitment_key);
         }
 
         {

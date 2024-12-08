@@ -40,16 +40,14 @@ export interface PublicSideEffectTraceInterface {
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
   traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     exists: boolean,
     lowLeafPreimage?: NullifierLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
   ): void;
   traceNewNullifier(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage?: NullifierLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],

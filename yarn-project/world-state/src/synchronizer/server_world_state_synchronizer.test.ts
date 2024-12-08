@@ -12,6 +12,7 @@ import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SHA256Trunc } from '@aztec/merkle-tree';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -75,6 +76,7 @@ describe('ServerWorldStateSynchronizer', () => {
       worldStateBlockCheckIntervalMS: 100,
       worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 1024 * 1024,
+      worldStateBlockHistory: 0,
     };
 
     server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, config, l2BlockStream);
@@ -87,7 +89,7 @@ describe('ServerWorldStateSynchronizer', () => {
   const pushBlocks = async (from: number, to: number) => {
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await Promise.all(times(to - from + 1, i => L2Block.random(i + from, 4, 2, 3, 2, 1, inHash))),
+      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
     });
     server.latest.number = to;
   };
@@ -211,7 +213,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig);
+    super(merkleTrees, blockAndMessagesSource, worldStateConfig, new NoopTelemetryClient());
   }
 
   protected override createBlockStream(): L2BlockStream {

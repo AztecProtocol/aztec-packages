@@ -37,15 +37,16 @@ describe('Synchronizer', () => {
     const block = await L2Block.random(1, 4);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = database.getHeader();
+    const obtainedHeader = database.getBlockHeader();
     expect(obtainedHeader).toEqual(block.header);
   });
 
   it('removes notes from db on a reorg', async () => {
     const removeNotesAfter = jest.spyOn(database, 'removeNotesAfter').mockImplementation(() => Promise.resolve());
     const unnullifyNotesAfter = jest.spyOn(database, 'unnullifyNotesAfter').mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
-      Promise.resolve((await L2Block.random(blockNumber as number)).header),
+    const resetNoteSyncData = jest.spyOn(database, 'resetNoteSyncData').mockImplementation(() => Promise.resolve());
+    aztecNode.getBlockHeader.mockImplementation(blockNumber =>
+      Promise.resolve(L2Block.random(blockNumber as number).header),
     );
 
     await synchronizer.handleBlockStreamEvent({
@@ -56,5 +57,6 @@ describe('Synchronizer', () => {
 
     expect(removeNotesAfter).toHaveBeenCalledWith(3);
     expect(unnullifyNotesAfter).toHaveBeenCalledWith(3);
+    expect(resetNoteSyncData).toHaveBeenCalled();
   });
 });

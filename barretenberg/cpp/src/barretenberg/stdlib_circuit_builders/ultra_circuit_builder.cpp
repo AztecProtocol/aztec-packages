@@ -2867,6 +2867,7 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
  */
 template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
+    this->set_variable_name(this->zero_idx, "zero");
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 

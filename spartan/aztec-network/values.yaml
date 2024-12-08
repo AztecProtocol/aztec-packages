@@ -2,6 +2,12 @@ nameOverride: ""
 fullnameOverride: ""
 
 network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
   public: false
   setupL2Contracts: true
 
@@ -27,22 +33,23 @@ aztec:
   slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 16 # how many L2 slots in an epoch
   epochProofClaimWindow: 13 # in L2 slots
+  realProofs: false
+  l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
 
 bootNode:
-  externalTcpHost: ""
-  externalUdpHost: ""
+  peerIdPrivateKey: ""
+  externalHost: ""
   replicas: 1
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: ""
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
-  realProofs: false
   validator:
     disabled: true
   p2p:
@@ -71,8 +78,6 @@ validator:
   # This cannot be used when the network first starts up.
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
-  externalTcpHost: ""
-  externalUdpHost: ""
   replicas: 1
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -83,7 +88,7 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
+  debug: ""
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -91,6 +96,7 @@ validator:
     enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
@@ -104,9 +110,7 @@ validator:
       cpu: "200m"
 
 proverNode:
-  public: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  externalHost: ""
   replicas: 1
   p2pEnabled: true
   service:
@@ -114,9 +118,17 @@ proverNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
-  proverAgentEnabled: false
+  debug: ""
+  proverAgent:
+    count: 0
+    pollIntervalMs: 1000
+    proofTypes: []
+  proverBroker:
+    enabled: false
+    jobTimeoutMs: 30000
+    pollIntervalMs: 1000
+    jobMaxRetries: 3
+    dataDirectory: ""
   resources:
     requests:
       memory: "2Gi"
@@ -124,16 +136,10 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  proverEnabled: false
-  externalHost: ""
   logLevel: "debug"
-  proverEnable: false
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   replicas: 1
   service:
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8081
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -149,7 +155,6 @@ bot:
   enabled: true
   nodeUrl: ""
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
   replicas: 1
   botPrivateKey: "0xcafe"
   txIntervalSeconds: 24
@@ -158,15 +163,11 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  pxeProverEnabled: false
-  proverRealProofs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
     type: ClusterIP
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8082
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -205,13 +206,32 @@ ethereum:
   storage: "80Gi"
 
 proverAgent:
+  service:
+    nodePort: 8083
   enabled: true
   replicas: 1
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
-  concurrency: 1
+  pollIntervalMs: 1000
+  proofTypes: ["foo", "bar", "baz"]
+  gke:
+    spotEnabled: false
+  logLevel: "debug"
   bb:
     hardwareConcurrency: ""
+  nodeSelector: {}
+  resources: {}
+
+proverBroker:
+  service:
+    nodePort: 8084
+  enabled: true
+  replicas: 1
+  jobTimeoutMs: 30000
+  pollIntervalMs: 1000
+  jobMaxRetries: 3
+  dataDirectory: ""
+  logLevel: "debug"
+  nodeSelector: {}
+  resources: {}
 
 jobs:
   deployL1Verifier:

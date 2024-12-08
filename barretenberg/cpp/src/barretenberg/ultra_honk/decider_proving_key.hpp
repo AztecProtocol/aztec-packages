@@ -45,12 +45,14 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
-
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+    size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
+
+    size_t overflow_size{ 0 }; // size of the structured execution trace overflow
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+                       std::shared_ptr<CommitmentKey> commitment_key = nullptr)
         : is_structured(trace_settings.structure.has_value())
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
@@ -67,6 +69,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
                 circuit.blocks.summarize();
                 move_structured_trace_overflow_to_overflow_block(circuit);
+                overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
             } else {
                 dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
@@ -97,14 +100,16 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
         {
 
-            PROFILE_THIS_NAME("constructing proving key");
+            PROFILE_THIS_NAME("allocating proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
+            // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
+                vinfo("allocated polynomials object in proving key");
             } else { // Allocate only a correct amount of memory for each polynomial
                 // Allocate the wires and selectors polynomials
                 {
@@ -189,7 +194,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     // Allocate the table polynomials
                     if constexpr (IsUltraFlavor<Flavor>) {
                         for (auto& poly : proving_key.polynomials.get_tables()) {
-                            poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                            poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                         }
                     }
                 }
@@ -197,19 +202,19 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     PROFILE_THIS_NAME("allocating sigmas and ids");
 
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
-                        sigma = typename Flavor::Polynomial(proving_key.circuit_size);
+                        sigma = Polynomial(proving_key.circuit_size);
                     }
                     for (auto& id : proving_key.polynomials.get_ids()) {
-                        id = typename Flavor::Polynomial(proving_key.circuit_size);
+                        id = Polynomial(proving_key.circuit_size);
                     }
                 }
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
                     proving_key.polynomials.lookup_read_counts =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                        Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
@@ -255,13 +260,14 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.lagrange_first = Polynomial(
                         /* size=*/1, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
 
-                    // Even though lagrange_last has a singe non-zero element, we cannot set its size to 0 as different
+                    // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
                     // keys being folded might have lagrange_last set at different indexes and folding does not work
                     // correctly unless the polynomial is allocated in the correct range to accomodate this
                     proving_key.polynomials.lagrange_last = Polynomial(
                         /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_idx=*/0);
                 }
             }
+            vinfo("allocated polynomials object in proving key");
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
             proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
@@ -308,7 +314,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
-        if constexpr (HasIPAAccumulatorFlavor<Flavor>) { // Set the IPA claim indices
+        if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
             proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
             proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
             proving_key.ipa_proof = circuit.ipa_proof;
@@ -334,7 +340,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
-    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
 
     size_t compute_dyadic_size(Circuit&);
 

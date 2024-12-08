@@ -6,7 +6,7 @@ import {
   computeCombinedPayloadHash,
 } from '@aztec/aztec.js/entrypoint';
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type AztecAddress, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
@@ -29,10 +29,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = await PackedValues.fromValues(
-      encodeArguments(abi, [appPayload, feePayload, !!cancellable]),
-    );
-    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
+    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [appPayload, feePayload, !!cancellable]));
 
     const combinedPayloadAuthWitness = await this.auth.createAuthWit(
       await computeCombinedPayloadHash(appPayload, feePayload),
@@ -41,8 +38,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.address,
-      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
       authWitnesses: [combinedPayloadAuthWitness],
     });

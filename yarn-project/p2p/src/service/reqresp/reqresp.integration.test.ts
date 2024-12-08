@@ -20,9 +20,8 @@ import { type AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
-import { convertToMultiaddr } from '../../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
-import { createLibP2PPeerId } from '../index.js';
 import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
@@ -64,6 +63,7 @@ const makeMockPools = () => {
       addAttestations: jest.fn(),
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
+      deleteAttestationsOlderThan: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     },
     epochProofQuotePool: {
@@ -98,7 +98,7 @@ describe('Req Resp p2p client integration', () => {
 
     const peerEnrs = await Promise.all(
       peerIdPrivateKeys.map(async (pk, i) => {
-        const peerId = await createLibP2PPeerId(pk);
+        const peerId = await createLibP2PPeerIdFromPrivateKey(pk);
         const enr = SignableENR.createFromPeerId(peerId);
 
         const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;

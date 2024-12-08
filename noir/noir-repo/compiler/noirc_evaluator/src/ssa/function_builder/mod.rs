@@ -137,11 +137,6 @@ impl FunctionBuilder {
         self.numeric_constant(value.into(), Type::length_type())
     }
 
-    /// Insert an array constant into the current function with the given element values.
-    pub(crate) fn array_constant(&mut self, elements: im::Vector<ValueId>, typ: Type) -> ValueId {
-        self.current_function.dfg.make_array(elements, typ)
-    }
-
     /// Returns the type of the given value.
     pub(crate) fn type_of_value(&self, value: ValueId) -> Type {
         self.current_function.dfg.type_of_value(value)
@@ -356,6 +351,17 @@ impl FunctionBuilder {
         self.insert_instruction(Instruction::EnableSideEffectsIf { condition }, None);
     }
 
+    /// Insert a `make_array` instruction to create a new array or slice.
+    /// Returns the new array value. Expects `typ` to be an array or slice type.
+    pub(crate) fn insert_make_array(
+        &mut self,
+        elements: im::Vector<ValueId>,
+        typ: Type,
+    ) -> ValueId {
+        assert!(matches!(typ, Type::Array(..) | Type::Slice(_)));
+        self.insert_instruction(Instruction::MakeArray { elements, typ }, None).first()
+    }
+
     /// Terminates the current block with the given terminator instruction
     /// if the current block does not already have a terminator instruction.
     fn terminate_block_with(&mut self, terminator: TerminatorInstruction) {
@@ -435,29 +441,38 @@ impl FunctionBuilder {
     /// Insert instructions to increment the reference count of any array(s) stored
     /// within the given value. If the given value is not an array and does not contain
     /// any arrays, this does nothing.
-    pub(crate) fn increment_array_reference_count(&mut self, value: ValueId) {
-        self.update_array_reference_count(value, true);
+    ///
+    /// Returns whether a reference count instruction was issued.
+    pub(crate) fn increment_array_reference_count(&mut self, value: ValueId) -> bool {
+        self.update_array_reference_count(value, true)
     }
 
     /// Insert instructions to decrement the reference count of any array(s) stored
     /// within the given value. If the given value is not an array and does not contain
     /// any arrays, this does nothing.
-    pub(crate) fn decrement_array_reference_count(&mut self, value: ValueId) {
-        self.update_array_reference_count(value, false);
+    ///
+    /// Returns whether a reference count instruction was issued.
+    pub(crate) fn decrement_array_reference_count(&mut self, value: ValueId) -> bool {
+        self.update_array_reference_count(value, false)
     }
 
     /// Increment or decrement the given value's reference count if it is an array.
     /// If it is not an array, this does nothing. Note that inc_rc and dec_rc instructions
     /// are ignored outside of unconstrained code.
-    fn update_array_reference_count(&mut self, value: ValueId, increment: bool) {
+    ///
+    /// Returns whether a reference count instruction was issued.
+    fn update_array_reference_count(&mut self, value: ValueId, increment: bool) -> bool {
         match self.type_of_value(value) {
-            Type::Numeric(_) => (),
-            Type::Function => (),
+            Type::Numeric(_) => false,
+            Type::Function => false,
             Type::Reference(element) => {
                 if element.contains_an_array() {
                     let reference = value;
                     let value = self.insert_load(reference, element.as_ref().clone());
                     self.update_array_reference_count(value, increment);
+                    true
+                } else {
+                    false
                 }
             }
             Type::Array(..) | Type::Slice(..) => {
@@ -468,6 +483,7 @@ impl FunctionBuilder {
                 } else {
                     self.insert_dec_rc(value);
                 }
+                true
             }
         }
     }
@@ -511,7 +527,6 @@ mod tests {
         instruction::{Endian, Intrinsic},
         map::Id,
         types::Type,
-        value::Value,
     };
 
     use super::FunctionBuilder;
@@ -533,10 +548,7 @@ mod tests {
         let call_results =
             builder.insert_call(to_bits_id, vec![input, length], result_types).into_owned();
 
-        let slice = match &builder.current_function.dfg[call_results[0]] {
-            Value::Array { array, .. } => array,
-            _ => panic!(),
-        };
+        let slice = builder.current_function.dfg.get_array_constant(call_results[0]).unwrap().0;
         assert_eq!(slice[0], one);
         assert_eq!(slice[1], one);
         assert_eq!(slice[2], one);

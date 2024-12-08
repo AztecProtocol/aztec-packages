@@ -3,20 +3,28 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PrivateLog,
   PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
-import { ContractClassTxL2Logs, EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
+import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
+
+export { RevertCodeEnum } from '@aztec/circuits.js';
 
 export class TxEffect {
   constructor(
@@ -46,14 +54,14 @@ export class TxEffect {
      */
     public publicDataWrites: PublicDataWrite[],
     /**
+     * The private logs.
+     */
+    public privateLogs: PrivateLog[],
+    /**
      * The logs and logs lengths of the txEffect
      */
-    public noteEncryptedLogsLength: Fr,
-    public encryptedLogsLength: Fr,
     public unencryptedLogsLength: Fr,
     public contractClassLogsLength: Fr,
-    public noteEncryptedLogs: EncryptedNoteTxL2Logs,
-    public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
     public contractClassLogs: ContractClassTxL2Logs,
   ) {
@@ -96,6 +104,15 @@ export class TxEffect {
         throw new Error('Public data write is empty');
       }
     });
+
+    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
+      throw new Error(`Too many private logs: ${privateLogs.length}, max: ${MAX_PRIVATE_LOGS_PER_TX}`);
+    }
+    privateLogs.forEach(h => {
+      if (h.isEmpty()) {
+        throw new Error('Private log is empty');
+      }
+    });
   }
 
   toBuffer(): Buffer {
@@ -106,12 +123,9 @@ export class TxEffect {
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
       serializeArrayOfBufferableToVector(this.l2ToL1Msgs, 1),
       serializeArrayOfBufferableToVector(this.publicDataWrites, 1),
-      this.noteEncryptedLogsLength,
-      this.encryptedLogsLength,
+      serializeArrayOfBufferableToVector(this.privateLogs, 1),
       this.unencryptedLogsLength,
       this.contractClassLogsLength,
-      this.noteEncryptedLogs,
-      this.encryptedLogs,
       this.unencryptedLogs,
       this.contractClassLogs,
     ]);
@@ -132,12 +146,9 @@ export class TxEffect {
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(PublicDataWrite),
+      reader.readVectorUint8Prefix(PrivateLog),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      reader.readObject(EncryptedNoteTxL2Logs),
-      reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
       reader.readObject(ContractClassTxL2Logs),
     );
@@ -158,9 +169,11 @@ export class TxEffect {
       serializeToBuffer(this.publicDataWrites),
       PublicDataWrite.SIZE_IN_BYTES * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
+    const privateLogsBuffer = padBuffer(
+      serializeToBuffer(this.privateLogs),
+      PrivateLog.SIZE_IN_BYTES * MAX_PRIVATE_LOGS_PER_TX,
+    );
 
-    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
-    const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
     const contractClassLogsHashKernel0 = this.contractClassLogs.hash();
 
@@ -171,12 +184,9 @@ export class TxEffect {
       nullifiersBuffer,
       outHashBuffer,
       publicDataWritesBuffer,
-      this.noteEncryptedLogsLength.toBuffer(),
-      this.encryptedLogsLength.toBuffer(),
+      privateLogsBuffer,
       this.unencryptedLogsLength.toBuffer(),
       this.contractClassLogsLength.toBuffer(),
-      noteEncryptedLogsHashKernel0,
-      encryptedLogsHashKernel0,
       unencryptedLogsHashKernel0,
       contractClassLogsHashKernel0,
     ]);
@@ -212,14 +222,7 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static async random(
-    numPrivateCallsPerTx = 2,
-    numPublicCallsPerTx = 3,
-    numEncryptedLogsPerCall = 2,
-    numUnencryptedLogsPerCall = 1,
-  ): Promise<TxEffect> {
-    const noteEncryptedLogs = await EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
-    const encryptedLogs = await EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+  static random(numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1): TxEffect {
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
@@ -229,12 +232,9 @@ export class TxEffect {
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
-      new Fr(noteEncryptedLogs.getKernelLength()),
-      new Fr(encryptedLogs.getKernelLength()),
+      makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
       new Fr(unencryptedLogs.getKernelLength()),
       new Fr(contractClassLogs.getKernelLength()),
-      noteEncryptedLogs,
-      encryptedLogs,
       unencryptedLogs,
       contractClassLogs,
     );
@@ -248,12 +248,9 @@ export class TxEffect {
       [],
       [],
       [],
+      [],
       Fr.ZERO,
       Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      EncryptedNoteTxL2Logs.empty(),
-      EncryptedTxL2Logs.empty(),
       UnencryptedTxL2Logs.empty(),
       ContractClassTxL2Logs.empty(),
     );
@@ -264,21 +261,45 @@ export class TxEffect {
   }
 
   /** Returns a hex representation of the TxEffect object. */
-  toString(): string {
-    return this.toBuffer().toString('hex');
+  toString() {
+    return bufferToHex(this.toBuffer());
   }
 
-  toJSON() {
-    return this.toString();
+  static from(fields: Omit<FieldsOf<TxEffect>, 'txHash'>) {
+    return new TxEffect(
+      fields.revertCode,
+      fields.transactionFee,
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.publicDataWrites,
+      fields.privateLogs,
+      fields.unencryptedLogsLength,
+      fields.contractClassLogsLength,
+      fields.unencryptedLogs,
+      fields.contractClassLogs,
+    );
   }
 
   static get schema() {
-    return hexSchemaFor(TxEffect);
+    return z
+      .object({
+        revertCode: RevertCode.schema,
+        transactionFee: schemas.Fr,
+        noteHashes: z.array(schemas.Fr),
+        nullifiers: z.array(schemas.Fr),
+        l2ToL1Msgs: z.array(schemas.Fr),
+        publicDataWrites: z.array(PublicDataWrite.schema),
+        privateLogs: z.array(PrivateLog.schema),
+        unencryptedLogsLength: schemas.Fr,
+        contractClassLogsLength: schemas.Fr,
+        unencryptedLogs: UnencryptedTxL2Logs.schema,
+        contractClassLogs: ContractClassTxL2Logs.schema,
+      })
+      .transform(TxEffect.from);
   }
 
   [inspect.custom]() {
-    // print out the non-empty fields
-
     return `TxEffect {
       revertCode: ${this.revertCode},
       transactionFee: ${this.transactionFee},
@@ -286,14 +307,11 @@ export class TxEffect {
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
-      noteEncryptedLogsLength: ${this.noteEncryptedLogsLength},
-      encryptedLogsLength: ${this.encryptedLogsLength},
+      privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
       unencryptedLogsLength: ${this.unencryptedLogsLength},
       contractClassLogsLength: ${this.contractClassLogsLength},
-      noteEncryptedLogs: ${JSON.stringify(this.noteEncryptedLogs.toJSON())},
-      encryptedLogs: ${JSON.stringify(this.encryptedLogs.toJSON())},
-      unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}
-      contractClassLogs: ${JSON.stringify(this.contractClassLogs.toJSON())}
+      unencryptedLogs: ${jsonStringify(this.unencryptedLogs)}
+      contractClassLogs: ${jsonStringify(this.contractClassLogs)}
      }`;
   }
 
@@ -303,7 +321,7 @@ export class TxEffect {
    * @returns An instance of TxEffect.
    */
   static fromString(str: string) {
-    return TxEffect.fromBuffer(Buffer.from(str, 'hex'));
+    return TxEffect.fromBuffer(hexToBuffer(str));
   }
 
   get txHash(): TxHash {

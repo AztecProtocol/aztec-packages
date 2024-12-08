@@ -18,12 +18,10 @@ describe('MemoryArchiverStore', () => {
     it('does not return more than "maxLogs" logs', async () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
-      const blocks = await Promise.all(
-        times(10, async (index: number) => ({
-          data: await L2Block.random(index + 1, 4, 2, 3, 2, 2),
-          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
-        })),
-      );
+      const blocks = times(10, (index: number) => ({
+        data: L2Block.random(index + 1, 4, 3, 2),
+        l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+      }));
 
       await archiverStore.addBlocks(blocks);
       await archiverStore.addLogs(blocks.map(b => b.data));

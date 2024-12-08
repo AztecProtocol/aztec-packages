@@ -1,4 +1,4 @@
-import { format } from 'util';
+import { format, inspect } from 'util';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
@@ -25,18 +25,23 @@ export async function defaultFetch(
 ) {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
-  if (useApiEndpoints) {
-    resp = await fetch(`${host}/${rpcMethod}`, {
-      method: 'POST',
-      body: jsonStringify(body),
-      headers: { 'content-type': 'application/json' },
-    });
-  } else {
-    resp = await fetch(host, {
-      method: 'POST',
-      body: jsonStringify({ ...body, method: rpcMethod }),
-      headers: { 'content-type': 'application/json' },
-    });
+  try {
+    if (useApiEndpoints) {
+      resp = await fetch(`${host}/${rpcMethod}`, {
+        method: 'POST',
+        body: jsonStringify(body),
+        headers: { 'content-type': 'application/json' },
+      });
+    } else {
+      resp = await fetch(host, {
+        method: 'POST',
+        body: jsonStringify({ ...body, method: rpcMethod }),
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+  } catch (err) {
+    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(err)}`;
+    throw new Error(errorMessage);
   }
 
   let responseJson;

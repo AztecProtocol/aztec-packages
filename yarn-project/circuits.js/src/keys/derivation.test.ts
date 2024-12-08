@@ -23,7 +23,7 @@ describe('🔑', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/keys/public_keys.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/public_keys.nr',
       'expected_public_keys_hash',
       expected.toString(),
     );

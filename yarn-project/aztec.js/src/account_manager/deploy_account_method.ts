@@ -46,14 +46,16 @@ export class DeployAccountMethod extends DeployMethod {
         : Promise.resolve(feePaymentNameOrArtifact);
   }
 
-  protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+  protected override async getInitializeFunctionCalls(
+    options: DeployOptions,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const exec = await super.getInitializeFunctionCalls(options);
 
-    const feePaymentArtifact = await this.#feePaymentArtifact;
-    if (options.fee && feePaymentArtifact) {
-      const { address } = await this.getInstance();
-      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
-      const feePayload = await EntrypointPayload.fromFeeOptions(address, options?.fee);
+    if (options.fee && this.#feePaymentArtifact) {
+      const { address } = this.getInstance();
+      const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
+      const fee = await this.getDefaultFeeOptions(options.fee);
+      const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
 
       exec.calls.push({
         name: feePaymentArtifact.name,

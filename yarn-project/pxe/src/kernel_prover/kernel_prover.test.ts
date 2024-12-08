@@ -74,8 +74,6 @@ describe('Kernel Prover', () => {
       [],
       PublicExecutionRequest.empty(),
       [],
-      [],
-      [],
     );
   };
 

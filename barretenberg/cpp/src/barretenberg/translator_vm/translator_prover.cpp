@@ -8,17 +8,18 @@
 
 namespace bb {
 
-TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript)
+TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder,
+                                   const std::shared_ptr<Transcript>& transcript,
+                                   std::shared_ptr<CommitmentKey> commitment_key)
     : dyadic_circuit_size(Flavor::compute_dyadic_circuit_size(circuit_builder))
     , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
     , transcript(transcript)
+    , key(std::make_shared<ProvingKey>(circuit_builder))
 {
     PROFILE_THIS();
 
-    // Compute total number of gates, dyadic circuit size, etc.
-    key = std::make_shared<ProvingKey>(circuit_builder);
+    key->commitment_key = commitment_key ? commitment_key : std::make_shared<CommitmentKey>(key->circuit_size);
     compute_witness(circuit_builder);
-    compute_commitment_key(key->circuit_size);
 }
 
 /**
@@ -159,9 +160,8 @@ void TranslatorProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // create masking polynomials for sumcheck round univariates and auxiliary data
-    auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
-    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, commitment_key);
+    // // create masking polynomials for sumcheck round univariates and auxiliary data
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }

@@ -230,7 +230,7 @@ export interface FunctionArtifact extends FunctionAbi {
 
 export const FunctionArtifactSchema = FunctionAbiSchema.and(
   z.object({
-    bytecode: schemas.BufferB64,
+    bytecode: schemas.Buffer,
     verificationKey: z.string().optional(),
     debugSymbols: z.string(),
     debug: FunctionDebugMetadataSchema.optional(),

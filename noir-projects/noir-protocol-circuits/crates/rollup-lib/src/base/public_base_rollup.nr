@@ -16,12 +16,9 @@ use crate::{
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData,
-        log_hash::{LogHash, ScopedLogHash},
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
+        combined_constant_data::CombinedConstantData, log_hash::ScopedLogHash,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         tube::PublicTubeData,
     },
     constants::{
@@ -57,20 +54,12 @@ impl PublicBaseRollupInputs {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
 
-        let note_encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes
+        let private_logs = if reverted {
+            from_private.non_revertible_accumulated_data.private_logs
         } else {
             array_merge(
-                from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.note_encrypted_logs_hashes,
-            )
-        };
-        let encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.encrypted_logs_hashes
-        } else {
-            array_merge(
-                from_private.non_revertible_accumulated_data.encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.encrypted_logs_hashes,
+                from_private.non_revertible_accumulated_data.private_logs,
+                from_private.revertible_accumulated_data.private_logs,
             )
         };
         let contract_class_logs_hashes = if reverted {
@@ -81,10 +70,6 @@ impl PublicBaseRollupInputs {
                 from_private.revertible_accumulated_data.contract_class_logs_hashes,
             )
         };
-        let note_encrypted_log_preimages_length =
-            note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
-        let encrypted_log_preimages_length =
-            encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let contract_class_log_preimages_length =
             contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let unencrypted_log_preimages_length = from_public
@@ -96,12 +81,9 @@ impl PublicBaseRollupInputs {
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
             l2_to_l1_msgs: from_public.accumulated_data.l2_to_l1_msgs,
-            note_encrypted_logs_hashes,
-            encrypted_logs_hashes,
+            private_logs,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
             contract_class_logs_hashes,
-            note_encrypted_log_preimages_length,
-            encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             contract_class_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,
@@ -115,13 +97,17 @@ impl PublicBaseRollupInputs {
             // self.tube_data.vk_data.validate_in_vk_tree([TUBE_VK_INDEX]);
         }
 
+        // Warning: Fake verification! TODO(#8470)
+        if !dep::std::runtime::is_unconstrained() {
+            self.avm_proof_data.fake_verify();
+        }
+
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
         //     self.avm_proof_data.verify();
         //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
-
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
         let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
@@ -213,6 +199,7 @@ impl PublicBaseRollupInputs {
             txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: self.avm_proof_data.public_inputs.transaction_fee,
+            accumulated_mana_used: self.avm_proof_data.public_inputs.end_gas_used.l2_gas as Field,
         }
     }
 
@@ -407,9 +394,9 @@ mod tests {
     }
 
     global MAX_NULLIFIERS_PER_TEST: u32 = 4;
-    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST = 128;
-    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST = 7;
-    global PRE_EXISTING_PUBLIC_DATA_LEAVES = 10;
+    global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST: u32 = 128;
+    global AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST: u32 = 7;
+    global PRE_EXISTING_PUBLIC_DATA_LEAVES: u32 = 10;
 
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,

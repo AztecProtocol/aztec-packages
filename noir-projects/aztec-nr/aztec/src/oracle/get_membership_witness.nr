@@ -3,8 +3,8 @@ use dep::protocol_types::{
     utils::arr_copy_slice,
 };
 
-global NOTE_HASH_TREE_ID = 1;
-global ARCHIVE_TREE_ID = 4;
+global NOTE_HASH_TREE_ID: Field = 1;
+global ARCHIVE_TREE_ID: Field = 4;
 
 // Note: We have M here because we need to somehow set it when calling get_membership_witness function and one way to
 // do it is to set M here and then set type of the return param, e.g.:
