@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { Fr, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -16,7 +16,7 @@ describe('L2TipsStore', () => {
   });
 
   const makeBlock = (number: number): L2Block =>
-    ({ number, header: { hash: () => new Fr(number) } as Header } as L2Block);
+    ({ number, header: { hash: () => new Fr(number) } as BlockHeader } as L2Block);
 
   const makeTip = (number: number) => ({ number, hash: number === 0 ? undefined : new Fr(number).toString() });
 

@@ -170,6 +170,8 @@ affinity:
               values:
                 - validator
                 - boot-node
-                - prover
+                - prover-node
+                - prover-broker
         topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
 {{- end -}}

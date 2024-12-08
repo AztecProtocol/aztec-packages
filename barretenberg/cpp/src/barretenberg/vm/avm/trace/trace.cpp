@@ -1593,9 +1593,6 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, 
         case EnvironmentVariable::SENDER:
             error = op_sender(indirect, dst_offset);
             break;
-        case EnvironmentVariable::FUNCTIONSELECTOR:
-            error = op_function_selector(indirect, dst_offset);
-            break;
         case EnvironmentVariable::TRANSACTIONFEE:
             error = op_transaction_fee(indirect, dst_offset);
             break;
@@ -1654,19 +1651,6 @@ AvmError AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
     FF ia_value = this->current_public_call_request.msg_sender;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_sender = FF(1);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
-
-    main_trace.push_back(row);
-    return error;
-}
-
-AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_offset)
-{
-    FF ia_value = this->current_public_call_request.function_selector;
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U32);
-    row.main_sel_op_function_selector = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);

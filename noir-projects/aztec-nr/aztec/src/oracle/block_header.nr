@@ -1,32 +1,30 @@
-use dep::protocol_types::{constants::HEADER_LENGTH, header::Header};
+use dep::protocol_types::{block_header::BlockHeader, constants::BLOCK_HEADER_LENGTH};
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
 };
 
-use crate::test::helpers::test_environment::TestEnvironment;
+#[oracle(getBlockHeader)]
+unconstrained fn get_block_header_at_oracle(_block_number: u32) -> [Field; BLOCK_HEADER_LENGTH] {}
 
-#[oracle(getHeader)]
-unconstrained fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
-
-pub unconstrained fn get_header_at_internal(block_number: u32) -> Header {
-    let header = get_header_at_oracle(block_number);
-    Header::deserialize(header)
+unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
+    let header = get_block_header_at_oracle(block_number);
+    BlockHeader::deserialize(header)
 }
 
-pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
-    let header = context.historical_header;
-    let current_block_number = header.global_variables.block_number as u32;
+pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockHeader {
+    let historical_header = context.historical_header;
+    let historical_block_number = historical_header.global_variables.block_number as u32;
 
-    if (block_number == current_block_number) {
+    if (block_number == historical_block_number) {
         // If the block number we want to prove against is the same as the block number in the historical header we
         // skip the inclusion proofs and just return the historical header from context.
-        header
+        historical_header
     } else {
         // 1) Get block number corresponding to the last_archive root in the header
         // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
-        let last_archive_block_number = current_block_number - 1;
+        let last_archive_block_number = historical_block_number - 1;
 
         // 2) Check that the last archive block number is more than or equal to the block number we want to prove against
         // We could not perform the proof otherwise because the last archive root from the header would not "contain"
@@ -37,24 +35,24 @@ pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
         );
 
         // 3) Get the header hint of a given block from an oracle
-        let historical = unsafe { get_header_at_internal(block_number) };
+        let header = unsafe { get_block_header_at_internal(block_number) };
 
         // 4) We make sure that the header hint we received from the oracle exists in the state tree and is the actual header
         // at the desired block number
-        constrain_get_header_at_internal(
-            historical,
+        constrain_get_block_header_at_internal(
+            header,
             block_number,
             last_archive_block_number,
-            header.last_archive.root,
+            historical_header.last_archive.root,
         );
 
         // 5) Return the block header
-        historical
+        header
     }
 }
 
-fn constrain_get_header_at_internal(
-    header_hint: Header,
+fn constrain_get_block_header_at_internal(
+    header_hint: BlockHeader,
     block_number: u32,
     last_archive_block_number: u32,
     last_archive_root: Field,
@@ -78,23 +76,28 @@ fn constrain_get_header_at_internal(
     );
 }
 
-#[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
-unconstrained fn fetching_a_valid_but_different_header_should_fail() {
-    let mut env = TestEnvironment::new();
+mod test {
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::{constrain_get_block_header_at_internal, get_block_header_at_internal};
 
-    env.advance_block_to(3);
+    #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
+    unconstrained fn fetching_a_valid_but_different_header_should_fail() {
+        let mut env = TestEnvironment::new();
 
-    // We get our current header for the last archive values.
-    let current_header = env.private().historical_header;
+        env.advance_block_to(3);
 
-    let target_block_number = 2;
-    let bad_header = get_header_at_internal(target_block_number - 1);
+        // We get our current header for the last archive values.
+        let current_header = env.private().historical_header;
 
-    // We pass in a different block number than the header received
-    constrain_get_header_at_internal(
-        bad_header,
-        2,
-        current_header.global_variables.block_number as u32 - 1,
-        current_header.last_archive.root,
-    );
+        let target_block_number = 2;
+        let bad_header = get_block_header_at_internal(target_block_number - 1);
+
+        // We pass in a different block number than the header received
+        constrain_get_block_header_at_internal(
+            bad_header,
+            2,
+            current_header.global_variables.block_number as u32 - 1,
+            current_header.last_archive.root,
+        );
+    }
 }

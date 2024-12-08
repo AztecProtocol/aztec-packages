@@ -7,11 +7,10 @@ import {
   TxReceipt,
   TxStatus,
 } from '@aztec/circuit-types';
-import { EthAddress, type Header } from '@aztec/circuits.js';
+import { getSlotRangeForEpoch } from '@aztec/circuit-types';
+import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-
-import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -107,7 +106,7 @@ export class MockL2BlockSource implements L2BlockSource {
     );
   }
 
-  getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+  getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
   }
 

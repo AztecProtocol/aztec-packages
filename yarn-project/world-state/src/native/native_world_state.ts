@@ -7,9 +7,9 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -52,7 +52,7 @@ export const WORLD_STATE_VERSION_FILE = 'version';
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
-  protected initialHeader: Header | undefined;
+  protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
@@ -156,7 +156,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 
-  public getInitialHeader(): Header {
+  public getInitialHeader(): BlockHeader {
     return this.initialHeader!;
   }
 
@@ -208,9 +208,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await this.cleanup();
   }
 
-  private async buildInitialHeader(): Promise<Header> {
+  private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return Header.empty({ state });
+    return BlockHeader.empty({ state });
   }
 
   private sanitiseAndCacheSummaryFromFull(response: WorldStateStatusFull) {

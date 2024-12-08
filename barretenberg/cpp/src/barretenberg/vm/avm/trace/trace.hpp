@@ -100,7 +100,6 @@ class AvmTraceBuilder {
     AvmError op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var);
     AvmError op_address(uint8_t indirect, uint32_t dst_offset);
     AvmError op_sender(uint8_t indirect, uint32_t dst_offset);
-    AvmError op_function_selector(uint8_t indirect, uint32_t dst_offset);
     AvmError op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
     AvmError op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
