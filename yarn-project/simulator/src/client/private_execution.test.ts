@@ -27,7 +27,6 @@ import {
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
-  computeOvskApp,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
@@ -94,9 +93,7 @@ describe('Private Execution test suite', () => {
   let recipientCompleteAddress: CompleteAddress;
 
   let ownerNskM: GrumpkinScalar;
-  let ownerOvskM: GrumpkinScalar;
   let recipientNskM: GrumpkinScalar;
-  let recipientOvskM: GrumpkinScalar;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -188,11 +185,11 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierSecretKey: ownerNskM, masterOutgoingViewingSecretKey: ownerOvskM } = deriveKeys(ownerSk));
+    ({ masterNullifierSecretKey: ownerNskM } = deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-    ({ masterNullifierSecretKey: recipientNskM, masterOutgoingViewingSecretKey: recipientOvskM } =
+    ({ masterNullifierSecretKey: recipientNskM } =
       deriveKeys(recipientSk));
 
     owner = ownerCompleteAddress.address;
@@ -211,27 +208,11 @@ describe('Private Execution test suite', () => {
           ),
         );
       }
-      if (pkMHash.equals(ownerCompleteAddress.publicKeys.masterOutgoingViewingPublicKey.hash())) {
-        return Promise.resolve(
-          new KeyValidationRequest(
-            ownerCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            computeOvskApp(ownerOvskM, contractAddress),
-          ),
-        );
-      }
       if (pkMHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
         return Promise.resolve(
           new KeyValidationRequest(
             recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
             computeAppNullifierSecretKey(recipientNskM, contractAddress),
-          ),
-        );
-      }
-      if (pkMHash.equals(recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey.hash())) {
-        return Promise.resolve(
-          new KeyValidationRequest(
-            recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            computeOvskApp(recipientOvskM, contractAddress),
           ),
         );
       }
@@ -275,9 +256,8 @@ describe('Private Execution test suite', () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
       // the contexts correctly populate non-note encrypted logs
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_encrypted_log');
-      // We emit the outgoing here to recipient for no reason at all
-      const outgoingViewer = recipient;
-      const args = [times(5, () => Fr.random()), owner, outgoingViewer, false];
+      const sender = recipient; // Needed for tagging.
+      const args = [times(5, () => Fr.random()), owner, sender, false];
       const result = await runSimulator({ artifact, msgSender: owner, args });
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -884,8 +864,8 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_insert_then_get_then_nullify_flat');
 
-      const outgoingViewer = owner;
-      const args = [amountToTransfer, owner, outgoingViewer];
+      const sender = owner;
+      const args = [amountToTransfer, owner, sender];
       const result = await runSimulator({
         args: args,
         artifact: artifact,
@@ -954,11 +934,11 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.parameters,
       );
 
-      const outgoingViewer = owner;
+      const sender = owner;
       const args = [
         amountToTransfer,
         owner,
-        outgoingViewer,
+        sender,
         insertFnSelector.toField(),
         getThenNullifyFnSelector.toField(),
       ];

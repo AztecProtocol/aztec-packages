@@ -8,7 +8,6 @@ use dep::aztec::macros::aztec;
 contract PendingNoteHashes {
     // Libs
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::keys::getters::get_public_keys;
     use dep::aztec::macros::{functions::private, storage::storage};
     use dep::aztec::note::note_emission::NoteEmission;
     use dep::aztec::prelude::{
@@ -34,21 +33,14 @@ contract PendingNoteHashes {
     fn test_insert_then_get_then_nullify_flat(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
-
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -80,79 +72,50 @@ contract PendingNoteHashes {
     }
 
     // Dummy nested/inner function (to pass a function which does nothing)
+    // QUESTION: can this be removed? I can't `dummy(` being used anywhere in typescript-land.
     #[private]
-    fn dummy(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {}
+    fn dummy(amount: Field, owner: AztecAddress, sender: AztecAddress) {}
 
     // Nested/inner function to create and insert a note
     #[private]
-    fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
-
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     // Nested/inner function to create and insert a note
     // TESTING: inserts a static randomness value to test notes with
     // the same note hash are dealt with correctly
     #[private]
-    fn insert_note_static_randomness(
-        amount: Field,
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
-    ) {
+    fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
-
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let mut note = ValueNote::new(amount, owner);
         note.randomness = 2;
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     // Nested/inner function to create and insert a note
     // then emit another note log for the same note
     #[private]
-    fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
-
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -186,7 +149,7 @@ contract PendingNoteHashes {
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector,
     ) {
@@ -194,7 +157,7 @@ contract PendingNoteHashes {
         let _res = context.call_private_function(
             inputs.call_context.contract_address,
             insert_fn_selector,
-            [amount, owner.to_field(), outgoing_viewer.to_field()],
+            [amount, owner.to_field(), sender.to_field()],
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(
@@ -209,12 +172,12 @@ contract PendingNoteHashes {
     fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
-        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let insertArgs = [amount, owner.to_field(), sender.to_field()];
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
@@ -249,12 +212,12 @@ contract PendingNoteHashes {
     fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
-        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let insertArgs = [amount, owner.to_field(), sender.to_field()];
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
@@ -283,12 +246,12 @@ contract PendingNoteHashes {
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
-        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let insertArgs = [amount, owner.to_field(), sender.to_field()];
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
@@ -327,32 +290,32 @@ contract PendingNoteHashes {
     #[private]
     fn test_recursively_create_notes(
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         how_many_recursions: u64,
     ) {
-        create_max_notes(owner, outgoing_viewer, storage, &mut context);
+        create_max_notes(owner, sender, storage, &mut context);
 
         PendingNoteHashes::at(context.this_address())
-            .recursively_destroy_and_create_notes(owner, outgoing_viewer, how_many_recursions)
+            .recursively_destroy_and_create_notes(owner, sender, how_many_recursions)
             .call(&mut context);
     }
 
     #[private]
     fn recursively_destroy_and_create_notes(
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         executions_left: u64,
     ) {
         assert(executions_left > 0);
 
         destroy_max_notes(owner, storage);
-        create_max_notes(owner, outgoing_viewer, storage, &mut context);
+        create_max_notes(owner, sender, storage, &mut context);
 
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
             PendingNoteHashes::at(context.this_address())
-                .recursively_destroy_and_create_notes(owner, outgoing_viewer, executions_left)
+                .recursively_destroy_and_create_notes(owner, sender, executions_left)
                 .call(&mut context);
         }
     }
@@ -361,18 +324,15 @@ contract PendingNoteHashes {
     // by using an existing note's counter via its header. This is used to check that
     // the pxe rejects the note log later.
     #[private]
-    fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
-
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let mut good_note = ValueNote::new(10, owner);
         // Insert good note with real log
         owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_ovpk_m,
             owner,
-            outgoing_viewer,
+            sender,
         ));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
@@ -382,33 +342,21 @@ contract PendingNoteHashes {
         let existing_note_header = good_note.get_header();
         bad_note.set_header(existing_note_header);
 
-        NoteEmission::new(bad_note).emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_ovpk_m,
-            owner,
-            outgoing_viewer,
-        ));
+        NoteEmission::new(bad_note).emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     #[contract_library_method]
     fn create_max_notes(
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         storage: Storage<&mut PrivateContext>,
         context: &mut PrivateContext,
     ) {
         let owner_balance = storage.balances.at(owner);
 
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
-
         for i in 0..max_notes_per_call() {
             let mut note = ValueNote::new(i as Field, owner);
-            owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
-                context,
-                outgoing_viewer_ovpk_m,
-                owner,
-                outgoing_viewer,
-            ));
+            owner_balance.insert(&mut note).emit(encode_and_encrypt_note(context, owner, sender));
         }
     }
 

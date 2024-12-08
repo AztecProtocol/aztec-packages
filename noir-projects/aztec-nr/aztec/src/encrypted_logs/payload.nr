@@ -1,9 +1,9 @@
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_FIELDS},
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    hash::poseidon2_hash,
     point::Point,
-    public_keys::{AddressPoint, OvpkM},
+    public_keys::AddressPoint,
     scalar::Scalar,
     utils::arrays::array_concat,
 };
@@ -27,15 +27,11 @@ global ENCRYPTED_PAYLOAD_SIZE_IN_BYTES: u32 = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) *
 
 comptime global HEADER_SIZE: u32 = 48;
 
-comptime global OUTGOING_BODY_SIZE: u32 = 112;
-
 // Bytes padded to the overhead, so that the size of the incoming body ciphertext will be a multiple of 16.
 comptime global OVERHEAD_PADDING: u32 = 15;
 
 pub comptime global OVERHEAD_SIZE: u32 = 32 /* eph_pk */
     + HEADER_SIZE /* incoming_header */
-    + HEADER_SIZE /* outgoing_header */
-    + OUTGOING_BODY_SIZE /* outgoing_body */
     + OVERHEAD_PADDING /* padding */;
 
 global PLAINTEXT_LENGTH_SIZE: u32 = 2;
@@ -52,8 +48,6 @@ global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 =
 
 pub fn compute_private_log_payload<let P: u32>(
     contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
@@ -65,13 +59,8 @@ pub fn compute_private_log_payload<let P: u32>(
 
     let extended_plaintext: [u8; MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] = compute_encrypted_log(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        recipient,
-        extended_plaintext,
-    );
+    let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] =
+        compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
     // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
     // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
@@ -84,21 +73,14 @@ pub fn compute_private_log_payload<let P: u32>(
 
 pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
     let extended_plaintext: [u8; P + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    let encrypted: [u8; M - 32] = compute_encrypted_log(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        recipient,
-        extended_plaintext,
-    );
+    let encrypted: [u8; M - 32] =
+        compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
     // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
     // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
@@ -128,8 +110,6 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
 
 fn compute_encrypted_log<let P: u32, let M: u32>(
     contract_address: AztecAddress,
-    ovsk_app: Field,
-    ovpk: OvpkM,
     recipient: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
@@ -139,11 +119,8 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 
     let incoming_header_ciphertext: [u8; 48] =
         header.compute_ciphertext(eph_sk, recipient.to_address_point());
-    let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
     let incoming_body_ciphertext =
         compute_incoming_body_ciphertext(plaintext, eph_sk, recipient.to_address_point());
-    let outgoing_body_ciphertext: [u8; 112] =
-        compute_outgoing_body_ciphertext(recipient, fr_to_fq(ovsk_app), eph_sk, eph_pk);
 
     let mut encrypted_bytes = [0; M];
     let mut offset = 0;
@@ -156,18 +133,10 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     offset += 32;
 
     // incoming_header
-    // outgoing_header
     for i in 0..HEADER_SIZE {
         encrypted_bytes[offset + i] = incoming_header_ciphertext[i];
-        encrypted_bytes[offset + HEADER_SIZE + i] = outgoing_header_ciphertext[i];
     }
-    offset += HEADER_SIZE * 2;
-
-    // outgoing_body
-    for i in 0..OUTGOING_BODY_SIZE {
-        encrypted_bytes[offset + i] = outgoing_body_ciphertext[i];
-    }
-    offset += OUTGOING_BODY_SIZE;
+    offset += HEADER_SIZE;
 
     // Padding.
     offset += OVERHEAD_PADDING;
@@ -250,61 +219,13 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     aes128_encrypt(plaintext, iv, sym_key)
 }
 
-/// Encrypts ephemeral secret key and recipient's address point --> with this information the recipient of outgoing will
-/// be able to derive the key with which the incoming log can be decrypted.
-pub fn compute_outgoing_body_ciphertext(
-    recipient: AztecAddress,
-    ovsk_app: Scalar,
-    eph_sk: Scalar,
-    eph_pk: Point,
-) -> [u8; OUTGOING_BODY_SIZE] {
-    // Again, we could compute `eph_pk` here, but we keep the interface more similar
-    // and also make it easier to optimise it later as we just pass it along
-    let mut buffer = [0 as u8; 96];
-
-    let serialized_eph_sk_high: [u8; 32] = eph_sk.hi.to_be_bytes();
-    let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
-
-    let address_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
-    let serialized_recipient_address_point =
-        point_to_bytes(recipient.to_address_point().to_point());
-
-    for i in 0..16 {
-        buffer[i] = serialized_eph_sk_high[i + 16];
-        buffer[i + 16] = serialized_eph_sk_low[i + 16];
-    }
-    for i in 0..32 {
-        buffer[i + 32] = address_bytes[i];
-        buffer[i + 64] = serialized_recipient_address_point[i];
-    }
-
-    // We compute the symmetric key using poseidon.
-    let full_key: [u8; 32] = poseidon2_hash_with_separator(
-        [ovsk_app.hi, ovsk_app.lo, eph_pk.x, eph_pk.y],
-        GENERATOR_INDEX__SYMMETRIC_KEY as Field,
-    )
-        .to_be_bytes();
-
-    let mut sym_key = [0; 16];
-    let mut iv = [0; 16];
-
-    for i in 0..16 {
-        sym_key[i] = full_key[i];
-        iv[i] = full_key[i + 16];
-    }
-    aes128_encrypt(buffer, iv, sym_key).as_array()
-}
-
 mod test {
     use crate::encrypted_logs::payload::{
-        compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext,
-        compute_private_log_payload, MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
+        compute_incoming_body_ciphertext, compute_private_log_payload,
+        MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
     };
-    use dep::protocol_types::{
-        address::AztecAddress, point::Point, public_keys::OvpkM, scalar::Scalar,
-    };
+    use dep::protocol_types::{address::AztecAddress, point::Point, scalar::Scalar};
     use protocol_types::public_keys::AddressPoint;
-    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
     use std::test::OracleMock;
 
     #[test]
@@ -313,14 +234,6 @@ mod test {
         let contract_address = AztecAddress::from_field(
             0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
         );
-        let ovsk_app = 0x191ac5e29bbc8f80f29ed06b75eaf30c036ed7952d844833860c527077c8c3b4;
-        let ovpk_m = OvpkM {
-            inner: Point {
-                x: 0x07f696b8b233de2c1935e43c793399586f532da5ff7c0356636a75acb862e964,
-                y: 0x156e8a3e42bfca3663936ba98c7fd26386a14657c23b5f5146f1a94b6c465154,
-                is_infinite: false,
-            },
-        };
 
         let plaintext = [
             0, 0, 0, 1, 48, 22, 64, 206, 234, 117, 131, 145, 178, 225, 97, 201, 44, 5, 19, 241, 41,
@@ -351,14 +264,7 @@ mod test {
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        let payload = compute_private_log_payload(
-            contract_address,
-            ovsk_app,
-            ovpk_m,
-            recipient,
-            sender,
-            plaintext,
-        );
+        let payload = compute_private_log_payload(contract_address, recipient, sender, plaintext);
 
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
@@ -433,39 +339,5 @@ mod test {
         for i in 0..note_body_ciphertext_from_typescript.len() {
             assert_eq(ciphertext[i], note_body_ciphertext_from_typescript[i]);
         }
-    }
-
-    #[test]
-    fn test_encrypted_log_outgoing_body_matches_typescript() {
-        let eph_sk = Scalar {
-            lo: 0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe,
-            hi: 0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb,
-        };
-
-        let sender_ovsk_app = Scalar {
-            lo: 0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444e,
-            hi: 0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048b,
-        };
-
-        let eph_pk = derive_public_key(eph_sk);
-        let recipient = AztecAddress::from_field(
-            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
-        );
-
-        let ciphertext =
-            compute_outgoing_body_ciphertext(recipient, sender_ovsk_app, eph_sk, eph_pk);
-
-        // The following value was generated by `encrypted_log_payload.test.ts`
-        // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
-        let outgoing_body_ciphertext_from_typescript = [
-            97, 221, 53, 168, 242, 56, 217, 184, 114, 127, 137, 98, 31, 63, 86, 179, 139, 198, 162,
-            162, 216, 158, 255, 205, 90, 212, 141, 55, 9, 245, 6, 146, 202, 137, 129, 36, 190, 31,
-            17, 89, 151, 203, 43, 196, 203, 233, 178, 79, 202, 70, 250, 182, 18, 191, 79, 42, 205,
-            204, 145, 14, 13, 35, 255, 139, 142, 66, 193, 240, 175, 233, 180, 37, 153, 235, 41, 88,
-            232, 52, 235, 213, 50, 26, 153, 227, 25, 242, 161, 92, 45, 152, 100, 106, 29, 192, 131,
-            101, 121, 126, 31, 118, 191, 90, 238, 43, 24, 82, 49, 18, 199, 107, 83, 7,
-        ];
-
-        assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);
     }
 }

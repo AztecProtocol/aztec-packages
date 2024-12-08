@@ -6,7 +6,6 @@ import {
   type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
-  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -133,9 +132,6 @@ export abstract class BaseWallet implements Wallet {
   getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    return this.pxe.getOutgoingNotes(filter);
-  }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
@@ -204,7 +200,6 @@ export abstract class BaseWallet implements Wallet {
     limit: number,
     vpks: Point[] = [
       this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
-      this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
   ): Promise<T[]> {
     return this.pxe.getEncryptedEvents(event, from, limit, vpks);

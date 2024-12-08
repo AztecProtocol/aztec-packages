@@ -3,7 +3,6 @@ import {
   type IncomingNotesFilter,
   MerkleTreeId,
   NoteStatus,
-  type OutgoingNotesFilter,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -28,7 +27,6 @@ import {
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
 
 import { IncomingNoteDao } from './incoming_note_dao.js';
-import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -56,12 +54,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
   #db: AztecKVStore;
-
-  #outgoingNotes: AztecMap<string, Buffer>;
-  #outgoingNotesByContract: AztecMultiMap<string, string>;
-  #outgoingNotesByStorageSlot: AztecMultiMap<string, string>;
-  #outgoingNotesByTxHash: AztecMultiMap<string, string>;
-  #outgoingNotesByOvpkM: AztecMultiMap<string, string>;
 
   #scopes: AztecSet<string>;
   #notesToScope: AztecMultiMap<string, string>;
@@ -104,12 +96,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
     this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
     this.#nullifiedNotesByNullifier = db.openMap('nullified_notes_by_nullifier');
-
-    this.#outgoingNotes = db.openMap('outgoing_notes');
-    this.#outgoingNotesByContract = db.openMultiMap('outgoing_notes_by_contract');
-    this.#outgoingNotesByStorageSlot = db.openMultiMap('outgoing_notes_by_storage_slot');
-    this.#outgoingNotesByTxHash = db.openMultiMap('outgoing_notes_by_tx_hash');
-    this.#outgoingNotesByOvpkM = db.openMultiMap('outgoing_notes_by_ovpk_m');
 
     this.#scopes = db.openSet('scopes');
     this.#notesToScope = db.openMultiMap('notes_to_scope');
@@ -201,12 +187,11 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async addNote(note: IncomingNoteDao, scope?: AztecAddress): Promise<void> {
-    await this.addNotes([note], [], scope);
+    await this.addNotes([note], scope);
   }
 
   async addNotes(
     incomingNotes: IncomingNoteDao[],
-    outgoingNotes: OutgoingNoteDao[],
     scope: AztecAddress = AztecAddress.ZERO,
   ): Promise<void> {
     if (!this.#scopes.has(scope.toString())) {
@@ -229,15 +214,6 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
         void this.#notesByAddressPointAndScope.get(scope.toString())!.set(dao.addressPoint.toString(), noteIndex);
       }
-
-      for (const dao of outgoingNotes) {
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
-        void this.#outgoingNotes.set(noteIndex, dao.toBuffer());
-        void this.#outgoingNotesByContract.set(dao.contractAddress.toString(), noteIndex);
-        void this.#outgoingNotesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
-        void this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
-        void this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
-      }
     });
   }
 
@@ -256,18 +232,6 @@ export class KVPxeDatabase implements PxeDatabase {
             void this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
             void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(noteDao.storageSlot.toString(), noteIndex);
           }
-        }
-      }
-
-      for (const note of this.#outgoingNotes.values()) {
-        const noteDao = OutgoingNoteDao.fromBuffer(note);
-        if (noteDao.l2BlockNumber > blockNumber) {
-          const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
-          void this.#outgoingNotes.delete(noteIndex);
-          void this.#outgoingNotesByContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
-          void this.#outgoingNotesByStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
-          void this.#outgoingNotesByTxHash.deleteValue(noteDao.txHash.toString(), noteIndex);
-          void this.#outgoingNotesByOvpkM.deleteValue(noteDao.ovpkM.toString(), noteIndex);
         }
       }
     });
@@ -409,56 +373,6 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     return Promise.resolve(result);
-  }
-
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]> {
-    const ovpkM: PublicKey | undefined = filter.owner
-      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterOutgoingViewingPublicKey
-      : undefined;
-
-    // Check if ovpkM is truthy
-    const ids = ovpkM
-      ? this.#outgoingNotesByOvpkM.getValues(ovpkM.toString())
-      : // If ovpkM is falsy, check if filter.txHash is truthy
-      filter.txHash
-      ? this.#outgoingNotesByTxHash.getValues(filter.txHash.toString())
-      : // If both ovpkM and filter.txHash are falsy, check if filter.contractAddress is truthy
-      filter.contractAddress
-      ? this.#outgoingNotesByContract.getValues(filter.contractAddress.toString())
-      : // If ovpkM, filter.txHash, and filter.contractAddress are all falsy, check if filter.storageSlot is truthy
-      filter.storageSlot
-      ? this.#outgoingNotesByStorageSlot.getValues(filter.storageSlot.toString())
-      : // If none of the above conditions are met, retrieve all keys from this.#outgoingNotes
-        this.#outgoingNotes.keys();
-
-    const notes: OutgoingNoteDao[] = [];
-    for (const id of ids) {
-      const serializedNote = this.#outgoingNotes.get(id);
-      if (!serializedNote) {
-        continue;
-      }
-
-      const note = OutgoingNoteDao.fromBuffer(serializedNote);
-      if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
-        continue;
-      }
-
-      if (filter.txHash && !note.txHash.equals(filter.txHash)) {
-        continue;
-      }
-
-      if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
-        continue;
-      }
-
-      if (ovpkM && !note.ovpkM.equals(ovpkM)) {
-        continue;
-      }
-
-      notes.push(note);
-    }
-
-    return Promise.resolve(notes);
   }
 
   removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
@@ -653,10 +567,6 @@ export class KVPxeDatabase implements PxeDatabase {
       (sum, note) => sum + note.getSize(),
       0,
     );
-    const outgoingNotesSize = Array.from(await this.getOutgoingNotes({})).reduce(
-      (sum, note) => sum + note.getSize(),
-      0,
-    );
 
     const authWitsSize = Array.from(this.#authWitnesses.values()).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
@@ -665,7 +575,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const addressesSize = this.#completeAddresses.length * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
-    return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
+    return incomingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
   async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {

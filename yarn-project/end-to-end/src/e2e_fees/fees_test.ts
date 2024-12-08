@@ -299,9 +299,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'setup_subscription',
       async () => {
-        // Deploy counter contract for testing with Bob as owner
-        // Emitting the outgoing logs to Bob below since we need someone to emit them to.
-        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress, this.bobAddress)
+        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress)
           .send()
           .deployed();
 

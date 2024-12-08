@@ -47,7 +47,6 @@ describe(`deploys and transfers a private only token`, () => {
       deployerWallet,
       initialBalance,
       deployerWallet.getAddress(),
-      deployerWallet.getAddress(),
     )
       .send({
         universalDeploy: true,
@@ -61,7 +60,7 @@ describe(`deploys and transfers a private only token`, () => {
     logger.info(`Performing transfer.`);
 
     await token.methods
-      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
+      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress())
       .send()
       .wait({ timeout: 300 });
 

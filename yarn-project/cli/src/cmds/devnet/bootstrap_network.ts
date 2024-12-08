@@ -232,7 +232,7 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-contracts.js');
-  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress())
+  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress())
     .send({ universalDeploy: true })
     .deployed(waitOpts);
   const info: ContractDeploymentInfo = {

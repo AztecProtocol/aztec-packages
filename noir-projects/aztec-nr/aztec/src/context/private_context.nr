@@ -1,3 +1,5 @@
+use dep::protocol_types::debug_log::{ debug_log, debug_log_format };
+
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     hash::{ArgsHasher, hash_args_array},
@@ -137,6 +139,7 @@ impl PrivateContext {
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+        debug_log_format("\nPushed new note hash: (note_hash:{0}, counter: {1})", [note_hash, (self.side_effect_counter - 1) as Field]);
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {

@@ -1,4 +1,4 @@
-import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type IncomingNotesFilter } from '@aztec/circuit-types';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -13,7 +13,6 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
 import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -58,12 +57,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
 
   /**
-   * Gets outgoing notes.
-   * @returns The outgoing notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]>;
-
-  /**
    * Adds a note to DB.
    * @param note - The note to add.
    * @param scope - The scope to add the note under. Currently optional.
@@ -83,11 +76,10 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * which can improve performance when dealing with large numbers of transactions.
    *
    * @param incomingNotes - An array of notes which were decrypted as incoming.
-   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
+  addNotes(incomingNotes: IncomingNoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
