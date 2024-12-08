@@ -282,7 +282,7 @@ update_node() {
 
 show_logs() {
     echo -e "${BLUE}Fetching logs...${NC}"
-    if ! docker compose logs -f; then
+    if ! docker compose logs --tail 50 -f; then
         echo -e "${RED}Failed to fetch logs${NC}"
         exit 1
     fi
