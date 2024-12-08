@@ -16,6 +16,8 @@ import { decrypt, encrypt } from './encryption_util.js';
 
 // Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 
+const ENCRYPTED_PAYLOAD_SIZE_IN_BYTES = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
+
 // The incoming header is 48 bytes../shared_secret_derivation.js
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
@@ -28,10 +30,10 @@ const OVERHEAD_SIZE =
   HEADER_SIZE /* incoming_header */ +
   OVERHEAD_PADDING; /* padding */
 
-const ENCRYPTED_PAYLOAD_SIZE_IN_BYTES = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
+const PLAINTEXT_LENGTH_SIZE = 2;
 
 const MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES =
-  ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - 2 /* plaintext */ - 1; /* aes padding */
+  ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - PLAINTEXT_LENGTH_SIZE - 1; /* aes padding */
 
 function encryptedBytesToFields(encrypted: Buffer): Fr[] {
   const fields = [];
