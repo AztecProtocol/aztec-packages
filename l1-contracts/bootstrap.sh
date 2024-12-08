@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash .rebuild_patterns)
+export hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
   github_group "l1-contracts build"
