@@ -120,17 +120,17 @@ describe('Logs', () => {
       );
 
       expect(collectedEvent0sWithIncoming.length).toBe(5);
-      expect(collectedEvent0s.length).toBe(10);
+      expect(collectedEvent0s.length).toBe(5);
       expect(collectedEvent1s.length).toBe(5);
 
-      // const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
-      //   TestLogContract.events.ExampleEvent1,
-      //   firstBlockNumber,
-      //   numBlocks,
-      //   [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
-      // );
+      const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
+        TestLogContract.events.ExampleEvent1,
+        firstBlockNumber,
+        numBlocks,
+        [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
+      );
 
-      // expect(emptyEvent1s.length).toBe(0);
+      expect(emptyEvent1s.length).toBe(0);
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0sWithIncoming.sort(exampleEvent0Sort)).toStrictEqual(
