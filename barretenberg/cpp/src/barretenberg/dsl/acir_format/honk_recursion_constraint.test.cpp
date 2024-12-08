@@ -261,8 +261,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    if constexpr (HasIPAAccumulator<TypeParam>) {
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    } else {
+        typename TestFixture::Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
@@ -319,8 +325,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    if constexpr (HasIPAAccumulator<TypeParam>) {
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    } else {
+        typename TestFixture::Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
@@ -349,6 +361,12 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    if constexpr (HasIPAAccumulator<TypeParam>) {
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    } else {
+        typename TestFixture::Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
 }
