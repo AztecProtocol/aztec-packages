@@ -20,6 +20,7 @@ full_list=$(get_test_names)
 allow_list=(
   "e2e_2_pxes"
   "e2e_authwit"
+  "e2e_amm"
   "e2e_avm_simulator"
   "e2e_block_building"
   "e2e_cross_chain_messaging"

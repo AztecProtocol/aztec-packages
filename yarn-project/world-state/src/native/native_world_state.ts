@@ -7,9 +7,9 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -52,7 +52,7 @@ export const WORLD_STATE_VERSION_FILE = 'version';
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
-  protected initialHeader: Header | undefined;
+  protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
@@ -156,7 +156,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 
-  public getInitialHeader(): Header {
+  public getInitialHeader(): BlockHeader {
     return this.initialHeader!;
   }
 
@@ -178,18 +178,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
       .map(nullifier => new NullifierLeaf(nullifier));
 
-    // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    const batchesOfPublicDataWrites: PublicDataTreeLeaf[][] = [];
-    for (const txEffect of paddedTxEffects) {
-      batchesOfPublicDataWrites.push(
-        txEffect.publicDataWrites.map(write => {
-          if (write.isEmpty()) {
-            throw new Error('Public data write must not be empty when syncing');
-          }
-          return new PublicDataTreeLeaf(write.leafSlot, write.value);
-        }),
-      );
-    }
+    const publicDataWrites: PublicDataTreeLeaf[] = paddedTxEffects.flatMap(txEffect => {
+      return txEffect.publicDataWrites.map(write => {
+        if (write.isEmpty()) {
+          throw new Error('Public data write must not be empty when syncing');
+        }
+        return new PublicDataTreeLeaf(write.leafSlot, write.value);
+      });
+    });
 
     return await this.instance.call(
       WorldStateMessageType.SYNC_BLOCK,
@@ -199,7 +195,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
         paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-        batchesOfPublicDataWrites: batchesOfPublicDataWrites.map(batch => batch.map(serializeLeaf)),
+        publicDataWrites: publicDataWrites.map(serializeLeaf),
         blockStateRef: blockStateReference(l2Block.header.state),
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
@@ -212,9 +208,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await this.cleanup();
   }
 
-  private async buildInitialHeader(): Promise<Header> {
+  private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return Header.empty({ state });
+    return BlockHeader.empty({ state });
   }
 
   private sanitiseAndCacheSummaryFromFull(response: WorldStateStatusFull) {

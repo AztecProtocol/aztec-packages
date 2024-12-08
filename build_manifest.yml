@@ -142,7 +142,7 @@ barretenberg-acir-tests-bb-ultra-plonk:
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
     - noir-compile-acir-tests
-barretenberg-acir-tests-bb-mega-honk:
+barretenberg-acir-tests-bb-client-ivc:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb
   dependencies:

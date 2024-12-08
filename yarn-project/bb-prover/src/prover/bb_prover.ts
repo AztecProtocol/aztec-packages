@@ -535,7 +535,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for ${input.functionName}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger.verbose);
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for ${input.functionName}: ${provingResult.reason}`);

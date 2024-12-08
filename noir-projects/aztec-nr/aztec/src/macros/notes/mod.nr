@@ -1,5 +1,5 @@
 use crate::{
-    encrypted_logs::payload::PRIVATE_LOG_OVERHEAD_IN_BYTES,
+    encrypted_logs::payload::OVERHEAD_SIZE,
     note::{note_getter_options::PropertySelector, note_header::NoteHeader},
     prelude::Point,
 };
@@ -438,10 +438,11 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    let encrypted_log_byte_length = PRIVATE_LOG_OVERHEAD_IN_BYTES
+    let encrypted_log_byte_length = 32 /* tag */
+        + OVERHEAD_SIZE
         + log_plaintext_length /* log_plaintext */
-        + 1 /* log_plaintext_length */
-        + 15 /* AES padding */;
+        + 2 /* log_plaintext_length */
+        + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
@@ -661,10 +662,11 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_byte_length = PRIVATE_LOG_OVERHEAD_IN_BYTES
+    let setup_log_byte_length = 32 /* tag */
+        + OVERHEAD_SIZE
         + setup_log_plaintext_length
-        + 1 /* log_plaintext_length */
-        + 15 /* AES padding */;
+        + 2 /* log_plaintext_length */
+        + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;

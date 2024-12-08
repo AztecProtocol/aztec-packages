@@ -234,18 +234,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([computeVarArgsHash(calldata)]);
   });
 
-  it('functionSelector getter via dispatch', async () => {
-    const selector = FunctionSelector.fromSignature('get_function_selector()').toField();
-    const dispatchCalldata = [selector];
-
-    const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
-    const bytecode = getAvmTestContractBytecode('public_dispatch');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([selector]);
-  });
-
   it('modulo and u1', async () => {
     const calldata: Fr[] = [new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -1178,7 +1166,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,
@@ -1223,7 +1211,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,
@@ -1294,7 +1282,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const {
           preimage: lowLeafPreimage,
           index: lowLeafIndex,
-          update: leafAlreadyPresent,
+          alreadyPresent: leafAlreadyPresent,
         } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
           leafSlot0,

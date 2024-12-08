@@ -27,6 +27,7 @@ ssh -t -F build_instance_ssh_config ubuntu@$ip "
   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common awscli docker-ce
   sudo usermod -aG docker ${USER}
   mkdir .aws
+  mkdir .bb-crs
 "
 
 # Copy aws credentials onto machine.

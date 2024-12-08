@@ -124,14 +124,13 @@ async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): 
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
-  const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
   }

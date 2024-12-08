@@ -146,11 +146,9 @@ class ProofSurgeon {
     static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
-                                                                const size_t num_public_inputs)
+                                                                const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
-        ASSERT(num_public_inputs >= bb::PAIRING_POINT_ACCUMULATOR_SIZE);
-        const size_t num_public_inputs_to_extract = num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
         std::vector<bb::fr> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 

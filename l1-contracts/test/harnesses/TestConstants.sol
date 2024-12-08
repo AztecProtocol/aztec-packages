@@ -9,4 +9,5 @@ library TestConstants {
   uint256 internal constant AZTEC_EPOCH_DURATION = 16;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS = 13;
+  uint256 internal constant AZTEC_MINIMUM_STAKE = 100e18;
 }

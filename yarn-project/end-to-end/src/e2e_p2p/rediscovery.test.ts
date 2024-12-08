@@ -46,7 +46,6 @@ describe('e2e_p2p_rediscovery', () => {
     const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -73,7 +72,6 @@ describe('e2e_p2p_rediscovery', () => {
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
-        t.peerIdPrivateKeys[i],
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,

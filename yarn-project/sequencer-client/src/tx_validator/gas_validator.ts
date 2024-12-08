@@ -72,7 +72,11 @@ export class GasTxValidator implements TxValidator<Tx> {
 
     const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
-      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, { feePayer, balance, feeLimit });
+      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, {
+        feePayer,
+        balance: balance.toBigInt(),
+        feeLimit: feeLimit.toBigInt(),
+      });
       return false;
     }
     return true;

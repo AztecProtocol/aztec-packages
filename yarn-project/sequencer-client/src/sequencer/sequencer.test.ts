@@ -36,6 +36,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
+import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ValidatorClient } from '@aztec/validator-client';
@@ -43,7 +44,6 @@ import { type ValidatorClient } from '@aztec/validator-client';
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
@@ -843,7 +843,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, 0, true /** force */);
+    this.setState(SequencerState.IDLE, 0n, true /** force */);
     return super.doRealWork();
   }
 }

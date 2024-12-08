@@ -337,11 +337,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
     const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
       call.selector,
       entrypointPackedValues.hash,
-      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default()),
+      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
       [entrypointPackedValues],
       [],
     );

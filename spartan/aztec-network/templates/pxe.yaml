@@ -19,6 +19,7 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
       volumes:
         - name: config
@@ -37,6 +38,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               until curl --head --silent ${BOOT_NODE_HOST}/status; do
                 echo "Waiting for boot node..."
                 sleep 5
@@ -68,6 +70,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.network.public }}
               # If the network is public, we need to use the boot node URL
               export AZTEC_NODE_URL=${BOOT_NODE_HOST}
@@ -84,10 +87,8 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.pxe.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.pxe.debug }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.pxe.proverEnabled }}"
+              value: "{{ .Values.aztec.realProofs }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}

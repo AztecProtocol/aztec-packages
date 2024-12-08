@@ -1,0 +1,24 @@
+SlashTest
+├── when caller is not the slasher
+│   └── it reverts
+└── when caller is the slasher
+    ├── when attester is not registered
+    │   └── it reverts
+    └── when attester is registered
+        ├── when attester is exiting
+        │   ├── given time is after unlock
+        │   │   └── it reverts
+        │   └── given time is before unlock
+        │       ├── it reduce stake by amount
+        │       └── it emits {Slashed} event
+        ├── when attester is not exiting
+        │   ├── it reduce stake by amount
+        │   └── it emits {Slashed} event
+        └── when attester is validating and stake is below minimum stake
+            ├── given attester is not active
+            │   └── it reverts
+            └── given attester is active
+                ├── it reduce stake by amount
+                ├── it remove from active attesters
+                ├── it set status to living
+                └── it emits {Slashed} event

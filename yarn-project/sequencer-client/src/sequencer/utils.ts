@@ -75,5 +75,5 @@ export function orderAttestations(attestations: BlockAttestation[], orderAddress
 
 export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number, slotNumber: number): number {
   const slotStartTimestamp = l1GenesisTime + slotNumber * aztecSlotDuration;
-  return Date.now() / 1000 - slotStartTimestamp;
+  return Number((Date.now() / 1000 - slotStartTimestamp).toFixed(3));
 }

@@ -14,9 +14,9 @@ test-base:
 test-bb:
     FROM +test-base
     # Fold and verify an ACIR program stack using ClientIvc
-    RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
+    RUN INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
+    RUN INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
     RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
@@ -49,16 +49,14 @@ test-bb-ultra-honk:
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
-test-bb-mega-honk:
+test-bb-client-ivc:
     FROM +test-base
     # Do not pass with honk!
     RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
-    # Construct and separately verify a MegaHonk proof for all acir programs
-    RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
-    # Construct and verify a MegaHonk proof for a single arbitrary program
-    RUN FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
-    RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
+    # Construct and verify a ClientIVC proof for a single arbitrary program
+    RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
+    # Construct and separately verify a ClientIVC proof for all acir programs
+    RUN FLOW=prove_then_verify_client_ivc CLIENT_IVC_SKIPS=true ./run_acir_tests.sh
 
 test-sol:
     FROM +test-base
@@ -70,7 +68,7 @@ test-sol-honk:
     FROM +test-base
     COPY ../cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
     RUN (cd sol-test && yarn)
-    RUN FLOW=honk_sol ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
+    RUN FLOW=sol_honk ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
 
 test-bb.js:
     FROM +test-base

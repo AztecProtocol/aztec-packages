@@ -10,13 +10,13 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
+  BlockHeader,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -310,7 +310,7 @@ export function buildHeaderFromCircuitOutputs(
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
   const state = new StateReference(updatedL1ToL2TreeSnapshot, previousMergeData[1].end);
-  const header = new Header(
+  const header = new BlockHeader(
     rootRollupOutputs.previousArchive,
     contentCommitment,
     state,
@@ -371,7 +371,7 @@ export async function buildHeaderAndBodyFromTxs(
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
 
-  const header = new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+  const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 
   return { header, body };
 }
@@ -379,7 +379,7 @@ export async function buildHeaderAndBodyFromTxs(
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockHeader: Header,
+  blockHeader: BlockHeader,
   db: MerkleTreeReadOperations,
 ) {
   await Promise.all([
@@ -492,41 +492,30 @@ async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWr
     ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
 
-  const lowPublicDataWritesPreimages = [];
-  const lowPublicDataWritesMembershipWitnesses = [];
-  const publicDataWritesSiblingPaths = [];
+  const { lowLeavesWitnessData, insertionWitnessData } = await db.sequentialInsert(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    allPublicDataWrites.map(write => {
+      if (write.isEmpty()) {
+        throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
+      }
+      return write.toBuffer();
+    }),
+  );
 
-  for (const write of allPublicDataWrites) {
-    if (write.isEmpty()) {
-      throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
-    }
-
-    // TODO(Alvaro) write a specialized function for this? Internally add_or_update_value uses batch insertion anyway
-    const { lowLeavesWitnessData, newSubtreeSiblingPath } = await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [write.toBuffer()],
-      // TODO(#3675) remove oldValue from update requests
-      0,
-    );
-
-    if (lowLeavesWitnessData === undefined) {
-      throw new Error(`Could not craft public data batch insertion proofs`);
-    }
-
-    const [lowLeafWitness] = lowLeavesWitnessData;
-    lowPublicDataWritesPreimages.push(lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage);
-    lowPublicDataWritesMembershipWitnesses.push(
-      MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        lowLeafWitness.index,
-        assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
-      ),
-    );
-
-    const insertionSiblingPath = newSubtreeSiblingPath.toFields();
+  const lowPublicDataWritesPreimages = lowLeavesWitnessData.map(
+    lowLeafWitness => lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage,
+  );
+  const lowPublicDataWritesMembershipWitnesses = lowLeavesWitnessData.map(lowLeafWitness =>
+    MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
+      lowLeafWitness.index,
+      assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+    ),
+  );
+  const publicDataWritesSiblingPaths = insertionWitnessData.map(w => {
+    const insertionSiblingPath = w.siblingPath.toFields();
     assertLength(insertionSiblingPath, PUBLIC_DATA_TREE_HEIGHT);
-
-    publicDataWritesSiblingPaths.push(insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>);
-  }
+    return insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>;
+  });
 
   return {
     lowPublicDataWritesPreimages,

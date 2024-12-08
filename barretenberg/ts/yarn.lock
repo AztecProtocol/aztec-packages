@@ -50,6 +50,7 @@ __metadata:
     pako: "npm:^2.1.0"
     prettier: "npm:^2.8.4"
     resolve-typescript-plugin: "npm:^2.0.1"
+    source-map-support: "npm:^0.5.21"
     ts-jest: "npm:^29.1.0"
     ts-loader: "npm:^9.4.2"
     ts-node: "npm:^10.9.1"
@@ -6191,7 +6192,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"source-map-support@npm:~0.5.20":
+"source-map-support@npm:^0.5.21, source-map-support@npm:~0.5.20":
   version: 0.5.21
   resolution: "source-map-support@npm:0.5.21"
   dependencies:

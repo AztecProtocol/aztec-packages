@@ -1,14 +1,21 @@
 import {
   ProvingError,
-  type ProvingRequestType,
+  type ProvingJob,
+  type ProvingJobConsumer,
+  type ProvingJobId,
+  type ProvingJobInputs,
+  type ProvingJobResultsMap,
+  ProvingRequestType,
   type ServerCircuitProver,
-  type V2ProvingJob,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ProvingJobConsumer } from './proving_broker_interface.js';
-import { ProvingJobController, ProvingJobStatus } from './proving_job_controller.js';
+import { type ProofStore } from './proof_store.js';
+import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
+import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
@@ -16,18 +23,25 @@ import { ProvingJobController, ProvingJobStatus } from './proving_job_controller
 export class ProvingAgent {
   private currentJobController?: ProvingJobController;
   private runningPromise: RunningPromise;
+  private instrumentation: ProvingAgentInstrumentation;
+  private idleTimer: Timer | undefined;
 
   constructor(
     /** The source of proving jobs */
-    private jobSource: ProvingJobConsumer,
+    private broker: ProvingJobConsumer,
+    /** Database holding proof inputs and outputs */
+    private proofStore: ProofStore,
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
+    /** A telemetry client through which to emit metrics */
+    client: TelemetryClient,
     /** Optional list of allowed proof types to build */
-    private proofAllowList?: Array<ProvingRequestType>,
+    private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    private log = createDebugLogger('aztec:proving-broker:proving-agent'),
+    private log = createDebugLogger('aztec:prover-client:proving-agent'),
   ) {
+    this.instrumentation = new ProvingAgentInstrumentation(client);
     this.runningPromise = new RunningPromise(this.safeWork, this.pollIntervalMs);
   }
 
@@ -40,6 +54,7 @@ export class ProvingAgent {
   }
 
   public start(): void {
+    this.idleTimer = new Timer();
     this.runningPromise.start();
   }
 
@@ -54,37 +69,92 @@ export class ProvingAgent {
       // (1) either do a heartbeat, telling the broker that we're working
       // (2) get a new job
       // If during (1) the broker returns a new job that means we can cancel the current job and start the new one
-      let maybeJob: { job: V2ProvingJob; time: number } | undefined;
-      if (this.currentJobController?.getStatus() === ProvingJobStatus.PROVING) {
-        maybeJob = await this.jobSource.reportProvingJobProgress(
+      let maybeJob: { job: ProvingJob; time: number } | undefined;
+      if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
+        maybeJob = await this.broker.reportProvingJobProgress(
           this.currentJobController.getJobId(),
           this.currentJobController.getStartedAt(),
           { allowList: this.proofAllowList },
         );
       } else {
-        maybeJob = await this.jobSource.getProvingJob({ allowList: this.proofAllowList });
+        maybeJob = await this.broker.getProvingJob({ allowList: this.proofAllowList });
       }
 
       if (!maybeJob) {
         return;
       }
 
-      if (this.currentJobController?.getStatus() === ProvingJobStatus.PROVING) {
+      let abortedProofJobId: string | undefined;
+      let abortedProofName: string | undefined;
+      if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
+        abortedProofJobId = this.currentJobController.getJobId();
+        abortedProofName = this.currentJobController.getProofTypeName();
         this.currentJobController?.abort();
       }
 
       const { job, time } = maybeJob;
-      this.currentJobController = new ProvingJobController(job, time, this.circuitProver, (err, result) => {
-        if (err) {
-          const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
-          return this.jobSource.reportProvingJobError(job.id, err, retry);
-        } else if (result) {
-          return this.jobSource.reportProvingJobSuccess(job.id, result);
-        }
-      });
+      let inputs: ProvingJobInputs;
+      try {
+        inputs = await this.proofStore.getProofInput(job.inputsUri);
+      } catch (err) {
+        await this.broker.reportProvingJobError(job.id, 'Failed to load proof inputs', true);
+        return;
+      }
+
+      this.currentJobController = new ProvingJobController(
+        job.id,
+        inputs,
+        time,
+        this.circuitProver,
+        this.handleJobResult,
+      );
+
+      if (abortedProofJobId) {
+        this.log.info(
+          `Aborting job id=${abortedProofJobId} type=${abortedProofName} to start new job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
+            job.inputsUri,
+          )}`,
+        );
+      } else {
+        this.log.info(
+          `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
+            job.inputsUri,
+          )}`,
+        );
+      }
+
+      if (this.idleTimer) {
+        this.instrumentation.recordIdleTime(this.idleTimer);
+      }
+      this.idleTimer = undefined;
+
       this.currentJobController.start();
     } catch (err) {
       this.log.error(`Error in ProvingAgent: ${String(err)}`);
     }
   };
+
+  handleJobResult = async <T extends ProvingRequestType>(
+    jobId: ProvingJobId,
+    type: T,
+    err: Error | undefined,
+    result: ProvingJobResultsMap[T] | undefined,
+  ) => {
+    this.idleTimer = new Timer();
+    if (err) {
+      const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
+      this.log.error(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`, err);
+      return this.broker.reportProvingJobError(jobId, err.message, retry);
+    } else if (result) {
+      const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
+      this.log.info(
+        `Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncateString(outputUri)}`,
+      );
+      return this.broker.reportProvingJobSuccess(jobId, outputUri);
+    }
+  };
+}
+
+function truncateString(str: string, length: number = 64): string {
+  return str.length > length ? str.slice(0, length) + '...' : str;
 }

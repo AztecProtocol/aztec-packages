@@ -44,6 +44,7 @@ test:
 
 run-e2e:
     ARG test
+    ARG log_level=""
     ARG debug=""
     FROM +bootstrap
     RUN DEBUG=$debug yarn test $test
@@ -51,8 +52,8 @@ run-e2e:
 prover-client-test:
     FROM +bootstrap
     ARG test
-    ARG debug=""
-    RUN cd prover-client && DEBUG=$debug yarn test $test
+    ARG log_level=""
+    RUN cd prover-client && LOG_LEVEL=$log_level yarn test $test
 
 publish-npm:
     FROM +bootstrap

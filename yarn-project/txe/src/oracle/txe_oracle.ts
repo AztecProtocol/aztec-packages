@@ -1,6 +1,5 @@
 import {
   AuthWitness,
-  type EncryptedL2NoteLog,
   MerkleTreeId,
   Note,
   type NoteStatus,
@@ -12,13 +11,13 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  BlockHeader,
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
   Gas,
   GasFees,
   GlobalVariables,
-  Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -94,8 +93,6 @@ export class TXE implements TypedOracle {
 
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
-
-  private logsByTags = new Map<string, EncryptedL2NoteLog[]>();
 
   constructor(
     private logger: Logger,
@@ -365,8 +362,8 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async getHeader(blockNumber: number): Promise<Header | undefined> {
-    const header = Header.empty();
+  async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+    const header = BlockHeader.empty();
     const db = await this.#getTreesAt(blockNumber);
     header.state = await db.getStateReference();
     header.globalVariables.blockNumber = new Fr(blockNumber);
@@ -507,21 +504,6 @@ export class TXE implements TypedOracle {
       0,
     );
     return publicDataWrites.map(write => write.value);
-  }
-
-  emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
   }
 
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
@@ -760,16 +742,6 @@ export class TXE implements TypedOracle {
 
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
-  }
-
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    counter: number,
-  ): void {
-    this.sideEffectCounter = counter + 1;
-    return;
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {

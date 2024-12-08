@@ -27,12 +27,12 @@ import {
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { isEmptyArray } from '../utils/index.js';
+import { BlockHeader } from './block_header.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 import { Gas } from './gas.js';
 import { GlobalVariables } from './global_variables.js';
-import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { LogHash } from './log_hash.js';
 import { NoteHash } from './note_hash.js';
@@ -121,7 +121,7 @@ export class PublicCircuitPublicInputs {
      * Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
      * previous to the one in which the tx is included.
      */
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     /** Global variables for the block. */
     public globalVariables: GlobalVariables,
     /**
@@ -175,7 +175,7 @@ export class PublicCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
-      Header.empty(),
+      BlockHeader.empty(),
       GlobalVariables.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
@@ -287,7 +287,7 @@ export class PublicCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(GlobalVariables),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
@@ -317,7 +317,7 @@ export class PublicCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
-      Header.fromFields(reader),
+      BlockHeader.fromFields(reader),
       GlobalVariables.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),

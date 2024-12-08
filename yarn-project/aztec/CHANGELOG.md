@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.2...aztec-package-v0.66.0) (2024-12-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355))
+
+### Features
+
+* Agent and broker expose OTEL metrics  ([#10264](https://github.com/AztecProtocol/aztec-packages/issues/10264)) ([c2c8cc6](https://github.com/AztecProtocol/aztec-packages/commit/c2c8cc6f7336cf4b2fa14d9a7f1af1a30f1b8f79))
+* Epoch cache, do not attest if not in committee or from current proposer ([#10327](https://github.com/AztecProtocol/aztec-packages/issues/10327)) ([9ebaa65](https://github.com/AztecProtocol/aztec-packages/commit/9ebaa65ce290481e5dc00174e92137561360549a))
+* Staking integration ([#10403](https://github.com/AztecProtocol/aztec-packages/issues/10403)) ([ecd6c4f](https://github.com/AztecProtocol/aztec-packages/commit/ecd6c4ff914129236b23ab6f4924e4faa3e9d523))
+
+
+### Miscellaneous
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355)) ([c246aba](https://github.com/AztecProtocol/aztec-packages/commit/c246aba5dd51391e2b8a3bd8cdc67f0115b85a7a))
+
+## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.1...aztec-package-v0.65.2) (2024-11-28)
+
+
+### Features
+
+* New proving broker ([#10174](https://github.com/AztecProtocol/aztec-packages/issues/10174)) ([6fd5fc1](https://github.com/AztecProtocol/aztec-packages/commit/6fd5fc18bd973b539fb9edfb372181fbe4617f75))
+
 ## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.0...aztec-package-v0.65.1) (2024-11-27)
 
 

@@ -18,7 +18,7 @@ import {
   type CompleteAddress,
   FEE_FUNDING_FOR_TESTER_ACCOUNT,
   Fq,
-  GasSettings,
+  type GasSettings,
 } from '@aztec/circuits.js';
 import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
 
@@ -81,11 +81,6 @@ describe('e2e_fees account_init', () => {
     bobsCompleteAddress = bobsAccountManager.getCompleteAddress();
     bobsAddress = bobsCompleteAddress.address;
     bobsWallet = await bobsAccountManager.getWallet();
-
-    gasSettings = GasSettings.from({
-      ...t.gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
-    });
 
     await bobsAccountManager.register();
     await initBalances();

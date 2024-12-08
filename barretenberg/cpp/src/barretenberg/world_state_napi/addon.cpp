@@ -150,6 +150,11 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
+    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                   return get_block_numbers_for_leaf_indices(obj, buffer);
+                               });
+
     _dispatcher.registerTarget(
         WorldStateMessageType::FIND_LEAF_INDEX,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_index(obj, buffer); });
@@ -165,6 +170,10 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     _dispatcher.registerTarget(
         WorldStateMessageType::BATCH_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::SEQUENTIAL_INSERT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sequential_insert(obj, buffer); });
 
     _dispatcher.registerTarget(
         WorldStateMessageType::UPDATE_ARCHIVE,
@@ -383,6 +392,24 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
     return true;
 }
 
+bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<GetBlockNumbersForLeafIndicesRequest> request;
+    obj.convert(request);
+
+    GetBlockNumbersForLeafIndicesResponse response;
+    _ws->get_block_numbers_for_leaf_indices(
+        request.value.revision, request.value.treeId, request.value.leafIndices, response.blockNumbers);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<GetBlockNumbersForLeafIndicesResponse> resp_msg(
+        WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, header, response);
+
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
 bool WorldStateAddon::find_leaf_index(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<TreeIdAndRevisionRequest> request;
@@ -507,6 +534,42 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
     return true;
 }
 
+bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<TreeIdOnlyRequest> request;
+    obj.convert(request);
+
+    switch (request.value.treeId) {
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        TypedMessage<InsertRequest<PublicDataLeafValue>> r1;
+        obj.convert(r1);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+            request.value.treeId, r1.value.leaves, r1.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+
+        break;
+    }
+    case MerkleTreeId::NULLIFIER_TREE: {
+        TypedMessage<InsertRequest<NullifierLeafValue>> r2;
+        obj.convert(r2);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+            request.value.treeId, r2.value.leaves, r2.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+        break;
+    }
+    default:
+        throw std::runtime_error("Unsupported tree type");
+    }
+
+    return true;
+}
+
 bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<UpdateArchiveRequest> request;
@@ -560,7 +623,7 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
                                                   request.value.paddedNoteHashes,
                                                   request.value.paddedL1ToL2Messages,
                                                   request.value.paddedNullifiers,
-                                                  request.value.batchesOfPublicDataWrites);
+                                                  request.value.publicDataWrites);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });

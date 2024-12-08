@@ -6,8 +6,11 @@ import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {
+  EpochProofQuote,
+  SignedEpochProofQuote
+} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -26,7 +29,9 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  ProposeArgs, OracleInput, ProposeLib
+} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
@@ -54,10 +59,10 @@ contract RollupTest is DecoderBase, TimeFns {
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
   RewardDistributor internal rewardDistributor;
-  SignatureLib.Signature[] internal signatures;
+  Signature[] internal signatures;
 
-  EpochProofQuoteLib.EpochProofQuote internal quote;
-  EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
+  EpochProofQuote internal quote;
+  SignedEpochProofQuote internal signedQuote;
 
   uint256 internal privateKey;
   address internal signer;
@@ -69,8 +74,12 @@ contract RollupTest is DecoderBase, TimeFns {
    */
   modifier setUpFor(string memory _name) {
     {
+      testERC20 = new TestERC20("test", "TEST", address(this));
+
       leo = new Leonidas(
         address(1),
+        testERC20,
+        TestConstants.AZTEC_MINIMUM_STAKE,
         TestConstants.AZTEC_SLOT_DURATION,
         TestConstants.AZTEC_EPOCH_DURATION,
         TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
@@ -83,7 +92,6 @@ contract RollupTest is DecoderBase, TimeFns {
     }
 
     registry = new Registry(address(this));
-    testERC20 = new TestERC20();
     feeJuicePortal = new FeeJuicePortal(
       address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
@@ -93,7 +101,7 @@ contract RollupTest is DecoderBase, TimeFns {
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = new Rollup(
-      feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+      feeJuicePortal, rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -107,7 +115,7 @@ contract RollupTest is DecoderBase, TimeFns {
     privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
     signer = vm.addr(privateKey);
     uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
-    quote = EpochProofQuoteLib.EpochProofQuote({
+    quote = EpochProofQuote({
       epochToProve: Epoch.wrap(0),
       validUntilSlot: Slot.wrap(1),
       bondAmount: bond,
@@ -231,18 +239,14 @@ contract RollupTest is DecoderBase, TimeFns {
     );
     rollup.claimEpochProofRight(signedQuote);
 
-    (
-      Epoch epochToProve,
-      uint256 basisPointFee,
-      uint256 bondAmount,
-      address bondProvider,
-      address proposerClaimant
-    ) = rollup.proofClaim();
-    assertEq(epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
-    assertEq(basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee");
-    assertEq(bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
-    assertEq(bondProvider, quote.prover, "Invalid bond provider");
-    assertEq(proposerClaimant, address(this), "Invalid proposer claimant");
+    DataStructures.EpochProofClaim memory epochProofClaim = rollup.getProofClaim();
+    assertEq(epochProofClaim.epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
+    assertEq(
+      epochProofClaim.basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee"
+    );
+    assertEq(epochProofClaim.bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
+    assertEq(epochProofClaim.bondProvider, quote.prover, "Invalid bond provider");
+    assertEq(epochProofClaim.proposerClaimant, address(this), "Invalid proposer claimant");
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"
     );
@@ -1011,7 +1015,7 @@ contract RollupTest is DecoderBase, TimeFns {
   }
 
   function _updateHeaderBaseFee(bytes memory _header) internal view returns (bytes memory) {
-    uint256 baseFee = rollup.getManaBaseFee(true);
+    uint256 baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
     assembly {
       mstore(add(_header, add(0x20, 0x0228)), baseFee)
     }
@@ -1181,16 +1185,16 @@ contract RollupTest is DecoderBase, TimeFns {
     );
   }
 
-  function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
+  function _quoteToSignedQuote(EpochProofQuote memory _quote)
     internal
     view
-    returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
+    returns (SignedEpochProofQuote memory)
   {
     bytes32 digest = rollup.quoteToDigest(_quote);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-    return EpochProofQuoteLib.SignedEpochProofQuote({
+    return SignedEpochProofQuote({
       quote: _quote,
-      signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})
+      signature: Signature({isEmpty: false, v: v, r: r, s: s})
     });
   }
 }

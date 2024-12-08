@@ -1,12 +1,12 @@
 terraform {
-  backend "s3" {
+  backend "gcs" {
     bucket = "aztec-terraform"
-    region = "eu-west-2"
+    prefix = "terraform/state"
   }
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12.1"
+      version = "~> 2.16.1"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -18,32 +18,38 @@ terraform {
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = var.gke_cluster_context
+  config_context = var.GKE_CLUSTER_CONTEXT
 }
 
 provider "helm" {
   alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = var.gke_cluster_context
+    config_context = var.GKE_CLUSTER_CONTEXT
   }
 }
 
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider         = helm.gke-cluster
-  name             = var.release_name
+  name             = var.RELEASE_NAME
   repository       = "../../"
   chart            = "aztec-network"
-  namespace        = var.release_name
+  namespace        = var.RELEASE_NAME
   create_namespace = true
+  upgrade_install  = true
 
   # base values file
-  values = [file("../../aztec-network/values/${var.values_file}")]
+  values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
 
   set {
     name  = "images.aztec.image"
-    value = var.aztec_docker_image
+    value = var.AZTEC_DOCKER_IMAGE
+  }
+
+  set {
+    name  = "aztec.l1DeploymentMnemonic"
+    value = var.L1_DEPLOYMENT_MNEMONIC
   }
 
   # Setting timeout and wait conditions

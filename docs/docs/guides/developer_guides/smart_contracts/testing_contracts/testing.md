@@ -38,7 +38,7 @@ So to summarize:
 
 ### Running TXE
 
-If you have [the sandbox](../../getting_started.md) installed, you can run TXE tests using:
+If you have [the sandbox](../../../getting_started.md) installed, you can run TXE tests using:
 
 `aztec test`
 
@@ -218,10 +218,11 @@ You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here]
 
 :::warning
 Remember to set the following environment variables to activate debug logging:
+
 ```bash
-export DEBUG="aztec:*"
 export LOG_LEVEL="debug"
 ```
+
 :::
 
 ### All Cheatcodes

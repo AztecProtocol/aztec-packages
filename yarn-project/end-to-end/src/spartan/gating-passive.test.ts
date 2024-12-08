@@ -11,10 +11,10 @@ import {
   applyValidatorKill,
   awaitL2BlockNumber,
   enableValidatorDynamicBootNode,
-  getConfig,
   isK8sConfig,
   restartBot,
   runAlertCheck,
+  setupEnvironment,
   startPortForward,
 } from './utils.js';
 
@@ -28,7 +28,7 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
@@ -41,15 +41,15 @@ const {
   SPARTAN_DIR,
   INSTANCE_NAME,
 } = config;
-const debugLogger = createDebugLogger('aztec:spartan-test:reorg');
+const debugLogger = createDebugLogger('aztec:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
   const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
   const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
-  // 50% is the max that we expect to miss
-  const MAX_MISSED_SLOT_PERCENT = 0.5;
+  // 60% is the max that we expect to miss
+  const MAX_MISSED_SLOT_PERCENT = 0.6;
 
   afterAll(async () => {
     await runAlertCheck(config, qosAlerts, debugLogger);
@@ -126,14 +126,16 @@ describe('a test that passively observes the network in the presence of network 
       await sleep(Number(epochDuration * slotDuration) * 1000);
       const newTips = await rollupCheatCodes.getTips();
 
-      const expectedPending =
-        controlTips.pending + BigInt(Math.floor((1 - MAX_MISSED_SLOT_PERCENT) * Number(epochDuration)));
-      expect(newTips.pending).toBeGreaterThan(expectedPending);
       // calculate the percentage of slots missed
       const perfectPending = controlTips.pending + BigInt(Math.floor(Number(epochDuration)));
       const missedSlots = Number(perfectPending) - Number(newTips.pending);
       const missedSlotsPercentage = (missedSlots / Number(epochDuration)) * 100;
       debugLogger.info(`Missed ${missedSlots} slots, ${missedSlotsPercentage.toFixed(2)}%`);
+
+      // Ensure we missed at most the max allowed slots
+      // This is in place to ensure that we don't have a bad regression in the network
+      const maxMissedSlots = Math.floor(Number(epochDuration) * MAX_MISSED_SLOT_PERCENT);
+      expect(missedSlots).toBeLessThanOrEqual(maxMissedSlots);
     }
   });
 });

@@ -206,7 +206,7 @@ hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
-github_group "Pull Submodules"
+github_group "pull submodules"
 denoise git submodule update --init --recursive
 github_endgroup
 
@@ -223,13 +223,8 @@ projects=(
 )
 
 # Build projects.
-# Death wrapper ensures no child process exist after exit.
 for project in "${projects[@]}"; do
-  echo "**************************************"
-  echo -e "\033[1mBootstrapping $project...\033[0m"
-  echo "**************************************"
-  echo
-  (cd $project && ./bootstrap.sh $cmd)
   echo
   echo
+  $project/bootstrap.sh $cmd
 done

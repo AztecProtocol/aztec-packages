@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -eu
+source $ci3/source_color
 
-[ -n "${GITHUB_LOG:-}" ] && echo "::endgroup::" || echo "------"
+[ -n "${GITHUB_LOG:-}" ] && echo "::endgroup::" || echo

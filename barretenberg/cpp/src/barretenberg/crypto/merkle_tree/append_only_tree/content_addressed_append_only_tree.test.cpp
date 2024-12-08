@@ -123,7 +123,7 @@ void check_sibling_path(TreeType& tree,
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
-                                 index_t blockNumber,
+                                 block_number_t blockNumber,
                                  bool expected_success = true)
 {
     Signal signal;
@@ -160,7 +160,7 @@ void rollback_tree(TreeType& tree)
     signal.wait_for_level();
 }
 
-void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void remove_historic_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
@@ -171,7 +171,7 @@ void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expe
     signal.wait_for_level();
 }
 
-void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
@@ -206,7 +206,7 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     signal.wait_for_level();
 }
 
-void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -312,7 +312,7 @@ void check_leaf(
 }
 
 void check_historic_leaf(TreeType& tree,
-                         const index_t& blockNumber,
+                         const block_number_t& blockNumber,
                          const fr& leaf,
                          index_t leaf_index,
                          bool expected_success,
@@ -348,6 +348,31 @@ void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_pat
     }
 
     EXPECT_EQ(hash, expected_root);
+}
+
+void get_blocks_for_indices(TreeType& tree,
+                            const std::vector<index_t>& indices,
+                            std::vector<std::optional<block_number_t>>& blockNumbers)
+{
+    Signal signal;
+    tree.find_block_numbers(indices, [&](const TypedResponse<BlockForIndexResponse>& response) {
+        blockNumbers = response.inner.blockNumbers;
+        signal.signal_level();
+    });
+    signal.wait_for_level();
+}
+
+void get_blocks_for_indices(TreeType& tree,
+                            const block_number_t& blockNumber,
+                            const std::vector<index_t>& indices,
+                            std::vector<std::optional<block_number_t>>& blockNumbers)
+{
+    Signal signal;
+    tree.find_block_numbers(indices, blockNumber, [&](const TypedResponse<BlockForIndexResponse>& response) {
+        blockNumbers = response.inner.blockNumbers;
+        signal.signal_level();
+    });
+    signal.wait_for_level();
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
@@ -784,6 +809,57 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, to_add[i]);
+    }
+    add_values(tree, to_add);
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+
+    commit_tree(tree, true);
+
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_retrieve_zero_leaf_indices)
+{
+    constexpr size_t depth = 8;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, VALUES[i]);
+    }
+    add_values(tree, to_add);
+    commit_tree(tree);
+    fr leaf = fr::zero();
+    check_find_leaf_index(tree, leaf, 0, false);
+    check_find_historic_leaf_index(tree, 1, leaf, 0, false);
+    check_find_leaf_index_from(tree, leaf, 0, 0, false);
+    check_find_historic_leaf_index_from(tree, 1, leaf, 0, 0, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
@@ -1233,7 +1309,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             // retrieving historic data should fail if the block is outside of the window
-            const index_t blockNumber = i + 1;
+            const block_number_t blockNumber = i + 1;
             const bool expectedSuccess =
                 expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
@@ -1348,13 +1424,18 @@ void test_unwind(std::string directory,
 
     const uint32_t blocksToRemove = numBlocksToUnwind;
     for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
+        const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
         // attempting to unwind a block that is not the tip should fail
         unwind_block(tree, blockNumber + 1, false);
         unwind_block(tree, blockNumber);
-        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+
+        // the root should now only exist if there are other blocks with same root
+        const auto last = roots.begin() + long(blockNumber - 1);
+        const auto it =
+            std::find_if(roots.begin(), last, [=](const fr& r) -> bool { return r == roots[blockNumber - 1]; });
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false, it != last);
 
         const index_t previousValidBlock = blockNumber - 1;
         index_t deletedBlockStartIndex = previousValidBlock * batchSize;
@@ -1384,9 +1465,19 @@ void test_unwind(std::string directory,
 
             const index_t leafIndex = 1;
             check_historic_leaf(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index_from(
-                tree, historicBlockNumber, values[leafIndex], 0, leafIndex, expectedSuccess);
+
+            // find historic leaves, provided they are not zero leaves
+            check_find_historic_leaf_index(tree,
+                                           historicBlockNumber,
+                                           values[leafIndex],
+                                           leafIndex,
+                                           expectedSuccess && values[leafIndex] != fr::zero());
+            check_find_historic_leaf_index_from(tree,
+                                                historicBlockNumber,
+                                                values[leafIndex],
+                                                0,
+                                                leafIndex,
+                                                expectedSuccess && values[leafIndex] != fr::zero());
         }
     }
 }
@@ -1405,6 +1496,33 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, second);
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_empty)
+{
+    const size_t block_size = 16;
+    // First we add 16 blocks worth pf zero leaves and unwind them all
+    std::vector<fr> first(1024, fr::zero());
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, first);
+    // now we add 1 block of zero leaves and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> second = create_values(1024);
+    // set the first 16 values to be zeros
+    for (size_t i = 0; i < block_size; i++) {
+        second[i] = fr::zero();
+    }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, second);
+
+    // now we add 2 block of zero leaves in the middle and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> third = create_values(1024);
+    size_t offset = block_size * 2;
+    for (size_t i = 0; i < block_size * 2; i++) {
+        third[i + offset] = fr::zero();
+    }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, third);
+
+    // Now we add a number of regular blocks and unwind
+    std::vector<fr> fourth = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, fourth);
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
 {
 
@@ -1417,6 +1535,101 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_bl
         std::stringstream ss;
         ss << "DB " << actualSize;
         test_unwind(_directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_by_index)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    const size_t block_size = 32;
+
+    for (size_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(block_size);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+    std::vector<index_t> indices{ 12, 33, 63, 64, 65, 80, 96, 159, 160 };
+    std::vector<std::optional<block_number_t>> blockNumbers;
+
+    // All but the last block number should be valid when looking at latest
+    get_blocks_for_indices(tree, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    index_t maxIndex = 5 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // Now get blocks for indices from the perspective of block 2
+    get_blocks_for_indices(tree, 2, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = 2 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    unwind_block(tree, 5);
+    unwind_block(tree, 4);
+
+    get_blocks_for_indices(tree, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+    maxIndex = 3 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // fork from block 1
+    std::unique_ptr<Store> forkStore = std::make_unique<Store>(name, depth, 1, db);
+    TreeType treeFork(std::move(forkStore), pool);
+
+    // Now, using the fork, get block indices but find it's limited to those of block 1
+    get_blocks_for_indices(treeFork, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // Now, using the fork, get block indics from the perspective of block 2, but find it's limited to those of block 1
+    get_blocks_for_indices(treeFork, 2, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
     }
 }
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -eu
-cd "$(dirname "$0")"
+source $(git rev-parse --show-toplevel)/ci3/source
 
-(cd cpp && ./bootstrap.sh $@)
-(cd ts && ./bootstrap.sh $@)
-(cd acir_tests && ./bootstrap.sh $@)
+./cpp/bootstrap.sh $@
+./ts/bootstrap.sh $@
+./acir_tests/bootstrap.sh $@

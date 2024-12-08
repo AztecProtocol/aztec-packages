@@ -60,4 +60,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
 };
+
+using MegaOinkProver = OinkProver<MegaFlavor>;
+
 } // namespace bb

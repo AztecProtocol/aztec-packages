@@ -89,7 +89,7 @@ describe('ServerWorldStateSynchronizer', () => {
   const pushBlocks = async (from: number, to: number) => {
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 2, 3, 2, 1, inHash)),
+      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
     });
     server.latest.number = to;
   };

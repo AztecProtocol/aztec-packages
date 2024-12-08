@@ -6,9 +6,9 @@ import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { type AlertConfig } from '../quality_of_service/alert_checker.js';
-import { getConfig, isK8sConfig, runAlertCheck, startPortForward } from './utils.js';
+import { isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
 const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
 

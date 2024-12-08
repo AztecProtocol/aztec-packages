@@ -1,11 +1,12 @@
 import {
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  Header,
+  PrivateLog,
   type PublicFunction,
   PublicKeys,
   computePublicBytecodeCommitment,
@@ -26,14 +27,7 @@ import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
-import {
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  type L2BlockL2Logs,
-  UnencryptedL2BlockL2Logs,
-} from '../logs/l2_block_l2_logs.js';
 import { type LogFilter } from '../logs/log_filter.js';
-import { type FromLogType, LogType } from '../logs/log_type.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
@@ -98,7 +92,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const result = await context.client.getBlockHeader(1);
-    expect(result).toBeInstanceOf(Header);
+    expect(result).toBeInstanceOf(BlockHeader);
   });
 
   it('getBlocks', async () => {
@@ -157,19 +151,9 @@ describe('ArchiverApiSchema', () => {
     ]);
   });
 
-  it('getLogs(Encrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.ENCRYPTED);
-    expect(result).toEqual([expect.any(EncryptedL2BlockL2Logs)]);
-  });
-
-  it('getLogs(NoteEncrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.NOTEENCRYPTED);
-    expect(result).toEqual([expect.any(EncryptedNoteL2BlockL2Logs)]);
-  });
-
-  it('getLogs(Unencrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.UNENCRYPTED);
-    expect(result).toEqual([expect.any(UnencryptedL2BlockL2Logs)]);
+  it('getPrivateLogs', async () => {
+    const result = await context.client.getPrivateLogs(1, 1);
+    expect(result).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getLogsByTags', async () => {
@@ -293,8 +277,8 @@ class MockArchiver implements ArchiverApi {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
-  getBlockHeader(_number: number | 'latest'): Promise<Header | undefined> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
   getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return Promise.resolve([L2Block.random(from)]);
@@ -335,21 +319,8 @@ class MockArchiver implements ArchiverApi {
     expect(nullifiers[1]).toBeInstanceOf(Fr);
     return Promise.resolve([randomInBlock(Fr.random().toBigInt()), undefined]);
   }
-  getLogs<TLogType extends LogType>(
-    _from: number,
-    _limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    switch (logType) {
-      case LogType.ENCRYPTED:
-        return Promise.resolve([EncryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.NOTEENCRYPTED:
-        return Promise.resolve([EncryptedNoteL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.UNENCRYPTED:
-        return Promise.resolve([UnencryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      default:
-        throw new Error(`Unexpected log type: ${logType}`);
-    }
+  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
+    return Promise.resolve([PrivateLog.random()]);
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);

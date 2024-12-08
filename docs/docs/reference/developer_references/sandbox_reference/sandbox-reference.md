@@ -6,7 +6,7 @@ sidebar_position: 0
 
 :::tip
 
-For a quick start, follow the [guide](../../../guides/developer_guides/getting_started) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/getting_started) to install the sandbox.
 
 :::
 
@@ -19,8 +19,7 @@ To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them
 **Sandbox**
 
 ```sh
-DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-LOG_LEVEL=debug # Setting to 'debug' will print the debug logs
+LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
 HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
 ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.

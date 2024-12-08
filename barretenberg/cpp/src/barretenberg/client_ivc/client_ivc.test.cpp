@@ -306,7 +306,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -331,7 +331,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
-        ivc.accumulate(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

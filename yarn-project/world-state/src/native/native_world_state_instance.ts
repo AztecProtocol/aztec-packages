@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -203,12 +203,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['notesCount'] = body.paddedNoteHashes.length;
         data['nullifiersCount'] = body.paddedNullifiers.length;
         data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.batchesOfPublicDataWrites.reduce((acc, batch) => acc + batch.length, 0);
+        data['publicDataWritesCount'] = body.publicDataWrites.length;
       }
 
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
     } else {
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
     const timer = new Timer();
@@ -251,14 +251,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
     const decodingDuration = timer.ms() - callDuration;
     const totalDuration = timer.ms();
-    this.log.debug(
-      `Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms) ${fmtLogData({
-        totalDuration,
-        encodingDuration,
-        callDuration,
-        decodingDuration,
-      })}`,
-    );
+    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
+      totalDuration,
+      encodingDuration,
+      callDuration,
+      decodingDuration,
+    });
 
     if (response.header.requestId !== request.header.messageId) {
       throw new Error(
