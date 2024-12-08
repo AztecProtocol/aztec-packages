@@ -35,6 +35,7 @@ function test {
     github_endgroup
   fi
 }
+export -f test
 
 case "$cmd" in
   "clean")
@@ -48,7 +49,7 @@ case "$cmd" in
     ;;
   "ci")
     build
-    test
+    denoise test
     ;;
   *)
     echo "Unknown command: $cmd"

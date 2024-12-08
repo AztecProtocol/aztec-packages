@@ -136,7 +136,7 @@ case "$cmd" in
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
-  "ssh-host")
+  "shell-host")
       get_ip_for_instance
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
