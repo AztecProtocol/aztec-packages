@@ -57,7 +57,7 @@ services:
         pid=$$!
         pgid=$$(($$(ps -o pgid= -p $$pid)))
         trap "kill -SIGTERM -$$pgid" SIGTERM
-        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1 done
+        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
         wait $$pid
       '
     depends_on:

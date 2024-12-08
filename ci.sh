@@ -52,7 +52,7 @@ case "$cmd" in
     ;;
   "ec2-full")
     # Spin up ec2 instance and full bootstrap.
-    bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${2:-}
+    bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance and drop into shell.
