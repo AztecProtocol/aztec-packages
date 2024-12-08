@@ -62,21 +62,38 @@ show_banner() {
     echo -e "${NC}"
 }
 
-# Check if Docker is installed
+# Check if Docker and Docker Compose CLI plugin are installed
 check_docker() {
     echo -e "${BLUE}Checking Docker installation...${NC}"
-    if command -v docker >/dev/null 2>&1 && command -v docker compose >/dev/null 2>&1; then
-        echo -e "${GREEN}Docker and Docker Compose are installed${NC}"
-        return 0
+    # Check if Docker is installed
+    if command -v docker >/dev/null 2>&1; then
+        echo -e "${GREEN}Docker is installed.${NC}"
     else
-        echo -e "${RED}Docker or Docker Compose not found${NC}"
+        echo -e "${RED}Docker is not installed.${NC}"
         read -p "Would you like to install Docker? [Y/n] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
             install_docker
             return $?
+        else
+            return 1
         fi
-        return 1
+    fi
+
+    # Check if Docker Compose CLI plugin is installed
+    if docker compose version >/dev/null 2>&1; then
+        echo -e "${GREEN}Docker Compose CLI plugin is installed.${NC}"
+        return 0
+    else
+        echo -e "${RED}Docker Compose CLI plugin not found.${NC}"
+        read -p "Would you like to install the Docker Compose CLI plugin? [Y/n] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            install_docker_compose_cli_plugin
+            return $?
+        else
+            return 1
+        fi
     fi
 }
 
@@ -90,6 +107,51 @@ install_docker() {
         return 0
     else
         echo -e "${RED}Failed to install Docker${NC}"
+        return 1
+    fi
+}
+
+# Function to install Docker Compose as a Docker CLI plugin
+install_docker_compose_cli_plugin() {
+    # Detect architecture
+    local arch=$(uname -m)
+    local binary_name
+
+    # Determine the appropriate binary name based on architecture
+    case "$arch" in
+        "x86_64"|"amd64")
+            binary_name="docker-compose-linux-x86_64"
+            ;;
+        "aarch64")
+            binary_name="docker-compose-linux-aarch64"
+            ;;
+        "armhf")
+            binary_name="docker-compose-linux-armv7"
+            ;;
+        *)
+            echo -e "${RED}Architecture $arch is not supported for Docker Compose CLI plugin.${NC}"
+            return 1
+            ;;
+    esac
+
+    # Use GitHub API to fetch the latest release version of Docker Compose
+    local compose_version=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/v\1/')
+    if [[ -z "$compose_version" ]]; then
+        echo -e "${RED}Failed to fetch the latest Docker Compose version.${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}Installing Docker Compose CLI plugin version $compose_version for $arch...${NC}"
+    mkdir -p ~/.docker/cli-plugins
+    curl -SL "https://github.com/docker/compose/releases/download/$compose_version/$binary_name" -o ~/.docker/cli-plugins/docker-compose
+    chmod +x ~/.docker/cli-plugins/docker-compose
+
+    # Verifying installation
+    if docker compose version >/dev/null 2>&1; then
+        echo -e "${GREEN}Docker Compose CLI plugin installed successfully.${NC}"
+        return 0
+    else
+        echo -e "${RED}Failed to install Docker Compose CLI plugin.${NC}"
         return 1
     fi
 }
