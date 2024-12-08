@@ -36,6 +36,11 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
+    // Add the IPA proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        ASSERT(proving_key->proving_key.ipa_proof.size() == 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
+        proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
+    }
     return proof;
 }
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
@@ -58,7 +63,8 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
     vinfo("created decider prover");
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+    return export_proof();
 }
 
 template class UltraProver_<UltraFlavor>;

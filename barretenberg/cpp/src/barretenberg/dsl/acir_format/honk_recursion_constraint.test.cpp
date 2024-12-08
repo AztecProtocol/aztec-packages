@@ -127,7 +127,29 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
         };
         auto builder =
             create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            using NativeCurve = curve::Grumpkin;
+            using Curve = stdlib::grumpkin<Builder>;
+            auto ipa_transcript = std::make_shared<NativeTranscript>();
+            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+            size_t n = 4;
+            auto poly = Polynomial<fq>(n);
+            for (size_t i = 0; i < n; i++) {
+                poly.at(i) = fq::random_element();
+            }
+            fq x = fq::random_element();
+            fq eval = poly.evaluate(x);
+            auto commitment = ipa_commitment_key->commit(poly);
+            const OpeningPair<NativeCurve> opening_pair = { x, eval };
+            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
 
+            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
+            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
+            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+            builder.ipa_proof = ipa_transcript->export_proof();
+        }
         return builder;
     }
 
@@ -153,8 +175,13 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             std::vector<fr> proof_witnesses = inner_proof;
-            const size_t num_public_inputs_to_extract =
+            size_t num_public_inputs_to_extract =
                 inner_circuit.get_public_inputs().size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+            acir_format::PROOF_TYPE proof_type = acir_format::HONK;
+            if constexpr (HasIPAAccumulator<Flavor>) {
+                num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
+                proof_type = ROLLUP_HONK;
+            }
 
             auto [key_indices, proof_indices, inner_public_inputs] = ProofSurgeon::populate_recursion_witness_data(
                 witness, proof_witnesses, key_witnesses, num_public_inputs_to_extract);
@@ -164,7 +191,7 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
                 .key_hash = 0, // not used
-                .proof_type = HONK,
+                .proof_type = proof_type,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
         }
@@ -183,7 +210,11 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
     }
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite()
+    {
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    }
 };
 
 using Flavors = testing::Types<UltraFlavor, UltraRollupFlavor>;
@@ -204,8 +235,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    if constexpr (HasIPAAccumulator<TypeParam>) {
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    } else {
+        typename TestFixture::Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)

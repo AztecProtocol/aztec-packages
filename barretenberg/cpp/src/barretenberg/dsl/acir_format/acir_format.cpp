@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -351,11 +352,12 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     // Add recursion constraints
     size_t idx = 0;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
-    std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_proofs;
+    std::vector<StdlibProof<Builder>> nested_ipa_proofs;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK) {
-            auto [next_aggregation_object, _, _] = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            auto [next_aggregation_object, _ipa_claim, _ipa_proof] =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             current_aggregation_object = next_aggregation_object;
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROLLUP_ROOT_HONK) {
             auto [next_aggregation_object, ipa_claim, ipa_proof] =
@@ -374,7 +376,17 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     }
     // Accumulate the claims
     if (nested_ipa_claims.size() == 2) {
-        // IPA<grumpkin<Builder>>::accumulate()
+        auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
+        IPA<stdlib::grumpkin<Builder>>::accumulate(
+            commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+    } else if (nested_ipa_claims.size() == 1) {
+        builder.add_ipa_claim(nested_ipa_claims[0].get_witness_indices());
+        builder.ipa_proof = convert_stdlib_proof_to_native(
+            nested_ipa_proofs[0]); // WORKTODO: is this bad? or is it fine to just pass the proofs along
     }
     return current_aggregation_object;
 }
