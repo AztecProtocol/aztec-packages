@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class mainImpl {
   public:
@@ -762,4 +762,4 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
     static constexpr size_t SR_BIN_SEL_2 = 97;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

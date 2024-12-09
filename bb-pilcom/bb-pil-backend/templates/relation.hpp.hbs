@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::{{root_name}}_vm {
+namespace bb::{{snakeCase root_name}} {
 
 template <typename FF_> class {{name}}Impl {
     public:
@@ -63,4 +63,4 @@ template <typename FF> class {{name}} : public Relation<{{name}}Impl<FF>> {
         {{/each}}
 };
 
-} // namespace bb::{{root_name}}_vm
+} // namespace bb::{{snakeCase root_name}}

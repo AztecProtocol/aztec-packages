@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class range_checkImpl {
   public:
@@ -268,4 +268,4 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
     static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class memImpl {
   public:
@@ -449,4 +449,4 @@ template <typename FF> class mem : public Relation<memImpl<FF>> {
     static constexpr size_t SR_MOV_SAME_TAG = 52;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

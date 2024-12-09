@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class cmpImpl {
   public:
@@ -285,4 +285,4 @@ template <typename FF> class cmp : public Relation<cmpImpl<FF>> {
     static constexpr size_t SR_SHIFT_RELS_3 = 26;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

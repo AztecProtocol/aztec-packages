@@ -12,18 +12,18 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
-#include "barretenberg/vm/{{snakeCase name}}/generated/flavor_settings.hpp"
-#include "barretenberg/vm/{{snakeCase name}}/generated/columns.hpp"
+#include "flavor_settings.hpp"
+#include "columns.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 
 // Relations
 {{#each relation_file_names as |r|}}
-#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
+#include "relations/{{r}}.hpp"
 {{/each}}
 
 // Lookup and permutation relations
 {{#each lookups as |r|}}
-#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
+#include "relations/{{r}}.hpp"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.
@@ -63,7 +63,7 @@ class {{name}}Flavor {
     template <typename FF_>
     using MainRelations_ = std::tuple<
       // Relations
-      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{../name}}_vm::{{item}}<FF_>{{/each}}
+      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{snakeCase ../name}}::{{item}}<FF_>{{/each}}
     >;
 
     using MainRelations = MainRelations_<FF>;
