@@ -20,11 +20,6 @@ where
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
-    // debug_log_format(
-    //     "\nMIKE Creating new note: (note_hash_counter: {0}, storage_slot: {1})",
-    //     [note_hash_counter as Field, storage_slot],
-    // );
-
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
     note.set_header(header);
     let note_hash = note.compute_note_hash();
