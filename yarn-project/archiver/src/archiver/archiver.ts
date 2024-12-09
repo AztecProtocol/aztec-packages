@@ -2,6 +2,7 @@ import {
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
+  type L1RollupConstants,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
@@ -15,14 +16,18 @@ import {
   type TxReceipt,
   type TxScopedL2Log,
   type UnencryptedL2Log,
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
-  type Header,
   type PrivateLog,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
@@ -62,12 +67,6 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
-import {
-  getEpochNumberAtTimestamp,
-  getSlotAtTimestamp,
-  getSlotRangeForEpoch,
-  getTimestampRangeForEpoch,
-} from './epoch_helpers.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -618,7 +617,7 @@ export class Archiver implements ArchiveSource {
     return blocks.length === 0 ? undefined : blocks[0].data;
   }
 
-  public async getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
@@ -1015,7 +1014,7 @@ class ArchiverStoreHelper
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
     return this.store.getBlocks(from, limit);
   }
-  getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
   getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
@@ -1100,11 +1099,3 @@ class ArchiverStoreHelper
     return this.store.estimateSize();
   }
 }
-
-type L1RollupConstants = {
-  l1StartBlock: bigint;
-  l1GenesisTime: bigint;
-  slotDuration: number;
-  epochDuration: number;
-  ethereumSlotDuration: number;
-};

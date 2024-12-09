@@ -7,12 +7,12 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  Header,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
@@ -194,7 +194,7 @@ describe('public_tx_simulator', () => {
       Fr.fromBuffer(publicDataTree.getRoot(true)),
       Number(publicDataTree.getNumLeaves(true)),
     );
-    const header = Header.empty();
+    const header = BlockHeader.empty();
     const stateReference = new StateReference(
       header.state.l1ToL2MessageTree,
       new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
@@ -209,7 +209,6 @@ describe('public_tx_simulator', () => {
       worldStateDB,
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      /*realAvmProvingRequest=*/ false,
       /*doMerkleOperations=*/ true,
     );
 

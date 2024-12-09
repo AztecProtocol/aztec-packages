@@ -6,6 +6,17 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [aztec.nr] Renamed `Header` and associated helpers
+
+The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` family of functions have been similarly renamed to `get_block_header()`.
+
+```diff
+- let header = context.get_header_at(block_number);
++ let header = context.get_block_header_at(block_number);
+```
+
 ## 0.66
 
 ### DEBUG env var is removed

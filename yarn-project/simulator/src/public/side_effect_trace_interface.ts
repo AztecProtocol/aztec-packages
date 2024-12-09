@@ -66,6 +66,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -73,6 +76,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceNestedCall(
     /** The trace of the nested call. */

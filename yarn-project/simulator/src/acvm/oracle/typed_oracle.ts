@@ -9,8 +9,8 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -127,8 +127,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getLowNullifierMembershipWitness');
   }
 
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new OracleMethodNotAvailableError('getHeader');
+  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    throw new OracleMethodNotAvailableError('getBlockHeader');
   }
 
   getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
