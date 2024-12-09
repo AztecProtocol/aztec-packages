@@ -4,7 +4,6 @@ import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
-  type Gas,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   NullifierLeafPreimage,
   type PublicCallRequest,
@@ -23,7 +22,6 @@ import { strict as assert } from 'assert';
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmEphemeralForest } from '../avm_tree.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
@@ -675,31 +673,6 @@ export class AvmPersistableStateManager {
       }
       return undefined;
     }
-  }
-
-  public async traceNestedCall(
-    forkedState: AvmPersistableStateManager,
-    nestedEnvironment: AvmExecutionEnvironment,
-    startGasLeft: Gas,
-    bytecode: Buffer,
-    avmCallResults: AvmContractCallResult,
-  ) {
-    const functionName = await getPublicFunctionDebugName(
-      this.worldStateDB,
-      nestedEnvironment.address,
-      nestedEnvironment.calldata,
-    );
-
-    this.log.verbose(`[AVM] Tracing nested external contract call ${functionName}`);
-
-    this.trace.traceNestedCall(
-      forkedState.trace,
-      nestedEnvironment,
-      startGasLeft,
-      bytecode,
-      avmCallResults,
-      functionName,
-    );
   }
 
   public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
