@@ -17,6 +17,29 @@ The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` fa
 + let header = context.get_block_header_at(block_number);
 ```
 
+### Outgoing Events removed
+
+Previously, every event which was emitted included:
+- Incoming Header (to convey the app contract address to the recipient)
+- Incoming Ciphertext (to convey the note contents to the recipient)
+- Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
+- Outgoing Ciphertext (served as a backup, encrypting the summetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
+
+The latter two have been removed from the `.emit()` function, so now only an Incoming Header and Incoming Ciphertext will be emitted.
+
+The interface for emitting a note has therefore changed, slightly. No more ovpk's and ovsk's need to be derived for the `.emit()` function.
+
+```diff
+- nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, from_ovpk_m, to, from));
++ nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+```
+
+The `getOutgoingNotes` function is removed from the PXE interface.
+
+Further changes are planned, so that:
+- Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
+- Headers will be removed, due to the new tagging scheme.
+
 ## 0.66
 
 ### DEBUG env var is removed
