@@ -3,16 +3,9 @@ set -eux
 
 mkdir -p ./proofs
 
-CRS_PATH=${CRS_PATH:-$PWD/crs}
-BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
+VFLAG=${VERBOSE:+-v}
 
-[ -n "$1" ] && cd ./acir_tests/$1
+$BIN client_ivc_prove_output_all $VFLAG -c $CRS_PATH -b ./target/program.json
+$BIN prove_tube -k vk -p proof -c $CRS_PATH $VFLAG
+$BIN verify_tube -k vk -p proof -c $CRS_PATH $VFLAG
 
-outdir=$(mktemp -d)
-trap "rm -rf $outdir" EXIT
-
-flags="-c $CRS_PATH ${VERBOSE:+-v} -o $outdir"
-
-$BIN prove --scheme client_ivc --input_type compiletime_stack $flags -b ./target/program.json
-$BIN prove_tube $flags
-$BIN verify_tube $flags

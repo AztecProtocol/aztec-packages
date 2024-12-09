@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 DIR="$(dirname $0)"
+
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
@@ -9,16 +10,16 @@ export PROOF="$(pwd)/proof"
 export PROOF_AS_FIELDS="$(pwd)/proof_fields.json"
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove -o proof $FLAGS
-$BIN write_vk  -o vk $FLAGS
-$BIN proof_as_fields -k vk $FLAGS -p $PROOF
-$BIN contract -k vk $FLAGS $BFLAG -o Key.sol
+$BIN prove_ultra_keccak_honk -o proof $FLAGS $BFLAG
+$BIN write_vk_ultra_keccak_honk -o vk $FLAGS $BFLAG
+$BIN verify_ultra_keccak_honk -k vk -p proof $FLAGS $BFLAG
+$BIN proof_as_fields_honk -k vk $FLAGS -p $PROOF
+$BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
-export KEY_PATH="$(pwd)/Key.sol"
-export VERIFIER_PATH="$DIR/../sol-test/Verifier.sol"
-export TEST_PATH="$DIR/../sol-test/Test.sol"
-export BASE_PATH="$DIR/../../sol/src/ultra/BaseUltraVerifier.sol"
+export VERIFIER_PATH="$(pwd)/Verifier.sol"
+export TEST_PATH="$DIR/../sol-test/HonkTest.sol"
+export TESTING_HONK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port

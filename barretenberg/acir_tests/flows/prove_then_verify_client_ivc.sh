@@ -1,16 +1,9 @@
-#!/bin/bash
-# Create intermediate state in a directory. Uses a temp dir to ensure parallel safe and cleansup on exit.
+#!/bin/sh
 set -eu
 
-CRS_PATH=${CRS_PATH:-$PWD/crs}
-BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
+VFLAG=${VERBOSE:+-v}
+BFLAG="-b ./target/program.json"
+FLAGS="-c $CRS_PATH $VFLAG"
 
-[ -n "${1:-}" ] && cd ./acir_tests/$1
-
-outdir=$(mktemp -d)
-trap "rm -rf $outdir" EXIT
-
-flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v} -o $outdir"
-
-$BIN prove $flags -b ./target/program.json --input_type ${INPUT_TYPE:-compiletime_stack}
-$BIN verify $flags
+$BIN client_ivc_prove_output_all $FLAGS $BFLAG
+$BIN verify_client_ivc $FLAGS

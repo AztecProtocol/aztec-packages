@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "rm -rf dest && webpack",
-    "serve:dest:st": "serve -n -L -p ${PORT:-8080} dest",
-    "serve:dest:mt": "serve -n -L -p ${PORT:-8080} -c ../serve.mt.json dest"
+    "serve:dest:st": "serve -n -L -p 8080 dest",
+    "serve:dest:mt": "serve -n -L -p 8080 -c ../serve.mt.json dest"
   },
   "devDependencies": {
     "@aztec/bb.js": "../../ts",
