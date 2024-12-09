@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
-# - You can enable BUILD_SYSTEM_DEBUG=1 but the output is so verbose that it's not much use.
+# - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - You can call ./bootstrap.sh build <package name> to compile and process a single contract.
-# - The exported functions called by parallel must enable their own flags at the start e.g. set -eu
+# - You can disable further parallelism by putting -j1 on the parallel calls.
+# - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - If you want to echo something, send it to stderr e.g. echo "My debug" >&2
 # - If you call another script, be sure it also doesn't output something you don't want.
 # - Note calls to cache scripts swallow everything with &> /dev/null.
+# - Just ask me (charlie) for guidance if you're suffering.
+# - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
+# - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
@@ -45,8 +49,14 @@ function process_function() {
   local bytecode_b64=$(echo "$func" | jq -r '.bytecode')
   # echo "Processing function $name..." >&2
 
-  # Check if the function is private.
-  if echo "$func" | jq -e '.custom_attributes | index("private") != null' > /dev/null; then
+  # Check if the function is neither public nor unconstrained.
+  local make_vk=$(echo "$func" | jq -e '(.custom_attributes | index("public") == null) and (.is_unconstrained == false)')
+  if [ $? -ne 0 ] && [ "$make_vk" != "false" ]; then
+    echo "Failed to check function $name is neither public nor unconstrained." >&2
+    exit 1
+  fi
+
+  if [ "$make_vk" == "true" ]; then
     # It's a private function.
     # Build hash, check if in cache.
     # If it's in the cache it's extracted to $tmp_dir/$hash
