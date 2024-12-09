@@ -1606,6 +1606,7 @@ function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCir
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     public_setup_call_requests: mapTuple(inputs.publicSetupCallRequests, mapPublicCallRequestToNoir),
     public_app_logic_call_requests: mapTuple(inputs.publicAppLogicCallRequests, mapPublicCallRequestToNoir),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),

@@ -12,7 +12,7 @@ use crate::{
         public_call_request::PublicCallRequest,
         tree_snapshots::TreeSnapshots,
     },
-    address::{AztecAddress},
+    address::AztecAddress,
     constants::{
         AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
         MAX_ENQUEUED_CALLS_PER_TX,
