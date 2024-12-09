@@ -60,7 +60,7 @@ function build {
 }
 
 function hash {
-  cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
+  cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
 }
 function test {
   local hash=$(hash)
