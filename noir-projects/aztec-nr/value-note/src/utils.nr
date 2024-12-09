@@ -1,6 +1,5 @@
 use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-use dep::aztec::keys::getters::get_public_keys;
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
 

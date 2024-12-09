@@ -8,6 +8,7 @@ import { type ZodFor } from '../schemas/types.js';
 import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
+
 /** A basic value. */
 export interface BasicValue<T extends string, V> {
   /** The kind of the value. */
@@ -390,7 +391,14 @@ export function getFunctionArtifact(
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
-  const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+  // TODO(#10546) investigate why debugMetadata was so big, for some tests https://github.com/AztecProtocol/aztec-packages/issues/10546, and whether it even needs to be retrieved at all, here.
+  let debugMetadata = undefined;
+  try {
+    debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+  } catch (err: any) {
+    // It's likely that the debug_symbols string is too large.
+    // We'll accept debugMetadata = undefined in this case.
+  }
   return { ...functionArtifact, debug: debugMetadata };
 }
 
