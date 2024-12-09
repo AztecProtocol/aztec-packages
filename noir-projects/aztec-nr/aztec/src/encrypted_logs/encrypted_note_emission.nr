@@ -23,13 +23,13 @@ where
     let note_hash_counter = note_header.note_hash_counter;
     let storage_slot = note_header.storage_slot;
 
-    debug_log_format(
-        "\n\nMIKE Looking for note: (note_hash_counter: {0}, storage_slot: {1})",
-        [note_hash_counter as Field, storage_slot],
-    );
+    // debug_log_format(
+    //     "\n\nMIKE Looking for note: (note_hash_counter: {0}, storage_slot: {1})",
+    //     [note_hash_counter as Field, storage_slot],
+    // );
 
-    debug_log_format("\n\nMIKE context note hash values: {0}", context.note_hashes.storage().map(|nh: NoteHash| nh.value));
-    debug_log_format("\n\nMIKE context note hash counters: {0}", context.note_hashes.storage().map(|nh: NoteHash| nh.counter as Field));
+    // debug_log_format("\n\nMIKE context note hash values: {0}", context.note_hashes.storage().map(|nh: NoteHash| nh.value));
+    // debug_log_format("\n\nMIKE context note hash counters: {0}", context.note_hashes.storage().map(|nh: NoteHash| nh.counter as Field));
 
 
     // TODO(#8589): use typesystem to skip this check when not needed
