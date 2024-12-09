@@ -6,13 +6,8 @@ __metadata:
   cacheKey: 10c0
 
 "@aztec/bb.js@file:../../ts::locator=browser-test-app%40workspace%3A.":
-<<<<<<< HEAD
-  version: 0.65.0
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=913458&locator=browser-test-app%40workspace%3A."
-=======
   version: 0.66.0
   resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=957cf8&locator=browser-test-app%40workspace%3A."
->>>>>>> origin/cl/ci3
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^10.0.1"
@@ -22,11 +17,7 @@ __metadata:
     tslib: "npm:^2.4.0"
   bin:
     bb.js: ./dest/node/main.js
-<<<<<<< HEAD
-  checksum: 10c0/9f6953606d3f0bf153d1b619c3e270c0f89b85f890a27dc3b6daf5de57ef193838cb909684bb59fdb38d0732e7981399682e405e6fb52c459c5fd272ac268994
-=======
   checksum: 10c0/1f984cef3a7f0f66213db286beb3a7b2f8285c37d7c5da767075e5858c98acb5129c2ad5f922daf10abcf3c9811f21c2e16ea599c23fbb4d2193b4585fb14e03
->>>>>>> origin/cl/ci3
   languageName: node
   linkType: hard
 
