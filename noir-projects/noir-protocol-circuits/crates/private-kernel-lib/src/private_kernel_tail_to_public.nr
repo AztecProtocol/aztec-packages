@@ -70,6 +70,7 @@ mod tests {
         L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     };
+    use types::hash::compute_unique_siloed_note_hash;
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
     struct PrivateKernelTailToPublicInputsBuilder {
@@ -192,9 +193,19 @@ mod tests {
         let exposed_note_hashes =
             builder.previous_kernel.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
 
+        let mut non_revertible_note_hashes = [0; 2];
+
+        for i in 0..non_revertible_note_hashes.len() {
+            non_revertible_note_hashes[i] = compute_unique_siloed_note_hash(
+                exposed_note_hashes[i],
+                builder.previous_kernel.nullifiers.storage[0].value(),
+                i,
+            );
+        }
+
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
-            [exposed_note_hashes[0], exposed_note_hashes[1]],
+            non_revertible_note_hashes,
         );
 
         assert_array_eq(

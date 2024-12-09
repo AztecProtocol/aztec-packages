@@ -6,6 +6,7 @@ use dep::types::{
         L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
+    hash::compute_unique_siloed_note_hash,
     tests::utils::{assert_array_eq, swap_items},
 };
 
@@ -57,9 +58,17 @@ fn tail_to_public_output_composer_succeeds() {
 
     // note_hashes
     let note_hashes = data.note_hashes;
+
+    let mut non_revertible_note_hashes = [0; 4];
+
+    for i in 0..non_revertible_note_hashes.len() {
+        non_revertible_note_hashes[i] =
+            compute_unique_siloed_note_hash(data.note_hashes[i], data.nullifiers[0], i);
+    }
+
     assert_array_eq(
         output.non_revertible_accumulated_data.note_hashes,
-        [note_hashes[0], note_hashes[1], note_hashes[2], note_hashes[3]],
+        non_revertible_note_hashes,
     );
     assert_array_eq(
         output.revertible_accumulated_data.note_hashes,

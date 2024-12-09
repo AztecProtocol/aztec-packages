@@ -123,8 +123,8 @@ fn validate_propagated_values_fee_payer_mismatch_fails() {
 fn validate_propagated_values_note_hashes_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_note_hashes(3);
-    builder.output.append_note_hashes(3);
+    builder.previous_kernel.append_siloed_note_hashes(3);
+    builder.output.append_siloed_unique_note_hashes(3);
 
     builder.validate();
 }
@@ -133,8 +133,8 @@ fn validate_propagated_values_note_hashes_succeeds() {
 fn validate_propagated_values_note_hashes_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_note_hashes(3);
-    builder.output.append_note_hashes(3);
+    builder.previous_kernel.append_siloed_note_hashes(3);
+    builder.output.append_siloed_unique_note_hashes(3);
 
     // Tweak the value at index 1.
     builder.output.note_hashes.storage[1].note_hash.value += 1;
@@ -146,9 +146,9 @@ fn validate_propagated_values_note_hashes_mismatch_fails() {
 fn validate_propagated_values_note_hashes_extra_item_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_note_hashes(3);
+    builder.previous_kernel.append_siloed_note_hashes(3);
     // Append 1 more item.
-    builder.output.append_note_hashes(4);
+    builder.output.append_siloed_unique_note_hashes(4);
 
     builder.validate();
 }

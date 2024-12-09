@@ -50,7 +50,7 @@ use crate::{
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
     header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
@@ -537,6 +537,18 @@ impl FixtureBuilder {
         ));
     }
 
+    pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let current_index = self.note_hashes.len();
+        let first_nullifier = self.nullifiers.get(0).value();
+        let unique_siloed_value =
+            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+
+        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
+            .scope(AztecAddress::zero()));
+    }
+
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
         let index_offset = self.note_hashes.len();
         for i in 0..self.note_hashes.max_len() {
@@ -553,6 +565,16 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_siloed_note_hash(value);
+            }
+        }
+    }
+
+    pub fn append_siloed_unique_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_unique_note_hash(value);
             }
         }
     }
