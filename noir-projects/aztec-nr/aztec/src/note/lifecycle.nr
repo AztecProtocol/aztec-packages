@@ -1,5 +1,3 @@
-use dep::protocol_types::debug_log::{debug_log, debug_log_format};
-
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_emission::NoteEmission,

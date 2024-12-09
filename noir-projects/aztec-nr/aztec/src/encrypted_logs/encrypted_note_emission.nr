@@ -1,5 +1,3 @@
-use dep::protocol_types::debug_log::{debug_log, debug_log_format};
-
 use crate::{
     context::PrivateContext,
     encrypted_logs::payload::compute_private_log_payload,
