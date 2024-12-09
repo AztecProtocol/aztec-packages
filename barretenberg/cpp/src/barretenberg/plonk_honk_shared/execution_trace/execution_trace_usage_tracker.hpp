@@ -22,6 +22,7 @@ struct ExecutionTraceUsageTracker {
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     // Store active ranges based on the most current accumulator and those based on all but the most recently
     // accumulated circuit. The former is needed for the combiner calculation and the latter for the perturbator.
+    // The ranges cover all areas in the trace where relations have nontrivial values.
     std::vector<Range> active_ranges;
     std::vector<Range> previous_active_ranges;
 
