@@ -8,7 +8,6 @@ import { type ZodFor } from '../schemas/types.js';
 import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
-
 /** A basic value. */
 export interface BasicValue<T extends string, V> {
   /** The kind of the value. */

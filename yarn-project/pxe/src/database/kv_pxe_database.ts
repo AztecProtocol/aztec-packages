@@ -191,10 +191,7 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.addNotes([note], scope);
   }
 
-  async addNotes(
-    incomingNotes: IncomingNoteDao[],
-    scope: AztecAddress = AztecAddress.ZERO,
-  ): Promise<void> {
+  async addNotes(incomingNotes: IncomingNoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     if (!(await this.#scopes.hasAsync(scope.toString()))) {
       await this.#addScope(scope);
     }
