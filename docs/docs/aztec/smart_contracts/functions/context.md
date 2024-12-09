@@ -66,13 +66,11 @@ The call context contains information about the current call being made:
      - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
      - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
 
-### Header
+### Block Header
 
-Another structure that is contained within the context is the Header object.
-In the private context this is a header of a block which used to generate proofs against.
-In the public context this header is set by sequencer (sequencer executes public calls) and it is set to 1 block before the block in which the transaction is included.
+Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code header /noir-projects/noir-protocol-circuits/crates/types/src/header.nr rust
+#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
 
 ### Transaction Context
 

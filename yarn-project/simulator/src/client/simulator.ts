@@ -57,7 +57,7 @@ export class AcirSimulator {
       );
     }
 
-    const header = await this.db.getHeader();
+    const header = await this.db.getBlockHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;

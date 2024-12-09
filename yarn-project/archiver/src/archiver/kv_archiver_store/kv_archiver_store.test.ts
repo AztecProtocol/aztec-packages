@@ -1,4 +1,4 @@
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { describeArchiverDataStore } from '../archiver_store_test_suite.js';
 import { KVArchiverDataStore } from './kv_archiver_store.js';

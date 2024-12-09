@@ -53,7 +53,6 @@ export class PublicTxSimulator {
     private worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
-    private realAvmProvingRequests: boolean = true,
     private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
