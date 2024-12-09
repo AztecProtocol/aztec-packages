@@ -386,6 +386,11 @@ export class AvmPersistableStateManager {
         // Cache pending nullifiers for later access
         await this.nullifiers.append(siloedNullifier);
         // We append the new nullifier
+        this.log.debug(
+          `Nullifier tree root before insertion ${this.merkleTrees.treeMap
+            .get(MerkleTreeId.NULLIFIER_TREE)!
+            .getRoot()}`,
+        );
         const appendResult = await this.merkleTrees.appendNullifier(siloedNullifier);
         this.log.debug(
           `Nullifier tree root after insertion ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,

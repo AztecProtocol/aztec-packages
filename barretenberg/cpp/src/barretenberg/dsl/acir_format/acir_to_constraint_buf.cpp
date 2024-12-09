@@ -656,6 +656,11 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                     break;
+                case OINK:
+                case PG:
+                    af.ivc_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.ivc_recursion_constraints.push_back(opcode_index);
+                    break;
                 case AVM:
                     af.avm_recursion_constraints.push_back(c);
                     af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);

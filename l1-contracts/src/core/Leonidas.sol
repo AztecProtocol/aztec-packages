@@ -5,11 +5,13 @@ pragma solidity >=0.8.27;
 import {ILeonidas, EpochData, LeonidasStorage} from "@aztec/core/interfaces/ILeonidas.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {LeonidasLib} from "@aztec/core/libraries/LeonidasLib/LeonidasLib.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
 } from "@aztec/core/libraries/TimeMath.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {Staking} from "@aztec/core/staking/Staking.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 /**
@@ -19,16 +21,13 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
  *          He define the structure needed for committee and leader selection and provides logic for validating that
  *          the block and its "evidence" follows his rules.
  *
- * @dev     Leonidas is depending on Ares to add/remove warriors to/from his army competently.
- *
  * @dev     Leonidas have one thing in mind, he provide a reference of the LOGIC going on for the spartan selection.
  *          He is not concerned about gas costs, he is a king, he just throw gas in the air like no-one cares.
  *          It will be the duty of his successor (Pleistarchus) to optimize the costs with same functionality.
  *
  */
-contract Leonidas is Ownable, TimeFns, ILeonidas {
+contract Leonidas is Staking, TimeFns, ILeonidas {
   using EnumerableSet for EnumerableSet.AddressSet;
-  using LeonidasLib for LeonidasStorage;
 
   using SlotLib for Slot;
   using EpochLib for Epoch;
@@ -40,48 +39,20 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   // The time that the contract was deployed
   Timestamp public immutable GENESIS_TIME;
 
-  LeonidasStorage private store;
+  LeonidasStorage private leonidasStore;
 
   constructor(
     address _ares,
+    IERC20 _stakingAsset,
+    uint256 _minimumStake,
     uint256 _slotDuration,
     uint256 _epochDuration,
     uint256 _targetCommitteeSize
-  ) Ownable(_ares) TimeFns(_slotDuration, _epochDuration) {
+  ) Staking(_ares, _stakingAsset, _minimumStake) TimeFns(_slotDuration, _epochDuration) {
     GENESIS_TIME = Timestamp.wrap(block.timestamp);
     SLOT_DURATION = _slotDuration;
     EPOCH_DURATION = _epochDuration;
     TARGET_COMMITTEE_SIZE = _targetCommitteeSize;
-  }
-
-  /**
-   * @notice  Adds a validator to the validator set
-   *
-   * @dev     Only ARES can add validators
-   *
-   * @dev     Will setup the epoch if needed BEFORE adding the validator.
-   *          This means that the validator will effectively be added to the NEXT epoch.
-   *
-   * @param _validator - The validator to add
-   */
-  function addValidator(address _validator) external override(ILeonidas) onlyOwner {
-    setupEpoch();
-    _addValidator(_validator);
-  }
-
-  /**
-   * @notice  Removes a validator from the validator set
-   *
-   * @dev     Only ARES can add validators
-   *
-   * @dev     Will setup the epoch if needed BEFORE removing the validator.
-   *          This means that the validator will effectively be removed from the NEXT epoch.
-   *
-   * @param _validator - The validator to remove
-   */
-  function removeValidator(address _validator) external override(ILeonidas) onlyOwner {
-    setupEpoch();
-    store.validatorSet.remove(_validator);
   }
 
   /**
@@ -99,7 +70,7 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     override(ILeonidas)
     returns (address[] memory)
   {
-    return store.epochs[_epoch].committee;
+    return leonidasStore.epochs[_epoch].committee;
   }
 
   /**
@@ -107,18 +78,70 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
-    return store.getCommitteeAt(getCurrentEpoch(), TARGET_COMMITTEE_SIZE);
+    return LeonidasLib.getCommitteeAt(
+      leonidasStore, stakingStore, getCurrentEpoch(), TARGET_COMMITTEE_SIZE
+    );
   }
 
   /**
-   * @notice  Get the validator set
+   * @notice  Get the committee for a given timestamp
    *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
+   * @param _ts - The timestamp to get the committee for
    *
-   * @return The validator set
+   * @return The committee for the given timestamp
    */
-  function getValidators() external view override(ILeonidas) returns (address[] memory) {
-    return store.validatorSet.values();
+  function getCommitteeAt(Timestamp _ts)
+    external
+    view
+    override(ILeonidas)
+    returns (address[] memory)
+  {
+    return LeonidasLib.getCommitteeAt(
+      leonidasStore, stakingStore, getEpochAt(_ts), TARGET_COMMITTEE_SIZE
+    );
+  }
+
+  /**
+   * @notice  Get the sample seed for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sample seed for
+   *
+   * @return The sample seed for the given timestamp
+   */
+  function getSampleSeedAt(Timestamp _ts) external view override(ILeonidas) returns (uint256) {
+    return LeonidasLib.getSampleSeed(leonidasStore, getEpochAt(_ts));
+  }
+
+  /**
+   * @notice  Get the sample seed for the current epoch
+   *
+   * @return The sample seed for the current epoch
+   */
+  function getCurrentSampleSeed() external view override(ILeonidas) returns (uint256) {
+    return LeonidasLib.getSampleSeed(leonidasStore, getCurrentEpoch());
+  }
+
+  function initiateWithdraw(address _attester, address _recipient)
+    public
+    override(Staking)
+    returns (bool)
+  {
+    // @note The attester might be chosen for the epoch, so the delay must be long enough
+    //       to allow for that.
+    setupEpoch();
+    return super.initiateWithdraw(_attester, _recipient);
+  }
+
+  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+    public
+    override(Staking)
+  {
+    setupEpoch();
+    require(
+      _attester != address(0) && _proposer != address(0),
+      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
+    );
+    super.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
   /**
@@ -127,49 +150,31 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
    *          - Set the seed for the epoch
    *          - Update the last seed
    *
-   * @dev     Since this is a reference optimising for simplicity, we store the actual validator set in the epoch structure.
+   * @dev     Since this is a reference optimising for simplicity, we leonidasStore the actual validator set in the epoch structure.
    *          This is very heavy on gas, so start crying because the gas here will melt the poles
    *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
    */
   function setupEpoch() public override(ILeonidas) {
     Epoch epochNumber = getCurrentEpoch();
-    EpochData storage epoch = store.epochs[epochNumber];
+    EpochData storage epoch = leonidasStore.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
-      epoch.sampleSeed = store.getSampleSeed(epochNumber);
-      epoch.nextSeed = store.lastSeed = _computeNextSeed(epochNumber);
-
-      epoch.committee = store.sampleValidators(epoch.sampleSeed, TARGET_COMMITTEE_SIZE);
+      epoch.sampleSeed = LeonidasLib.getSampleSeed(leonidasStore, epochNumber);
+      epoch.nextSeed = leonidasStore.lastSeed = _computeNextSeed(epochNumber);
+      epoch.committee =
+        LeonidasLib.sampleValidators(stakingStore, epoch.sampleSeed, TARGET_COMMITTEE_SIZE);
     }
   }
 
   /**
-   * @notice  Get the number of validators in the validator set
+   * @notice  Get the attester set
    *
-   * @return The number of validators in the validator set
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @return The validator set
    */
-  function getValidatorCount() public view override(ILeonidas) returns (uint256) {
-    return store.validatorSet.length();
-  }
-
-  /**
-   * @notice  Get the number of validators in the validator set
-   *
-   * @return The number of validators in the validator set
-   */
-  function getValidatorAt(uint256 _index) public view override(ILeonidas) returns (address) {
-    return store.validatorSet.at(_index);
-  }
-
-  /**
-   * @notice  Checks if an address is in the validator set
-   *
-   * @param _validator - The address to check
-   *
-   * @return True if the address is in the validator set, false otherwise
-   */
-  function isValidator(address _validator) public view override(ILeonidas) returns (bool) {
-    return store.validatorSet.contains(_validator);
+  function getAttesters() public view override(ILeonidas) returns (address[] memory) {
+    return stakingStore.attesters.values();
   }
 
   /**
@@ -241,7 +246,9 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
   function getProposerAt(Timestamp _ts) public view override(ILeonidas) returns (address) {
     Slot slot = getSlotAt(_ts);
     Epoch epochNumber = getEpochAtSlot(slot);
-    return store.getProposerAt(slot, epochNumber, TARGET_COMMITTEE_SIZE);
+    return LeonidasLib.getProposerAt(
+      leonidasStore, stakingStore, slot, epochNumber, TARGET_COMMITTEE_SIZE
+    );
   }
 
   /**
@@ -277,12 +284,19 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
   }
 
-  /**
-   * @notice  Adds a validator to the set WITHOUT setting up the epoch
-   * @param _validator - The validator to add
-   */
-  function _addValidator(address _validator) internal {
-    store.validatorSet.add(_validator);
+  // Can be used to add validators without setting up the epoch, useful for the initial set.
+  function _cheat__Deposit(
+    address _attester,
+    address _proposer,
+    address _withdrawer,
+    uint256 _amount
+  ) internal {
+    require(
+      _attester != address(0) && _proposer != address(0),
+      Errors.Leonidas__InvalidDeposit(_attester, _proposer)
+    );
+
+    super.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
   /**
@@ -308,7 +322,16 @@ contract Leonidas is Ownable, TimeFns, ILeonidas {
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     Epoch epochNumber = getEpochAtSlot(_slot);
-    store.validateLeonidas(_slot, epochNumber, _signatures, _digest, _flags, TARGET_COMMITTEE_SIZE);
+    LeonidasLib.validateLeonidas(
+      leonidasStore,
+      stakingStore,
+      _slot,
+      epochNumber,
+      _signatures,
+      _digest,
+      _flags,
+      TARGET_COMMITTEE_SIZE
+    );
   }
 
   /**

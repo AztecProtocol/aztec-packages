@@ -362,7 +362,9 @@ export class Sequencer {
         throw new Error(msg);
       }
 
-      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
+      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`, {
+        publisherAddress: this.publisher.publisherAddress,
+      });
       return slot;
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);
@@ -691,6 +693,10 @@ export class Sequencer {
 
     this.log.info('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    if (!proposal) {
+      this.log.verbose(`Failed to create block proposal, skipping`);
+      return undefined;
+    }
 
     const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
 

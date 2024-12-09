@@ -20,6 +20,43 @@ spec:
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
+      initContainers:
+        - name: prepare-genesis
+          image: node:18-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cd /tmp
+              npm init -y
+              npm install ethers@6
+              cat > derive.js << 'EOF'
+              const { ethers } = require('ethers');
+              const fs = require('fs');
+
+              async function main() {
+                const mnemonic = process.env.DEPLOYMENT_MNEMONIC;
+                const wallet = ethers.Wallet.fromPhrase(mnemonic);
+
+                const genesis = JSON.parse(fs.readFileSync('/genesis-template/genesis.json', 'utf8'));
+
+                genesis.alloc[wallet.address] = {
+                  balance: '0x3635c9adc5dea00000' // 1000 ETH in wei
+                };
+
+                fs.writeFileSync('/genesis-output/genesis.json', JSON.stringify(genesis, null, 2));
+              }
+
+              main().catch(console.error);
+              EOF
+              node derive.js
+          env:
+            - name: DEPLOYMENT_MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+          volumeMounts:
+            - name: genesis-template
+              mountPath: /genesis-template
+            - name: genesis-output
+              mountPath: /genesis-output
       containers:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
@@ -41,7 +78,7 @@ spec:
           volumeMounts:
             - name: shared-volume
               mountPath: /data
-            - name: genesis
+            - name: genesis-output
               mountPath: /genesis
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
@@ -49,9 +86,11 @@ spec:
         - name: shared-volume
           persistentVolumeClaim:
             claimName: {{ include "aztec-network.fullname" . }}-ethereum-pvc
-        - name: genesis
+        - name: genesis-template
           configMap:
             name: {{ include "aztec-network.fullname" . }}-reth-genesis
+        - name: genesis-output
+          emptyDir: {}
 {{if not .Values.network.public }}
 ---
 apiVersion: v1

@@ -18,24 +18,19 @@ import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } fr
  * The archiver configuration.
  */
 export type ArchiverConfig = {
-  /**
-   * URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.
-   */
+  /** URL for an archiver service. If set, will return an archiver client as opposed to starting a new one. */
   archiverUrl?: string;
 
-  /**
-   * The polling interval in ms for retrieving new L2 blocks and encrypted logs.
-   */
+  /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
   archiverPollingIntervalMS?: number;
 
-  /**
-   * The polling interval viem uses in ms
-   */
+  /** The number of L2 blocks the archiver will attempt to download at a time. */
+  archiverBatchSize?: number;
+
+  /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
 
-  /**
-   * The deployed L1 contract addresses
-   */
+  /** The deployed L1 contract addresses */
   l1Contracts: L1ContractAddresses;
 
   /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -53,6 +48,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
     ...numberConfigHelper(1_000),
+  },
+  archiverBatchSize: {
+    env: 'ARCHIVER_BATCH_SIZE',
+    description: 'The number of L2 blocks the archiver will attempt to download at a time.',
+    ...numberConfigHelper(100),
   },
   maxLogs: {
     env: 'ARCHIVER_MAX_LOGS',

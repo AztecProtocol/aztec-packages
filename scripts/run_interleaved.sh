@@ -51,9 +51,11 @@ trap cleanup SIGINT SIGTERM EXIT
 # Function to run a command and prefix the output with color
 function run_command() {
   local cmd="$1"
+  # Take first 3 parts of command to display inline
+  local cmd_prefix=$(echo "$cmd" | awk '{print $1" "$2" "$3}')
   local color="$2"
   $cmd 2>&1 | while IFS= read -r line; do
-    echo -e "${color}[$cmd]\e[0m $line"
+    echo -e "${color}[$cmd_prefix]\e[0m $line"
   done
 }
 

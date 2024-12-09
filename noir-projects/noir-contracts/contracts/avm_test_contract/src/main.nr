@@ -473,6 +473,41 @@ contract AvmTest {
         context.push_nullifier(nullifier);
     }
 
+    #[public]
+    fn n_storage_writes(num: u32) {
+        for i in 0..num {
+            storage.map.at(AztecAddress::from_field(i as Field)).write(i);
+        }
+    }
+
+    #[public]
+    fn n_new_note_hashes(num: u32) {
+        for i in 0..num {
+            context.push_note_hash(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_nullifiers(num: u32) {
+        for i in 0..num {
+            context.push_nullifier(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_l2_to_l1_msgs(num: u32) {
+        for i in 0..num {
+            context.message_portal(EthAddress::from_field(i as Field), i as Field)
+        }
+    }
+
+    #[public]
+    fn n_new_unencrypted_logs(num: u32) {
+        for i in 0..num {
+            context.emit_unencrypted_log(/*message=*/ [i as Field]);
+        }
+    }
+
     // Use the standard context interface to check for a nullifier
     #[public]
     fn nullifier_exists(nullifier: Field) -> bool {

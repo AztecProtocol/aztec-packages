@@ -3,9 +3,13 @@ variable "project" {
 }
 
 variable "region" {
-  default = "us-east4"
+  default = "us-west1"
 }
 
 variable "zone" {
-  default = "us-east4-a"
+  default = "us-west1-a"
+}
+
+variable "cluster_name" {
+  default = "aztec-gke"
 }

@@ -6,12 +6,6 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
 ## Installation
 
-### Dependencies
-
-TODO
-
-### Installation script
-
 BBup is an installer for whatever version of BB you may want. Install BBup with:
 
 ```bash
@@ -19,7 +13,7 @@ curl -L bbup.dev | bash
 ```
 
 > [!IMPORTANT]
-> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which checks if you have `npm`, installing it with `nvm` otherwise. It then installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup.ts) globally.
+> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup) in your system's PATH
 
 ## Usage
 

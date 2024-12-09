@@ -74,7 +74,7 @@ class AvmExecutionTests : public ::testing::Test {
      * @param bytecode
      * @return The trace as a vector of Row.
      */
-    std::vector<Row> gen_trace_from_bytecode(const std::vector<uint8_t>& bytecode)
+    std::vector<Row> gen_trace_from_bytecode(const std::vector<uint8_t>& bytecode) const
     {
         std::vector<FF> calldata{};
         std::vector<FF> returndata{};
@@ -89,9 +89,9 @@ class AvmExecutionTests : public ::testing::Test {
 
     static std::vector<Row> gen_trace(const std::vector<uint8_t>& bytecode,
                                       const std::vector<FF>& calldata,
-                                      AvmPublicInputs& public_inputs,
+                                      AvmPublicInputs public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints& execution_hints)
+                                      ExecutionHints execution_hints)
     {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         execution_hints.with_avm_contract_bytecode(
@@ -99,7 +99,11 @@ class AvmExecutionTests : public ::testing::Test {
 
         // These are magic values because of how some tests work! Don't change them
         public_inputs.public_app_logic_call_requests[0].contract_address = contract_instance.address;
-        return Execution::gen_trace(calldata, public_inputs, returndata, execution_hints);
+        execution_hints.enqueued_call_hints.push_back({
+            .contract_address = contract_instance.address,
+            .calldata = calldata,
+        });
+        return Execution::gen_trace(public_inputs, returndata, execution_hints);
     }
 
     static std::tuple<ContractClassIdHint, ContractInstanceHint> gen_test_contract_hint(

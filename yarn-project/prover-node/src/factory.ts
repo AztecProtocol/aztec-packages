@@ -47,7 +47,7 @@ export async function createProverNode(
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config));
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
