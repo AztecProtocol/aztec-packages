@@ -1,5 +1,5 @@
 // docs:start:token_utils
-import { type AztecAddress, type DebugLogger, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: DebugLogger) {
@@ -37,6 +37,17 @@ export async function expectTokenBalance(
   expectedBalance: bigint,
   logger: DebugLogger,
 ) {
+  // Check if the wallet
+  const blockNumber = await wallet.getBlockNumber();
+  await retryUntil(
+    async () => {
+      const status = await wallet.getSyncStatus();
+      return blockNumber <= status.blocks;
+    },
+    'pxe synch',
+    3600,
+    1,
+  );
   // Then check the balance
   const contractWithWallet = await TokenContract.at(token.address, wallet);
   const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
