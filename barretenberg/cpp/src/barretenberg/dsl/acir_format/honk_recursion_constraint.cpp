@@ -42,6 +42,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
     size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<typename Flavor::FF>();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
     assert((proof_size - bb::HONK_PROOF_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
             Flavor::NUM_ALL_ENTITIES * num_frs_fr - num_frs_comm) %
                (num_frs_comm + num_frs_fr * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
@@ -248,9 +249,10 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     std::vector<field_ct> honk_proof = proof_fields;
     HonkRecursionConstraintOutput output;
     if (is_rollup_honk_recursion_constraint) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
         const size_t HONK_PROOF_LENGTH = 473;
-        ASSERT(input.proof.size() ==
-               HONK_PROOF_LENGTH + 65); // WORKTODO: figure out how to not involve random constants
+        // The extra calculation is for the IPA proof length.
+        ASSERT(input.proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
         ASSERT(proof_fields.size() == HONK_PROOF_LENGTH + 65 + input.public_inputs.size());
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =

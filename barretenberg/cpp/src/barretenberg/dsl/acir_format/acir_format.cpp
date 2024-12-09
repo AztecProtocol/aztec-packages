@@ -385,8 +385,9 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
     } else if (nested_ipa_claims.size() == 1) {
         builder.add_ipa_claim(nested_ipa_claims[0].get_witness_indices());
-        builder.ipa_proof = convert_stdlib_proof_to_native(
-            nested_ipa_proofs[0]); // WORKTODO: is this bad? or is it fine to just pass the proofs along
+        // This conversion looks suspicious but there's no need to make this an output of the circuit since its a proof
+        // that will be checked anyway.
+        builder.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
     }
     return current_aggregation_object;
 }
