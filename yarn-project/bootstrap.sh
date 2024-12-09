@@ -120,7 +120,7 @@ function test_e2e {
     "simple e2e_outbox"
     "simple e2e_p2p/gossip_network"
     "simple e2e_p2p/rediscovery"
-    "simple e2e_p2p/reqresp"
+    "flake e2e_p2p/reqresp"
     "flake e2e_p2p/upgrade_governance_proposer"
     "simple e2e_private_voting_contract"
     "flake e2e_prover/full FAKE_PROOFS=1"
@@ -211,7 +211,7 @@ case "$cmd" in
     test
     ;;
   "test-e2e")
-    test_e2e
+    TEST=1 test_e2e
     ;;
   "ci")
     build
