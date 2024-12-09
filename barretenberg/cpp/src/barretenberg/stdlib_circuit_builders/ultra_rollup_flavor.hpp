@@ -85,39 +85,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const
-        {
-            info("in to_field_elements for ultra rollup flavor");
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
-            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
-            serialize_to_field_buffer(this->contains_ipa_claim, elements);
-            for (uint32_t idx : this->ipa_claim_public_input_indices) {
-                serialize_to_field_buffer(idx, elements);
-            }
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
         // up.
