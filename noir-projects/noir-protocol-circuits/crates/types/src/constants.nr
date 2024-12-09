@@ -179,7 +179,7 @@ pub global FIXED_DA_GAS: u32 = 512;
 // pays for fixed tx costs like validation, and updating state roots
 pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
-pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 50_000;
+pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.

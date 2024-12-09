@@ -117,7 +117,7 @@ library Constants {
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant FIXED_L2_GAS = 512;
-  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 50000;
+  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 20000;
   uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
   uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
   uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
