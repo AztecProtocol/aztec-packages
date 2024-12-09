@@ -48,46 +48,6 @@ describe('EncryptedLogPayload', () => {
     });
   });
 
-  // MIKE Q: why is there note an "incoming" version of this test?
-  // it('outgoing cipher text matches Noir', () => {
-  //   const ephSk = GrumpkinScalar.fromHighLow(
-  //     new Fr(0x000000000000000000000000000000000f096b423017226a18461115fa8d34bbn),
-  //     new Fr(0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fen),
-  //   );
-
-  //   const senderOvskApp = GrumpkinScalar.fromHighLow(
-  //     new Fr(0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048bn),
-  //     new Fr(0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444en),
-  //   );
-
-  //   const ephPk = derivePublicKeyFromSecretKey(ephSk);
-
-  //   const recipient = AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn);
-
-  //   const addressPoint = recipient.toAddressPoint();
-
-  //   const outgoingBodyCiphertext = EncryptedLogPayload.encryptOutgoingBody(
-  //     ephSk,
-  //     ephPk,
-  //     recipient,
-  //     addressPoint,
-  //     senderOvskApp,
-  //   ).toString('hex');
-
-  //   expect(outgoingBodyCiphertext).toMatchInlineSnapshot(
-  //     `"61dd35a8f238d9b8727f89621f3f56b38bc6a2a2d89effcd5ad48d3709f50692ca898124be1f115997cb2bc4cbe9b24fca46fab612bf4f2acdcc910e0d23ff8b8e42c1f0afe9b42599eb2958e834ebd5321a99e319f2a15c2d98646a1dc08365797e1f76bf5aee2b18523112c76b5307"`,
-  //   );
-
-  //   const byteArrayString = `[${outgoingBodyCiphertext.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
-
-  //   // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-  //   updateInlineTestData(
-  //     'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-  //     'outgoing_body_ciphertext_from_typescript',
-  //     byteArrayString,
-  //   );
-  // });
-
   it('encrypted tagged log matches Noir', () => {
     // All the values in this test were arbitrarily set and copied over to `payload.nr`
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
