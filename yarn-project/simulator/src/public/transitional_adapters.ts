@@ -120,6 +120,9 @@ export function generateAvmCircuitPublicInputs(
 
   const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
 
+  // Add nonces to revertible note hashes from private. These don't have nonces since we don't know
+  // the final position in the tx until the AVM has executed.
+  // TODO: Use the final position in the tx
   for (
     let revertibleIndex = 0;
     revertibleIndex < avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes.length;
@@ -149,6 +152,7 @@ export function generateAvmCircuitPublicInputs(
     MAX_NOTE_HASHES_PER_TX,
   );
 
+  // Silo and add nonces for note hashes emitted by the AVM
   const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;
   for (let i = 0; i < scopedNoteHashesFromPublic.length; i++) {
     const scopedNoteHash = scopedNoteHashesFromPublic[i];
