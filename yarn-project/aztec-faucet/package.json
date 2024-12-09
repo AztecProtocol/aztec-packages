@@ -4,6 +4,9 @@
   "main": "dest/bin/index.js",
   "type": "module",
   "bin": "./dest/bin/index.js",
+  "exports": {
+    ".": "./dest/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/bin/index.ts"
@@ -65,10 +68,11 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@koa/cors": "^5.0.0",
     "koa": "^2.14.2",
-    "koa-cors": "^0.0.16",
     "koa-router": "^12.0.0",
-    "viem": "^2.7.15"
+    "viem": "^2.7.15",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
