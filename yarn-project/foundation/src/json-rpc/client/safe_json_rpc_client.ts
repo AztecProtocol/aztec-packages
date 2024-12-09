@@ -44,18 +44,10 @@ export function createSafeJsonRpcClient<T extends object>(
     return (schema as ApiSchema)[methodName].returnType().parse(res.result);
   };
 
-  // Intercept any RPC methods with a proxy
-  const proxy = new Proxy(
-    {},
-    {
-      get: (target, method: string) => {
-        if (['then', 'catch'].includes(method)) {
-          return Reflect.get(target, method);
-        }
-        return (...params: any[]) => request(method, params);
-      },
-    },
-  ) as T;
+  const proxy: any = {};
+  for (const method of Object.keys(schema)) {
+    proxy[method] = (...params: any[]) => request(method, params);
+  }
 
-  return proxy;
+  return proxy as T;
 }
