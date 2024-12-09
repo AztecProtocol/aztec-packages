@@ -94,6 +94,7 @@ validator:
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
+    enforceFees: false
   validator:
     disabled: false
     reexecute: true

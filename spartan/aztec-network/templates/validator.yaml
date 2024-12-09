@@ -163,6 +163,8 @@ spec:
               value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
             - name: SEQ_ENFORCE_TIME_TABLE
               value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
+            - name: ENFORCE_FEES
+              value: "{{ .Values.validator.sequencer.enforceFees }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
