@@ -184,7 +184,7 @@ case "$cmd" in
     ;;
   "hash")
     hash
-    exit 1
+    ;;
   "test")
     denoise test
     ;;
