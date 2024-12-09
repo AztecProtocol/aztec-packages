@@ -7,6 +7,7 @@ import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEsc
 import {
   IRollup,
   ITestRollup,
+  CheatDepositArgs,
   FeeHeader,
   ManaBaseFeeComponents,
   BlockLog,
@@ -40,6 +41,7 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Vm} from "forge-std/Vm.sol";
@@ -49,6 +51,7 @@ struct Config {
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
   uint256 aztecEpochProofClaimWindowInL2Slots;
+  uint256 minimumStake;
 }
 
 /**
@@ -57,7 +60,7 @@ struct Config {
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
-contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -97,14 +100,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
+    IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
-    address[] memory _validators,
     Config memory _config
   )
+    Ownable(_ares)
     Leonidas(
       _ares,
+      _stakingAsset,
+      _config.minimumStake,
       _config.aztecSlotDuration,
       _config.aztecEpochDuration,
       _config.targetCommitteeSize
@@ -145,8 +151,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       post: L1FeeData({baseFee: block.basefee, blobFee: _getBlobBaseFee()}),
       slotOfChange: LIFETIME
     });
-    for (uint256 i = 0; i < _validators.length; i++) {
-      _addValidator(_validators[i]);
+  }
+
+  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args)
+    external
+    override(ITestRollup)
+    onlyOwner
+  {
+    for (uint256 i = 0; i < _args.length; i++) {
+      _cheat__Deposit(_args[i].attester, _args[i].proposer, _args[i].withdrawer, _args[i].amount);
     }
     setupEpoch();
   }

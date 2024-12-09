@@ -1,17 +1,20 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
-import { type LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { LOCALHOST } from '@aztec/cli/cli-utils';
+import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { type PXEService } from '@aztec/pxe';
 
-import { Argument, Command } from 'commander';
+import { Argument, Command, Option } from 'commander';
 import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
 import { Aliases, WalletDB } from '../storage/wallet_db.js';
 import { createAliasOption } from '../utils/options/index.js';
+import { PXEWrapper } from '../utils/pxe_wrapper.js';
 
 const userLog = createConsoleLogger();
-const debugLogger = createDebugLogger('aztec:wallet');
+const debugLogger = createLogger('wallet');
 
 const { WALLET_DATA_DIRECTORY } = process.env;
 
@@ -66,18 +69,39 @@ async function main() {
   const walletVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
   const db = WalletDB.getInstance();
+  const pxeWrapper = new PXEWrapper();
 
   const program = new Command('wallet');
   program
     .description('Aztec wallet')
     .version(walletVersion)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
-    .hook('preSubcommand', command => {
-      const dataDir = command.optsWithGlobals().dataDir;
+    .addOption(
+      new Option('--remote-pxe', 'Connect to an external PXE RPC server, instead of the local one')
+        .env('REMOTE_PXE')
+        .default(false)
+        .conflicts('rpc-url'),
+    )
+    .addOption(
+      new Option('-n, --node-url <string>', 'URL of the Aztec node to connect to')
+        .env('AZTEC_NODE_URL')
+        .default(`http://${LOCALHOST}:8080`),
+    )
+    .hook('preSubcommand', async command => {
+      const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
+      if (!remotePxe) {
+        debugLogger.info('Using local PXE service');
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
+      }
       db.init(AztecLmdbStore.open(dataDir));
+    })
+    .hook('postAction', async () => {
+      if (pxeWrapper.getPXE()) {
+        await (pxeWrapper.getPXE() as PXEService).stop();
+      }
     });
 
-  injectCommands(program, userLog, debugLogger, db);
+  injectCommands(program, userLog, debugLogger, db, pxeWrapper);
   injectInternalCommands(program, userLog, db);
   await program.parseAsync(process.argv);
 }

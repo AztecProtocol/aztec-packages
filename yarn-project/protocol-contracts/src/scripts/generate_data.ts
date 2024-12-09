@@ -18,12 +18,12 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 import { buildProtocolContractTree } from '../build_protocol_contract_tree.js';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');

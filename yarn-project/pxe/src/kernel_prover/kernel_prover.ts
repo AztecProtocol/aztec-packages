@@ -26,7 +26,7 @@ import {
 import { hashVK } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -55,7 +55,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
-  private log = createDebugLogger('aztec:kernel-prover');
+  private log = createLogger('pxe:kernel-prover');
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
 

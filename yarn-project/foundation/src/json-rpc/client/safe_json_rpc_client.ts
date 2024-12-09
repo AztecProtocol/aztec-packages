@@ -1,6 +1,6 @@
 import { format } from 'util';
 
-import { createDebugLogger } from '../../log/logger.js';
+import { createLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
 import { defaultFetch } from './fetch.js';
 
@@ -19,7 +19,7 @@ export function createSafeJsonRpcClient<T extends object>(
   useApiEndpoints: boolean = false,
   namespaceMethods?: string | false,
   fetch = defaultFetch,
-  log = createDebugLogger('json-rpc:client'),
+  log = createLogger('json-rpc:client'),
 ): T {
   let id = 0;
   const request = async (methodName: string, params: any[]): Promise<any> => {

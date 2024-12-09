@@ -46,7 +46,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
@@ -68,7 +68,7 @@ const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero()
 const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
 
 export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createDebugLogger('aztec:public_side_effect_trace');
+  public log = createLogger('public_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number; // kept as number until finalized for efficiency
@@ -138,7 +138,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     );
 
     // New hinting
-    this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
+    this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
 
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
@@ -168,7 +168,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
     // New hinting
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.storageUpdateRequest.items.push(
+    this.avmCircuitHints.publicDataWrites.items.push(
       new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
@@ -193,7 +193,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
     // New Hinting
-    this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashReads.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
@@ -210,7 +210,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
 
     // New Hinting
-    this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
   }
 
@@ -237,7 +237,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     );
 
     // New Hints
-    this.avmCircuitHints.nullifierReadRequest.items.push(
+    this.avmCircuitHints.nullifierReads.items.push(
       new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
     );
     this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
@@ -259,7 +259,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
     // New hinting
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
+    this.avmCircuitHints.nullifierWrites.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
@@ -282,7 +282,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     );
 
     // New Hinting
-    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
+    this.avmCircuitHints.l1ToL2MessageReads.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
     // NOTE: counter does not increment for l1tol2 message checks (because it doesn't rely on pending messages)
   }
 
@@ -315,6 +315,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
 
@@ -347,6 +350,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     const instance = new AvmContractInstanceHint(
       contractAddress,

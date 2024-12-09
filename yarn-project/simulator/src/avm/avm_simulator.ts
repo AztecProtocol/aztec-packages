@@ -5,7 +5,7 @@ import {
   type GlobalVariables,
   MAX_L2_GAS_PER_ENQUEUED_CALL,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
@@ -41,7 +41,7 @@ type PcTally = {
 };
 
 export class AvmSimulator {
-  private log: DebugLogger;
+  private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
   private pcTallies: Map<number, PcTally> = new Map();
@@ -54,8 +54,9 @@ export class AvmSimulator {
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
-    this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
-    if (process.env.LOG_LEVEL === 'debug') {
+    this.log = createLogger(`simulator:avm:core(f:${context.environment.functionSelector.toString()})`);
+    // TODO(palla/log): Should tallies be printed on debug, or only on trace?
+    if (this.log.isLevelEnabled('debug')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
       this.tallyInstructionFunction = this.tallyInstruction;
     }
@@ -144,7 +145,7 @@ export class AvmSimulator {
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
         const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
 
-        this.log.debug(
+        this.log.trace(
           `[PC:${machineState.pc}] [IC:${instrCounter++}] ${instruction.toString()} (gasLeft l2=${
             machineState.l2GasLeft
           } da=${machineState.daGasLeft})`,
@@ -185,7 +186,7 @@ export class AvmSimulator {
     } catch (err: any) {
       this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
       if (!(err instanceof AvmExecutionError || err instanceof SideEffectLimitReachedError)) {
-        this.log.verbose(`Unknown error thrown by AVM: ${err}`);
+        this.log.error(`Unknown error thrown by AVM: ${err}`);
         throw err;
       }
 

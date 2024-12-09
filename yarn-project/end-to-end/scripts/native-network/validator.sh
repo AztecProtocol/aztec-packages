@@ -49,7 +49,8 @@ fi
 
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
-export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
+export DEBUG=${DEBUG:-""}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 
 # Automatically detect if we're using Anvil
@@ -85,11 +86,12 @@ else
     node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
     sleep 1
   done
+
+  # Fast forward epochs if we're on an anvil chain
+  if [ "$IS_ANVIL" = "true" ]; then
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+  fi
 fi
 
-# Fast forward epochs if we're on an anvil chain
-if [ "$IS_ANVIL" = "true" ]; then
-  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
-fi
 # Start the Validator Node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer

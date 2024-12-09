@@ -250,8 +250,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "production"
       },
       {
-        "name": "DEBUG",
-        "value": "aztec:*"
+        "name": "LOG_LEVEL",
+        "value": "verbose"
       },
       {
         "name": "DEPLOY_TAG",

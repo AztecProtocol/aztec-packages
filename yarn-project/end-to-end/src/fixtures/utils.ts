@@ -10,16 +10,16 @@ import {
   BatchCall,
   CheatCodes,
   type ContractMethod,
-  type DebugLogger,
   type DeployL1Contracts,
   EthCheatCodes,
+  type Logger,
   NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
   deployL1Contracts,
   makeFetch,
@@ -95,7 +95,7 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
+  logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
@@ -137,7 +137,7 @@ export async function setupPXEService(
   /**
    * Logger instance named as the current test.
    */
-  logger: DebugLogger;
+  logger: Logger;
   /**
    * Teardown function
    */
@@ -169,7 +169,7 @@ export async function setupPXEService(
 async function setupWithRemoteEnvironment(
   account: Account,
   config: AztecNodeConfig,
-  logger: DebugLogger,
+  logger: Logger,
   numberOfAccounts: number,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
@@ -276,7 +276,7 @@ export type EndToEndContext = {
   /** The wallets to be used. */
   wallets: AccountWalletWithSecretKey[];
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
   /** The anvil test watcher (undefined if connected to remove environment) */
@@ -377,7 +377,7 @@ export async function setup(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 
@@ -544,9 +544,9 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createDebugLogger('aztec:' + name);
+    return createLogger('e2e:' + name);
   }
-  return createDebugLogger('aztec:' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName);
 }
 
 /**

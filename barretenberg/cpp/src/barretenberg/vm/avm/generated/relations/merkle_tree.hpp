@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class merkle_treeImpl {
   public:
@@ -103,4 +103,4 @@ template <typename FF> class merkle_tree : public Relation<merkle_treeImpl<FF>> 
     }
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

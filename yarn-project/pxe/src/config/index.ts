@@ -8,10 +8,6 @@ import {
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
-
 /**
  * Temporary configuration until WASM can be used instead of native
  */
@@ -127,14 +123,4 @@ export function getCliPXEOptions(): CliPXEOptions & PXEServiceConfig {
     ...cliOptions,
     proverEnabled: pxeConfig.proverEnabled || !!cliOptions.network,
   };
-}
-
-/**
- * Returns package name and version.
- */
-export function getPackageInfo() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-
-  return { version, name };
 }

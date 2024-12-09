@@ -392,7 +392,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         , memory_read_records(other.memory_read_records)
         , memory_write_records(other.memory_write_records)
         , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
-        , circuit_finalized(other.circuit_finalized){};
+        , circuit_finalized(other.circuit_finalized)
+        , ipa_proof(other.ipa_proof){};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {
@@ -408,6 +409,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
         circuit_finalized = other.circuit_finalized;
+        ipa_proof = other.ipa_proof;
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;

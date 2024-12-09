@@ -1,4 +1,4 @@
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { Registry } from 'prom-client';
 
@@ -285,7 +285,10 @@ class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
 
-  constructor(telemetryClient: TelemetryClient, private logger: Logger = createDebugLogger('otel-metrics-adapter')) {
+  constructor(
+    telemetryClient: TelemetryClient,
+    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
+  ) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }
