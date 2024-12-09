@@ -93,6 +93,8 @@ spec:
               value: "{{ .Values.bot.followChain }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
+            - name: BOT_FEE_PAYMENT_METHOD
+              value: "{{ .Values.bot.feePaymentMethod }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS

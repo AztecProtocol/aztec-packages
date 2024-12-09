@@ -32,6 +32,7 @@ proverAgent:
 
 bot:
   followChain: "PENDING"
+  feePaymentMethod: "fee_juice"
   enabled: true
   txIntervalSeconds: 200
 

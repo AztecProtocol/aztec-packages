@@ -164,6 +164,7 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
+  feePaymentMethod: "none"
   maxErrors: 3
   stopIfUnhealthy: true
   service:
