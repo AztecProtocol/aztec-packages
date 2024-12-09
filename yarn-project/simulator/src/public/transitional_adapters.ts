@@ -118,6 +118,23 @@ export function generateAvmCircuitPublicInputs(
     revertibleAccumulatedDataFromPrivate,
   );
 
+  const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
+  for (
+    let revertibleIndex = 0;
+    revertibleIndex < avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes.length;
+    revertibleIndex++
+  ) {
+    const noteHash = avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes[revertibleIndex];
+    if (noteHash.isZero()) {
+      continue;
+    }
+    const indexInTx =
+      revertibleIndex + avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
+    const nonce = computeNoteHashNonce(firstNullifier, indexInTx);
+    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+    avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes[revertibleIndex] = uniqueNoteHash;
+  }
+
   // merge all revertible & non-revertible side effects into output accumulated data
   const noteHashesFromPrivate = revertCode.isOK()
     ? mergeAccumulatedData(
