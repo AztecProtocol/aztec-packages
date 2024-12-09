@@ -118,7 +118,8 @@ export function generateAvmCircuitPublicInputs(
     revertibleAccumulatedDataFromPrivate,
   );
 
-  const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
+  const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
+
   for (
     let revertibleIndex = 0;
     revertibleIndex < avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes.length;
@@ -130,7 +131,8 @@ export function generateAvmCircuitPublicInputs(
     }
     const indexInTx =
       revertibleIndex + avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
-    const nonce = computeNoteHashNonce(firstNullifier, indexInTx);
+
+    const nonce = computeNoteHashNonce(txHash, indexInTx);
     const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
     avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes[revertibleIndex] = uniqueNoteHash;
   }
@@ -147,8 +149,6 @@ export function generateAvmCircuitPublicInputs(
     MAX_NOTE_HASHES_PER_TX,
   );
 
-  const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
-
   const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;
   for (let i = 0; i < scopedNoteHashesFromPublic.length; i++) {
     const scopedNoteHash = scopedNoteHashesFromPublic[i];
@@ -156,9 +156,10 @@ export function generateAvmCircuitPublicInputs(
     if (!noteHash.isZero()) {
       const noteHashIndexInTx = i + countAccumulatedItems(noteHashesFromPrivate);
       const nonce = computeNoteHashNonce(txHash, noteHashIndexInTx);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, uniqueNoteHash);
-      avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = siloedNoteHash;
+      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, noteHash);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
+
+      avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = uniqueNoteHash;
     }
   }
 
