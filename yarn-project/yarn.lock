@@ -730,7 +730,7 @@ __metadata:
     levelup: ^5.1.1
     memdown: ^6.1.1
     pako: ^2.1.0
-    playwright: ^1.49.0
+    playwright: ^1.48.2
     puppeteer: ^22.4.1
     resolve-typescript-plugin: ^2.0.1
     serve: ^14.2.1
