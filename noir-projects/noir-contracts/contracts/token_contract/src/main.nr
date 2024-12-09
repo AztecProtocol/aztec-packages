@@ -637,7 +637,7 @@ contract Token {
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        funded_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
+        max_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
         nonce: Field, // A nonce to make authwitness unique.
     ) {
         // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
@@ -651,7 +651,7 @@ contract Token {
             &mut context,
             storage,
             user,
-            U128::from_integer(funded_amount),
+            U128::from_integer(max_amount),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
         storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
@@ -670,7 +670,7 @@ contract Token {
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("complete_refund(Field,Field,Field)") },
-            [fee_payer_point_slot, user_point_slot, funded_amount],
+            [fee_payer_point_slot, user_point_slot, max_amount],
         );
     }
     // docs:end:setup_refund
@@ -691,22 +691,29 @@ contract Token {
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
 
-    // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
+    // TODO(#7728): even though the max_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(fee_payer_slot: Field, user_slot: Field, funded_amount: Field) {
+    fn complete_refund(fee_payer_slot: Field, user_slot: Field, max_amount: Field) {
         // TODO(#7728): Remove the next line
-        let funded_amount = U128::from_integer(funded_amount);
+        let max_amount = U128::from_integer(max_amount);
         let tx_fee = U128::from_integer(context.transaction_fee());
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#7796): we should try to prevent reverts here
-        assert(funded_amount >= tx_fee, "funded amount not enough to cover tx fee");
+        // How could we ensure the following assert does not fail?
+        // - We could enforce during setup that the fee payer has enough funds to cover a "maximally complex tx"
+        // --> do we have something like max gas limit to compute the gas fee of such a tx?
+        // --> would this be acceptable or is it considered too expensive?
+        //
+        // Currently we also assume that an exchange rate between "gas" (fee juice) and the token we fund the FPC
+        // with is fixed (e.g. stablecoin).
+        assert(max_amount >= tx_fee, "max amount not enough to cover tx fee");
 
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
-        let refund_amount = funded_amount - tx_fee;
+        let refund_amount = max_amount - tx_fee;
 
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.

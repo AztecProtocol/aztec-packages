@@ -21,19 +21,31 @@ contract FPC {
 
     #[public]
     #[initializer]
-    fn constructor(other_asset: AztecAddress, admin: AztecAddress) {
-        let settings = Settings { other_asset, admin };
+    fn constructor(asset: AztecAddress, admin: AztecAddress) {
+        let settings = Settings { asset, admin };
         storage.settings.initialize(settings);
     }
 
+    /// Pays for the tx fee with msg_sender's private balance.
+    ///
+    /// ## Overview
+    /// Uses partial notes to implement a refund flow which works as follows:
+    /// 1. `setup_refund` function subtracts the funded `max_amount` from user's balance, prepares partial notes for
+    /// the FPC admin (to obtain the payment for the fee) and for the msg_sender (for refund note) and sets a public
+    /// teardown function (in which the partial notes will be finalized),
+    /// 2. then user's private and public functions get executed,
+    /// 3. at this point we now the gas/"fee juice" `max_amount` consumed so the public teardown function is executed,
+    /// which finalizes the partial notes.
+    ///
+    /// ***Note:***
+    /// This flow allows us to pay for the tx with msg_sender's private balance and hence msg_sender's identity is not
+    /// revealed. We do, however, reveal the `max_amount`.
     #[private]
-    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
+    fn fee_entrypoint_private(max_amount: Field, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let settings = storage.settings.read();
 
-        assert(asset == settings.other_asset);
-
-        Token::at(asset).setup_refund(settings.admin, context.msg_sender(), amount, nonce).call(
+        Token::at(settings.asset).setup_refund(settings.admin, context.msg_sender(), max_amount, nonce).call(
             &mut context,
         );
         context.set_as_fee_payer();
