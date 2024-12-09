@@ -3,7 +3,7 @@ import { inflate } from 'pako';
 import { z } from 'zod';
 
 import { type Fr } from '../fields/fields.js';
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 import { schemas } from '../schemas/schemas.js';
 import { type ZodFor } from '../schemas/types.js';
 import { type FunctionSelector } from './function_selector.js';
@@ -16,7 +16,7 @@ export interface BasicValue<T extends string, V> {
   value: V;
 }
 
-const logger = createDebugLogger('aztec:foundation:abi');
+const logger = createLogger('aztec:foundation:abi');
 
 /** An exported value. */
 export type AbiValue =
