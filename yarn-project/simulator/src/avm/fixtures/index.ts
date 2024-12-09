@@ -64,7 +64,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.functionSelector ?? FunctionSelector.empty(),
+    overrides?.fnName ?? '',
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),

@@ -687,7 +687,6 @@ export class AvmPersistableStateManager {
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
       nestedEnvironment.address,
-      nestedEnvironment.functionSelector,
       nestedEnvironment.calldata,
     );
 
@@ -705,6 +704,10 @@ export class AvmPersistableStateManager {
 
   public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
     this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
+  }
+
+  public async getPublicFunctionDebugName(contractAddress: AztecAddress, calldata: Fr[]): Promise<string> {
+    return await getPublicFunctionDebugName(this.worldStateDB, contractAddress, calldata);
   }
 }
 

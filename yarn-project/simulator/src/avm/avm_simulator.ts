@@ -1,10 +1,4 @@
-import {
-  type AztecAddress,
-  Fr,
-  type FunctionSelector,
-  type GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
-} from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
@@ -54,7 +48,7 @@ export class AvmSimulator {
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
-    this.log = createLogger(`simulator:avm:core(f:${context.environment.functionSelector.toString()})`);
+    this.log = createLogger(`simulator:avm:core(f:${this.context.environment.fnName})`);
     // TODO(palla/log): Should tallies be printed on debug, or only on trace?
     if (this.log.isLevelEnabled('debug')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
@@ -65,8 +59,8 @@ export class AvmSimulator {
   public static create(
     stateManager: AvmPersistableStateManager,
     address: AztecAddress,
+    fnName: string,
     sender: AztecAddress,
-    functionSelector: FunctionSelector, // may be temporary (#7224)
     transactionFee: Fr,
     globals: GlobalVariables,
     isStaticCall: boolean,
@@ -76,7 +70,7 @@ export class AvmSimulator {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
       sender,
-      functionSelector,
+      fnName,
       /*contractCallDepth=*/ Fr.zero(),
       transactionFee,
       globals,
@@ -102,7 +96,7 @@ export class AvmSimulator {
         message,
         /*failingFunction=*/ {
           contractAddress: this.context.environment.address,
-          functionSelector: this.context.environment.functionSelector,
+          functionName: this.context.environment.fnName,
         },
         /*noirCallStack=*/ [],
       );

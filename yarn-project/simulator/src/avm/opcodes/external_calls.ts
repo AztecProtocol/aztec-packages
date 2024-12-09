@@ -1,4 +1,4 @@
-import { Fr, FunctionSelector, Gas, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { Gas } from '@aztec/circuits.js';
 
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
@@ -45,7 +45,6 @@ abstract class ExternalCall extends Instruction {
 
     const callAddress = memory.getAs<Field>(addrOffset);
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    const functionSelector = new Fr(PUBLIC_DISPATCH_SELECTOR);
     // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
@@ -62,12 +61,15 @@ abstract class ExternalCall extends Instruction {
     const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
     context.machineState.consumeGas(allocatedGas);
 
+    const aztecAddress = callAddress.toAztecAddress();
+    const fnName = await context.persistableState.getPublicFunctionDebugName(aztecAddress, calldata);
+
     const nestedContext = context.createNestedContractCallContext(
-      callAddress.toAztecAddress(),
+      aztecAddress,
       calldata,
       allocatedGas,
       callType,
-      FunctionSelector.fromField(functionSelector),
+      fnName,
     );
 
     const simulator = new AvmSimulator(nestedContext);

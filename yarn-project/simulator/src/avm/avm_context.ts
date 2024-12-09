@@ -1,4 +1,4 @@
-import { type AztecAddress, FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -16,6 +16,7 @@ export class AvmContext {
    * @param persistableState - Manages world state and accrued substate during execution - (caching, fetching, tracing)
    * @param environment - Contains constant variables provided by the kernel
    * @param machineState - VM state that is modified on an instruction-by-instruction basis
+   * @param fnName - The function name which initiated this context.
    * @returns new AvmContext instance
    */
   constructor(
@@ -43,13 +44,13 @@ export class AvmContext {
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-    functionSelector: FunctionSelector = FunctionSelector.empty(),
+    fnName: string,
   ): AvmContext {
     const deriveFn =
       callType === 'CALL'
         ? this.environment.deriveEnvironmentForNestedCall
         : this.environment.deriveEnvironmentForNestedStaticCall;
-    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata, functionSelector);
+    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata, fnName);
     const forkedWorldState = this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
