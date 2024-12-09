@@ -227,6 +227,9 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
+
 // CANONICAL DEFAULT KEYS
 // This below are:
 // "az_null_npk"

@@ -138,6 +138,7 @@ library Constants {
   uint256 internal constant MULTI_CALL_ENTRYPOINT_ADDRESS = 4;
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant ROUTER_ADDRESS = 6;
+  uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =

@@ -1,5 +1,6 @@
 import {
   type AvmCircuitPublicInputs,
+  type AztecAddress,
   type Fr,
   type Gas,
   type GasSettings,
@@ -30,6 +31,7 @@ export function generateAvmCircuitPublicInputs(
   startStateReference: StateReference,
   startGasUsed: Gas,
   gasSettings: GasSettings,
+  feePayer: AztecAddress,
   setupCallRequests: PublicCallRequest[],
   appLogicCallRequests: PublicCallRequest[],
   teardownCallRequests: PublicCallRequest[],
@@ -52,6 +54,7 @@ export function generateAvmCircuitPublicInputs(
     startTreeSnapshots,
     startGasUsed,
     gasSettings,
+    feePayer,
     setupCallRequests,
     appLogicCallRequests,
     teardownCallRequests.length ? teardownCallRequests[0] : PublicCallRequest.empty(),

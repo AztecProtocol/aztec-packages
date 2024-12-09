@@ -441,6 +441,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
+    makeAztecAddress(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
