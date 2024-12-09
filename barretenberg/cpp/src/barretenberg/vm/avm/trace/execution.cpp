@@ -206,7 +206,6 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @brief Run the bytecode, generate the corresponding execution trace and prove the correctness
  *        of the execution of the supplied bytecode.
  *
- * @param bytecode A vector of bytes representing the bytecode to execute.
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
@@ -219,7 +218,7 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInpu
         calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
     }
     std::vector<Row> trace = AVM_TRACK_TIME_V(
-        "prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints, /*apply_end_gas_assertions=*/true));
+        "prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints, /*apply_e2e_assertions=*/true));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -297,13 +296,13 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param public_inputs - to constrain execution inputs & results against
  * @param returndata - to add to for each enqueued call
  * @param execution_hints - to inform execution
- * @param apply_end_gas_assertions - should we apply assertions that public input's end gas is right?
+ * @param apply_e2e_assertions - should we apply assertions on public inputs (like end gas) and bytecode membership?
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints,
-                                      bool apply_end_gas_assertions)
+                                      bool apply_e2e_assertions)
 
 {
     vinfo("------- GENERATING TRACE -------");
@@ -364,7 +363,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             trace_builder.set_public_call_request(public_call_request);
             trace_builder.set_call_ptr(call_ctx++);
             // Execute!
-            phase_error = Execution::execute_enqueued_call(trace_builder, public_call_request, returndata);
+            phase_error =
+                Execution::execute_enqueued_call(trace_builder, public_call_request, returndata, apply_e2e_assertions);
 
             if (!is_ok(phase_error)) {
                 info("Phase ", to_name(phase), " reverted.");
@@ -381,7 +381,7 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             break;
         }
     }
-    auto trace = trace_builder.finalize(apply_end_gas_assertions);
+    auto trace = trace_builder.finalize(apply_e2e_assertions);
 
     show_trace_info(trace);
     return trace;
@@ -398,11 +398,14 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
  */
 AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                           PublicCallRequest& public_call_request,
-                                          std::vector<FF>& returndata)
+                                          std::vector<FF>& returndata,
+                                          bool check_bytecode_membership)
 {
     AvmError error = AvmError::NO_ERROR;
     // Find the bytecode based on contract address of the public call request
-    std::vector<uint8_t> bytecode = trace_builder.get_bytecode(public_call_request.contract_address);
+    // TODO(dbanks12): accept check_membership flag as arg
+    std::vector<uint8_t> bytecode =
+        trace_builder.get_bytecode(public_call_request.contract_address, check_bytecode_membership);
 
     // Set this also on nested call
 

@@ -1,9 +1,9 @@
 import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import {
+  DEPLOYER_CONTRACT_ADDRESS,
   GasFees,
   GlobalVariables,
   PublicDataTreeLeafPreimage,
-  type PublicFunction,
   PublicKeys,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
@@ -23,7 +23,8 @@ import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { type WorldStateDB } from '../public/public_db_sources.js';
+import { MockedAvmTestContractDataSource } from '../public/fixtures/index.js';
+import { WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -72,6 +73,14 @@ import {
   mockStorageReadWithMap,
   mockTraceFork,
 } from './test_utils.js';
+
+const siloAddress = (contractAddress: AztecAddress) => {
+  const contractAddressNullifier = siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractAddress.toField(),
+  );
+  return contractAddressNullifier;
+};
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
@@ -127,46 +136,29 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const globals = GlobalVariables.empty();
     globals.timestamp = TIMESTAMP;
 
-    const bytecode = getAvmTestContractBytecode('public_dispatch');
-    const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
-    const publicFn: PublicFunction = { bytecode, selector: fnSelector };
-    const contractClass = makeContractClassPublic(0, publicFn);
-    const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+    const telemetry = new NoopTelemetryClient();
+    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+    const contractDataSource = new MockedAvmTestContractDataSource();
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
-    // The values here should match those in getContractInstance test case
-    const instanceGet = new SerializableContractInstance({
-      version: 1,
-      salt: new Fr(0x123),
-      deployer: AztecAddress.fromNumber(0x456),
-      contractClassId: new Fr(0x789),
-      initializationHash: new Fr(0x101112),
-      publicKeys: new PublicKeys(
-        new Point(new Fr(0x131415), new Fr(0x161718), false),
-        new Point(new Fr(0x192021), new Fr(0x222324), false),
-        new Point(new Fr(0x252627), new Fr(0x282930), false),
-        new Point(new Fr(0x313233), new Fr(0x343536), false),
-      ),
-    }).withAddress(contractInstance.address);
-    const worldStateDB = mock<WorldStateDB>();
-    const tmp = openTmpStore();
-    const telemetryClient = new NoopTelemetryClient();
-    const merkleTree = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
-    worldStateDB.getMerkleInterface.mockReturnValue(merkleTree);
-
-    worldStateDB.getContractInstance
-      .mockResolvedValueOnce(contractInstance)
-      .mockResolvedValueOnce(instanceGet) // test gets deployer
-      .mockResolvedValueOnce(instanceGet) // test gets class id
-      .mockResolvedValueOnce(instanceGet) // test gets init hash
-      .mockResolvedValue(contractInstance);
-    worldStateDB.getContractClass.mockResolvedValue(contractClass);
-
-    const storageValue = new Fr(5);
-    mockStorageRead(worldStateDB, storageValue);
+    const contractInstance = contractDataSource.contractInstance;
+    const contractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+    // other contract address used by the bulk test's GETCONTRACTINSTANCE test
+    const otherContractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractDataSource.otherContractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
 
     const trace = mock<PublicSideEffectTraceInterface>();
-    const merkleTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
-    const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees });
+    const nestedTrace = mock<PublicSideEffectTraceInterface>();
+    mockTraceFork(trace, nestedTrace);
+    const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
+    const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
     const environment = initExecutionEnvironment({
       functionSelector,
       calldata,
@@ -175,10 +167,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       sender: AztecAddress.fromNumber(42),
     });
     const context = initContext({ env: environment, persistableState });
-
-    const nestedTrace = mock<PublicSideEffectTraceInterface>();
-    mockTraceFork(trace, nestedTrace);
-    mockGetBytecode(worldStateDB, bytecode);
 
     // First we simulate (though it's not needed in this simple case).
     const simulator = new AvmSimulator(context);
@@ -579,7 +567,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
         if (exists) {
-          mockNullifierExists(worldStateDB, leafIndex, value0);
+          mockNullifierExists(worldStateDB, leafIndex, siloedNullifier0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -871,7 +859,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             new Point(new Fr(0x313233), new Fr(0x343536), false),
           ),
         });
-        mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+        const contractInstanceWithAddress = contractInstance.withAddress(address);
+        // mock once per enum value (deployer, classId, initializationHash)
+        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
+        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
+        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
@@ -940,6 +935,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -965,6 +961,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -993,6 +990,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1017,6 +1015,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1048,6 +1047,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1072,6 +1072,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
