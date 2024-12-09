@@ -51,12 +51,3 @@ export function StringDeserializer(): OutputType {
     },
   };
 }
-
-// export function MsgpackDeserializer(): OutputType {
-//   return {
-//     fromBuffer: (buf: Uint8Array | BufferReader) => {
-//       const reader = BufferReader.asReader(buf);
-//       return reader.readString();
-//     },
-//   };
-// }

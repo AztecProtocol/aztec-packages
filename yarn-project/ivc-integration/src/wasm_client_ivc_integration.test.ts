@@ -1,7 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { writeFileSync } from 'fs';
 import { ungzip } from 'pako';
 
 import {
@@ -57,10 +56,6 @@ describe('Client IVC Integration', () => {
     );
 
     const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    writeFileSync('proof.bin', proof);
-    writeFileSync('vk.bin', vk);
-    logger.debug(`proof length: ${proof.length}`);
-    logger.debug(`vk    length: ${vk.length}`);
     const verified = await backend.verify(proof, vk);
     await backend.destroy();
     return verified;

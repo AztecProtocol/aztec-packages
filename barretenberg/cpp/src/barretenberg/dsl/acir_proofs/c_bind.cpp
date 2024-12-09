@@ -10,20 +10,9 @@
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/srs/global_crs.hpp" // WORKTODO: unused?
 #include "honk_contract.hpp"
 #include <cstdint>
 #include <memory>
-
-const auto print_buffer = [](const auto buf) {
-    std::cerr << std::showbase << std::hex;
-    std::cerr << static_cast<int>(buf[0]) << static_cast<int>(buf[1]) << static_cast<int>(buf[2])
-              << static_cast<int>(buf[3]) << static_cast<int>(buf[4]) << static_cast<int>(buf[5])
-              << static_cast<int>(buf[6]) << static_cast<int>(buf[7]) << static_cast<int>(buf[8])
-              << static_cast<int>(buf[9]) << static_cast<int>(buf[10]) << static_cast<int>(buf[11])
-              << static_cast<int>(buf[12]) << static_cast<int>(buf[13]) << static_cast<int>(buf[14])
-              << static_cast<int>(buf[15]);
-};
 
 WASM_EXPORT void acir_get_circuit_sizes(
     uint8_t const* acir_vec, bool const* recursive, bool const* honk_recursion, uint32_t* total, uint32_t* subgroup)
@@ -332,59 +321,37 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
 
     vinfo("calling ivc.prove ...");
     ClientIVC::Proof proof = ivc.prove();
-
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
 
-    vinfo("first 16 bytes of proof: ");
-    std::vector<uint8_t> buf = to_buffer(proof);
-    print_buffer(buf);
+    start = std::chrono::steady_clock::now();
+    *out_proof = to_heap_buffer(to_buffer(proof));
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to serialize proof: ", diff.count());
 
-    vinfo("first 16 bytes of heap buffer: ");
-    *out_proof = to_heap_buffer(buf); // WORKTODO: include size?
-    print_buffer(*out_proof);
-
+    start = std::chrono::steady_clock::now();
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-
-    // vinfo("first entry of honk vk: ", ivc.honk_vk.get()[0]);
-    buf = to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk });
-    vinfo("first 16 bytes of vk buffer: ");
-    print_buffer(buf);
-    *out_vk = to_heap_buffer(buf);
-    vinfo("first 16 bytes of vk heap buffer: ");
-    print_buffer(*out_vk);
+    *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to serialize proof: ", diff.count());
 }
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
-    //     init_bn254_crs(1);
-    //     init_grumpkin_crs(1 << 15);
-    auto proof_vec = from_buffer<std::vector<uint8_t>>(proof_buf);
-    vinfo("read proof_vec, first 16 bytes");
-    print_buffer(proof_vec);
 
-    const auto proof = from_buffer<ClientIVC::Proof>(proof_vec);
-    vinfo("proof size  : ", proof.size());
-    vinfo("read mega proofs, first entry");
-    vinfo(proof.mega_proof[0]);
-
-    auto vk_vec = from_buffer<std::vector<uint8_t>>(vk_buf);
-    vinfo("read vk_vec, first 16 bytes: ");
-    print_buffer(vk_vec);
-    const auto vk = from_buffer<ClientIVC::VerificationKey>(vk_vec);
-    // info(*vk.mega);
-    vinfo("vk.mega log size : ", vk.mega->log_circuit_size);
+    const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     vk.eccvm->pcs_verification_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
     vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-    const bool verified = ClientIVC::verify(proof, vk);
-    *result = verified;
+    *result = ClientIVC::verify(proof, vk);
 }
 
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,

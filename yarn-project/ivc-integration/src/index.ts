@@ -247,8 +247,6 @@ export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: U
   const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
   const backend = new AztecClientBackend(preparedBytecodes, { threads });
   const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-  logger(`proof length: ${proof.length}`);
-  logger(`vk    length: ${vk.length}`);
   const verified = await backend.verify(proof, vk);
   await backend.destroy();
   return verified;

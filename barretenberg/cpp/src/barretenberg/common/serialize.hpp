@@ -477,22 +477,6 @@ template <bool include_size = false, typename T> std::vector<uint8_t> to_buffer(
     return buf;
 }
 
-// By default, if calling to_buffer on a vector of types, we don't prefix the vector size.
-template <typename T> std::vector<uint8_t> to_buffer_with_size(T const& value)
-{
-    using serialize::write;
-    std::vector<uint8_t> buf{ 0, 0, 0, 0 };
-    write(buf, value);
-    uint32_t size = static_cast<uint32_t>(buf.size() - 4);
-    std::vector<uint8_t> size_buf;
-    write(size_buf, size);
-    buf[0] = size_buf[0];
-    buf[1] = size_buf[1];
-    buf[2] = size_buf[2];
-    buf[3] = size_buf[3];
-    return buf;
-}
-
 // Some types to describe fixed size buffers for c_bind arguments.
 using in_buf32 = uint8_t const*;
 using out_buf32 = uint8_t*;
