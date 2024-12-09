@@ -37,7 +37,7 @@ export async function expectTokenBalance(
   expectedBalance: bigint,
   logger: DebugLogger,
 ) {
-  // Check if the wallet
+  // Check if PXE has synced up to the latest block before checking the balances
   const blockNumber = await wallet.getBlockNumber();
   await retryUntil(
     async () => {
