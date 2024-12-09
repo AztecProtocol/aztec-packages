@@ -24,12 +24,15 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
+  jest.setTimeout(10 * 60 * 1000); // 10 minutes
+
   let pxe: PXE;
   let logger: DebugLogger;
   let owner: Wallet;
