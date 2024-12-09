@@ -15,8 +15,8 @@ export async function createOrRetrieveAccount(
   pxe: PXE,
   address?: AztecAddress,
   db?: WalletDB,
-  type: AccountType = 'schnorr',
   secretKey?: Fr,
+  type: AccountType = 'schnorr',
   salt?: Fr,
   publicKey?: string | undefined,
 ) {

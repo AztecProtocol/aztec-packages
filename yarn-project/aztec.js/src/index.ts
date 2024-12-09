@@ -53,6 +53,7 @@ export {
   generatePublicKey,
   readFieldCompressedString,
   waitForPXE,
+  waitForNode,
   type AztecAddressLike,
   type EthAddressLike,
   type EventSelectorLike,
