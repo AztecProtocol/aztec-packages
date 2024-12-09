@@ -2956,6 +2956,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.range_tags[list.second.range_tag] = list.first;
     }
 
+    cir.circuit_finalized = this->circuit_finalized;
+
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);
     return buffer;
