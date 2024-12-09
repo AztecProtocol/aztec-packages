@@ -189,8 +189,7 @@ describe('Private Execution test suite', () => {
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-    ({ masterNullifierSecretKey: recipientNskM } =
-      deriveKeys(recipientSk));
+    ({ masterNullifierSecretKey: recipientNskM } = deriveKeys(recipientSk));
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -935,13 +934,7 @@ describe('Private Execution test suite', () => {
       );
 
       const sender = owner;
-      const args = [
-        amountToTransfer,
-        owner,
-        sender,
-        insertFnSelector.toField(),
-        getThenNullifyFnSelector.toField(),
-      ];
+      const args = [amountToTransfer, owner, sender, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({
         args: args,
         artifact: artifact,

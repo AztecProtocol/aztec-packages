@@ -562,13 +562,7 @@ describe('Simulator oracle', () => {
 
     it('should store multiple notes that belong to us', async () => {
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          1,
-          1,
-          1,
-          recipient.address,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
         new MockNoteRequest(
           getRandomNoteLogPayload(Fr.random(), contractAddress),
           2,
@@ -576,13 +570,7 @@ describe('Simulator oracle', () => {
           0,
           CompleteAddress.random().address,
         ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          6,
-          3,
-          2,
-          recipient.address,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
         new MockNoteRequest(
           getRandomNoteLogPayload(Fr.random(), contractAddress),
           9,
@@ -590,13 +578,7 @@ describe('Simulator oracle', () => {
           2,
           CompleteAddress.random().address,
         ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          12,
-          3,
-          2,
-          recipient.address,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests);
@@ -627,20 +609,8 @@ describe('Simulator oracle', () => {
     it('should not store notes that do not belong to us', async () => {
       // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(),
-          2,
-          1,
-          1,
-          CompleteAddress.random().address,
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(),
-          2,
-          3,
-          0,
-          CompleteAddress.random().address,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(), 2, 1, 1, CompleteAddress.random().address),
+        new MockNoteRequest(getRandomNoteLogPayload(), 2, 3, 0, CompleteAddress.random().address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests);
@@ -686,27 +656,9 @@ describe('Simulator oracle', () => {
 
     it('should not store nullified notes', async () => {
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          1,
-          1,
-          1,
-          recipient.address,
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          6,
-          3,
-          2,
-          recipient.address,
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          12,
-          3,
-          2,
-          recipient.address,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests, 2);

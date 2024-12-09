@@ -77,10 +77,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     const sender = owner;
-    await deployedContract.methods
-      .test_insert_then_get_then_nullify_flat(mintAmount, owner, sender)
-      .send()
-      .wait();
+    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner, sender).send().wait();
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {

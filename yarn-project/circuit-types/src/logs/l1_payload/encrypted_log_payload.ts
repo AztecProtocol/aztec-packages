@@ -25,10 +25,7 @@ const HEADER_SIZE = 48;
 // Padding added to the overhead to make the size of the incoming body ciphertext a multiple of 16.
 const OVERHEAD_PADDING = 15;
 
-const OVERHEAD_SIZE =
-  32 /* eph_pk */ +
-  HEADER_SIZE /* incoming_header */ +
-  OVERHEAD_PADDING; /* padding */
+const OVERHEAD_SIZE = 32 /* eph_pk */ + HEADER_SIZE /* incoming_header */ + OVERHEAD_PADDING; /* padding */
 
 const PLAINTEXT_LENGTH_SIZE = 2;
 
@@ -49,10 +46,7 @@ function fieldsToEncryptedBytes(fields: Fr[]) {
 }
 
 class Overhead {
-  constructor(
-    public ephPk: Point,
-    public incomingHeader: Buffer,
-  ) {}
+  constructor(public ephPk: Point, public incomingHeader: Buffer) {}
 
   static fromBuffer(reader: BufferReader) {
     const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
@@ -212,10 +206,7 @@ export class EncryptedLogPayload {
     return serializeToBuffer(this.tag, this.contractAddress.toBuffer(), this.incomingBodyPlaintext);
   }
 
-  static #decryptOverhead(
-    overhead: Overhead,
-    { addressSecret }: { addressSecret: GrumpkinScalar },
-  ) {
+  static #decryptOverhead(overhead: Overhead, { addressSecret }: { addressSecret: GrumpkinScalar }) {
     let contractAddress = AztecAddress.ZERO;
 
     if (addressSecret) {

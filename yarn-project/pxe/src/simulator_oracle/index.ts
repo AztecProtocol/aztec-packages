@@ -550,7 +550,6 @@ export class SimulatorOracle implements DBOracle {
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (incomingNotePayload) {
-
         const payload = incomingNotePayload;
 
         const txEffect =

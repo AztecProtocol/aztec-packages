@@ -64,9 +64,7 @@ export class Bot {
       );
     } else {
       calls.push(
-        ...times(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
-        ),
+        ...times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request()),
       );
     }
 

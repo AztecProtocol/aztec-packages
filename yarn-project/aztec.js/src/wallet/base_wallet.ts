@@ -198,9 +198,7 @@ export abstract class BaseWallet implements Wallet {
     event: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[] = [
-      this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
-    ],
+    vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
   ): Promise<T[]> {
     return this.pxe.getEncryptedEvents(event, from, limit, vpks);
   }

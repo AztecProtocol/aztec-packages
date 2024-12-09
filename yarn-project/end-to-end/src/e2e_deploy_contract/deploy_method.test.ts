@@ -67,9 +67,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
-    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress())
-      .send(opts)
-      .deployed();
+    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
     await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
     expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);

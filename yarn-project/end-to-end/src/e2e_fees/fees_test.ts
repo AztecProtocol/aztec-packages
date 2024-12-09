@@ -299,9 +299,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'setup_subscription',
       async () => {
-        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress)
-          .send()
-          .deployed();
+        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress).send().deployed();
 
         // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
         const subscriptionContract = await AppSubscriptionContract.deploy(

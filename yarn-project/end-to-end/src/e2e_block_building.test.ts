@@ -322,12 +322,7 @@ describe('e2e_block_building', () => {
       // call test contract
       const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
       const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
-      const action = testContract.methods.emit_array_as_encrypted_log(
-        values,
-        thisWallet.getAddress(),
-        sender,
-        true,
-      );
+      const action = testContract.methods.emit_array_as_encrypted_log(values, thisWallet.getAddress(), sender, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
