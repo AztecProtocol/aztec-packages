@@ -83,52 +83,51 @@ There is one `initializer` function in this contract, and it will be selected an
 These are functions that have transparent logic, will execute in a publicly verifiable context and can update public storage.
 
 - [`constructor`](#constructor) - executed when the contract instance is deployed
-- [`set_admin`]() - updates the `admin` of the contract
-- [`set_minter`]() - adds a minter to the `minters` mapping
-- [`mint`]() - mints an NFT with a specified `token_id` to the recipient
-- [`transfer_in_public`]() - publicly transfer the specified token
-- [`finalize_transfer_to_private`]() - finalized a transfer to from the public context to the private context (more on this below)
+- [`set_admin`](#set_admin) - updates the `admin` of the contract
+- [`set_minter`](#set_minter) - adds a minter to the `minters` mapping
+- [`mint`](#mint) - mints an NFT with a specified `token_id` to the recipient
+- [`transfer_in_public`](#transfer_in_public) - publicly transfer the specified token
+- [`finalize_transfer_to_private`](#finalize_transfer_to_private) - finalized a transfer to from the public context to the private context (more on this below)
 
 #### Public `view` functions
 
 These functions are useful for getting contract information for use in other contracts, in the public context.
 
-- [`public_get_name`]() - returns name of the NFT contract
-- [`public_get_symbol`]() - returns the symbols of the NFT contract
-- [`get_admin`]() - returns the `admin` account address
-- [`is_minter`]() - returns a boolean, indicating whether the provided address is a minter
-- [`owner_of`]() - returns the owner of the provided `token_id`
+- [`public_get_name`](#public_get_name) - returns name of the NFT contract
+- [`public_get_symbol`](#public_get_symbol) - returns the symbols of the NFT contract
+- [`get_admin`](#get_admin) - returns the `admin` account address
+- [`is_minter`](#is_minter) - returns a boolean, indicating whether the provided address is a minter
+- [`owner_of`](#owner_of) - returns the owner of the provided `token_id`
 
 ### Private functions
 
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
-- [`transfer_to_private`]() - initiates the transfer of an NFT from the public context to the private context
-- [`prepare_private_balance_increase`]() - creates a [partial note](../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
-- [`cancel_authwit`]() - emits a nullifier to cancel a private authwit
-- [`transfer_in_private`]() - transfers an NFT to another account, privately
-- [`transfer_to_public`]() - transfers and NFT from a private accounts' balance to a specified accounts' public balance
+- [`transfer_to_private`](#transfer_to_private) - initiates the transfer of an NFT from the public context to the private context
+- [`prepare_private_balance_increase`](#prepare_private_balance_increase) - creates a [partial note](../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
+- [`cancel_authwit`](#cancel_authwit) - emits a nullifier to cancel a private authwit
+- [`transfer_in_private`](#transfer_in_private) - transfers an NFT to another account, privately
+- [`transfer_to_public`](#transfer_to_public) - transfers and NFT from a private accounts' balance to a specified accounts' public balance
 
 #### Private `view` functions
 
-These functions are useful for getting contract information in the private context.
+These functions are useful for getting contract information in another contract in the private context.
 
-- [`private_get_symbol`]() - returns the NFT contract symbol
-- [`private_get_name`]() - returns the NFT contract name
+- [`private_get_symbol`](#private_get_symbol) - returns the NFT contract symbol
+- [`private_get_name`](#private_get_name) - returns the NFT contract name
 
 ### Internal functions
 
 Internal functions are functions that can only be called by the contract itself. These can be used when the contract needs to call one of it's public functions from one of it's private functions.
 
-- [`_store_payload_in_transient_storage_unsafe`]() -
-- [`_finalize_transfer_to_private_unsafe`]() -
-- [`_finish_transfer_to_public`]() -
+- [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) - a public function that is called when preparing a private balance increase. This function handles the needed public state updates.
+- [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalized a transfer from public to private state.
 
 ### Unconstrained functions
 
 Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage. They are distinguished from functions with the `#[view]` annotation in that unconstrained functions cannot be called by other contracts.
 
-- [`get_private_nfts`]() -
+- [`get_private_nfts`](#get_private_nfts) - Returns an array of token IDs owned by the passed `AztecAddress` in private and a flag indicating whether a page limit was reached.
 
 ## Contract dependencies
 
@@ -274,7 +273,11 @@ Internal functions are functions that can only be called by this contract. The f
 
 #### `_store_payload_in_transient_storage_unsafe`
 
+It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
+
 #### `_finalize_transfer_to_private_unsafe`
+
+This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
 
 #### `_finish_transfer_to_public`
 
@@ -284,7 +287,7 @@ View functions in Aztec are similar to `view` functions in Solidity in that they
 
 Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
 
-#### `admin`
+#### `get_admin`
 
 A getter function for reading the public `admin` value.
 
@@ -295,6 +298,26 @@ A getter function for reading the public `admin` value.
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
 #include_code is_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+#### `owner_of`
+
+Returns the owner of the provided `token_id`. Reverts if the `token_id` does not exist. Returns the zero address if the `token_id` does not have a public owner.
+
+#### `public_get_name`
+
+Returns the name of the NFT contract in the public context.
+
+#### `public_get_symbol`
+
+Returns the symbol of the NFT contract in the public context.
+
+#### `private_get_name`
+
+Returns the name of the NFT contract in the private context.
+
+#### `private_get_symbol`
+
+Returns the symbol of the NFT contract in the private context.
 
 ### Unconstrained function implementations
 
