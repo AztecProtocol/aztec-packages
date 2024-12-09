@@ -32,7 +32,6 @@ until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contr
 done
 echo "Done waiting."
 
-export DEBUG="aztec:*"
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
-DEBUG=aztec:* yarn test src/spartan/transfer.test.ts
+yarn test src/spartan/transfer.test.ts

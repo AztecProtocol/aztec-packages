@@ -11,7 +11,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b && rm -rf dest && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -78,7 +78,6 @@
   },
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",

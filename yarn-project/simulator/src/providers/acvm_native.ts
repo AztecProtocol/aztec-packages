@@ -5,7 +5,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 import { type SimulationProvider } from './simulation_provider.js';
 

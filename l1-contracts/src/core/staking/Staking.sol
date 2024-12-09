@@ -3,7 +3,12 @@
 pragma solidity >=0.8.27;
 
 import {
-  IStaking, ValidatorInfo, Exit, Status, OperatorInfo
+  IStaking,
+  ValidatorInfo,
+  Exit,
+  Status,
+  OperatorInfo,
+  StakingStorage
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -22,11 +27,7 @@ contract Staking is IStaking {
   IERC20 public immutable STAKING_ASSET;
   uint256 public immutable MINIMUM_STAKE;
 
-  // address <=> index
-  EnumerableSet.AddressSet internal attesters;
-
-  mapping(address attester => ValidatorInfo) internal info;
-  mapping(address attester => Exit) internal exits;
+  StakingStorage internal stakingStore;
 
   constructor(address _slasher, IERC20 _stakingAsset, uint256 _minimumStake) {
     SLASHER = _slasher;
@@ -35,10 +36,10 @@ contract Staking is IStaking {
   }
 
   function finaliseWithdraw(address _attester) external override(IStaking) {
-    ValidatorInfo storage validator = info[_attester];
+    ValidatorInfo storage validator = stakingStore.info[_attester];
     require(validator.status == Status.EXITING, Errors.Staking__NotExiting(_attester));
 
-    Exit storage exit = exits[_attester];
+    Exit storage exit = stakingStore.exits[_attester];
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
@@ -47,8 +48,8 @@ contract Staking is IStaking {
     uint256 amount = validator.stake;
     address recipient = exit.recipient;
 
-    delete exits[_attester];
-    delete info[_attester];
+    delete stakingStore.exits[_attester];
+    delete stakingStore.info[_attester];
 
     STAKING_ASSET.transfer(recipient, amount);
 
@@ -58,14 +59,14 @@ contract Staking is IStaking {
   function slash(address _attester, uint256 _amount) external override(IStaking) {
     require(msg.sender == SLASHER, Errors.Staking__NotSlasher(SLASHER, msg.sender));
 
-    ValidatorInfo storage validator = info[_attester];
+    ValidatorInfo storage validator = stakingStore.info[_attester];
     require(validator.status != Status.NONE, Errors.Staking__NoOneToSlash(_attester));
 
     // There is a special, case, if exiting and past the limit, it is untouchable!
     require(
       !(
         validator.status == Status.EXITING
-          && exits[_attester].exitableAt <= Timestamp.wrap(block.timestamp)
+          && stakingStore.exits[_attester].exitableAt <= Timestamp.wrap(block.timestamp)
       ),
       Errors.Staking__CannotSlashExitedStake(_attester)
     );
@@ -75,7 +76,7 @@ contract Staking is IStaking {
     // When LIVING, he can only start exiting, we don't "really" exit him, because that cost
     // gas and cost edge cases around recipient, so lets just avoid that.
     if (validator.status == Status.VALIDATING && validator.stake < MINIMUM_STAKE) {
-      require(attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+      require(stakingStore.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
       validator.status = Status.LIVING;
     }
 
@@ -88,28 +89,11 @@ contract Staking is IStaking {
     override(IStaking)
     returns (ValidatorInfo memory)
   {
-    return info[_attester];
-  }
-
-  function getProposerForAttester(address _attester)
-    external
-    view
-    override(IStaking)
-    returns (address)
-  {
-    return info[_attester].proposer;
+    return stakingStore.info[_attester];
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
-    return exits[_attester];
-  }
-
-  function getAttesterAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return attesters.at(_index);
-  }
-
-  function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return info[attesters.at(_index)].proposer;
+    return stakingStore.exits[_attester];
   }
 
   function getOperatorAtIndex(uint256 _index)
@@ -118,8 +102,8 @@ contract Staking is IStaking {
     override(IStaking)
     returns (OperatorInfo memory)
   {
-    address attester = attesters.at(_index);
-    return OperatorInfo({proposer: info[attester].proposer, attester: attester});
+    address attester = stakingStore.attesters.at(_index);
+    return OperatorInfo({proposer: stakingStore.info[attester].proposer, attester: attester});
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
@@ -129,12 +113,15 @@ contract Staking is IStaking {
   {
     require(_amount >= MINIMUM_STAKE, Errors.Staking__InsufficientStake(_amount, MINIMUM_STAKE));
     STAKING_ASSET.transferFrom(msg.sender, address(this), _amount);
-    require(info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester));
-    require(attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
+    require(
+      stakingStore.info[_attester].status == Status.NONE,
+      Errors.Staking__AlreadyRegistered(_attester)
+    );
+    require(stakingStore.attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
 
     // If BLS, need to check possession of private key to avoid attacks.
 
-    info[_attester] = ValidatorInfo({
+    stakingStore.info[_attester] = ValidatorInfo({
       stake: _amount,
       withdrawer: _withdrawer,
       proposer: _proposer,
@@ -150,7 +137,7 @@ contract Staking is IStaking {
     override(IStaking)
     returns (bool)
   {
-    ValidatorInfo storage validator = info[_attester];
+    ValidatorInfo storage validator = stakingStore.info[_attester];
 
     require(
       msg.sender == validator.withdrawer,
@@ -161,12 +148,12 @@ contract Staking is IStaking {
       Errors.Staking__NothingToExit(_attester)
     );
     if (validator.status == Status.VALIDATING) {
-      require(attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+      require(stakingStore.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
     }
 
     // Note that the "amount" is not stored here, but reusing the `validators`
     // We always exit fully.
-    exits[_attester] =
+    stakingStore.exits[_attester] =
       Exit({exitableAt: Timestamp.wrap(block.timestamp) + EXIT_DELAY, recipient: _recipient});
     validator.status = Status.EXITING;
 
@@ -176,6 +163,23 @@ contract Staking is IStaking {
   }
 
   function getActiveAttesterCount() public view override(IStaking) returns (uint256) {
-    return attesters.length();
+    return stakingStore.attesters.length();
+  }
+
+  function getProposerForAttester(address _attester)
+    public
+    view
+    override(IStaking)
+    returns (address)
+  {
+    return stakingStore.info[_attester].proposer;
+  }
+
+  function getAttesterAtIndex(uint256 _index) public view override(IStaking) returns (address) {
+    return stakingStore.attesters.at(_index);
+  }
+
+  function getProposerAtIndex(uint256 _index) public view override(IStaking) returns (address) {
+    return stakingStore.info[stakingStore.attesters.at(_index)].proposer;
   }
 }

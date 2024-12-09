@@ -77,8 +77,6 @@ pub enum ResolverError {
     MutableReferenceToImmutableVariable { variable: String, span: Span },
     #[error("Mutable references to array indices are unsupported")]
     MutableReferenceToArrayElement { span: Span },
-    #[error("Numeric constants should be printed without formatting braces")]
-    NumericConstantInFormatString { name: String, span: Span },
     #[error("Closure environment must be a tuple or unit type")]
     InvalidClosureEnvironment { typ: Type, span: Span },
     #[error("Nested slices, i.e. slices within an array or slice, are not supported")]
@@ -223,11 +221,21 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             }
-            ResolverError::VariableNotDeclared { name, span } => Diagnostic::simple_error(
-                format!("cannot find `{name}` in this scope "),
-                "not found in this scope".to_string(),
-                *span,
-            ),
+            ResolverError::VariableNotDeclared { name, span } =>  {
+                if name == "_" {
+                    Diagnostic::simple_error(
+                        "in expressions, `_` can only be used on the left-hand side of an assignment".to_string(),
+                        "`_` not allowed here".to_string(),
+                        *span,
+                    )
+                } else {
+                    Diagnostic::simple_error(
+                        format!("cannot find `{name}` in this scope"),
+                        "not found in this scope".to_string(),
+                        *span,
+                    )
+                }
+            },
             ResolverError::PathIsNotIdent { span } => Diagnostic::simple_error(
                 "cannot use path as an identifier".to_string(),
                 String::new(),
@@ -368,11 +376,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
             ResolverError::MutableReferenceToArrayElement { span } => {
                 Diagnostic::simple_error("Mutable references to array elements are currently unsupported".into(), "Try storing the element in a fresh variable first".into(), *span)
             },
-            ResolverError::NumericConstantInFormatString { name, span } => Diagnostic::simple_error(
-                format!("cannot find `{name}` in this scope "),
-                "Numeric constants should be printed without formatting braces".to_string(),
-                *span,
-            ),
             ResolverError::InvalidClosureEnvironment { span, typ } => Diagnostic::simple_error(
                 format!("{typ} is not a valid closure environment type"),
                 "Closure environment must be a tuple or unit type".to_string(), *span),

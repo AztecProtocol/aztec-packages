@@ -2,6 +2,7 @@
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
+REPO=$(git rev-parse --show-toplevel)
 
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
@@ -13,7 +14,9 @@ set -eu
 # Check for validator addresses
 if [ $# -gt 0 ]; then
   INIT_VALIDATORS="true"
-  VALIDATOR_ADDRESSES="$1"
+  NUMBER_OF_VALIDATORS="$1"
+  # Generate validator keys, this will set the VALIDATOR_ADDRESSES variable
+  source $REPO/yarn-project/end-to-end/scripts/native-network/generate-aztec-validator-keys.sh $NUMBER_OF_VALIDATORS
 else
   INIT_VALIDATORS="false"
 fi
@@ -54,6 +57,7 @@ REGISTRY_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-
 INBOX_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
 OUTBOX_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F0-9]{40}')
 FEE_JUICE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
+STAKING_ASSET_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Staking Asset Address: \K0x[a-fA-F0-9]{40}')
 FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 COIN_ISSUER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F0-9]{40}')
 REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
@@ -67,6 +71,7 @@ export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
 export INBOX_CONTRACT_ADDRESS=$INBOX_CONTRACT_ADDRESS
 export OUTBOX_CONTRACT_ADDRESS=$OUTBOX_CONTRACT_ADDRESS
 export FEE_JUICE_CONTRACT_ADDRESS=$FEE_JUICE_CONTRACT_ADDRESS
+export STAKING_ASSET_CONTRACT_ADDRESS=$STAKING_ASSET_CONTRACT_ADDRESS
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 export COIN_ISSUER_CONTRACT_ADDRESS=$COIN_ISSUER_CONTRACT_ADDRESS
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$REWARD_DISTRIBUTOR_CONTRACT_ADDRESS
