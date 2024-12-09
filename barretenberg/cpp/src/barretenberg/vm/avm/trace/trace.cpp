@@ -165,6 +165,12 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
 
     bool exists = true;
     if (check_membership && !isCanonical(contract_address)) {
+        if (bytecode_membership_cache.find(contract_address) != bytecode_membership_cache.end()) {
+            // If we have already seen the contract address, we can skip the membership check and used the cached
+            // membership proof
+            vinfo("Found bytecode for contract address in cache: ", contract_address);
+            return bytecode_hint.bytecode;
+        }
         const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
             DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
         // nullifier read hint for the contract address
@@ -185,6 +191,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             // This was a membership proof!
             // Assert that the hint's exists flag matches. The flag isn't really necessary...
             ASSERT(bytecode_hint.contract_instance.exists);
+            bytecode_membership_cache.insert(contract_address);
         } else {
             // This was a non-membership proof!
             // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
@@ -2862,18 +2869,6 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
-
-    AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    auto siloed_note_hash =
-        AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(current_ext_call_ctx.contract_address, row.main_ia);
-    ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
-    // We first check that the index is currently empty
-    bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
-        clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
-    ASSERT(insert_index_is_empty);
-
-    // Update the root with the new leaf that is appended
-    merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
     auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
