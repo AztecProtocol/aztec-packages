@@ -4,7 +4,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -140,7 +140,7 @@ export class L1TxUtils {
   constructor(
     private readonly publicClient: PublicClient,
     private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: DebugLogger,
+    private readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
@@ -178,9 +178,11 @@ export class L1TxUtils {
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
     });
 
-    this.logger?.verbose(
-      `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice.maxFeePerGas)} gwei`,
-    );
+    this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+      gasLimit,
+      maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
+      maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+    });
 
     return { txHash, gasLimit, gasPrice };
   }
@@ -230,9 +232,9 @@ export class L1TxUtils {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
               if (receipt) {
-                this.logger?.debug(`L1 Transaction ${hash} confirmed`);
+                this.logger?.debug(`L1 transaction ${hash} mined`);
                 if (receipt.status === 'reverted') {
-                  this.logger?.error(`L1 Transaction ${hash} reverted`);
+                  this.logger?.error(`L1 transaction ${hash} reverted`);
                 }
                 return receipt;
               }
@@ -255,7 +257,7 @@ export class L1TxUtils {
         const timePassed = Date.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
-          this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
+          this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
 
           // Check timeout before continuing
           if (gasConfig.txTimeoutMs) {
@@ -280,7 +282,7 @@ export class L1TxUtils {
           );
 
           this.logger?.debug(
-            `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
+            `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
               `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei`,
           );
 
@@ -308,7 +310,7 @@ export class L1TxUtils {
         txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs!;
       }
     }
-    throw new Error(`L1 Transaction ${currentTxHash} timed out`);
+    throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
   /**
@@ -377,10 +379,12 @@ export class L1TxUtils {
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
-    this.logger?.debug(
-      `Gas price calculation (attempt ${attempt}): baseFee=${formatGwei(baseFee)}, ` +
-        `maxPriorityFee=${formatGwei(maxPriorityFeePerGas)}, maxFee=${formatGwei(maxFeePerGas)}`,
-    );
+    this.logger?.debug(`Computed gas price`, {
+      attempt,
+      baseFee: formatGwei(baseFee),
+      maxFeePerGas: formatGwei(maxFeePerGas),
+      maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+    });
 
     return { maxFeePerGas, maxPriorityFeePerGas };
   }

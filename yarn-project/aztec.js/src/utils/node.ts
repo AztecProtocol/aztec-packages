@@ -1,8 +1,8 @@
 import { type AztecNode } from '@aztec/circuit-types';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-export const waitForNode = async (node: AztecNode, logger?: DebugLogger) => {
+export const waitForNode = async (node: AztecNode, logger?: Logger) => {
   await retryUntil(async () => {
     try {
       logger?.verbose('Attempting to contact Aztec node...');

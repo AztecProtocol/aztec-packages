@@ -38,7 +38,7 @@ Open `cross_chain_messaging.test.ts` and paste the initial description of the te
 
 ```typescript
 import { beforeAll, describe, beforeEach, expect, jest, it} from '@jest/globals'
-import { AccountWallet, AztecAddress, BatchCall, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, BatchCall, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor, type PXE, type Wallet } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { sha256ToField } from '@aztec/foundation/crypto';
@@ -92,7 +92,7 @@ describe('e2e_cross_chain_messaging', () => {
   let outbox: any;
 
   beforeAll(async () => {
-      logger = createDebugLogger('aztec:e2e_uniswap');
+      logger = createLogger('aztec:e2e_uniswap');
       const pxe = createPXEClient(PXE_URL);
       await waitForPXE(pxe);
       wallets = await getInitialTestAccountsWallets(pxe);
@@ -102,7 +102,7 @@ describe('e2e_cross_chain_messaging', () => {
   })
 
   beforeEach(async () => {
-    logger = createDebugLogger('aztec:e2e_uniswap');
+    logger = createLogger('aztec:e2e_uniswap');
     const pxe = createPXEClient(PXE_URL);
     await waitForPXE(pxe);
 
