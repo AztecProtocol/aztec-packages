@@ -146,7 +146,10 @@ impl PrivateContext {
         // debug_log("And just to make doubly sure, here is the context after pushing:");
 
         // WARNING: if you delete this debug_log_format line, some tests fail. Be safe out there.
-        debug_log_format("\n\nMIKE context note hash values after pushing: {0}", self.note_hashes.storage().map(|nh: NoteHash| nh.value));
+        debug_log_format(
+            "\n\nMIKE context note hash values after pushing: {0}",
+            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
+        );
 
         // debug_log_format("\n\nMIKE context note hash counters after pushing: {0}", self.note_hashes.storage().map(|nh: NoteHash| nh.counter as Field));
         // debug_log_format("\n\nMIKE - if you see a value here, the note hash is definitely in the context. self.note_hashes.storage()[0].value: {0}", [self.note_hashes.storage()[0].value]);
