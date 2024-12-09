@@ -1,7 +1,7 @@
 import {
   type AvmCircuitPublicInputs,
   type AztecAddress,
-  type Fr,
+  Fr,
   type Gas,
   type GasSettings,
   type GlobalVariables,
