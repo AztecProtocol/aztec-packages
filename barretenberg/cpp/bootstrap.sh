@@ -85,6 +85,7 @@ function test {
     denoise cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert "&&" cmake --build --preset $preset
 
     # Download ignition transcripts.
+    # TODO: Use the flattened crs. These old transcripts are a pain.
     echo "Downloading srs..."
     denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
     if [ ! -d ./srs_db/grumpkin ]; then

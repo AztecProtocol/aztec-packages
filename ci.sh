@@ -36,6 +36,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 instance_name="${BRANCH//\//_}"
+[ -n "$INSTANCE_POSTFIX" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
