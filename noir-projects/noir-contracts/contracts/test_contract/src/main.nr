@@ -39,14 +39,11 @@ contract Test {
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
     use dep::value_note::value_note::ValueNote;
-    // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
     use std::meta::derive;
 
     use crate::test_note::TestNote;
-
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct ExampleEvent {
         value0: Field,
         value1: Field,
