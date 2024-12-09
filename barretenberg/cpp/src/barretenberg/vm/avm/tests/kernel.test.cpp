@@ -257,42 +257,6 @@
 //     test_kernel_lookup(true, indirect_apply_opcodes, checks);
 // }
 //
-// TEST_F(AvmKernelPositiveTests, kernelFunctionSelector)
-// {
-//     // Direct
-//     uint32_t dst_offset = 42;
-//     uint32_t indirect_dst_offset = 69;
-//     // We test that the function selector opcode is included at index 0 in the public inputs
-//     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-//         trace_builder.op_function_selector(/*indirect*/ 0, dst_offset);
-//     };
-//     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-//         trace_builder.op_set(
-//             /*indirect*/ 0,
-//             /*value*/ dst_offset,
-//             /*dst_offset*/ indirect_dst_offset,
-//             AvmMemoryTag::U32);
-//         trace_builder.op_function_selector(/*indirect*/ 1, indirect_dst_offset);
-//     };
-//
-//     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
-//         auto row = std::ranges::find_if(
-//             trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_function_selector == FF(1); });
-//         EXPECT_TRUE(row != trace.end());
-//
-//         expect_row(row,
-//                    /*kernel_in_offset=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET,
-//                    /*ia=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET +
-//                        1, // Note the value generated above for public inputs is the same as the index read + 1
-//                    /*ind_a*/ indirect ? indirect_dst_offset : 0,
-//                    /*mem_addr_a=*/dst_offset,
-//                    /*w_in_tag=*/AvmMemoryTag::U32);
-//     };
-//
-//     test_kernel_lookup(false, direct_apply_opcodes, checks);
-//     test_kernel_lookup(true, indirect_apply_opcodes, checks);
-// }
-//
 // TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
 // {
 //     uint32_t dst_offset = 42;
@@ -647,33 +611,6 @@
 //             /*ind_a*/ indirect,
 //             /*mem_addr_a=*/dst_offset,
 //             /*w_in_tag=*/AvmMemoryTag::FF);
-//     };
-//
-//     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
-// }
-//
-// TEST_F(AvmKernelNegativeTests, incorrectIaFunctionSelector)
-// {
-//     uint32_t dst_offset = 42;
-//     FF incorrect_ia = FF(69);
-//
-//     // We test that the sender opcode is inlcuded at index x in the public inputs
-//     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-//         trace_builder.op_function_selector(/*indirect*/ 0, dst_offset);
-//     };
-//     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
-//         auto row = std::ranges::find_if(
-//             trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_function_selector == FF(1); });
-//         EXPECT_TRUE(row != trace.end());
-//
-//         expect_row(
-//             row,
-//             /*kernel_in_offset=*/FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET,
-//             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read +
-//             1
-//             /*ind_a*/ indirect,
-//             /*mem_addr_a=*/dst_offset,
-//             /*w_in_tag=*/AvmMemoryTag::U32);
 //     };
 //
 //     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);

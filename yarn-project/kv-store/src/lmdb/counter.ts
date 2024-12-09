@@ -1,13 +1,13 @@
 import { type Key as BaseKey, type Database } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecCounter } from '../interfaces/counter.js';
+import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
 import { LmdbAztecMap } from './map.js';
 
 /**
  * A counter implementation backed by LMDB
  */
-export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
+export class LmdbAztecCounter<K extends Key> implements AztecCounter<K>, AztecAsyncCounter<K> {
   #db: Database;
   #name: string;
   #map: LmdbAztecMap<K, number>;
@@ -45,11 +45,23 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
     return this.#map.get(key) ?? 0;
   }
 
+  getAsync(key: K): Promise<number> {
+    return Promise.resolve(this.get(key));
+  }
+
   entries(range: Range<K> = {}): IterableIterator<[K, number]> {
     return this.#map.entries(range);
   }
 
+  async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, number]> {
+    yield* this.entries(range);
+  }
+
   keys(range: Range<K> = {}): IterableIterator<K> {
     return this.#map.keys(range);
+  }
+
+  async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
+    yield* this.keys(range);
   }
 }

@@ -1,11 +1,11 @@
 import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import { type UltraHonkFlavor } from '../honk.js';
@@ -15,7 +15,6 @@ export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
-export const AVM_CALLDATA_FILENAME = 'avm_calldata.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
 export const AVM_HINTS_FILENAME = 'avm_hints.bin';
 
@@ -509,7 +508,7 @@ export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
-  log: LogFn,
+  logger: DebugLogger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -519,7 +518,6 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const calldataPath = join(workingDirectory, AVM_CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
   const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
 
@@ -539,13 +537,6 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(
-      calldataPath,
-      input.calldata.map(fr => fr.toBuffer()),
-    );
-    if (!filePresent(calldataPath)) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
-    }
 
     await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
@@ -558,19 +549,17 @@ export async function generateAvmProof(
     }
 
     const args = [
-      '--avm-calldata',
-      calldataPath,
       '--avm-public-inputs',
       publicInputsPath,
       '--avm-hints',
       avmHintsPath,
       '-o',
       outputPath,
-      currentLogLevel == 'debug' ? '-d' : currentLogLevel == 'verbose' ? '-v' : '',
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`AvmCircuit (prove) BB out - ${message}`);
+      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, 'avm_prove', args, logFunction);
     const duration = timer.ms();

@@ -13,6 +13,14 @@
 
 namespace bb::avm_trace {
 
+enum class TxExecutionPhase : uint32_t {
+    SETUP,
+    APP_LOGIC,
+    TEARDOWN,
+};
+
+std::string to_name(TxExecutionPhase phase);
+
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
@@ -29,10 +37,15 @@ class Execution {
 
     // Bytecode is currently the bytecode of the top-level function call
     // Eventually this will be the bytecode of the dispatch function of top-level contract
-    static std::vector<Row> gen_trace(std::vector<FF> const& calldata,
-                                      AvmPublicInputs const& new_public_inputs,
+    static std::vector<Row> gen_trace(AvmPublicInputs const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      ExecutionHints const& execution_hints);
+                                      ExecutionHints const& execution_hints,
+                                      bool apply_e2e_assertions = false);
+
+    static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
+                                          PublicCallRequest& public_call_request,
+                                          std::vector<FF>& returndata,
+                                          bool check_bytecode_membership);
 
     // For testing purposes only.
     static void set_trace_builder_constructor(TraceBuilderConstructor constructor)
@@ -41,9 +54,7 @@ class Execution {
     }
 
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
-        std::vector<FF> const& calldata = {},
-        AvmPublicInputs const& public_inputs = AvmPublicInputs(),
-        ExecutionHints const& execution_hints = {});
+        AvmPublicInputs const& public_inputs = AvmPublicInputs(), ExecutionHints const& execution_hints = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
 
   private:
