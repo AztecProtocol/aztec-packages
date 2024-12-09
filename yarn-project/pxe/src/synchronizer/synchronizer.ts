@@ -82,7 +82,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = this.db.getHeader();
+      currentHeader = this.db.getBlockHeader();
     } catch (e) {
       this.log.debug('Header is not set, requesting from the node');
     }
