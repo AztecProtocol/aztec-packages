@@ -166,6 +166,7 @@ struct ContractInstanceHint {
     FF contract_class_id{};
     FF initialisation_hash{};
     PublicKeysHint public_keys;
+    NullifierReadTreeHint membership_hint;
 };
 
 inline void read(uint8_t const*& it, PublicKeysHint& hint)
@@ -189,6 +190,7 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_keys);
+    read(it, hint.membership_hint);
 }
 
 struct AvmContractBytecode {
@@ -201,7 +203,7 @@ struct AvmContractBytecode {
                         ContractInstanceHint contract_instance,
                         ContractClassIdHint contract_class_id_preimage)
         : bytecode(std::move(bytecode))
-        , contract_instance(contract_instance)
+        , contract_instance(std::move(contract_instance))
         , contract_class_id_preimage(contract_class_id_preimage)
     {}
     AvmContractBytecode(std::vector<uint8_t> bytecode)
@@ -217,7 +219,20 @@ inline void read(uint8_t const*& it, AvmContractBytecode& bytecode)
     read(it, bytecode.contract_class_id_preimage);
 }
 
+struct AvmEnqueuedCallHint {
+    FF contract_address;
+    std::vector<FF> calldata;
+};
+
+inline void read(uint8_t const*& it, AvmEnqueuedCallHint& hint)
+{
+    using serialize::read;
+    read(it, hint.contract_address);
+    read(it, hint.calldata);
+}
+
 struct ExecutionHints {
+    std::vector<AvmEnqueuedCallHint> enqueued_call_hints;
     std::vector<std::pair<FF, FF>> storage_value_hints;
     std::vector<std::pair<FF, FF>> note_hash_exists_hints;
     std::vector<std::pair<FF, FF>> nullifier_exists_hints;
@@ -309,6 +324,9 @@ struct ExecutionHints {
 
         using serialize::read;
         const auto* it = data.data();
+        std::vector<AvmEnqueuedCallHint> enqueued_call_hints;
+        read(it, enqueued_call_hints);
+
         read(it, storage_value_hints);
         read(it, note_hash_exists_hints);
         read(it, nullifier_exists_hints);
@@ -353,19 +371,28 @@ struct ExecutionHints {
                            " bytes out of " + std::to_string(data.size()) + " bytes");
         }
 
-        return { std::move(storage_value_hints),    std::move(note_hash_exists_hints),
-                 std::move(nullifier_exists_hints), std::move(l1_to_l2_message_exists_hints),
-                 std::move(externalcall_hints),     std::move(contract_instance_hints),
-                 std::move(all_contract_bytecode),  std::move(storage_read_hints),
-                 std::move(storage_write_hints),    std::move(nullifier_read_hints),
-                 std::move(nullifier_write_hints),  std::move(note_hash_read_hints),
-                 std::move(note_hash_write_hints),  std::move(l1_to_l2_message_read_hints)
+        return { std::move(enqueued_call_hints),
+                 std::move(storage_value_hints),
+                 std::move(note_hash_exists_hints),
+                 std::move(nullifier_exists_hints),
+                 std::move(l1_to_l2_message_exists_hints),
+                 std::move(externalcall_hints),
+                 std::move(contract_instance_hints),
+                 std::move(all_contract_bytecode),
+                 std::move(storage_read_hints),
+                 std::move(storage_write_hints),
+                 std::move(nullifier_read_hints),
+                 std::move(nullifier_write_hints),
+                 std::move(note_hash_read_hints),
+                 std::move(note_hash_write_hints),
+                 std::move(l1_to_l2_message_read_hints)
 
         };
     }
 
   private:
-    ExecutionHints(std::vector<std::pair<FF, FF>> storage_value_hints,
+    ExecutionHints(std::vector<AvmEnqueuedCallHint> enqueued_call_hints,
+                   std::vector<std::pair<FF, FF>> storage_value_hints,
                    std::vector<std::pair<FF, FF>> note_hash_exists_hints,
                    std::vector<std::pair<FF, FF>> nullifier_exists_hints,
                    std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints,
@@ -380,7 +407,8 @@ struct ExecutionHints {
                    std::vector<AppendTreeHint> note_hash_write_hints,
                    std::vector<AppendTreeHint> l1_to_l2_message_read_hints)
 
-        : storage_value_hints(std::move(storage_value_hints))
+        : enqueued_call_hints(std::move(enqueued_call_hints))
+        , storage_value_hints(std::move(storage_value_hints))
         , note_hash_exists_hints(std::move(note_hash_exists_hints))
         , nullifier_exists_hints(std::move(nullifier_exists_hints))
         , l1_to_l2_message_exists_hints(std::move(l1_to_l2_message_exists_hints))

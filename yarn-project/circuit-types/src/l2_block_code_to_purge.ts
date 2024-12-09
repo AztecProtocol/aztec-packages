@@ -1,12 +1,12 @@
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
+  BlockHeader,
   ContentCommitment,
   EthAddress,
   Fr,
   GasFees,
   GlobalVariables,
-  Header,
   NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
@@ -23,8 +23,8 @@ export function makeHeader(
   slotNumber: number | undefined = undefined,
   txsEffectsHash: Buffer | undefined = undefined,
   inHash: Buffer | undefined = undefined,
-): Header {
-  return new Header(
+): BlockHeader {
+  return new BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash, inHash),
     makeStateReference(seed + 0x600),

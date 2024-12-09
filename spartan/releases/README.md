@@ -19,7 +19,7 @@ To configure a new node, create a new directory and run the install script:
 
 ```bash
 mkdir val1 && cd val1
-curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/rough-rhino/create-spartan.sh | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/create-spartan.sh | bash
 ```
 
 This will install `aztec-spartan.sh` in the current directory. You can now run it:

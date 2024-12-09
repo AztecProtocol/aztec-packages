@@ -19,7 +19,7 @@ variable "AZTEC_DOCKER_IMAGE" {
   type        = string
 }
 
-variable "l1_deployment_mnemonic" {
+variable "L1_DEPLOYMENT_MNEMONIC" {
   description = "Mnemonic to use for the L1 contract deployments"
   type        = string
   sensitive   = true

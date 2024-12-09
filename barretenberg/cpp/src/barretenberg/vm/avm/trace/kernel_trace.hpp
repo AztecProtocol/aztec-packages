@@ -18,7 +18,6 @@ class AvmKernelTraceBuilder {
         // IN
         ADDRESS,
         SENDER,
-        FUNCTION_SELECTOR,
         TRANSACTION_FEE,
         CHAIN_ID,
         VERSION,
@@ -70,7 +69,6 @@ class AvmKernelTraceBuilder {
     // Context
     FF op_address(uint32_t clk);
     FF op_sender(uint32_t clk);
-    FF op_function_selector(uint32_t clk);
     FF op_transaction_fee(uint32_t clk);
     FF op_is_static_call(uint32_t clk);
 

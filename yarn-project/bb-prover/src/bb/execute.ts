@@ -15,7 +15,6 @@ export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
-export const AVM_CALLDATA_FILENAME = 'avm_calldata.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
 export const AVM_HINTS_FILENAME = 'avm_hints.bin';
 
@@ -519,7 +518,6 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const calldataPath = join(workingDirectory, AVM_CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
   const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
 
@@ -539,13 +537,6 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(
-      calldataPath,
-      input.calldata.map(fr => fr.toBuffer()),
-    );
-    if (!filePresent(calldataPath)) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
-    }
 
     await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
@@ -558,8 +549,6 @@ export async function generateAvmProof(
     }
 
     const args = [
-      '--avm-calldata',
-      calldataPath,
       '--avm-public-inputs',
       publicInputsPath,
       '--avm-hints',
