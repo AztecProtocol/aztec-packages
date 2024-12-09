@@ -9,7 +9,10 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    constants::{
+        PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX,
+        PROOF_TYPE_PG,
+    },
     PrivateKernelCircuitPublicInputs,
 };
 
@@ -65,6 +68,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
     ) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            std::verify_proof_with_type(self.previous_kernel.vk.key, [], [], 0, PROOF_TYPE_PG);
+        }
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let validation_request_processor = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,

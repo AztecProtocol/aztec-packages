@@ -9,6 +9,7 @@ use dep::types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
     },
+    constants::PROOF_TYPE_OINK,
     transaction::tx_request::TxRequest,
 };
 
@@ -49,6 +50,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            std::verify_proof_with_type(self.private_call.vk.key, [], [], 0, PROOF_TYPE_OINK);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 
