@@ -461,14 +461,15 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, ProgramMetad
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    // WORKTODO: better handling for case where were constucting an app but still need an op queue
-    if (metadata.ivc == nullptr) {
-        metadata.ivc = std::make_shared<ClientIVC>();
-    }
+    // // WORKTODO: better handling for case where were constucting an app but still need an op queue
+    // if (metadata.ivc == nullptr) {
+    //     metadata.ivc = std::make_shared<ClientIVC>();
+    // }
+
+    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder =
-        MegaCircuitBuilder{ metadata.ivc->goblin.op_queue, witness, constraints.public_inputs, constraints.varnum };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);
