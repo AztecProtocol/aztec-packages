@@ -3,6 +3,7 @@ import { defaultReporter } from '@web/test-runner';
 import { summaryReporter } from '@web/test-runner';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { fileURLToPath } from 'url';
+import { importMapsPlugin } from '@web/dev-server-import-maps';
 
 const reporter = process.env.CI ? summaryReporter() : defaultReporter();
 
@@ -13,12 +14,19 @@ export default {
     // playwrightLauncher({ product: "firefox" }),
   ],
   plugins: [
+    importMapsPlugin({
+      inject: {
+        importMap: {
+          imports: { '@aztec/bb.js': '../../barretenberg/ts/dest/browser/index.js' },
+        },
+      },
+    }),
     esbuildPlugin({
       ts: true,
     }),
   ],
   files: ['./src/browser*.test.ts'],
-  rootDir: fileURLToPath(new URL('../', import.meta.url)),
+  rootDir: fileURLToPath(new URL('../../', import.meta.url)),
   nodeResolve: true,
   reporters: [reporter],
 };

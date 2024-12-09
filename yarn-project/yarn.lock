@@ -702,7 +702,7 @@ __metadata:
   resolution: "@aztec/ivc-integration@workspace:ivc-integration"
   dependencies:
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/bb.js": ../../ts
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -723,6 +723,7 @@ __metadata:
     "@types/node": ^22.8.1
     "@types/pako": ^2.0.3
     "@web/dev-server-esbuild": ^1.0.3
+    "@web/dev-server-import-maps": ^0.2.1
     "@web/test-runner": ^0.19.0
     "@web/test-runner-playwright": ^0.11.0
     chai: ^5.1.2
@@ -2380,6 +2381,13 @@ __metadata:
   version: 2.2.5
   resolution: "@iarna/toml@npm:2.2.5"
   checksum: b63b2b2c4fd67969a6291543ada0303d45593801ee744b60f5390f183c03d9192bc67a217abb24be945158f1935f02840d9ffff40c0142aa171b5d3b6b6a3ea5
+  languageName: node
+  linkType: hard
+
+"@import-maps/resolve@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@import-maps/resolve@npm:1.0.1"
+  checksum: 17ee033e26a0fd82294de87eae76d32b553a130fdbf0fb8c70d39f2087a3e8a4a5908970a99aa32bd175153efe9b7dfee6b7f99df36f41abed08c1911dbdb19c
   languageName: node
   linkType: hard
 
@@ -5868,6 +5876,20 @@ __metadata:
     parse5: ^6.0.1
     ua-parser-js: ^1.0.33
   checksum: 8dba030098191260eca9aef5d2f8a986a8829300882f3563a925df36807ab49b1cacd33c9a581ae7d6c83fc32fdbaf779a2b4d3b47cb61edbdd2b67eb09534a7
+  languageName: node
+  linkType: hard
+
+"@web/dev-server-import-maps@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "@web/dev-server-import-maps@npm:0.2.1"
+  dependencies:
+    "@import-maps/resolve": ^1.0.1
+    "@types/parse5": ^6.0.1
+    "@web/dev-server-core": ^0.7.2
+    "@web/parse5-utils": ^2.1.0
+    parse5: ^6.0.1
+    picomatch: ^2.2.2
+  checksum: 9ec28c3ba48847c6312e35e778defdc0fc9973ed43a77b1db5a92ed5837d9d15b6bda9d68b045f95fe3878854b9462bbb7e248d5477517427ff79a7eb5675f84
   languageName: node
   linkType: hard
 

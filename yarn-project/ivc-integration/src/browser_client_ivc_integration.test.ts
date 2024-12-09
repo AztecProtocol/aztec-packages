@@ -1,42 +1,26 @@
-import { expect } from 'chai';
+import { AztecClientBackend } from '@aztec/bb.js';
 
-import {
-  generate3FunctionTestingIVCStack,
-  generate6FunctionTestingIVCStack,
-  mockLogger,
-  proveAndVerifyBrowser,
-} from './index.js';
+import { expect } from 'chai';
+import { ungzip } from 'pako';
+
+import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger } from './index.js';
 
 /* eslint-disable camelcase */
 
 const logger = mockLogger;
 
-function formatAndPrintLog(message: string): void {
-  const parts = message.split('%c');
-  if (parts.length === 1) {
-    logger.debug('msg', parts[0]);
-    return;
-  }
-  if (!parts[0]) {
-    parts.shift();
-  }
-  const colors = parts[parts.length - 1].split(' color: ');
-  parts[parts.length - 1] = colors.shift()!;
+function base64ToUint8Array(base64: string): Uint8Array {
+  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+}
 
-  let formattedMessage = '';
-  for (let i = 0; i < parts.length; i++) {
-    const colorValue = colors[i];
+export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
+  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
+  const backend = new AztecClientBackend(preparedBytecodes, { threads });
+  await backend.instantiate();
+  const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
 
-    if (colorValue === 'inherit' || !colorValue) {
-      formattedMessage += parts[i];
-    } else if (colorValue.startsWith('#')) {
-      formattedMessage += parts[i];
-    } else {
-      formattedMessage += parts[i];
-    }
-  }
-
-  logger.debug('msg', formattedMessage);
+  await backend.destroy();
+  return verified;
 }
 
 describe('Client IVC Integration', () => {
@@ -64,7 +48,7 @@ describe('Client IVC Integration', () => {
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).to.equal(true);
-  });
+  }).timeout(60_000_000);
 
   // This test will verify a client IVC proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
@@ -81,5 +65,5 @@ describe('Client IVC Integration', () => {
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).to.equal(true);
-  });
+  }).timeout(60_000_000);
 });
