@@ -7,9 +7,9 @@ import {
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  BlockHeader,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  Header,
   type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
@@ -555,7 +555,7 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
   }
 
-  async setHeader(header: Header): Promise<void> {
+  async setHeader(header: BlockHeader): Promise<void> {
     await this.#synchronizedBlock.set(header.toBuffer());
   }
 
@@ -565,16 +565,16 @@ export class KVPxeDatabase implements PxeDatabase {
       return undefined;
     }
 
-    return Number(Header.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
+    return Number(BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
   }
 
-  async getHeader(): Promise<Header> {
+  async getBlockHeader(): Promise<BlockHeader> {
     const headerBuffer = await this.#synchronizedBlock.getAsync();
     if (!headerBuffer) {
       throw new Error(`Header not set`);
     }
 
-    return Header.fromBuffer(headerBuffer);
+    return BlockHeader.fromBuffer(headerBuffer);
   }
 
   async #addScope(scope: AztecAddress): Promise<boolean> {

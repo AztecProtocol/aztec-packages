@@ -150,6 +150,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
     },
     {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
+    },
+    {
       flag: '--fee-juice-portal-address <value>',
       description: 'The deployed L1 Fee Juice portal contract address',
       defaultValue: undefined,

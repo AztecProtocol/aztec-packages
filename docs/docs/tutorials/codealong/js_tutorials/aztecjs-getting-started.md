@@ -75,7 +75,7 @@ yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @ty
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && DEBUG='token' node ./dest/index.js"
+    "start": "yarn build && LOG_LEVEL='info: token' node ./dest/index.js"
   },
 ```
 

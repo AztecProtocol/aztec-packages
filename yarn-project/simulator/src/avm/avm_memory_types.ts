@@ -259,7 +259,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getAs<T>(offset: number): T {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem[offset];
-    TaggedMemory.log.debug(`get(${offset}) = ${word}`);
+    TaggedMemory.log.trace(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
@@ -270,7 +270,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getSlice(offset: number, size: number): MemoryValue[] {
     assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     const value = this._mem.slice(offset, offset + size);
-    TaggedMemory.log.debug(`getSlice(${offset}, ${size}) = ${value}`);
+    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${value}`);
     for (let i = 0; i < value.length; i++) {
       if (value[i] === undefined) {
         value[i] = new Field(0);
@@ -293,7 +293,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public set(offset: number, v: MemoryValue) {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem[offset] = v;
-    TaggedMemory.log.debug(`set(${offset}, ${v})`);
+    TaggedMemory.log.trace(`set(${offset}, ${v})`);
   }
 
   public setSlice(offset: number, vs: MemoryValue[]) {
@@ -303,7 +303,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
       this._mem.length = offset + vs.length;
     }
     this._mem.splice(offset, vs.length, ...vs);
-    TaggedMemory.log.debug(`setSlice(${offset}, ${vs})`);
+    TaggedMemory.log.trace(`setSlice(${offset}, ${vs})`);
   }
 
   public getTag(offset: number): TypeTag {

@@ -1,4 +1,4 @@
-import { type Fr, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
 
 import { type L2Block } from '../l2_block.js';
 import { type ProcessedTx } from '../tx/processed_tx.js';
@@ -24,5 +24,5 @@ export interface BlockBuilder extends ProcessedTxHandler {
    * Pads the block with empty txs if it hasn't reached the declared number of txs.
    * Assembles the block and updates the archive tree.
    */
-  setBlockCompleted(expectedBlockHeader?: Header): Promise<L2Block>;
+  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 }

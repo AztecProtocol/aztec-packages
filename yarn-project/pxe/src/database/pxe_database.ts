@@ -1,8 +1,8 @@
 import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type Header,
   type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
@@ -115,7 +115,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getHeader(): Promise<Header>;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Set the latest Block Header.
@@ -124,7 +124,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHeader(header: Header): Promise<void>;
+  setHeader(header: BlockHeader): Promise<void>;
 
   /**
    * Adds contact address to the database.

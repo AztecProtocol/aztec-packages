@@ -37,7 +37,7 @@ describe('Synchronizer', () => {
     const block = L2Block.random(1, 4);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = await database.getHeader();
+    const obtainedHeader = await database.getBlockHeader();
     expect(obtainedHeader).toEqual(block.header);
   });
 

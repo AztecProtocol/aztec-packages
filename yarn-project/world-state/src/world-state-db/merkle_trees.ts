@@ -10,8 +10,8 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -249,8 +249,8 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     await this.store.delete();
   }
 
-  public getInitialHeader(): Header {
-    return Header.empty({ state: this.#loadInitialStateReference() });
+  public getInitialHeader(): BlockHeader {
+    return BlockHeader.empty({ state: this.#loadInitialStateReference() });
   }
 
   /**
@@ -285,7 +285,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(header: Header) {
+  public async updateArchive(header: BlockHeader) {
     await this.synchronize(() => this.#updateArchive(header));
   }
 
@@ -519,7 +519,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     return StateReference.fromBuffer(serialized);
   }
 
-  async #updateArchive(header: Header) {
+  async #updateArchive(header: BlockHeader) {
     const state = await this.getStateReference(true);
 
     // This method should be called only when the block builder already updated the state so we sanity check that it's

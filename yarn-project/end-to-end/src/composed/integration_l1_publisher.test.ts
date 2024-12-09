@@ -9,11 +9,11 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
   GasSettings,
-  type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
@@ -84,7 +84,7 @@ describe('L1Publisher integration', () => {
   let builderDb: MerkleTreeAdminDatabase;
 
   // The header of the last block
-  let prevHeader: Header;
+  let prevHeader: BlockHeader;
 
   let baseFee: GasFees;
 
