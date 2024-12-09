@@ -18,6 +18,7 @@ import { compact } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
+import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -76,6 +77,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+  }
+
+  public getP2P() {
+    const asP2PClient = this.coordination as P2P;
+    if (asP2PClient.isP2PClient && asP2PClient.isP2PClient()) {
+      return asP2PClient;
+    }
+    return undefined;
   }
 
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {

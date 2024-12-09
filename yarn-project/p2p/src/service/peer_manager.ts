@@ -1,3 +1,4 @@
+import { type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type ENR } from '@chainsafe/enr';
@@ -28,7 +29,7 @@ export class PeerManager {
     private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
-    private logger = createLogger('p2p:peer_manager'),
+    private logger = createLogger('p2p:peer-manager'),
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
@@ -72,6 +73,35 @@ export class PeerManager {
 
   public getPeerScore(peerId: string): number {
     return this.peerScoring.getScore(peerId);
+  }
+
+  public getPeers(): PeerInfo[] {
+    const connected = this.libP2PNode
+      .getPeers()
+      .map(peer => ({ id: peer.toString(), score: this.getPeerScore(peer.toString()), status: 'connected' as const }));
+
+    const dialQueue = this.libP2PNode
+      .getDialQueue()
+      .filter(peer => !!peer.peerId)
+      .map(peer => ({
+        id: peer.peerId!.toString(),
+        status: 'dialing' as const,
+        dialStatus: peer.status,
+        addresses: peer.multiaddrs.map(m => m.toString()),
+      }));
+
+    const cachedPeers = Array.from(this.cachedPeers.values())
+      .filter(peer => !dialQueue.some(dialPeer => dialPeer.id && peer.peerId.toString() === dialPeer.id.toString()))
+      .filter(peer => !connected.some(connPeer => connPeer.id.toString() === peer.peerId.toString()))
+      .map(peer => ({
+        status: 'cached' as const,
+        id: peer.peerId.toString(),
+        addresses: [peer.multiaddrTcp.toString()],
+        dialAttempts: peer.dialAttempts,
+        enr: peer.enr.encodeTxt(),
+      }));
+
+    return [...connected, ...dialQueue, ...cachedPeers];
   }
 
   /**
@@ -145,7 +175,7 @@ export class PeerManager {
 
     // throw if no tcp addr in multiaddr
     if (!multiaddrTcp) {
-      this.logger.warn(`No TCP address in discovered node's multiaddr ${enr.encodeTxt()}`);
+      this.logger.debug(`No TCP address in discovered node's multiaddr ${enr.encodeTxt()}`);
       return;
     }
     const connections = this.libP2PNode.getConnections();

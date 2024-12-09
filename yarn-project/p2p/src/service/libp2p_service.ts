@@ -6,6 +6,7 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  type PeerInfo,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
@@ -308,6 +309,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       requestResponseHandlers,
     );
+  }
+
+  public getPeers(): PeerInfo[] {
+    return this.peerManager.getPeers();
   }
 
   /**

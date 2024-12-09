@@ -6,7 +6,8 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
-import { expect, jest } from '@jest/globals';
+import { expect } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type EpochProofQuotePool, type P2PService } from '../index.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
@@ -14,59 +15,31 @@ import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
-/**
- * Mockify helper for testing purposes.
- */
-type Mockify<T> = {
-  [P in keyof T]: ReturnType<typeof jest.fn>;
-};
-
 describe('In-Memory P2P Client', () => {
-  let txPool: Mockify<TxPool>;
-  let attestationPool: Mockify<AttestationPool>;
-  let epochProofQuotePool: Mockify<EpochProofQuotePool>;
+  let txPool: MockProxy<TxPool>;
+  let attestationPool: MockProxy<AttestationPool>;
+  let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
-  let p2pService: Mockify<P2PService>;
+  let p2pService: MockProxy<P2PService>;
   let kvStore: AztecKVStore;
   let client: P2PClient;
 
   beforeEach(() => {
-    txPool = {
-      addTxs: jest.fn(),
-      getTxByHash: jest.fn().mockReturnValue(undefined),
-      deleteTxs: jest.fn(),
-      getAllTxs: jest.fn().mockReturnValue([]),
-      getAllTxHashes: jest.fn().mockReturnValue([]),
-      getMinedTxHashes: jest.fn().mockReturnValue([]),
-      getPendingTxHashes: jest.fn().mockReturnValue([]),
-      getTxStatus: jest.fn().mockReturnValue(undefined),
-      markAsMined: jest.fn(),
-      markMinedAsPending: jest.fn(),
-    };
+    txPool = mock<TxPool>({
+      getAllTxs: () => [],
+      getAllTxHashes: () => [],
+      getPendingTxHashes: () => [],
+      getMinedTxHashes: () => [],
+    });
 
-    p2pService = {
-      start: jest.fn(),
-      stop: jest.fn(),
-      propagate: jest.fn(),
-      registerBlockReceivedCallback: jest.fn(),
-      sendRequest: jest.fn(),
-      getEnr: jest.fn(),
-    };
+    p2pService = mock<P2PService>();
 
-    attestationPool = {
-      addAttestations: jest.fn(),
-      deleteAttestations: jest.fn(),
-      deleteAttestationsForSlot: jest.fn(),
-      deleteAttestationsOlderThan: jest.fn(),
-      getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
-    };
+    attestationPool = mock<AttestationPool>();
 
-    epochProofQuotePool = {
-      addQuote: jest.fn(),
-      getQuotes: jest.fn().mockReturnValue([]),
-      deleteQuotesToEpoch: jest.fn(),
-    };
+    epochProofQuotePool = mock<EpochProofQuotePool>({
+      getQuotes: () => [],
+    });
 
     blockSource = new MockL2BlockSource();
     blockSource.createBlocks(100);
