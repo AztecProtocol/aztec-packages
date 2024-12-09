@@ -6,7 +6,6 @@ VERSION --raw-output 0.8
 bootstrap-base:
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
-  ARG EARTHLY_GIT_HASH
   ENV GITHUB_LOG=1
   WORKDIR /build-volume
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
@@ -18,6 +17,7 @@ bootstrap-base:
 
 bootstrap-noir-bb:
   FROM +bootstrap-base
+  ARG EARTHLY_GIT_HASH
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
@@ -41,6 +41,7 @@ bootstrap-noir-bb:
 bootstrap:
   # Skips boxes.
   FROM +bootstrap-base
+  ARG EARTHLY_GIT_HASH
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
