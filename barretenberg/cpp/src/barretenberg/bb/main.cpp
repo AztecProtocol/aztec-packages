@@ -713,17 +713,17 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
 
-    bool honk_recursion = false;
+    acir_format::ProgramMetadata metadata;
+    metadata.recursive = recursive;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
-        honk_recursion = true;
+        metadata.honk_recursion = true;
     }
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    acir_format::WitnessVector witness = {};
+    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
     if (!witnessPath.empty()) {
-        witness = get_witness(witnessPath);
+        program.witness = get_witness(witnessPath);
     }
 
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     return std::move(prover);
@@ -903,10 +903,13 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
 
-    bool honk_recursion = true;
-    auto constraints = get_constraint_system(bytecodePath, honk_recursion);
-    auto witness = get_witness(witnessPath);
-    auto builder = acir_format::create_circuit<Builder>(constraints, recursive, 0, witness, honk_recursion);
+    acir_format::ProgramMetadata metadata;
+    metadata.recursive = recursive;
+    metadata.honk_recursion = true;
+    acir_format::AcirProgram program;
+    program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
+    program.witness = get_witness(witnessPath);
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Construct Honk proof and verification key
     Prover prover{ builder };
@@ -1054,15 +1057,15 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    bool honk_recursion = false;
+    acir_format::ProgramMetadata metadata;
+    metadata.recursive = recursive;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
-        honk_recursion = true;
+        metadata.honk_recursion = true;
     }
+    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
+                                      get_witness(witnessPath) };
 
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
-    auto witness = get_witness(witnessPath);
-
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Construct Honk proof
     Prover prover{ builder };

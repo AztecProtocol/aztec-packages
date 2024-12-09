@@ -160,7 +160,7 @@ using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness;
+    WitnessVector witness = {};
 };
 
 /**
