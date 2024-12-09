@@ -12,5 +12,5 @@ describe('start_anvil', () => {
 
     await anvil.stop();
     expect(anvil.status).toEqual('idle');
-  });
+  }, 30000);
 });

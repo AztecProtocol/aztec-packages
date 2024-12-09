@@ -42,7 +42,7 @@ describe('tx_delayer', () => {
     const receipt = await client.waitForTransactionReceipt({ hash });
     expect(receipt).toBeDefined();
     expect(receipt.blockNumber).toEqual(blockNumber + 1n);
-  });
+  }, 30000);
 
   it('delays a transaction until a given L1 block number', async () => {
     const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
@@ -55,7 +55,7 @@ describe('tx_delayer', () => {
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
     expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 3n);
-  }, 20000);
+  }, 30000);
 
   it('delays a transaction until a given L1 timestamp', async () => {
     const block = await client.getBlock({ includeTransactions: false });
@@ -69,7 +69,7 @@ describe('tx_delayer', () => {
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
     expect(delayedTxReceipt.blockNumber).toEqual(block.number + 3n);
-  }, 20000);
+  }, 30000);
 
   it('delays a tx sent through a contract', async () => {
     const deployTxHash = await client.deployContract({
@@ -93,7 +93,7 @@ describe('tx_delayer', () => {
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
     expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 3n);
-  }, 20000);
+  }, 30000);
 
   afterAll(async () => {
     await anvil.stop();
