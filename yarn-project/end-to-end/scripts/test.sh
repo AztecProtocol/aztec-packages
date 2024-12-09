@@ -16,7 +16,7 @@ case "$TYPE" in
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST)
     trap "docker kill $container &> /dev/null" SIGINT SIGTERM
-    docker logs -f $container
+    docker attach $container
   ;;
   "compose")
     docker compose -p "${TEST//[\/\.]/_}" -f ./scripts/docker-compose.yml up --exit-code-from=end-to-end --force-recreate
