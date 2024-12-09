@@ -1,23 +1,15 @@
-import { jest } from '@jest/globals';
-import {
-  type Browser,
-  type Page,
-  chromium,
-  /* firefox, webkit */
-} from 'playwright';
+import { expect } from 'chai';
 
 import {
   generate3FunctionTestingIVCStack,
   generate6FunctionTestingIVCStack,
   mockLogger,
-  proveAndVerifyAztecClient,
+  proveAndVerifyBrowser,
 } from './index.js';
 
 /* eslint-disable camelcase */
 
 const logger = mockLogger;
-
-jest.setTimeout(120_000);
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split('%c');
@@ -48,20 +40,17 @@ function formatAndPrintLog(message: string): void {
 }
 
 describe('Client IVC Integration', () => {
-  let page: Page;
-  let browser: Browser;
+  // beforeAll(async () => {
+  //   browser = await chromium.launch({ headless: true });
+  //   const context = await browser.newContext();
+  //   page = await context.newPage();
+  //   page.on('console', msg => formatAndPrintLog(msg.text()));
+  //   await page.goto('http://localhost:8080');
+  // });
 
-  beforeAll(async () => {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
-    page = await context.newPage();
-    page.on('console', msg => formatAndPrintLog(msg.text()));
-    await page.goto('http://localhost:8080');
-  });
-
-  afterAll(async () => {
-    await browser.close();
-  });
+  // afterAll(async () => {
+  //   await browser.close();
+  // });
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
@@ -71,10 +60,10 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     logger.debug('msg', `calling prove and verify...`);
-    const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
+    const verifyResult = await proveAndVerifyBrowser(bytecodes, witnessStack);
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
-    expect(verifyResult).toEqual(true);
+    expect(verifyResult).to.equal(true);
   });
 
   // This test will verify a client IVC proof of a more complex tx:
@@ -88,9 +77,9 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     logger.debug('msg', `calling prove and verify...`);
-    const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
+    const verifyResult = await proveAndVerifyBrowser(bytecodes, witnessStack);
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
-    expect(verifyResult).toEqual(true);
+    expect(verifyResult).to.equal(true);
   });
 });
