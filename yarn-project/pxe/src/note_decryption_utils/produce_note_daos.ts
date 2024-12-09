@@ -1,7 +1,7 @@
 import { type L1NotePayload, type PublicKey, type TxHash } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';

@@ -6,6 +6,7 @@ import {
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
   AztecAddress,
+  type ContractClassIdPreimage,
   EthAddress,
   L2ToL1Message,
   LogHash,
@@ -32,6 +33,7 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
 describe('Enqueued-call Side Effect Trace', () => {
   const address = AztecAddress.random();
+  const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
   const lowLeafIndex = Fr.random();
@@ -60,7 +62,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().storageReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().publicDataReads.items).toEqual([expected]);
   });
 
   it('Should trace storage writes', () => {
@@ -86,14 +88,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, siblingPath);
-    expect(trace.getAvmCircuitHints().storageUpdateRequest.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().publicDataWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace note hash checks', () => {
     const exists = true;
     trace.traceNoteHashCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().noteHashReads.items).toEqual([expected]);
   });
 
   it('Should trace note hashes', () => {
@@ -104,7 +106,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getSideEffects().noteHashes).toEqual(expected);
 
     const expectedHint = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashWriteRequest.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().noteHashWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace nullifier checks', () => {
@@ -114,7 +116,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmNullifierReadTreeHint(lowLeafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().nullifierReads.items).toEqual([expected]);
   });
 
   it('Should trace nullifiers', () => {
@@ -127,14 +129,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const readHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmNullifierWriteTreeHint(readHint, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierWriteHints.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().nullifierWrites.items).toEqual([expectedHint]);
   });
 
   it('Should trace L1ToL2 Message checks', () => {
     const exists = true;
     trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().l1ToL2MessageReadRequest.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().l1ToL2MessageReads.items).toEqual([expected]);
   });
 
   it('Should trace new L2ToL1 messages', () => {
@@ -161,18 +163,53 @@ describe('Enqueued-call Side Effect Trace', () => {
   it('Should trace get contract instance', () => {
     const instance = SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
+    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
     const exists = true;
-    trace.traceGetContractInstance(address, exists, instance);
+    trace.traceGetContractInstance(address, exists, instance, lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
       {
         address,
         exists,
         ...instanceWithoutVersion,
+        membershipHint,
       },
     ]);
   });
+
+  it('Should trace get bytecode', () => {
+    const instance = SerializableContractInstance.random();
+    const contractClass: ContractClassIdPreimage = {
+      artifactHash: Fr.random(),
+      privateFunctionsRoot: Fr.random(),
+      publicBytecodeCommitment: Fr.random(),
+    };
+    const { version: _, ...instanceWithoutVersion } = instance;
+    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
+    const exists = true;
+    trace.traceGetBytecode(
+      address,
+      exists,
+      bytecode,
+      instance,
+      contractClass,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafSiblingPath,
+    );
+
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
+    expect(trace.getAvmCircuitHints().contractBytecodeHints.items).toEqual([
+      {
+        bytecode,
+        contractInstanceHint: { address, exists, ...instanceWithoutVersion, membershipHint: { ...membershipHint } },
+        contractClassHint: contractClass,
+      },
+    ]);
+  });
+
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of user public storage writes', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
@@ -343,9 +380,9 @@ describe('Enqueued-call Side Effect Trace', () => {
       testCounter++;
       nestedTrace.traceUnencryptedLog(address, log);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
 
       trace.merge(nestedTrace, reverted);
@@ -378,13 +415,13 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(parentHints.externalCalls.items).toEqual(childHints.externalCalls.items);
       expect(parentHints.contractInstances.items).toEqual(childHints.contractInstances.items);
       expect(parentHints.contractBytecodeHints.items).toEqual(childHints.contractBytecodeHints.items);
-      expect(parentHints.storageReadRequest.items).toEqual(childHints.storageReadRequest.items);
-      expect(parentHints.storageUpdateRequest.items).toEqual(childHints.storageUpdateRequest.items);
-      expect(parentHints.nullifierReadRequest.items).toEqual(childHints.nullifierReadRequest.items);
-      expect(parentHints.nullifierWriteHints.items).toEqual(childHints.nullifierWriteHints.items);
-      expect(parentHints.noteHashReadRequest.items).toEqual(childHints.noteHashReadRequest.items);
-      expect(parentHints.noteHashWriteRequest.items).toEqual(childHints.noteHashWriteRequest.items);
-      expect(parentHints.l1ToL2MessageReadRequest.items).toEqual(childHints.l1ToL2MessageReadRequest.items);
+      expect(parentHints.publicDataReads.items).toEqual(childHints.publicDataReads.items);
+      expect(parentHints.publicDataWrites.items).toEqual(childHints.publicDataWrites.items);
+      expect(parentHints.nullifierReads.items).toEqual(childHints.nullifierReads.items);
+      expect(parentHints.nullifierWrites.items).toEqual(childHints.nullifierWrites.items);
+      expect(parentHints.noteHashReads.items).toEqual(childHints.noteHashReads.items);
+      expect(parentHints.noteHashWrites.items).toEqual(childHints.noteHashWrites.items);
+      expect(parentHints.l1ToL2MessageReads.items).toEqual(childHints.l1ToL2MessageReads.items);
     });
   });
 });

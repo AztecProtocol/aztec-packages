@@ -94,7 +94,7 @@ export class LogStore {
           }
           const tag = new Fr(correctedBuffer);
 
-          this.#log.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);
+          this.#log.debug(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = taggedLogs.get(tag.toString()) ?? [];
           currentLogs.push(
             new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.data).toBuffer(),

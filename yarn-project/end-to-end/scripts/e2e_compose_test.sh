@@ -3,7 +3,7 @@
 # Usage: ./e2e_compose_test.sh <test>
 # Optional environment variables:
 #   COMPOSE_FILE (default: ./scripts/docker-compose.yml)
-#   DEBUG (default: "aztec:*")
+#   LOG_LEVEL (default: "verbose")
 #   HARDWARE_CONCURRENCY (default: "")
 #   ENABLE_GAS (default: "")
 #   AZTEC_DOCKER_TAG (default: current git commit)
@@ -16,7 +16,7 @@ set -eu
 export TEST="$1"
 # Variables with defaults
 COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
-export DEBUG="${DEBUG:-aztec:*,-aztec:avm_simulator:*}"
+export LOG_LEVEL="${LOG_LEVEL:-verbose}"
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"
 

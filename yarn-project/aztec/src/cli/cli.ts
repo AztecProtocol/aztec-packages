@@ -9,7 +9,6 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
-import { setupConsoleJsonLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { aztecStartOptions } from './aztec_start_options.js';
@@ -39,11 +38,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   startCmd.helpInformation = printAztecStartHelpText;
 
   startCmd.action(async options => {
-    // setup json logging
-    if (['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '')) {
-      setupConsoleJsonLog();
-    }
-
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
     const services: NamespacedApiHandlers = {};
@@ -62,6 +56,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (sandboxOptions.testAccounts) {
         if (aztecNodeConfig.p2pEnabled) {
           userLog(`Not setting up test accounts as we are connecting to a network`);
+        } else if (sandboxOptions.noPXE) {
+          userLog(`Not setting up test accounts as we are not exposing a PXE`);
         } else {
           userLog('Setting up test accounts...');
           const accounts = await deployInitialTestAccounts(pxe);
@@ -73,7 +69,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       // Start Node and PXE JSON-RPC server
       signalHandlers.push(stop);
       services.node = [node, AztecNodeApiSchema];
-      services.pxe = [pxe, PXESchema];
+      if (!sandboxOptions.noPXE) {
+        services.pxe = [pxe, PXESchema];
+      } else {
+        userLog(`Not exposing PXE API through JSON-RPC server`);
+      }
     } else {
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');

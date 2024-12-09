@@ -14,11 +14,11 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
   Fr,
   type FunctionSelector,
-  type Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -31,7 +31,8 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
+import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -229,10 +230,10 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a Header object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHeader(): Promise<Header> {
-    return Promise.resolve(this.db.getHeader());
+  getBlockHeader(): Promise<BlockHeader> {
+    return Promise.resolve(this.db.getBlockHeader());
   }
 
   /**
@@ -253,7 +254,7 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public getContacts(): AztecAddress[] {
+  public getContacts(): Promise<AztecAddress[]> {
     return this.db.getContactAddresses();
   }
 
@@ -325,7 +326,7 @@ export class SimulatorOracle implements DBOracle {
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())].filter(
+    const contacts = [...(await this.db.getContactAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
     const appTaggingSecrets = contacts.map(contact => {

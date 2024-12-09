@@ -4,6 +4,7 @@ const child_process = require("child_process");
 const crypto = require("crypto");
 
 const megaHonkPatterns = require("../mega_honk_circuits.json");
+const ivcIntegrationPatterns = require("../ivc_integration_circuits.json");
 const {
   readVKFromS3,
   writeVKToS3,
@@ -32,13 +33,19 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-async function getArtifactHash(artifactPath, isMegaHonk, isRecursive) {
+async function getArtifactHash(
+  artifactPath,
+  isMegaHonk,
+  isIvcIntegration,
+  isRecursive
+) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
   return generateArtifactHash(
     barretenbergHash,
     bytecodeHash,
     isMegaHonk,
+    isIvcIntegration,
     isRecursive
   );
 }
@@ -66,14 +73,21 @@ function isMegaHonkCircuit(artifactName) {
     artifactName.match(new RegExp(pattern))
   );
 }
+function isIvcIntegrationCircuit(artifactName) {
+  return ivcIntegrationPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
+}
 
 async function processArtifact(artifactPath, artifactName, outputFolder) {
   const isMegaHonk = isMegaHonkCircuit(artifactName);
+  const isIvcIntegration = isIvcIntegrationCircuit(artifactName);
   const isRecursive = true;
 
   const artifactHash = await getArtifactHash(
     artifactPath,
     isMegaHonk,
+    isIvcIntegration,
     isRecursive
   );
 
@@ -93,6 +107,7 @@ async function processArtifact(artifactPath, artifactName, outputFolder) {
       artifactPath,
       artifactHash,
       isMegaHonk,
+      isIvcIntegration,
       isRecursive
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
@@ -109,10 +124,13 @@ async function generateVKData(
   artifactPath,
   artifactHash,
   isMegaHonk,
+  isIvcIntegration,
   isRecursive
 ) {
   if (isMegaHonk) {
     console.log("Generating new mega honk vk for", artifactName);
+  } else if (isIvcIntegration) {
+    console.log("Generating new IVC vk for", artifactName);
   } else {
     console.log("Generating new vk for", artifactName);
   }
@@ -123,16 +141,22 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
-  } -h -b "${artifactPath}" -o "${binaryVkPath}" ${
+  function getVkCommand() {
+    if (isMegaHonk) return "write_vk_mega_honk";
+    if (isIvcIntegration) return "write_vk_for_ivc";
+    return "write_vk_ultra_honk";
+  }
+
+  const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
     isRecursive ? "--recursive" : ""
   }`;
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
+    isMegaHonk || isIvcIntegration
+      ? "vk_as_fields_mega_honk"
+      : "vk_as_fields_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {

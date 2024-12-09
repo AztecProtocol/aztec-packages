@@ -28,8 +28,8 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit",
-    "test:debug": "LOG_LEVEL=debug DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit",
+    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity"
   },
   "jest": {
     "moduleNameMapper": {
@@ -63,7 +63,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",

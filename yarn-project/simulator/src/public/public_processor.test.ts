@@ -11,11 +11,11 @@ import {
 import {
   AvmCircuitInputs,
   AztecAddress,
+  BlockHeader,
   Fr,
   Gas,
   GasFees,
   GlobalVariables,
-  Header,
   PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
@@ -82,7 +82,7 @@ describe('public_processor', () => {
     processor = new PublicProcessor(
       db,
       globalVariables,
-      Header.empty(),
+      BlockHeader.empty(),
       worldStateDB,
       publicTxProcessor,
       new NoopTelemetryClient(),

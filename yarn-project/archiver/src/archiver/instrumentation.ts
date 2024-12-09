@@ -5,6 +5,7 @@ import {
   type Gauge,
   type Histogram,
   LmdbMetrics,
+  type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
@@ -23,7 +24,7 @@ export class ArchiverInstrumentation {
 
   private log = createDebugLogger('aztec:archiver:instrumentation');
 
-  constructor(private telemetry: TelemetryClient) {
+  constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',
@@ -72,11 +73,8 @@ export class ArchiverInstrumentation {
         name: Metrics.ARCHIVER_DB_NUM_ITEMS,
         description: 'Num items in the archiver database',
       },
+      lmdbStats,
     );
-  }
-
-  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
-    this.dbMetrics.recordDBMetrics(metrics);
   }
 
   public isEnabled(): boolean {

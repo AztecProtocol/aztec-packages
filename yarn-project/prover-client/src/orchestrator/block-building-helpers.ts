@@ -10,13 +10,13 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
+  BlockHeader,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -309,7 +309,7 @@ export function buildHeaderFromCircuitOutputs(
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
   const state = new StateReference(updatedL1ToL2TreeSnapshot, previousMergeData[1].end);
-  const header = new Header(
+  const header = new BlockHeader(
     rootRollupOutputs.previousArchive,
     contentCommitment,
     state,
@@ -370,7 +370,7 @@ export async function buildHeaderAndBodyFromTxs(
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
 
-  const header = new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+  const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 
   return { header, body };
 }
@@ -378,7 +378,7 @@ export async function buildHeaderAndBodyFromTxs(
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockHeader: Header,
+  blockHeader: BlockHeader,
   db: MerkleTreeReadOperations,
 ) {
   await Promise.all([

@@ -114,21 +114,24 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20();
+    asset = new TestERC20("test", "TEST", address(this));
 
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
+    asset.transferOwnership(address(fakeCanonical));
+
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
+      asset,
       bytes32(0),
       bytes32(0),
       address(this),
-      new address[](0),
       Config({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16
+        aztecEpochProofClaimWindowInL2Slots: 16,
+        minimumStake: 100 ether
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));

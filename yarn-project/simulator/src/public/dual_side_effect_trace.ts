@@ -143,9 +143,26 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance | undefined,
+    lowLeafPreimage: NullifierLeafPreimage | undefined,
+    lowLeafIndex: Fr | undefined,
+    lowLeafPath: Fr[] | undefined,
   ) {
-    this.innerCallTrace.traceGetContractInstance(contractAddress, exists, instance);
-    this.enqueuedCallTrace.traceGetContractInstance(contractAddress, exists, instance);
+    this.innerCallTrace.traceGetContractInstance(
+      contractAddress,
+      exists,
+      instance,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
+    this.enqueuedCallTrace.traceGetContractInstance(
+      contractAddress,
+      exists,
+      instance,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
   }
 
   public traceGetBytecode(
@@ -154,9 +171,30 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     bytecode: Buffer,
     contractInstance: SerializableContractInstance | undefined,
     contractClass: ContractClassIdPreimage | undefined,
+    lowLeafPreimage: NullifierLeafPreimage | undefined,
+    lowLeafIndex: Fr | undefined,
+    lowLeafPath: Fr[] | undefined,
   ) {
-    this.innerCallTrace.traceGetBytecode(contractAddress, exists, bytecode, contractInstance, contractClass);
-    this.enqueuedCallTrace.traceGetBytecode(contractAddress, exists, bytecode, contractInstance, contractClass);
+    this.innerCallTrace.traceGetBytecode(
+      contractAddress,
+      exists,
+      bytecode,
+      contractInstance,
+      contractClass,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
+    this.enqueuedCallTrace.traceGetBytecode(
+      contractAddress,
+      exists,
+      bytecode,
+      contractInstance,
+      contractClass,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
   }
 
   /**

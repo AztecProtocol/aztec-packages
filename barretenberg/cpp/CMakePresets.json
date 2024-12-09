@@ -268,7 +268,7 @@
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
       "inherits": "clang16-dbg",
-      "binaryDir": "build-fuzzing",
+      "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "FUZZING": "ON",
         "ENABLE_ASAN": "ON",

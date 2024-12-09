@@ -2,6 +2,7 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  type BlockHeader,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   Fr,
@@ -9,7 +10,6 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type Header,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicCircuitPublicInputs,
@@ -42,7 +42,7 @@ export function makeBloatedProcessedTx({
   privateOnly = false,
 }: {
   seed?: number;
-  header?: Header;
+  header?: BlockHeader;
   db?: MerkleTreeReadOperations;
   chainId?: Fr;
   version?: Fr;
