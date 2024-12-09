@@ -82,14 +82,13 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = this.db.getBlockHeader();
+      currentHeader = await this.db.getBlockHeader();
     } catch (e) {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      const storedBlockNumber = await this.db.getBlockNumber();
-      await this.db.setHeader(await this.node.getBlockHeader(storedBlockNumber ?? 0));
+      await this.db.setHeader(await this.node.getBlockHeader(0));
     }
 
     await this.trigger();
