@@ -1,4 +1,11 @@
-import { VerificationKeyData } from '@aztec/circuits.js';
+import {
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
+  VerificationKeyData,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
@@ -18,15 +25,70 @@ describe('AVM WitGen, proof generation and verification', () => {
     async () => {
       await proveAndVerifyAvmTestContract(
         'bulk_testing',
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+        /*calldata=*/ [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that performs too many storage writes and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_storage_writes',
+        /*calldata=*/ [new Fr(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many note hashes and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_note_hashes',
+        /*calldata=*/ [new Fr(MAX_NOTE_HASHES_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many nullifiers and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_nullifiers',
+        /*calldata=*/ [new Fr(MAX_NULLIFIERS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many l2tol1 messages and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_l2_to_l1_msgs',
+        /*calldata=*/ [new Fr(MAX_L2_TO_L1_MSGS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many unencrypted logs and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_unencrypted_logs',
+        /*calldata=*/ [new Fr(MAX_UNENCRYPTED_LOGS_PER_TX + 1)],
+        /*expectRevert=*/ true,
       );
     },
     TIMEOUT,
   );
 });
 
-async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = []) {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
+async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = [], expectRevert = false) {
+  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata, expectRevert);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
@@ -36,7 +98,7 @@ async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
   }

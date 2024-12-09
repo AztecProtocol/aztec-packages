@@ -7,6 +7,7 @@ import { BlockProposal, SignatureDomainSeperator, getHashedSignaturePayload } fr
 import { beforeAll, describe, it, jest } from '@jest/globals';
 import fs from 'fs';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
@@ -28,6 +29,8 @@ describe('e2e_p2p_reex', () => {
       testName: 'e2e_p2p_reex',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      metricsPort: shouldCollectMetrics(),
     });
 
     t.logger.verbose('Setup account');
@@ -62,10 +65,12 @@ describe('e2e_p2p_reex', () => {
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
     );
 
     // Hook into the node and intercept re-execution logic, ensuring that it was infact called

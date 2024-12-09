@@ -83,3 +83,8 @@ export const P2P_ID = 'aztec.p2p.id';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
+
+export const SIMULATOR_PHASE = 'aztec.simulator.phase';
+export const TARGET_ADDRESS = 'aztec.address.target';
+export const SENDER_ADDRESS = 'aztec.address.sender';
+export const MANA_USED = 'aztec.mana.used';

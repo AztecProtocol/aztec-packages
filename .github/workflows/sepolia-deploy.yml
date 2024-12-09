@@ -85,6 +85,7 @@ jobs:
           echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$(extract outboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$(extract availabilityOracleAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(extract feeJuiceAddress)" >>$GITHUB_ENV
+          echo "TF_VAR_STAKING_ASSET_CONTRACT_ADDRESS=$(extract stakingAssetAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(extract feeJuicePortalAddress)" >>$GITHUB_ENV
 
       - name: Apply l1-contracts Terraform

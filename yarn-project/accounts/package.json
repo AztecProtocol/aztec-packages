@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
+    "./dapp": "./dest/dapp/index.js",
     "./defaults": "./dest/defaults/index.js",
     "./ecdsa": "./dest/ecdsa/index.js",
     "./schnorr": "./dest/schnorr/index.js",
@@ -70,7 +71,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",

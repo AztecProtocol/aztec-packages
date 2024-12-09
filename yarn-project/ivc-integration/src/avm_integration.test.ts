@@ -12,8 +12,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
 
-import { jest } from '@jest/globals';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';
 import os from 'os';
 import path from 'path';
@@ -23,9 +22,6 @@ import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-
-jest.setTimeout(240_000);
-
 const logger = createDebugLogger('aztec:avm-integration');
 
 describe('AVM Integration', () => {
@@ -120,21 +116,20 @@ describe('AVM Integration', () => {
     );
 
     expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
-  });
+  }, 240_000);
 });
 
 async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
-  const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
   }

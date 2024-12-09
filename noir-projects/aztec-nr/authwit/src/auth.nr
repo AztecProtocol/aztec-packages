@@ -190,15 +190,15 @@ use dep::aztec::protocol_types::{
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
+global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
- * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness
+ * Assert that `on_behalf_of` has authorized the current call with a valid authentication witness
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit
 pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress) {
@@ -217,7 +217,7 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
  * Used as an internal function for `assert_current_call_valid_authwit` and can be used as a standalone function when
  * the `inner_hash` is from a different source, e.g., say a block of text etc.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  * @param inner_hash The hash of the message to authorize
  */
 pub fn assert_inner_hash_valid_authwit(
@@ -235,21 +235,21 @@ pub fn assert_inner_hash_valid_authwit(
         .unpack_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
     // Compute the nullifier, similar computation to the outer hash, but without the chain_id and version.
-    // Those should already be handled in the verification, so we just need something to nullify, that allow same inner_hash for multiple actors.
+    // Those should already be handled in the verification, so we just need something to nullify, that allows the same inner_hash for multiple actors.
     let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
     context.push_nullifier(nullifier);
 }
 
 /**
- * Assert that `on_behalf_of` have authorized the current call in the authentication registry
+ * Assert that `on_behalf_of` has authorized the current call in the authentication registry
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
  * Note that the authentication registry will take the `msg_sender` into account as the consumer, so this will only
  * work if the `msg_sender` is the same as the `consumer` when the `message_hash` was inserted into the registry.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit_public
 pub unconstrained fn assert_current_call_valid_authwit_public(
@@ -266,15 +266,15 @@ pub unconstrained fn assert_current_call_valid_authwit_public(
 // docs:end:assert_current_call_valid_authwit_public
 
 /**
- * Assert that `on_behalf_of` have authorized a speicifc `inner_hash` in the authentication registry
+ * Assert that `on_behalf_of` has authorized a specific `inner_hash` in the authentication registry
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
  * Note that the authentication registry will take the `msg_sender` into account as the consumer, so this will only
  * work if the `msg_sender` is the same as the `consumer` when the `message_hash` was inserted into the registry.
  *
- * @param on_behalf_of The address that have authorized the `inner_hash`
+ * @param on_behalf_of The address that has allegedly authorized the `inner_hash`
  */
 pub unconstrained fn assert_inner_hash_valid_authwit_public(
     context: &mut PublicContext,
@@ -334,11 +334,11 @@ pub fn compute_inner_authwit_hash<let N: u32>(args: [Field; N]) -> Field {
 }
 
 /**
- * Computs the `authwit_nullifier` for a specific `on_behalf_of` and `inner_hash`
+ * Computes the `authwit_nullifier` for a specific `on_behalf_of` and `inner_hash`
  *
  * Using the `on_behalf_of` and the `inner_hash` to ensure that the nullifier is siloed for a specific `on_behalf_of`.
  *
- * @param on_behalf_of The address that have authorized the `inner_hash`
+ * @param on_behalf_of The address that has authorized the `inner_hash`
  * @param inner_hash The hash of the message to authorize
  */
 pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) -> Field {

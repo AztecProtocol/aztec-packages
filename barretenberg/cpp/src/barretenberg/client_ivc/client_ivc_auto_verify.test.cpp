@@ -165,7 +165,7 @@ TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
 
     // Accumulate each circuit using the precomputed VKs
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vk);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -192,7 +192,7 @@ TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
 
     // Accumulate each circuit
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vk);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

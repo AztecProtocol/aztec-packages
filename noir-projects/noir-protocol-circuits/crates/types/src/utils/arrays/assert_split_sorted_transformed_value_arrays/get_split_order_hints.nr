@@ -105,7 +105,7 @@ mod tests {
         },
     };
 
-    global full_array = [
+    global full_array: [TestValue; 5] = [
         TestValue { value: 100, counter: 11 },
         TestValue { value: 200, counter: 17 },
         TestValue { value: 300, counter: 7 },

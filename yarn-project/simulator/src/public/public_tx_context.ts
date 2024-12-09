@@ -1,6 +1,8 @@
 import {
   type AvmProvingRequest,
+  MerkleTreeId,
   type MerkleTreeReadOperations,
+  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -8,16 +10,19 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
+  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
+  TreeSnapshots,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -25,13 +30,12 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
+import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
@@ -57,7 +61,6 @@ export class PublicTxContext {
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
     private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
@@ -67,10 +70,9 @@ export class PublicTxContext {
     private readonly setupExecutionRequests: PublicExecutionRequest[],
     private readonly appLogicExecutionRequests: PublicExecutionRequest[],
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
-    private readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
-    private readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
-    private doMerkleOperations: boolean,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_context`);
     this.gasUsed = startGasUsed;
@@ -84,23 +86,12 @@ export class PublicTxContext {
     doMerkleOperations: boolean,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
-    const revertibleAccumulatedDataFromPrivate = tx.data.forPublic!.revertibleAccumulatedData;
-    const nonRevertibleNullifiersFromPrivate = nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
-      n => !n.isEmpty(),
-    );
-    const _revertibleNullifiersFromPrivate = revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty());
 
     const innerCallTrace = new PublicSideEffectTrace();
-
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
-      /*publicDataReads*/ 0,
       /*publicDataWrites*/ 0,
-      /*noteHashReadRequests*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      /*nullifierReadRequests*/ 0,
-      /*nullifierNonExistentReadRequests*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
-      /*l1ToL2MsgReadRequests*/ 0,
+      /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
@@ -111,17 +102,11 @@ export class PublicTxContext {
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.newWithPendingSiloedNullifiers(
-      worldStateDB,
-      trace,
-      nonRevertibleNullifiersFromPrivate,
-      doMerkleOperations,
-    );
+    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
-      tx.data.constants.historicalHeader,
       await db.getStateReference(),
       tx.data.gasUsed,
       tx.data.constants.txContext.gasSettings,
@@ -134,7 +119,6 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       enqueuedCallTrace,
-      doMerkleOperations,
     );
   }
 
@@ -144,6 +128,9 @@ export class PublicTxContext {
    * Actual transaction fee and actual total consumed gas can now be queried.
    */
   halt() {
+    if (this.state.isForked()) {
+      this.state.mergeForkedState();
+    }
     this.halted = true;
   }
 
@@ -315,6 +302,24 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+
+    const getAppendSnaphot = (id: MerkleTreeId) => {
+      const tree = ephemeralTrees.get(id)!;
+      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
+    };
+
+    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      noteHashTree,
+      nullifierTree,
+      publicDataTree,
+    );
+
     return generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
@@ -326,7 +331,7 @@ export class PublicTxContext {
       this.teardownCallRequests,
       this.nonRevertibleAccumulatedDataFromPrivate,
       this.revertibleAccumulatedDataFromPrivate,
-      endStateReference,
+      endTreeSnapshots,
       /*endGasUsed=*/ this.gasUsed,
       this.getTransactionFeeUnsafe(),
       this.revertCode,
@@ -337,38 +342,17 @@ export class PublicTxContext {
    * Generate the proving request for the AVM circuit.
    */
   generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
-    // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
-    // proving request for the first time
-    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
-    return this.avmProvingRequest!;
-  }
-
-  // TODO(dbanks12): remove once AVM proves entire public tx
-  updateProvingRequest(
-    real: boolean,
-    phase: TxExecutionPhase,
-    fnName: string,
-    stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest,
-    result: AvmFinalizedCallResult,
-    allocatedGas: Gas,
-  ) {
-    if (this.avmProvingRequest === undefined) {
-      // Propagate the very first avmProvingRequest of the tx for now.
-      // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = generateAvmProvingRequest(
-        real,
-        fnName,
-        stateManager,
-        this.historicalHeader,
-        this.globalVariables,
-        executionRequest,
-        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
-        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
-        allocatedGas,
-        this.getTransactionFee(phase),
-      );
-    }
+    const hints = this.trace.getAvmCircuitHints();
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(
+        'public_dispatch',
+        [],
+        PublicCircuitPublicInputs.empty(),
+        hints,
+        this.generateAvmCircuitPublicInputs(endStateReference),
+      ),
+    };
   }
 }
 
@@ -379,16 +363,21 @@ export class PublicTxContext {
  * so that we can conditionally fork at the start of a phase.
  *
  * There is a state manager that lives at the level of the entire transaction,
- * but for setup and teardown the active state manager will be a fork of the
+ * but for app logic and teardown the active state manager will be a fork of the
  * transaction level one.
  */
 class PhaseStateManager {
+  private log: DebugLogger;
+
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {}
+  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+    this.log = createDebugLogger(`aztec:public_phase_state_manager`);
+  }
 
   fork() {
     assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');
+    this.log.debug(`Forking phase state manager`);
     this.currentlyActiveStateManager = this.txStateManager.fork();
   }
 
@@ -402,12 +391,14 @@ class PhaseStateManager {
 
   mergeForkedState() {
     assert(this.currentlyActiveStateManager, 'No forked state to merge');
+    this.log.debug(`Merging in forked state`);
     this.txStateManager.merge(this.currentlyActiveStateManager!);
     // Drop the forked state manager now that it is merged
     this.currentlyActiveStateManager = undefined;
   }
 
   discardForkedState() {
+    this.log.debug(`Discarding forked state`);
     assert(this.currentlyActiveStateManager, 'No forked state to discard');
     this.txStateManager.reject(this.currentlyActiveStateManager!);
     // Drop the forked state manager. We don't want it!

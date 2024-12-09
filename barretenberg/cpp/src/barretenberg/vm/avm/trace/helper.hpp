@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/constants.hpp"
 
@@ -58,7 +59,6 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
     // PublicCircuitPublicInputs - CallContext
     kernel_inputs[SENDER_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[SENDER_PCPI_OFFSET];   // Sender
     kernel_inputs[ADDRESS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[ADDRESS_PCPI_OFFSET]; // Address
-    kernel_inputs[FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET];
     kernel_inputs[IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[IS_STATIC_CALL_PCPI_OFFSET];
 
     // PublicCircuitPublicInputs - GlobalVariables
@@ -234,8 +234,9 @@ std::string to_name(bb::avm_trace::AvmMemoryTag tag);
 
 std::string to_name(AvmError error);
 bool is_ok(AvmError error);
+bool exceptionally_halted(AvmError error);
 
 // Mutate the inputs
-void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);
+void inject_end_gas_values(AvmPublicInputs& public_inputs, std::vector<Row>& trace);
 
 } // namespace bb::avm_trace

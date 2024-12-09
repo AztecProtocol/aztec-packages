@@ -6,6 +6,7 @@ import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type Fr,
+  GasFees,
   L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
@@ -52,6 +53,13 @@ import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
  * is exposed to dapps for interacting with the network on behalf of the user.
  */
 export interface PXE {
+  /**
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
+   */
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
   /**
    * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
@@ -286,6 +294,12 @@ export interface PXE {
   getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  getCurrentBaseFees(): Promise<GasFees>;
+
+  /**
    * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
    * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
    * The function takes function name and arguments as parameters, along with the contract address
@@ -463,6 +477,7 @@ const PXEInfoSchema = z.object({
 }) satisfies ZodFor<PXEInfo>;
 
 export const PXESchema: ApiSchemaFor<PXE> = {
+  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
   addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
   getAuthWitness: z
     .function()
@@ -515,6 +530,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number())
     .returns(z.union([L2Block.schema, z.undefined()])),
+  getCurrentBaseFees: z.function().returns(GasFees.schema),
+
   simulateUnconstrained: z
     .function()
     .args(

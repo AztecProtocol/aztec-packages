@@ -1,6 +1,7 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/index.js';
 import { type Fr } from '../fields/fields.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 import { Selector } from './selector.js';
@@ -58,14 +59,11 @@ export class NoteSelector extends Selector {
   }
 
   toJSON() {
-    return {
-      type: 'NoteSelector',
-      value: this.toString(),
-    };
+    return this.toString();
   }
 
-  static fromJSON(json: any): NoteSelector {
-    return NoteSelector.fromString(json.value);
+  static get schema() {
+    return hexSchemaFor(NoteSelector);
   }
 }
 

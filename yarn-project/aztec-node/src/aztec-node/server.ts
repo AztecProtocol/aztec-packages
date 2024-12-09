@@ -4,17 +4,14 @@ import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockL2Logs,
   type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
-  LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
@@ -37,18 +34,21 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
-  type Header,
+  type GasFees,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
+  type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
@@ -60,7 +60,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import {
   AggregateTxValidator,
@@ -94,8 +94,7 @@ export class AztecNodeService implements AztecNode {
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
     protected readonly blockSource: L2BlockSource & Partial<Service>,
-    protected readonly encryptedLogsSource: L2LogsSource,
-    protected readonly unencryptedLogsSource: L2LogsSource,
+    protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly nullifierSource: NullifierWithBlockSource,
@@ -164,6 +163,7 @@ export class AztecNodeService implements AztecNode {
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    log.info(`Aztec node accepting ${config.realProofs ? 'real' : 'test'} proofs`);
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
@@ -171,7 +171,7 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const validatorClient = createValidatorClient(config, p2pClient, telemetry);
+    const validatorClient = await createValidatorClient(config, config.l1Contracts.rollupAddress, p2pClient, telemetry);
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -190,7 +190,6 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
-      archiver,
       archiver,
       archiver,
       archiver,
@@ -239,6 +238,29 @@ export class AztecNodeService implements AztecNode {
     return Promise.resolve(this.p2pClient.isReady() ?? false);
   }
 
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.getNodeVersion(),
+        this.getVersion(),
+        this.getChainId(),
+        this.getEncodedEnr(),
+        this.getL1ContractAddresses(),
+        this.getProtocolContractAddresses(),
+      ]);
+
+    const nodeInfo: NodeInfo = {
+      nodeVersion,
+      l1ChainId: chainId,
+      protocolVersion,
+      enr,
+      l1ContractAddresses: contractAddresses,
+      protocolContractAddresses: protocolContractAddresses,
+    };
+
+    return nodeInfo;
+  }
+
   /**
    * Get a block specified by its number.
    * @param number - The block number being requested.
@@ -256,6 +278,14 @@ export class AztecNodeService implements AztecNode {
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentBaseFees();
   }
 
   /**
@@ -303,19 +333,13 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  public getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: LogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+    return this.logsSource.getPrivateLogs(from, limit);
   }
 
   /**
@@ -325,7 +349,7 @@ export class AztecNodeService implements AztecNode {
    * that tag.
    */
   public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.encryptedLogsSource.getLogsByTags(tags);
+    return this.logsSource.getLogsByTags(tags);
   }
 
   /**
@@ -334,7 +358,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+    return this.logsSource.getUnencryptedLogs(filter);
   }
 
   /**
@@ -343,7 +367,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.unencryptedLogsSource.getContractClassLogs(filter);
+    return this.logsSource.getContractClassLogs(filter);
   }
 
   /**
@@ -433,6 +457,22 @@ export class AztecNodeService implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+  }
+
+  /**
+   * Find the block numbers of the given leaf indices in the given tree.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * @param treeId - The tree to search in.
+   * @param leafIndices - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   */
+  public async findBlockNumbersForIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return await committedDb.getBlockNumbersForLeafIndices(treeId, leafIndices);
   }
 
   public async findNullifiersIndexesWithBlock(
@@ -727,7 +767,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<BlockHeader> {
     return (
       (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
       this.worldStateSynchronizer.getCommitted().getInitialHeader()
@@ -836,10 +876,12 @@ export class AztecNodeService implements AztecNode {
 
   // TODO(#10007): Remove this method
   public addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    this.log.info(`Adding contract class via API ${contractClass.id}`);
     return this.contractDataSource.addContractClass(contractClass);
   }
 
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    this.log.info(`Adding contract artifact ${artifact.name} for ${address.toString()} via API`);
     // TODO: Node should validate the artifact before accepting it
     return this.contractDataSource.addContractArtifact(address, artifact);
   }

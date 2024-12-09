@@ -1,5 +1,4 @@
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
-use fxhash::FxHashMap as HashMap;
 use std::collections::BTreeMap;
 
 use acvm::acir::circuit::BrilligOpcodeLocation;
@@ -90,12 +89,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
+                    ..Default::default()
                 });
             }
             BrilligOpcode::BinaryIntOp { destination, op, lhs, rhs, .. } => {
@@ -178,12 +177,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
+                    ..Default::default()
                 });
             }
             BrilligOpcode::Not { destination, source, .. } => {
@@ -207,7 +206,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                         make_operand(bits_needed, &source.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
-                    tag: None,
+                    ..Default::default()
                 });
             }
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
@@ -236,7 +235,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
@@ -247,10 +246,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
-                    operands: vec![
-                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 },
-                        make_operand(16, &condition.to_usize()),
-                    ],
+                    operands: vec![make_operand(16, &condition.to_usize())],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
@@ -300,7 +297,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
@@ -353,8 +350,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         .into_iter()
         .map(|i| match i.opcode {
             AvmOpcode::JUMP_32 | AvmOpcode::JUMPI_32 | AvmOpcode::INTERNALCALL => {
-                let new_operands = i
-                    .operands
+                let new_immediates = i
+                    .immediates
                     .into_iter()
                     .map(|o| match o {
                         AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
@@ -365,7 +362,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                         _ => o,
                     })
                     .collect::<Vec<AvmOperand>>();
-                AvmInstruction { operands: new_operands, ..i }
+                AvmInstruction { immediates: new_immediates, ..i }
             }
             _ => i,
         })
@@ -789,7 +786,6 @@ fn handle_getter_instruction(
     enum EnvironmentVariable {
         ADDRESS,
         SENDER,
-        FUNCTIONSELECTOR,
         TRANSACTIONFEE,
         CHAINID,
         VERSION,
@@ -824,7 +820,6 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
         "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
         "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
         "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
@@ -832,10 +827,8 @@ fn handle_getter_instruction(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
         indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
-        operands: vec![
-            AvmOperand::U8 { value: var_idx as u8 },
-            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
-        ],
+        operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
+        immediates: vec![AvmOperand::U8 { value: var_idx as u8 }],
         ..Default::default()
     });
 }
@@ -882,10 +875,8 @@ fn generate_set_instruction(
             Some(AddressingModeBuilder::default().direct_operand(dest).build())
         },
         tag: Some(tag),
-        operands: vec![
-            make_operand(bits_needed_opcode, value),
-            make_operand(bits_needed_mem, &(dest.to_usize())),
-        ],
+        operands: vec![make_operand(bits_needed_mem, &(dest.to_usize()))],
+        immediates: vec![make_operand(bits_needed_opcode, value)],
     }
 }
 
@@ -924,6 +915,7 @@ fn generate_cast_instruction(
             make_operand(bits_needed, &(source.to_usize())),
             make_operand(bits_needed, &(destination.to_usize())),
         ],
+        ..Default::default()
     }
 }
 
@@ -1087,14 +1079,16 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                         .direct_operand(radix)
                         .build(),
                 ),
-                tag: None,
                 operands: vec![
                     AvmOperand::U16 { value: input_offset as u16 },
                     AvmOperand::U16 { value: output_offset as u16 },
                     AvmOperand::U16 { value: radix_offset as u16 },
+                ],
+                immediates: vec![
                     AvmOperand::U16 { value: num_limbs as u16 },
                     AvmOperand::U8 { value: *output_bits as u8 },
                 ],
+                ..Default::default()
             });
         }
         // This will be changed to utilise relative memory offsets
@@ -1202,10 +1196,10 @@ fn handle_debug_log(
         ),
         operands: vec![
             AvmOperand::U16 { value: message_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: message_size as u16 },
             AvmOperand::U16 { value: fields_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: fields_size_ptr.to_usize() as u16 },
         ],
+        immediates: vec![AvmOperand::U16 { value: message_size as u16 }],
         ..Default::default()
     });
 }
@@ -1462,11 +1456,11 @@ fn handle_get_contract_instance(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U8 { value: member_idx as u8 },
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
             AvmOperand::U16 { value: exists_offset.to_usize() as u16 },
         ],
+        immediates: vec![AvmOperand::U8 { value: member_idx as u8 }],
         ..Default::default()
     });
 }

@@ -8,7 +8,6 @@ import {
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmExternalCallHint,
-  AvmKeyValueHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -23,14 +22,9 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
@@ -42,22 +36,19 @@ import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PublicCallRequest,
-  PublicDataRead,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicDataWrite,
-  ReadRequest,
   ScopedL2ToL1Message,
   ScopedLogHash,
   type ScopedNoteHash,
-  type ScopedReadRequest,
   SerializableContractInstance,
-  TreeLeafReadRequest,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
@@ -81,17 +72,9 @@ const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr
 export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
 
-  publicDataReads: PublicDataRead[];
   publicDataWrites: PublicDataUpdateRequest[];
-
-  noteHashReadRequests: TreeLeafReadRequest[];
   noteHashes: ScopedNoteHash[];
-
-  nullifierReadRequests: ScopedReadRequest[];
-  nullifierNonExistentReadRequests: ScopedReadRequest[];
   nullifiers: Nullifier[];
-
-  l1ToL2MsgReadRequests: TreeLeafReadRequest[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
 
   unencryptedLogs: UnencryptedL2Log[];
@@ -100,24 +83,15 @@ export type SideEffects = {
 
 export class SideEffectArrayLengths {
   constructor(
-    public readonly publicDataReads: number,
     public readonly publicDataWrites: number,
-
-    public readonly noteHashReadRequests: number,
     public readonly noteHashes: number,
-
-    public readonly nullifierReadRequests: number,
-    public readonly nullifierNonExistentReadRequests: number,
     public readonly nullifiers: number,
-
-    public readonly l1ToL2MsgReadRequests: number,
     public readonly l2ToL1Msgs: number,
-
     public readonly unencryptedLogs: number,
   ) {}
 
   static empty() {
-    return new this(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    return new this(0, 0, 0, 0, 0);
   }
 }
 
@@ -132,19 +106,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   private enqueuedCalls: PublicCallRequest[] = [];
 
-  private publicDataReads: PublicDataRead[] = [];
   private publicDataWrites: PublicDataUpdateRequest[] = [];
-
-  private noteHashReadRequests: TreeLeafReadRequest[] = [];
   private noteHashes: ScopedNoteHash[] = [];
-
-  private nullifierReadRequests: ScopedReadRequest[] = [];
-  private nullifierNonExistentReadRequests: ScopedReadRequest[] = [];
   private nullifiers: Nullifier[] = [];
-
-  private l1ToL2MsgReadRequests: TreeLeafReadRequest[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
-
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: ScopedLogHash[] = [];
 
@@ -170,15 +135,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new PublicEnqueuedCallSideEffectTrace(
       this.sideEffectCounter,
       new SideEffectArrayLengths(
-        this.previousSideEffectArrayLengths.publicDataReads + this.publicDataReads.length,
         this.previousSideEffectArrayLengths.publicDataWrites + this.publicDataWrites.length,
-        this.previousSideEffectArrayLengths.noteHashReadRequests + this.noteHashReadRequests.length,
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
-        this.previousSideEffectArrayLengths.nullifierReadRequests + this.nullifierReadRequests.length,
-        this.previousSideEffectArrayLengths.nullifierNonExistentReadRequests +
-          this.nullifierNonExistentReadRequests.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
-        this.previousSideEffectArrayLengths.l1ToL2MsgReadRequests + this.l1ToL2MsgReadRequests.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
         this.previousSideEffectArrayLengths.unencryptedLogs + this.unencryptedLogs.length,
       ),
@@ -193,23 +152,40 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
     forkedTrace.alreadyMergedIntoParent = true;
 
-    // TODO(dbanks12): accept & merge forked trace's hints!
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.enqueuedCalls.push(...forkedTrace.enqueuedCalls);
 
     if (!reverted) {
-      this.publicDataReads.push(...forkedTrace.publicDataReads);
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
-      this.noteHashReadRequests.push(...forkedTrace.noteHashReadRequests);
       this.noteHashes.push(...forkedTrace.noteHashes);
-      this.nullifierReadRequests.push(...forkedTrace.nullifierReadRequests);
-      this.nullifierNonExistentReadRequests.push(...forkedTrace.nullifierNonExistentReadRequests);
       this.nullifiers.push(...forkedTrace.nullifiers);
-      this.l1ToL2MsgReadRequests.push(...forkedTrace.l1ToL2MsgReadRequests);
       this.l2ToL1Messages.push(...forkedTrace.l2ToL1Messages);
       this.unencryptedLogs.push(...forkedTrace.unencryptedLogs);
       this.unencryptedLogsHashes.push(...forkedTrace.unencryptedLogsHashes);
     }
+    this.mergeHints(forkedTrace);
+  }
+
+  private mergeHints(forkedTrace: this) {
+    this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
+
+    this.avmCircuitHints.storageValues.items.push(...forkedTrace.avmCircuitHints.storageValues.items);
+    this.avmCircuitHints.noteHashExists.items.push(...forkedTrace.avmCircuitHints.noteHashExists.items);
+    this.avmCircuitHints.nullifierExists.items.push(...forkedTrace.avmCircuitHints.nullifierExists.items);
+    this.avmCircuitHints.l1ToL2MessageExists.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageExists.items);
+
+    this.avmCircuitHints.externalCalls.items.push(...forkedTrace.avmCircuitHints.externalCalls.items);
+
+    this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
+    this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
+
+    this.avmCircuitHints.publicDataReads.items.push(...forkedTrace.avmCircuitHints.publicDataReads.items);
+    this.avmCircuitHints.publicDataWrites.items.push(...forkedTrace.avmCircuitHints.publicDataWrites.items);
+    this.avmCircuitHints.nullifierReads.items.push(...forkedTrace.avmCircuitHints.nullifierReads.items);
+    this.avmCircuitHints.nullifierWrites.items.push(...forkedTrace.avmCircuitHints.nullifierWrites.items);
+    this.avmCircuitHints.noteHashReads.items.push(...forkedTrace.avmCircuitHints.noteHashReads.items);
+    this.avmCircuitHints.noteHashWrites.items.push(...forkedTrace.avmCircuitHints.noteHashWrites.items);
+    this.avmCircuitHints.l1ToL2MessageReads.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageReads.items);
   }
 
   public getCounter() {
@@ -221,7 +197,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public tracePublicStorageRead(
-    contractAddress: AztecAddress,
+    _contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
     leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
@@ -232,22 +208,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       // if we have real merkle hint content, make sure the value matches the the provided preimage
       assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
     }
-    // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
-    if (
-      this.publicDataReads.length + this.previousSideEffectArrayLengths.publicDataReads >=
-      MAX_PUBLIC_DATA_READS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError('public data (contract storage) read', MAX_PUBLIC_DATA_READS_PER_TX);
-    }
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
-
-    this.publicDataReads.push(new PublicDataRead(leafSlot, value, this.sideEffectCounter));
-
-    this.avmCircuitHints.storageValues.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
-    );
-    this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
+    this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
@@ -281,7 +243,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
     // New hinting
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.storageUpdateRequest.items.push(
+    this.avmCircuitHints.publicDataWrites.items.push(
       new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
 
@@ -296,24 +258,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _contractAddress: AztecAddress,
     noteHash: Fr,
     leafIndex: Fr,
-    exists: boolean,
+    _exists: boolean,
     path: Fr[] = emptyNoteHashPath(),
   ) {
-    // NOTE: contractAddress is unused because noteHash is an already-siloed leaf
-    if (
-      this.noteHashReadRequests.length + this.previousSideEffectArrayLengths.noteHashReadRequests >=
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError('note hash read request', MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
-    }
-
-    // note hash is already siloed here
-    this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
-    this.avmCircuitHints.noteHashExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
-    );
     // New Hinting
-    this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashReads.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
@@ -331,35 +280,18 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
-    this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
   }
 
   public traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
-    exists: boolean,
+    _siloedNullifier: Fr,
+    _exists: boolean,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
-    this.enforceLimitOnNullifierChecks();
-
-    // TODO(dbanks12): use siloed nullifier instead of scoped once public kernel stops siloing
-    // and once VM public inputs are meant to contain siloed nullifiers.
-    //const siloedNullifier = siloNullifier(contractAddress, nullifier);
-    const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(contractAddress);
-    if (exists) {
-      this.nullifierReadRequests.push(readRequest);
-    } else {
-      this.nullifierNonExistentReadRequests.push(readRequest);
-    }
-    this.avmCircuitHints.nullifierExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
-    );
-    // New Hints
-    this.avmCircuitHints.nullifierReadRequest.items.push(
+    this.avmCircuitHints.nullifierReads.items.push(
       new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
     );
     this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
@@ -367,8 +299,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewNullifier(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
@@ -378,12 +309,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
 
-    // New hinting
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
+    this.avmCircuitHints.nullifierWrites.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
@@ -393,23 +322,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _contractAddress: AztecAddress,
     msgHash: Fr,
     msgLeafIndex: Fr,
-    exists: boolean,
+    _exists: boolean,
     path: Fr[] = emptyL1ToL2MessagePath(),
   ) {
-    // NOTE: contractAddress is unused because msgHash is an already-siloed leaf
-    if (
-      this.l1ToL2MsgReadRequests.length + this.previousSideEffectArrayLengths.l1ToL2MsgReadRequests >=
-      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError('l1 to l2 message read request', MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX);
-    }
-
-    this.l1ToL2MsgReadRequests.push(new TreeLeafReadRequest(msgHash, msgLeafIndex));
-    this.avmCircuitHints.l1ToL2MessageExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
-    );
-    // New Hinting
-    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
+    this.avmCircuitHints.l1ToL2MessageReads.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
   }
 
   public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
@@ -449,9 +365,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         contractAddress,
@@ -461,6 +379,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         instance.contractClassId,
         instance.initializationHash,
         instance.publicKeys,
+        membershipHint,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
@@ -480,7 +399,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
       exists,
@@ -489,15 +412,14 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       contractInstance.contractClassId,
       contractInstance.initializationHash,
       contractInstance.publicKeys,
+      membershipHint,
     );
     // We need to deduplicate the contract instances based on addresses
     this.avmCircuitHints.contractBytecodeHints.items.push(
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
     this.log.debug(
-      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
-        contractInstance,
-      )}`,
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
     );
   }
 
@@ -561,14 +483,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public getSideEffects(): SideEffects {
     return {
       enqueuedCalls: this.enqueuedCalls,
-      publicDataReads: this.publicDataReads,
       publicDataWrites: this.publicDataWrites,
-      noteHashReadRequests: this.noteHashReadRequests,
       noteHashes: this.noteHashes,
-      nullifierReadRequests: this.nullifierReadRequests,
-      nullifierNonExistentReadRequests: this.nullifierNonExistentReadRequests,
       nullifiers: this.nullifiers,
-      l1ToL2MsgReadRequests: this.l1ToL2MsgReadRequests,
       l2ToL1Msgs: this.l2ToL1Messages,
       unencryptedLogs: this.unencryptedLogs,
       unencryptedLogsHashes: this.unencryptedLogsHashes,
@@ -689,33 +606,5 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
     );
-  }
-
-  private enforceLimitOnNullifierChecks(errorMsgOrigin: string = '') {
-    // NOTE: Why error if _either_ limit was reached? If user code emits either an existent or non-existent
-    // nullifier read request (NULLIFIEREXISTS, GETCONTRACTINSTANCE, *CALL), and one of the limits has been
-    // reached (MAX_NULLIFIER_NON_EXISTENT_RRS vs MAX_NULLIFIER_RRS), but not the other, we must prevent the
-    // sequencer from lying and saying "this nullifier exists, but MAX_NULLIFIER_RRS has been reached, so I'm
-    // going to skip the read request and just revert instead" when the nullifier actually doesn't exist
-    // (or vice versa). So, if either maximum has been reached, any nullifier-reading operation must error.
-    if (
-      this.nullifierReadRequests.length + this.previousSideEffectArrayLengths.nullifierReadRequests >=
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError(
-        `nullifier read request ${errorMsgOrigin}`,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      );
-    }
-    if (
-      this.nullifierNonExistentReadRequests.length +
-        this.previousSideEffectArrayLengths.nullifierNonExistentReadRequests >=
-      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError(
-        `nullifier non-existent read request ${errorMsgOrigin}`,
-        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-      );
-    }
   }
 }

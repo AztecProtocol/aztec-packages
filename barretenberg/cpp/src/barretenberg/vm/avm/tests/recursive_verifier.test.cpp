@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include <gtest/gtest.h>
 
@@ -41,7 +42,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
 
     // Generate an extremely simple avm trace
     AvmCircuitBuilder generate_avm_circuit()
@@ -76,8 +77,20 @@ TEST_F(AvmRecursiveTests, recursion)
 
     HonkProof proof = prover.construct_proof();
 
-    std::vector<std::vector<InnerFF>> public_inputs_vec =
-        bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
+    // We just pad all the public inputs with the right number of zeroes
+    std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
+    std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> calldata{ {} };
+    std::vector<FF> returndata{ {} };
+
+    std::vector<std::vector<InnerFF>> public_inputs{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs
+    };
+    std::vector<std::vector<InnerFF>> public_inputs_vec{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
+    };
 
     bool verified = verifier.verify_proof(proof, public_inputs_vec);
     ASSERT_TRUE(verified) << "native proof verification failed";
@@ -96,8 +109,6 @@ TEST_F(AvmRecursiveTests, recursion)
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-
-    vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
@@ -125,6 +136,8 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);
+
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
     auto recursion_proof = ultra_prover.construct_proof();
     bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);

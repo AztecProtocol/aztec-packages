@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.65.2...barretenberg.js-v0.66.0) (2024-12-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.65.1...barretenberg.js-v0.65.2) (2024-11-28)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.65.0...barretenberg.js-v0.65.1) (2024-11-27)
+
+
+### Features
+
+* Speed up transaction execution ([#10172](https://github.com/AztecProtocol/aztec-packages/issues/10172)) ([da265b6](https://github.com/AztecProtocol/aztec-packages/commit/da265b6b7d61a0d991fa23bd044f711513a0e86c))
+
+
+### Bug Fixes
+
+* Add pako as a dependency in bb.js ([#10186](https://github.com/AztecProtocol/aztec-packages/issues/10186)) ([b773c14](https://github.com/AztecProtocol/aztec-packages/commit/b773c14a8fe8bf425dc755b3a156e500e9924c1e))
+
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.64.0...barretenberg.js-v0.65.0) (2024-11-26)
+
+
+### Bug Fixes
+
+* **bb.js:** Don't minify bb.js - webpack config ([#10170](https://github.com/AztecProtocol/aztec-packages/issues/10170)) ([6e7fae7](https://github.com/AztecProtocol/aztec-packages/commit/6e7fae7c78496b0b2241e2061b35ab22a3b3b186))
+
+## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.1...barretenberg.js-v0.64.0) (2024-11-25)
+
+
+### Features
+
+* Single commitment key allocation in CIVC ([#9974](https://github.com/AztecProtocol/aztec-packages/issues/9974)) ([a0551ee](https://github.com/AztecProtocol/aztec-packages/commit/a0551ee9fca242a02774fd07bf8156a3a74dae3a))
+
+
+### Bug Fixes
+
+* Strip wasm debug ([#9987](https://github.com/AztecProtocol/aztec-packages/issues/9987)) ([62a6b66](https://github.com/AztecProtocol/aztec-packages/commit/62a6b662f1ef20a603177c55c199de4a79b65b5c))
+
+
+### Documentation
+
+* Add docs to enable multi-threading in bb.js ([#10064](https://github.com/AztecProtocol/aztec-packages/issues/10064)) ([8b4ebd1](https://github.com/AztecProtocol/aztec-packages/commit/8b4ebd1ddf3e8b3bac341c612444f28ea819f6c3))
+
 ## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.63.0...barretenberg.js-v0.63.1) (2024-11-19)
 
 

@@ -704,6 +704,18 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
+  poseidon2HashAccumulate(inputsBuffer: Fr[]): Fr {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = this.wasm.callWasmExport(
+      'poseidon2_hash_accumulate',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   poseidon2Hashes(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];

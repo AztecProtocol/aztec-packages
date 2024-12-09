@@ -4,6 +4,8 @@ import {
   Attributes,
   type Gauge,
   type Histogram,
+  LmdbMetrics,
+  type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
@@ -18,10 +20,11 @@ export class ArchiverInstrumentation {
   private syncDuration: Histogram;
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
+  private dbMetrics: LmdbMetrics;
 
   private log = createDebugLogger('aztec:archiver:instrumentation');
 
-  constructor(private telemetry: TelemetryClient) {
+  constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',
@@ -55,6 +58,23 @@ export class ArchiverInstrumentation {
         explicitBucketBoundaries: millisecondBuckets(1, 80), // 10ms -> ~3hs
       },
     });
+
+    this.dbMetrics = new LmdbMetrics(
+      meter,
+      {
+        name: Metrics.ARCHIVER_DB_MAP_SIZE,
+        description: 'Database map size for the archiver',
+      },
+      {
+        name: Metrics.ARCHIVER_DB_USED_SIZE,
+        description: 'Database used size for the archiver',
+      },
+      {
+        name: Metrics.ARCHIVER_DB_NUM_ITEMS,
+        description: 'Num items in the archiver database',
+      },
+      lmdbStats,
+    );
   }
 
   public isEnabled(): boolean {

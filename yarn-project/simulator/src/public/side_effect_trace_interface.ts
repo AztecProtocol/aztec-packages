@@ -40,16 +40,14 @@ export interface PublicSideEffectTraceInterface {
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
   traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     exists: boolean,
     lowLeafPreimage?: NullifierLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
   ): void;
   traceNewNullifier(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage?: NullifierLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
@@ -68,6 +66,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -75,6 +76,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceNestedCall(
     /** The trace of the nested call. */

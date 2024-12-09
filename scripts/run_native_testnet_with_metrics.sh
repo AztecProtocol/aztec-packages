@@ -16,7 +16,7 @@ function get_load_balancer_url() {
 OTEL_URL=http://$(get_load_balancer_url metrics metrics-opentelemetry-collector):4318
 
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_URL/v1/metrics
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_URL/v1/trace
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_URL/v1/traces
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_URL/v1/logs
 export LOG_JSON=1
 

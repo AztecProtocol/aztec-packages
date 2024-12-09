@@ -22,8 +22,10 @@ contract NFT {
         }, note::constants::MAX_NOTES_PER_PAGE, oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicMutable, SharedImmutable,
-        }, protocol_types::{point::Point, traits::Serialize}, utils::comparison::Comparator,
+            PublicContext, PublicImmutable, PublicMutable,
+        },
+        protocol_types::{point::Point, traits::Serialize},
+        utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
     use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
@@ -43,9 +45,9 @@ contract NFT {
     #[storage]
     struct Storage<Context> {
         // The symbol of the NFT
-        symbol: SharedImmutable<FieldCompressedString, Context>,
+        symbol: PublicImmutable<FieldCompressedString, Context>,
         // The name of the NFT
-        name: SharedImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString, Context>,
         // The admin of the contract
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
@@ -103,25 +105,25 @@ contract NFT {
     #[public]
     #[view]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> pub FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
     #[public]
@@ -239,7 +241,7 @@ contract NFT {
     fn _store_payload_in_transient_storage_unsafe(
         slot: Field,
         point: Point,
-        setup_log: [Field; 15],
+        setup_log: [Field; 14],
     ) {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);

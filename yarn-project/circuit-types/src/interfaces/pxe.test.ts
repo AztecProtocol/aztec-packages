@@ -6,6 +6,7 @@ import {
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
+  GasFees,
   L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   Point,
@@ -84,6 +85,10 @@ describe('PXESchema', () => {
   afterAll(() => {
     const all = Object.keys(PXESchema);
     expect([...tested].sort()).toEqual(all.sort());
+  });
+
+  it('isL1ToL2MessageSynced', async () => {
+    await context.client.isL1ToL2MessageSynced(Fr.random());
   });
 
   it('addAuthWitness', async () => {
@@ -218,6 +223,11 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(L2Block);
   });
 
+  it('getCurrentBaseFees', async () => {
+    const result = await context.client.getCurrentBaseFees();
+    expect(result).toEqual(GasFees.empty());
+  });
+
   it('simulateUnconstrained', async () => {
     const result = await context.client.simulateUnconstrained('function', [], address, address, [address]);
     expect(result).toEqual(10n);
@@ -320,6 +330,11 @@ class MockPXE implements PXE {
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {}
+
+  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   addAuthWitness(authWitness: AuthWitness): Promise<void> {
     expect(authWitness).toBeInstanceOf(AuthWitness);
     return Promise.resolve();
@@ -442,6 +457,9 @@ class MockPXE implements PXE {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
+  }
+  getCurrentBaseFees(): Promise<GasFees> {
+    return Promise.resolve(GasFees.empty());
   }
   simulateUnconstrained(
     _functionName: string,

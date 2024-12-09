@@ -3,6 +3,7 @@ import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import omit from 'lodash.omit';
 import { inspect } from 'util';
 import { z } from 'zod';
 
@@ -82,29 +83,19 @@ export class EpochProofQuotePayload {
   }
 
   toJSON() {
-    return {
-      epochToProve: this.epochToProve.toString(),
-      validUntilSlot: this.validUntilSlot.toString(),
-      bondAmount: this.bondAmount.toString(),
-      prover: this.prover.toString(),
-      basisPointFee: this.basisPointFee,
-    };
+    return omit(this, 'asBuffer', 'size');
   }
 
   static get schema() {
     return z
       .object({
-        epochToProve: z.coerce.bigint(),
-        validUntilSlot: z.coerce.bigint(),
-        bondAmount: z.coerce.bigint(),
+        epochToProve: schemas.BigInt,
+        validUntilSlot: schemas.BigInt,
+        bondAmount: schemas.BigInt,
         prover: schemas.EthAddress,
-        basisPointFee: z.number(),
+        basisPointFee: schemas.Integer,
       })
       .transform(EpochProofQuotePayload.from);
-  }
-
-  static fromJSON(obj: any): EpochProofQuotePayload {
-    return EpochProofQuotePayload.schema.parse(obj);
   }
 
   toViemArgs(): {

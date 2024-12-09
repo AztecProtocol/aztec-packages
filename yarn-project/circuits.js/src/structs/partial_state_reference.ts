@@ -19,14 +19,6 @@ export class PartialStateReference {
     public readonly publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
 
-  toJSON() {
-    return {
-      noteHashTree: this.noteHashTree,
-      nullifierTree: this.nullifierTree,
-      publicDataTree: this.publicDataTree,
-    };
-  }
-
   static get schema() {
     return z
       .object({

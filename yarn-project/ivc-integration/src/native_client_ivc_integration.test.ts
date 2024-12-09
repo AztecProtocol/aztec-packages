@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -40,6 +40,7 @@ describe('Client IVC Integration', () => {
       path.join(bbWorkingDirectory, 'acir.msgpack'),
       path.join(bbWorkingDirectory, 'witnesses.msgpack'),
       logger.info,
+      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {

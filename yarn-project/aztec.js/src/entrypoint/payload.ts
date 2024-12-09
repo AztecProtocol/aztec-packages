@@ -4,6 +4,7 @@ import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type FeePaymentMethod } from '../fee/fee_payment_method.js';
 
@@ -15,6 +16,18 @@ export type FeeOptions = {
   paymentMethod: FeePaymentMethod;
   /** The gas settings */
   gasSettings: GasSettings;
+};
+
+/** Fee options as set by a user. */
+export type UserFeeOptions = {
+  /** The fee payment method to use */
+  paymentMethod?: FeePaymentMethod;
+  /** The gas settings */
+  gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
+  estimateGas?: boolean;
+  /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
+  estimatedGasPadding?: number;
 };
 
 // These must match the values defined in:

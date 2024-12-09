@@ -1,24 +1,22 @@
 import {
   type AztecNode,
   CountedPublicExecutionRequest,
-  EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
   type L2BlockNumber,
   Note,
   PackedValues,
-  type PrivateExecutionResult,
   PublicExecutionRequest,
   TxExecutionRequest,
-  collectSortedEncryptedLogs,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   CallContext,
   CompleteAddress,
+  GasFees,
   GasSettings,
   GeneratorIndex,
   type GrumpkinScalar,
-  Header,
   IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -56,7 +54,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -84,7 +82,7 @@ describe('Private Execution test suite', () => {
 
   let acirSimulator: AcirSimulator;
 
-  let header = Header.empty();
+  let header = BlockHeader.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -110,7 +108,7 @@ describe('Private Execution test suite', () => {
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
-    gasSettings: GasSettings.default(),
+    gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   };
 
   const runSimulator = ({
@@ -156,7 +154,7 @@ describe('Private Execution test suite', () => {
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      header = new Header(
+      header = new BlockHeader(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(
@@ -169,23 +167,20 @@ describe('Private Execution test suite', () => {
         ),
         header.globalVariables,
         header.totalFees,
+        header.totalManaUsed,
       );
     } else {
-      header = new Header(
+      header = new BlockHeader(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(newSnap, header.state.partial),
         header.globalVariables,
         header.totalFees,
+        header.totalManaUsed,
       );
     }
 
     return trees[name];
-  };
-
-  const getEncryptedNoteSerializedLength = (result: PrivateExecutionResult) => {
-    const fnLogs = new EncryptedNoteFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
-    return fnLogs.getKernelLength();
   };
 
   beforeAll(() => {
@@ -246,7 +241,7 @@ describe('Private Execution test suite', () => {
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    oracle.getHeader.mockResolvedValue(header);
+    oracle.getBlockHeader.mockResolvedValue(header);
 
     oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
@@ -285,21 +280,8 @@ describe('Private Execution test suite', () => {
       const args = [times(5, () => Fr.random()), owner, outgoingViewer, false];
       const result = await runSimulator({ artifact, msgSender: owner, args });
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.encryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(1);
-      const functionLogs = collectSortedEncryptedLogs(result);
-      expect(functionLogs.logs).toHaveLength(1);
-
-      const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      expect(encryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
-      // 5 is hardcoded in the test contract
-      expect(encryptedLog.randomness).toEqual(new Fr(5));
-      const expectedMaskedAddress = poseidon2HashWithSeparator(
-        [result.publicInputs.callContext.contractAddress, new Fr(5)],
-        0,
-      );
-      expect(expectedMaskedAddress).toEqual(functionLogs.logs[0].maskedContractAddress);
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(1);
     });
   });
 
@@ -365,13 +347,8 @@ describe('Private Execution test suite', () => {
         await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
       );
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(1);
-
-      const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.noteHashCounter).toEqual(noteHashes[0].counter);
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(1);
     });
 
     it('should run the create_note function', async () => {
@@ -390,13 +367,8 @@ describe('Private Execution test suite', () => {
         await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
       );
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(1);
-
-      const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.noteHashCounter).toEqual(noteHashes[0].counter);
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(1);
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -455,17 +427,8 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(2);
-
-      const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(encryptedChangeLog.noteHashCounter).toEqual(changeNoteHash.counter);
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
-      expect(encryptedRecipientLog.noteHashCounter).toEqual(recipientNoteHash.counter);
-      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(2);
 
       const readRequests = getNonEmptyItems(result.publicInputs.noteHashReadRequests).map(r => r.value);
       expect(readRequests).toHaveLength(consumedNotes.length);
@@ -507,16 +470,8 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(2);
-      const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(encryptedChangeLog.noteHashCounter).toEqual(result.publicInputs.noteHashes[0].counter);
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
-      expect(encryptedRecipientLog.noteHashCounter).toEqual(result.publicInputs.noteHashes[1].counter);
-      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(2);
     });
   });
 
@@ -650,7 +605,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          oracle.getHeader.mockResolvedValue(header);
+          oracle.getBlockHeader.mockResolvedValue(header);
         }
       };
 
@@ -698,7 +653,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -718,7 +673,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -737,7 +692,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -756,7 +711,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -776,7 +731,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -796,7 +751,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -960,13 +915,8 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHashFromCall).toEqual(derivedNoteHash);
 
-      const newEncryptedLogs = getNonEmptyItems(result.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(1);
-
-      const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.noteHashCounter).toEqual(noteHashesFromCall[0].counter);
-      expect(encryptedLog.noteHashCounter).toEqual(result.noteEncryptedLogs[0].noteHashCounter);
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
+      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(1);
 
       // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = getNonEmptyItems(result.publicInputs.noteHashReadRequests)[0];
@@ -1044,13 +994,8 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHashes[0].value).toEqual(derivedNoteHash);
 
-      const newEncryptedLogs = getNonEmptyItems(execInsert.publicInputs.noteEncryptedLogsHashes);
-      expect(newEncryptedLogs).toHaveLength(1);
-
-      const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.noteHashCounter).toEqual(noteHashes[0].counter);
-      expect(encryptedLog.noteHashCounter).toEqual(execInsert.noteEncryptedLogs[0].noteHashCounter);
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.noteEncryptedLogs[0].log.hash()));
+      const privateLogs = getNonEmptyItems(execInsert.publicInputs.privateLogs);
+      expect(privateLogs).toHaveLength(1);
 
       // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.publicInputs.noteHashReadRequests[0];
@@ -1177,8 +1122,8 @@ describe('Private Execution test suite', () => {
 
       header = makeHeader();
 
-      oracle.getHeader.mockClear();
-      oracle.getHeader.mockResolvedValue(header);
+      oracle.getBlockHeader.mockClear();
+      oracle.getBlockHeader.mockResolvedValue(header);
     });
 
     it('Header is correctly set', async () => {

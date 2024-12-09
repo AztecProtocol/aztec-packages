@@ -28,7 +28,6 @@
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
-    "testTimeout": 15000,
     "transform": {
       "^.+\\.tsx?$": [
         "@swc/jest",
@@ -55,7 +54,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",

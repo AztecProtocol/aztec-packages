@@ -80,7 +80,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               zk_sumcheck_data.libra_univariates_monomial,
                                                               sumcheck_output.claimed_libra_evaluations);
     }
-    vinfo("executed multivariate-to-univarite reduction");
+    vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
     vinfo("computed opening proof");
 }

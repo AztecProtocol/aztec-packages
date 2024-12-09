@@ -2,6 +2,7 @@ import { Fr, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
@@ -63,7 +64,7 @@ export class PublicDataWitness {
    * Returns a string representation of the TxEffect object.
    */
   toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static random() {
@@ -95,6 +96,6 @@ export class PublicDataWitness {
    * @returns An instance of PublicDataWitness.
    */
   static fromString(str: string) {
-    return PublicDataWitness.fromBuffer(Buffer.from(str, 'hex'));
+    return PublicDataWitness.fromBuffer(hexToBuffer(str));
   }
 }

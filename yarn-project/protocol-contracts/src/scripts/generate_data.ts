@@ -2,18 +2,23 @@ import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
+  DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 import { buildProtocolContractTree } from '../build_protocol_contract_tree.js';
@@ -144,6 +149,18 @@ function generateRoot(names: string[], leaves: Fr[]) {
   `;
 }
 
+function generateLogTags() {
+  return `
+  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
+  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromString('${poseidon2Hash([
+    DEPLOYER_CONTRACT_ADDRESS,
+    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  ])}');
+  `;
+}
+
 async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
@@ -163,6 +180,8 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
     ${generateContractLeaves(names, leaves)}
 
     ${generateRoot(names, leaves)}
+
+    ${generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }

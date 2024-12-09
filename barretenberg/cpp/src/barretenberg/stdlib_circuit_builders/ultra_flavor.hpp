@@ -328,7 +328,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            PROFILE_THIS();
+            PROFILE_THIS_NAME("UltraFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];
@@ -341,6 +341,13 @@ class UltraFlavor {
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
+            }
+        }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
             }
         }
     };

@@ -7,3 +7,4 @@ export * from './tx_hash.js';
 export * from './tx_receipt.js';
 export * from './validator/tx_validator.js';
 export * from './validator/empty_validator.js';
+export * from './block_hash.js';

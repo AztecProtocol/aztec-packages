@@ -4,9 +4,7 @@ import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { expect, jest } from '@jest/globals';
 
@@ -32,7 +30,6 @@ describe('In-Memory P2P Client', () => {
   let p2pService: Mockify<P2PService>;
   let kvStore: AztecKVStore;
   let client: P2PClient;
-  const telemetryClient: TelemetryClient = new NoopTelemetryClient();
 
   beforeEach(() => {
     txPool = {
@@ -61,6 +58,7 @@ describe('In-Memory P2P Client', () => {
       addAttestations: jest.fn(),
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
+      deleteAttestationsOlderThan: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     };
 
@@ -80,7 +78,7 @@ describe('In-Memory P2P Client', () => {
     };
 
     kvStore = openTmpStore();
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0);
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
@@ -150,7 +148,7 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     await client.stop();
 
-    const client2 = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+    const client2 = new P2PClient(kvStore, blockSource, mempools, p2pService, 0);
     expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
   });
 
@@ -165,7 +163,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes txs after waiting the set number of blocks', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10);
     blockSource.setProvenBlockNumber(0);
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
@@ -182,7 +180,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('stores and returns epoch proof quotes', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0);
 
     blockSource.setProvenEpochNumber(2);
     await client.start();
@@ -213,7 +211,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes expired proof quotes', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0);
 
     blockSource.setProvenEpochNumber(1);
     blockSource.setProvenBlockNumber(1);
@@ -276,7 +274,7 @@ describe('In-Memory P2P Client', () => {
     });
 
     it('deletes txs created from a pruned block', async () => {
-      client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
+      client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10);
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -298,7 +296,7 @@ describe('In-Memory P2P Client', () => {
     });
 
     it('moves mined and valid txs back to the pending set', async () => {
-      client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
+      client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10);
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -329,5 +327,22 @@ describe('In-Memory P2P Client', () => {
     });
   });
 
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7971): tests for attestation pool pruning
+  describe('Attestation pool pruning', () => {
+    it('deletes attestations older than the number of slots we want to keep in the pool', async () => {
+      const advanceToProvenBlockNumber = 20;
+      const keepAttestationsInPoolFor = 12;
+
+      blockSource.setProvenBlockNumber(0);
+      (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+      await client.start();
+      expect(attestationPool.deleteAttestationsOlderThan).not.toHaveBeenCalled();
+
+      await advanceToProvenBlock(advanceToProvenBlockNumber);
+
+      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
+      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(
+        BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
+      );
+    });
+  });
 });

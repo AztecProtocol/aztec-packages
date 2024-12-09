@@ -189,6 +189,23 @@ class CircuitSimulatorBN254 {
 
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
+    size_t create_ROM_array([[maybe_unused]] const size_t array_size) { return {}; }
+
+    void set_ROM_element_pair([[maybe_unused]] const size_t rom_id,
+                              [[maybe_unused]] const size_t index_value,
+                              [[maybe_unused]] const std::array<uint32_t, 2>& value_witnesses)
+    {}
+    uint32_t read_ROM_array([[maybe_unused]] const size_t rom_id, [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    std::array<uint32_t, 2> read_ROM_array_pair([[maybe_unused]] const size_t rom_id,
+                                                [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
+
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };

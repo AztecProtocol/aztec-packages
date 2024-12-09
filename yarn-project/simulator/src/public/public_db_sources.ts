@@ -9,21 +9,20 @@ import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type ContractClassPublic,
-  ContractClassRegisteredEvent,
   type ContractDataSource,
-  ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
   Fr,
-  FunctionSelector,
+  type FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
   type PublicDataTreeLeafPreimage,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ContractInstanceDeployedEvent } from '@aztec/protocol-contracts';
 import {
   type CommitmentsDB,
   MessageLoadOracleInputs,
@@ -38,11 +37,11 @@ import {
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
   private instanceCache = new Map<string, ContractInstanceWithAddress>();
   private classCache = new Map<string, ContractClassPublic>();
+  private bytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createDebugLogger('aztec:sequencer:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
-
   /**
    * Add new contracts from a transaction
    * @param tx - The transaction to add contracts from.
@@ -50,13 +49,20 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   public addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.contractClassLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
-      this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
-      this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
-    });
-    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
-    const encLogs = tx.encryptedLogs.unrollLogs();
-    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => {
+    logs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      .forEach(log => {
+        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
+        this.classCache.set(event.contractClassId.toString(), event.toContractClassPublic());
+      });
+
+    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
+    const contractInstanceEvents = tx.data
+      .getNonEmptyPrivateLogs()
+      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
+      .map(ContractInstanceDeployedEvent.fromLog);
+    contractInstanceEvents.forEach(e => {
       this.log.debug(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
@@ -75,12 +81,20 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
     const logs = tx.contractClassLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e =>
-      this.classCache.delete(e.contractClassId.toString()),
-    );
-    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
-    const encLogs = tx.encryptedLogs.unrollLogs();
-    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => this.instanceCache.delete(e.address.toString()));
+    logs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      .forEach(log => {
+        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        this.classCache.delete(event.contractClassId.toString());
+      });
+
+    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
+    const contractInstanceEvents = tx.data
+      .getNonEmptyPrivateLogs()
+      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
+      .map(ContractInstanceDeployedEvent.fromLog);
+    contractInstanceEvents.forEach(e => this.instanceCache.delete(e.address.toString()));
+
     return Promise.resolve();
   }
 
@@ -90,6 +104,31 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
     return this.classCache.get(contractClassId.toString()) ?? (await this.dataSource.getContractClass(contractClassId));
+  }
+
+  public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    // Try and retrieve from cache
+    const key = contractClassId.toString();
+    const result = this.bytecodeCommitmentCache.get(key);
+    if (result !== undefined) {
+      return result;
+    }
+    // Now try from the store
+    const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
+    if (fromStore !== undefined) {
+      this.bytecodeCommitmentCache.set(key, fromStore);
+      return fromStore;
+    }
+
+    // Not in either the store or the cache, build it here and cache
+    const contractClass = await this.getContractClass(contractClassId);
+    if (contractClass === undefined) {
+      return undefined;
+    }
+
+    const value = computePublicBytecodeCommitment(contractClass.packedBytecode);
+    this.bytecodeCommitmentCache.set(key, value);
+    return value;
   }
 
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
@@ -105,19 +144,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const artifact = await this.dataSource.getContractArtifact(address);
-    if (!artifact) {
-      return Promise.resolve(undefined);
-    }
-
-    const f = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters(f.name, f.parameters).equals(selector),
-    );
-    if (!f) {
-      return Promise.resolve(undefined);
-    }
-
-    return Promise.resolve(`${artifact.name}:${f.name}`);
+    return await this.dataSource.getContractFunctionName(address, selector);
   }
 }
 

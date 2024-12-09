@@ -14,7 +14,7 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
+const { E2E_DATA_PATH: dataPath, METRICS_PORT: metricsPort } = process.env;
 
 export class TokenContractTest {
   static TOKEN_NAME = 'USDC';
@@ -30,7 +30,9 @@ export class TokenContractTest {
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
+      metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
+    });
   }
 
   /**

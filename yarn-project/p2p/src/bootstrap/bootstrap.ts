@@ -1,4 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
@@ -8,8 +9,7 @@ import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
-import { createLibP2PPeerId } from '../service/index.js';
-import { convertToMultiaddr } from '../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -18,7 +18,11 @@ export class BootstrapNode {
   private node?: Discv5 = undefined;
   private peerId?: PeerId;
 
-  constructor(private telemetry: TelemetryClient, private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
+  constructor(
+    private store: AztecKVStore,
+    private telemetry: TelemetryClient,
+    private logger = createDebugLogger('aztec:p2p_bootstrap'),
+  ) {}
 
   /**
    * Starts the bootstrap node.
@@ -26,8 +30,10 @@ export class BootstrapNode {
    * @returns An empty promise.
    */
   public async start(config: BootnodeConfig) {
-    const { peerIdPrivateKey, udpListenAddress, udpAnnounceAddress } = config;
-    const peerId = await createLibP2PPeerId(peerIdPrivateKey);
+    const { udpListenAddress, udpAnnounceAddress } = config;
+
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
+    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     this.peerId = peerId;
     const enr = SignableENR.createFromPeerId(peerId);
 

@@ -1,10 +1,10 @@
 import {
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_KERNEL_RESET_INDEX,
   type PrivateKernelResetDimensionsConfig,
   VK_TREE_HEIGHT,
@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const log = createConsoleLogger('aztec:autogenerate');
 
@@ -28,7 +28,7 @@ const maxDimensions = [
   MAX_NULLIFIERS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
 ];
 
 function generateImports() {

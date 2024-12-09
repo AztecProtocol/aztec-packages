@@ -5,8 +5,11 @@ import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
+
+const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -14,6 +17,16 @@ const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40600;
 
 const DATA_DIR = './data/gossip';
+
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
 
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
@@ -24,11 +37,12 @@ describe('e2e_p2p_network', () => {
       testName: 'e2e_p2p_network',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -36,6 +50,13 @@ describe('e2e_p2p_network', () => {
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+    }
+  });
+
+  afterAll(async () => {
+    if (CHECK_ALERTS) {
+      const checker = new AlertChecker(t.logger);
+      await checker.runAlertCheck(qosAlerts);
     }
   });
 
@@ -55,7 +76,6 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,

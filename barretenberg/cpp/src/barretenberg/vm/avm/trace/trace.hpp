@@ -9,15 +9,18 @@
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-#include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
+#include <stack>
+#include <unordered_set>
 
 namespace bb::avm_trace {
 
@@ -26,6 +29,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 struct ReturnDataError {
     std::vector<FF> return_data;
     AvmError error;
+    bool is_top_level = false;
 };
 
 struct RowWithError {
@@ -40,14 +44,24 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(VmPublicInputs public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
-                    uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {});
+                    uint32_t side_effect_counter = 0);
+
+    void set_all_calldata(const std::vector<FF>& all_calldata) { this->all_calldata = all_calldata; }
+    std::vector<FF> get_all_returndata() { return this->all_returndata; }
+    void set_public_call_request(PublicCallRequest const& public_call_request)
+    {
+        this->current_public_call_request = public_call_request;
+    }
+    uint32_t get_call_ptr() const { return call_ptr; }
+    void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
+    void set_pc(uint32_t new_pc) { pc = new_pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
+    uint32_t get_clk() const { return static_cast<uint32_t>(main_trace.size()); }
 
     // Compute - Arithmetic
     AvmError op_add(
@@ -90,10 +104,9 @@ class AvmTraceBuilder {
                      OpCode op_code = OpCode::CAST_16);
 
     // Execution Environment
-    AvmError op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
+    AvmError op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var);
     AvmError op_address(uint8_t indirect, uint32_t dst_offset);
     AvmError op_sender(uint8_t indirect, uint32_t dst_offset);
-    AvmError op_function_selector(uint8_t indirect, uint32_t dst_offset);
     AvmError op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
     AvmError op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
@@ -123,7 +136,7 @@ class AvmTraceBuilder {
     // Machine State - Internal Control Flow
     // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
     AvmError op_jump(uint32_t jmp_dest, bool skip_gas = false);
-    AvmError op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset);
+    AvmError op_jumpi(uint8_t indirect, uint32_t cond_offset, uint32_t jmp_dest);
     AvmError op_internal_call(uint32_t jmp_dest);
     AvmError op_internal_return();
 
@@ -138,8 +151,8 @@ class AvmTraceBuilder {
     AvmError op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code = OpCode::MOV_16);
 
     // World State
-    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);
-    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset);
+    AvmError op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t dest_offset);
+    AvmError op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset);
     AvmError op_note_hash_exists(uint8_t indirect,
                                  uint32_t note_hash_offset,
                                  uint32_t leaf_index_offset,
@@ -155,7 +168,7 @@ class AvmTraceBuilder {
                                     uint32_t leaf_index_offset,
                                     uint32_t dest_offset);
     AvmError op_get_contract_instance(
-        uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset);
+        uint8_t indirect, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset, uint8_t member_enum);
 
     // Accrued Substate
     AvmError op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset);
@@ -181,9 +194,9 @@ class AvmTraceBuilder {
     // Misc
     AvmError op_debug_log(uint8_t indirect,
                           uint32_t message_offset,
-                          uint32_t message_size,
                           uint32_t fields_offset,
-                          uint32_t fields_size_offset);
+                          uint32_t fields_size_offset,
+                          uint32_t message_size);
 
     // Gadgets
     AvmError op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
@@ -214,8 +227,14 @@ class AvmTraceBuilder {
                             uint32_t num_limbs,
                             uint8_t output_bits);
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
+
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
+    std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    std::unordered_set<FF> bytecode_membership_cache;
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -238,19 +257,45 @@ class AvmTraceBuilder {
         FF val;
     };
 
+    struct ExtCallCtx {
+        uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
+        uint32_t parent_id;
+        FF contract_address{};
+        std::vector<FF> calldata;
+        std::vector<FF> nested_returndata;
+        uint32_t last_pc;
+        uint32_t success_offset;
+        uint32_t l2_gas;
+        uint32_t da_gas;
+        std::stack<uint32_t> internal_return_ptr_stack;
+    };
+
+    ExtCallCtx current_ext_call_ctx{};
+    std::stack<ExtCallCtx> external_call_ctx_stack;
+
   private:
     std::vector<Row> main_trace;
 
-    std::vector<FF> calldata;
+    AvmPublicInputs public_inputs;
+    PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
-
-    // Return/revert data of the last nested call.
-    std::vector<FF> nested_returndata;
+    std::vector<FF> all_calldata;
+    std::vector<FF> all_returndata;
 
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
+    // These are some counters for the tree acceess hints that we probably dont need in the future
+    uint32_t note_hash_read_counter = 0;
+    uint32_t note_hash_write_counter = 0;
+    uint32_t nullifier_read_counter = 0;
+    uint32_t nullifier_write_counter = 0;
+    uint32_t l1_to_l2_msg_read_counter = 0;
+    uint32_t l2_to_l1_msg_write_counter = 0;
+    uint32_t storage_read_counter = 0;
+    uint32_t storage_write_counter = 0;
+    uint32_t unencrypted_log_write_counter = 0;
 
     // These exist due to testing only.
     bool range_check_required = true;
@@ -259,7 +304,6 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    AvmKernelTraceBuilder kernel_trace_builder;
     AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
@@ -269,6 +313,7 @@ class AvmTraceBuilder {
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
     AvmBytecodeTraceBuilder bytecode_trace_builder;
+    AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
     RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 

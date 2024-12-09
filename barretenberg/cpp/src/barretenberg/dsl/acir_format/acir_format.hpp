@@ -22,7 +22,6 @@
 #include "poseidon2_constraint.hpp"
 #include "range_constraint.hpp"
 #include "recursion_constraint.hpp"
-#include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
 #include <cstdint>
 #include <utility>
@@ -41,7 +40,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
     std::vector<size_t> sha256_compression;
-    std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
     std::vector<size_t> ecdsa_r1_constraints;
     std::vector<size_t> blake2s_constraints;
@@ -85,7 +83,6 @@ struct AcirFormat {
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Compression> sha256_compression;
-    std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
@@ -134,7 +131,6 @@ struct AcirFormat {
                    range_constraints,
                    aes128_constraints,
                    sha256_compression,
-                   schnorr_constraints,
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
                    blake2s_constraints,
@@ -197,6 +193,7 @@ struct AcirProgramStack {
     void pop_back() { witness_stack.pop_back(); }
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
                        // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.

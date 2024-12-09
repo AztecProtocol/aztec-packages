@@ -45,7 +45,7 @@ export interface ExecutablePrivateFunction extends PrivateFunction {
 }
 
 const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
-  z.object({ bytecode: schemas.BufferB64 }),
+  z.object({ bytecode: schemas.Buffer }),
 ) satisfies ZodFor<ExecutablePrivateFunction>;
 
 /** Public function definition within a contract class. */
@@ -58,7 +58,7 @@ export interface PublicFunction {
 
 export const PublicFunctionSchema = z.object({
   selector: schemas.FunctionSelector,
-  bytecode: schemas.BufferB64,
+  bytecode: schemas.Buffer,
 }) satisfies ZodFor<PublicFunction>;
 
 /** Unconstrained function definition. */
@@ -72,7 +72,7 @@ export interface UnconstrainedFunction {
 const UnconstrainedFunctionSchema = z.object({
   /** lala */
   selector: schemas.FunctionSelector,
-  bytecode: schemas.BufferB64,
+  bytecode: schemas.Buffer,
 }) satisfies ZodFor<UnconstrainedFunction>;
 
 /** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
@@ -124,7 +124,7 @@ export const ContractClassSchema = z.object({
   artifactHash: schemas.Fr,
   privateFunctions: z.array(PrivateFunctionSchema),
   publicFunctions: z.array(PublicFunctionSchema),
-  packedBytecode: schemas.BufferB64,
+  packedBytecode: schemas.Buffer,
 }) satisfies ZodFor<ContractClass>;
 
 /** Commitments to fields of a contract class. */

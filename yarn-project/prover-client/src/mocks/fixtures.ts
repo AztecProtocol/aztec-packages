@@ -1,10 +1,4 @@
-import {
-  MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-} from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
+import { MerkleTreeId, type MerkleTreeWriteOperations, type ProcessedTx } from '@aztec/circuit-types';
 import {
   AztecAddress,
   EthAddress,
@@ -19,11 +13,9 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 const {
@@ -94,9 +86,6 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTxWithVKRoot = (builderDb: MerkleTreeReadOperations, seed = 0x1) =>
-  makeBloatedProcessedTx({ db: builderDb, vkTreeRoot: getVKTreeRoot(), protocolContractTreeRoot, seed });
-
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
 export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, txs: ProcessedTx[]) => {
   await db.appendLeaves(
@@ -109,10 +98,9 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, 
     NULLIFIER_TREE_HEIGHT,
   );
   for (const tx of txs) {
-    await db.batchInsert(
+    await db.sequentialInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       tx.txEffect.publicDataWrites.map(write => write.toBuffer()),
-      0,
     );
   }
 };

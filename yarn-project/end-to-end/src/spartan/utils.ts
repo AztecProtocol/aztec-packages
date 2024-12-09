@@ -1,26 +1,37 @@
 import { createDebugLogger, sleep } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 
-import { exec, spawn } from 'child_process';
+import { exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
 import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
 
 const logger = createDebugLogger('k8s-utils');
 
-const k8sConfigSchema = z.object({
+const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
+  HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
+  CONTAINER_METRICS_PORT: z.coerce.number().default(80),
+  GRAFANA_PASSWORD: z.string().min(1, 'GRAFANA_PASSWORD env variable must be set'),
+  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1/query'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
-  K8S: z.literal('true'),
+  K8S: z.literal('local'),
+});
+
+const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
+  K8S: z.literal('gcloud'),
+  CLUSTER_NAME: z.string().min(1, 'CLUSTER_NAME env variable must be set'),
+  REGION: z.string().min(1, 'REGION env variable must be set'),
 });
 
 const directConfigSchema = z.object({
@@ -29,18 +40,28 @@ const directConfigSchema = z.object({
   K8S: z.literal('false'),
 });
 
-const envSchema = z.discriminatedUnion('K8S', [k8sConfigSchema, directConfigSchema]);
+const envSchema = z.discriminatedUnion('K8S', [k8sLocalConfigSchema, k8sGCloudConfigSchema, directConfigSchema]);
 
-export type K8sConfig = z.infer<typeof k8sConfigSchema>;
+export type K8sLocalConfig = z.infer<typeof k8sLocalConfigSchema>;
+export type K8sGCloudConfig = z.infer<typeof k8sGCloudConfigSchema>;
 export type DirectConfig = z.infer<typeof directConfigSchema>;
 export type EnvConfig = z.infer<typeof envSchema>;
 
-export function getConfig(env: unknown): EnvConfig {
-  return envSchema.parse(env);
+export function isK8sConfig(config: EnvConfig): config is K8sLocalConfig | K8sGCloudConfig {
+  return config.K8S === 'local' || config.K8S === 'gcloud';
 }
 
-export function isK8sConfig(config: EnvConfig): config is K8sConfig {
-  return config.K8S === 'true';
+export function isGCloudConfig(config: EnvConfig): config is K8sGCloudConfig {
+  return config.K8S === 'gcloud';
+}
+
+export function setupEnvironment(env: unknown): EnvConfig {
+  const config = envSchema.parse(env);
+  if (isGCloudConfig(config)) {
+    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION}`;
+    execSync(command);
+  }
+  return config;
 }
 
 export async function startPortForward({
@@ -350,7 +371,11 @@ export async function awaitL2BlockNumber(
     await sleep(1000);
     tips = await rollupCheatCodes.getTips();
   }
-  logger.info(`Reached L2 Block ${tips.pending}`);
+  if (tips.pending < blockNumber) {
+    throw new Error(`Timeout waiting for L2 Block ${blockNumber}, only reached ${tips.pending}`);
+  } else {
+    logger.info(`Reached L2 Block ${tips.pending}`);
+  }
 }
 
 export async function restartBot(namespace: string, logger: Logger) {
@@ -381,4 +406,16 @@ export async function enableValidatorDynamicBootNode(
   });
 
   logger.info(`Validator dynamic boot node enabled`);
+}
+
+export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], logger: Logger) {
+  if (isK8sConfig(config)) {
+    const alertChecker = new AlertChecker(logger, {
+      grafanaEndpoint: `http://localhost:${config.HOST_METRICS_PORT}${config.METRICS_API_PATH}`,
+      grafanaCredentials: `admin:${config.GRAFANA_PASSWORD}`,
+    });
+    await alertChecker.runAlertCheck(alerts);
+  } else {
+    logger.info('Not running alert check in non-k8s environment');
+  }
 }

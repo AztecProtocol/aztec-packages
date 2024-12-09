@@ -112,7 +112,7 @@ describe('e2e_prover_coordination', () => {
     const proverKey = Buffer32.random();
     proverSigner = new Secp256k1Signer(proverKey);
     proverWallet = createWalletClient({
-      account: privateKeyToAccount(proverKey.to0xString()),
+      account: privateKeyToAccount(proverKey.toString()),
       chain: foundry,
       transport: http(ctx.aztecNodeConfig.l1RpcUrl),
     });
@@ -128,6 +128,10 @@ describe('e2e_prover_coordination', () => {
     await performEscrow(10000000n);
   });
 
+  afterEach(async () => {
+    await snapshotManager.teardown();
+  });
+
   const expectProofClaimOnL1 = async (expected: {
     epochToProve: bigint;
     basisPointFee: number;
@@ -135,12 +139,13 @@ describe('e2e_prover_coordination', () => {
     proposer: EthAddress;
     prover: EthAddress;
   }) => {
-    const [epochToProve, basisPointFee, bondAmount, prover, proposer] = await rollupContract.read.proofClaim();
+    const { epochToProve, basisPointFee, bondAmount, bondProvider, proposerClaimant } =
+      await rollupContract.read.getProofClaim();
     expect(epochToProve).toEqual(expected.epochToProve);
     expect(basisPointFee).toEqual(BigInt(expected.basisPointFee));
     expect(bondAmount).toEqual(expected.bondAmount);
-    expect(prover).toEqual(expected.prover.toChecksumString());
-    expect(proposer).toEqual(expected.proposer.toChecksumString());
+    expect(bondProvider).toEqual(expected.prover.toChecksumString());
+    expect(proposerClaimant).toEqual(expected.proposer.toChecksumString());
   };
 
   const performEscrow = async (amount: bigint) => {

@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
 
+/**
+ * @type {import('webpack').Configuration}
+ */
 export default {
   target: 'web',
   mode: 'production',
@@ -39,6 +42,9 @@ export default {
     library: {
       type: 'module',
     },
+  },
+  optimization: {
+    minimize: false,
   },
   experiments: {
     outputModule: true,

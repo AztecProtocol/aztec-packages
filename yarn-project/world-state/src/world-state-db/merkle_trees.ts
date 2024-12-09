@@ -10,8 +10,8 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -36,7 +36,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type AppendOnlyTree,
   type IndexedTree,
@@ -249,8 +249,8 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     await this.store.delete();
   }
 
-  public getInitialHeader(): Header {
-    return Header.empty({ state: this.#loadInitialStateReference() });
+  public getInitialHeader(): BlockHeader {
+    return BlockHeader.empty({ state: this.#loadInitialStateReference() });
   }
 
   /**
@@ -285,7 +285,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(header: Header) {
+  public async updateArchive(header: BlockHeader) {
     await this.synchronize(() => this.#updateArchive(header));
   }
 
@@ -519,7 +519,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     return StateReference.fromBuffer(serialized);
   }
 
-  async #updateArchive(header: Header) {
+  async #updateArchive(header: BlockHeader) {
     const state = await this.getStateReference(true);
 
     // This method should be called only when the block builder already updated the state so we sanity check that it's
@@ -712,7 +712,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     }
     await this.#snapshot(l2Block.number);
 
-    this.metrics.recordDbSize(this.store.estimateSize().bytes);
+    this.metrics.recordDbSize(this.store.estimateSize().actualSize);
     this.metrics.recordSyncDuration('commit', timer);
     return buildEmptyWorldStateStatusFull();
   }

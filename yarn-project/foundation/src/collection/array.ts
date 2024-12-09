@@ -76,6 +76,20 @@ export function times<T>(n: number, fn: (i: number) => T): T[] {
 }
 
 /**
+ * Executes the given async function n times and returns the results in an array. Awaits each execution before starting the next one.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export async function timesAsync<T>(n: number, fn: (i: number) => Promise<T>): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < n; i++) {
+    results.push(await fn(i));
+  }
+  return results;
+}
+
+/**
  * Returns the serialized size of all non-empty items in an array.
  * @param arr - Array
  * @returns The serialized size in bytes.
@@ -120,4 +134,14 @@ export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = 
     }
   }
   return true;
+}
+
+/**
+ * Returns the element of the array that has the maximum value of the given function.
+ * In case of a tie, returns the first element with the maximum value.
+ * @param arr - The array.
+ * @param fn - The function to get the value to compare.
+ */
+export function maxBy<T>(arr: T[], fn: (x: T) => number): T | undefined {
+  return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
 }

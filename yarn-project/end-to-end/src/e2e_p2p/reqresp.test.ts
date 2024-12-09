@@ -6,6 +6,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import { getContract } from 'viem';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -26,6 +27,8 @@ describe('e2e_p2p_reqresp_tx', () => {
       testName: 'e2e_p2p_reqresp_tx',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
+      metricsPort: shouldCollectMetrics(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
@@ -62,11 +65,11 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other
@@ -120,6 +123,11 @@ describe('e2e_p2p_reqresp_tx', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
+    const attesters = await rollupContract.read.getAttesters();
+    const mappedProposers = await Promise.all(
+      attesters.map(async attester => await rollupContract.read.getProposerForAttester([attester])),
+    );
+
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
     const slotDuration = await rollupContract.read.SLOT_DURATION();
 
@@ -130,9 +138,11 @@ describe('e2e_p2p_reqresp_tx', () => {
       const proposer = await rollupContract.read.getProposerAt([nextSlot]);
       proposers.push(proposer);
     }
-
     // Get the indexes of the nodes that are responsible for the next two slots
-    const proposerIndexes = proposers.map(proposer => t.nodePublicKeys.indexOf(proposer));
+    const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
+
+    t.logger.info('proposerIndexes: ' + proposerIndexes.join(', '));
+
     const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
     );
