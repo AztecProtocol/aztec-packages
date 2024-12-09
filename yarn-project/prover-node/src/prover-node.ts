@@ -80,11 +80,16 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   }
 
   public getP2P() {
-    const asP2PClient = this.coordination as P2P;
-    if (asP2PClient.isP2PClient && asP2PClient.isP2PClient()) {
-      return asP2PClient;
+    // TODO(palla): Remove try/catch once #10544 lands
+    try {
+      const asP2PClient = this.coordination as P2P;
+      if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
+        return asP2PClient;
+      }
+      return undefined;
+    } catch {
+      return undefined;
     }
-    return undefined;
   }
 
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {

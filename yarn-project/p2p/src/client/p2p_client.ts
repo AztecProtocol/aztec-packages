@@ -715,8 +715,9 @@ export class P2PClient extends WithTracer implements P2P {
    * @param newState - New state value.
    */
   private setCurrentState(newState: P2PClientState) {
+    const oldState = this.currentState;
     this.currentState = newState;
-    this.log.debug(`Moved to state ${P2PClientState[this.currentState]}`);
+    this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
   }
 
   private async publishStoredTxs() {

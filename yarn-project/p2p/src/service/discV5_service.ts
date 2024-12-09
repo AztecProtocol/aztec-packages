@@ -88,14 +88,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
-    this.logger.verbose(`DiscV5 ENR NodeId: ${this.enr.nodeId}`);
-    this.logger.info(`ENR UDP: ${multiAddrUdp.toString()}`);
-
     (this.discv5 as Discv5EventEmitter).on('discovered', (enr: ENR) => this.onDiscovered(enr));
     (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
       const multiAddrTcp = await enr.getFullMultiaddr('tcp');
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger.debug(`Added ENR`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+      this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
       this.onDiscovered(enr);
     });
   }
@@ -110,8 +107,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     this.logger.info(`DiscV5 service started`, {
       nodeId: this.enr.nodeId,
-      listenUdp: this.listenMultiAddrUdp,
       peerId: this.peerId,
+      enrUdp: await this.enr.getFullMultiaddr('udp'),
+      enrTcp: await this.enr.getFullMultiaddr('tcp'),
     });
     this.currentState = PeerDiscoveryState.RUNNING;
 
