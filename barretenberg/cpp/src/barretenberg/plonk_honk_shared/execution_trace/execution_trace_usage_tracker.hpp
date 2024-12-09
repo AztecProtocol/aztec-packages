@@ -84,7 +84,7 @@ struct ExecutionTraceUsageTracker {
         for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
             size_t start_idx = fixed_block.trace_offset;
             size_t end_idx = start_idx + max_size;
-            active_ranges.push_back(Range{ start_idx, end_idx });
+            active_ranges.emplace_back(start_idx, end_idx);
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
@@ -93,16 +93,16 @@ struct ExecutionTraceUsageTracker {
         // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
         // size.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1160)
-        const size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
+        // const size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
-        active_ranges.push_back(Range{ 0, databus_end });
-        size_t lookups_start =
-            std::min(dyadic_circuit_size - max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset));
-        active_ranges.push_back(Range{ lookups_start, dyadic_circuit_size });
+        active_ranges.emplace_back(0, databus_end);
+        size_t lookups_end =
+            std::max(max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset + max_sizes.lookup));
+        active_ranges.emplace_back(0, lookups_end);
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)

@@ -407,16 +407,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
 
+        // size_t active = 0;
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
             const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
-                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
-                    // are still available for skipping relations, but all derived univariate will ignore those
-                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    // active++;
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices
+                    // (they are still available for skipping relations, but all derived univariate will ignore
+                    // those evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
                     extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
 
@@ -432,7 +433,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                 }
             }
         });
-
+        // info("active: ", active);
         RelationUtils::zero_univariates(univariate_accumulators);
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {

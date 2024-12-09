@@ -17,6 +17,8 @@ PREFIX = args.prefix
 to_keep = [
     "construct_circuits(t)",
     "DeciderProvingKey(Circuit&)(t)",
+    "Lookup::compute_logderivative_inverse(t)",
+    "Databus::compute_logderivative_inverse(t)",
     "ProtogalaxyProver::prove(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",

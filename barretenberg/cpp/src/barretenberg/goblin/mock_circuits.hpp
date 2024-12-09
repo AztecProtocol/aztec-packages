@@ -25,13 +25,13 @@ namespace bb {
 static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
                                                                     .pub_inputs = 1 << 14,
                                                                     .busread = 1 << 14,
+                                                                    .lookup = 1 << 14,
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
                                                                     .elliptic = 1 << 14,
                                                                     .aux = 1 << 14,
                                                                     .poseidon2_external = 1 << 14,
                                                                     .poseidon2_internal = 1 << 15,
-                                                                    .lookup = 1 << 14,
                                                                     .overflow = 0 };
 
 class GoblinMockCircuits {
