@@ -735,7 +735,6 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
-    "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
@@ -744,6 +743,7 @@ __metadata:
     "@types/chai": ^5.0.1
     "@types/chai-as-promised": ^8.0.1
     "@types/jest": ^29.5.0
+    "@types/mocha": ^10.0.10
     "@types/mocha-each": ^2.0.4
     "@types/node": ^22.8.1
     "@types/pako": ^2.0.3

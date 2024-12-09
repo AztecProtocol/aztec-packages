@@ -245,7 +245,7 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
   return [bytecodes, witnessStack];
 }
 
-function base64ToUint8Array(base64: string): Uint8Array {
+export function base64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
 

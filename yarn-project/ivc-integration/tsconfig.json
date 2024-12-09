@@ -4,7 +4,8 @@
     "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["mocha"]
   },
   "references": [
     {

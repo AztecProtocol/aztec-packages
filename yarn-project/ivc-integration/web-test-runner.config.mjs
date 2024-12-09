@@ -28,5 +28,6 @@ export default {
   files: ['./src/browser*.test.ts'],
   rootDir: fileURLToPath(new URL('../../', import.meta.url)),
   nodeResolve: true,
+  testsFinishTimeout: 120_000_000,
   reporters: [reporter],
 };

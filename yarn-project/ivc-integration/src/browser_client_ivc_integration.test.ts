@@ -3,15 +3,9 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { expect } from 'chai';
 import { ungzip } from 'pako';
 
-import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger } from './index.js';
-
-/* eslint-disable camelcase */
+import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger, base64ToUint8Array } from './index.js';
 
 const logger = mockLogger;
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-}
 
 export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
   const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
