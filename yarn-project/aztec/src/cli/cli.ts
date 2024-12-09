@@ -56,6 +56,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (sandboxOptions.testAccounts) {
         if (aztecNodeConfig.p2pEnabled) {
           userLog(`Not setting up test accounts as we are connecting to a network`);
+        } else if (sandboxOptions.noPXE) {
+          userLog(`Not setting up test accounts as we are not exposing a PXE`);
         } else {
           userLog('Setting up test accounts...');
           const accounts = await deployInitialTestAccounts(pxe);
@@ -67,7 +69,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       // Start Node and PXE JSON-RPC server
       signalHandlers.push(stop);
       services.node = [node, AztecNodeApiSchema];
-      services.pxe = [pxe, PXESchema];
+      if (!sandboxOptions.noPXE) {
+        services.pxe = [pxe, PXESchema];
+      } else {
+        userLog(`Not exposing PXE API through JSON-RPC server`);
+      }
     } else {
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
