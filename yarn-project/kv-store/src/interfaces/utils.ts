@@ -6,8 +6,12 @@ export const mockLogger = {
   info: (msg: string, data: any) => console.log(msg, data),
   warn: (msg: string, data: any) => console.log(msg, data),
   error: (msg: string, data: any) => console.error(msg, data),
-  silent: (msg: string, data: any) => console.log(msg, data),
+  fatal: (msg: string, data: any) => console.error(msg, data),
+  silent: (_msg: string, _data: any) => {},
   verbose: (msg: string, data: any) => console.log(msg, data),
+  trace: (msg: string, data: any) => console.log(msg, data),
+  level: 'trace' as const,
+  isLevelEnabled: (_level: string) => true,
 };
 /* eslint-enable no-console */
 
