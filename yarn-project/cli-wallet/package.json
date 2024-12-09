@@ -19,7 +19,7 @@
   "scripts": {
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
-    "dev": "DEBUG='aztec:*' LOG_LEVEL=debug && node ./dest/bin",
+    "dev": "LOG_LEVEL=debug && node ./dest/bin",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -75,6 +75,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/pxe": "workspace:^",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",

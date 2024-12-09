@@ -6,7 +6,7 @@ import {
   type SequentialInsertionResult,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { type Header, type StateReference } from '@aztec/circuits.js';
+import { type BlockHeader, type StateReference } from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MerkleTrees } from './merkle_trees.js';
@@ -39,7 +39,7 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * Returns the initial header for the chain before the first block.
    * @returns The initial header.
    */
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     return this.trees.getInitialHeader();
   }
 
@@ -149,7 +149,7 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param header - The header to insert into the archive.
    */
-  public updateArchive(header: Header): Promise<void> {
+  public updateArchive(header: BlockHeader): Promise<void> {
     return this.trees.updateArchive(header);
   }
 

@@ -1,4 +1,4 @@
-import { type DebugLogger } from '../log/logger.js';
+import { type DebugLogger } from '../log/index.js';
 import { BaseMemoryQueue } from './base_memory_queue.js';
 
 /**

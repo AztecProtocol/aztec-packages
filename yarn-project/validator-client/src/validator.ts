@@ -6,7 +6,8 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -37,7 +38,7 @@ import { ValidatorMetrics } from './metrics.js';
 type BlockBuilderCallback = (
   txs: Tx[],
   globalVariables: GlobalVariables,
-  historicalHeader?: Header,
+  historicalHeader?: BlockHeader,
   interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
 ) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
 
@@ -47,7 +48,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -61,11 +62,15 @@ export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
 
+  // Used to check if we are sending the same proposal twice
+  private previousProposal?: BlockProposal;
+
   // Callback registered to: sequencer.buildBlock
   private blockBuilder?: BlockBuilderCallback = undefined;
 
   constructor(
-    keyStore: ValidatorKeyStore,
+    private keyStore: ValidatorKeyStore,
+    private epochCache: EpochCache,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
@@ -75,12 +80,16 @@ export class ValidatorClient extends WithTracer implements Validator {
     super(telemetry, 'Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P, telemetry: TelemetryClient = new NoopTelemetryClient()) {
+  static new(
+    config: ValidatorClientConfig,
+    epochCache: EpochCache,
+    p2pClient: P2P,
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
+  ) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
     }
@@ -88,7 +97,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, p2pClient, config, telemetry);
+    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -118,6 +127,19 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
+    // Check that I am in the committee
+    if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
+      this.log.verbose(`Not in the committee, skipping attestation`);
+      return undefined;
+    }
+
+    // Check that the proposal is from the current proposer, or the next proposer.
+    const [currentProposer, nextSlotProposer] = await this.epochCache.getProposerInCurrentOrNextSlot();
+    if (!proposal.getSender().equals(currentProposer) && !proposal.getSender().equals(nextSlotProposer)) {
+      this.log.verbose(`Not the current or next proposer, skipping attestation`);
+      return undefined;
+    }
+
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     this.log.verbose(`request to attest`, {
       archive: proposal.payload.archive.toString(),
@@ -131,14 +153,18 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal);
       }
     } catch (error: any) {
+      // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
       } else {
+        // This branch most commonly be hit if the transactions are available, but the re-execution fails
         // Catch all error handler
         this.log.error(`Failed to attest to proposal: ${error.message}`);
       }
       return undefined;
     }
+
+    // Provided all of the above checks pass, we can attest to the proposal
     this.log.verbose(
       `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
     );
@@ -210,8 +236,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    return this.validationService.createBlockProposal(header, archive, txs);
+  async createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
+    if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
+      this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
+      return Promise.resolve(undefined);
+    }
+
+    const newProposal = await this.validationService.createBlockProposal(header, archive, txs);
+    this.previousProposal = newProposal;
+    return newProposal;
   }
 
   broadcastBlockProposal(proposal: BlockProposal): void {

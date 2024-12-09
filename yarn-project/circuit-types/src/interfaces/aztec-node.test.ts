@@ -1,12 +1,12 @@
 import {
   ARCHIVE_HEIGHT,
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -284,7 +284,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const response = await context.client.getBlockHeader();
-    expect(response).toBeInstanceOf(Header);
+    expect(response).toBeInstanceOf(BlockHeader);
   });
 
   it('simulatePublicCalls', async () => {
@@ -553,8 +553,8 @@ class MockAztecNode implements AztecNode {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<Header> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
+    return Promise.resolve(BlockHeader.empty());
   }
   simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

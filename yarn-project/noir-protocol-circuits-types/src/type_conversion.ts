@@ -9,6 +9,7 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  BlockHeader,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -31,6 +32,7 @@ import {
   GasSettings,
   GlobalVariables,
   GrumpkinScalar,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Header,
   KernelCircuitPublicInputs,
   type KeyValidationHint,
@@ -138,6 +140,7 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
+  BlockHeader as BlockHeaderNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
@@ -159,7 +162,6 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
@@ -1870,11 +1872,11 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
 }
 
 /**
- * Maps header to Noir
- * @param header - The header.
- * @returns Header.
+ * Maps a block header to Noir
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderToNoir(header: Header): HeaderNoir {
+export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
     content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
@@ -1886,12 +1888,12 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
 }
 
 /**
- * Maps header from Noir.
- * @param header - The header.
- * @returns Header.
+ * Maps a block header from Noir.
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderFromNoir(header: HeaderNoir): Header {
-  return new Header(
+export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
+  return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
     mapContentCommitmentFromNoir(header.content_commitment),
     mapStateReferenceFromNoir(header.state),

@@ -130,6 +130,7 @@ async function deployERC20({ walletClient, publicClient }: L1Clients) {
     publicClient,
     erc20.contractAbi,
     erc20.contractBytecode,
+    ['DevCoin', 'DEV', walletClient.account.address],
   );
   const { address: portalAddress } = await deployL1Contract(
     walletClient,

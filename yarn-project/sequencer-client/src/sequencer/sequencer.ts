@@ -13,10 +13,10 @@ import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@a
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   ContentCommitment,
   GENESIS_ARCHIVE_ROOT,
   type GlobalVariables,
-  Header,
   StateReference,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -289,7 +289,7 @@ export class Sequencer {
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
     // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = new Header(
+    const proposalHeader = new BlockHeader(
       new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
       ContentCommitment.empty(),
       StateReference.empty(),
@@ -343,7 +343,7 @@ export class Sequencer {
   }
 
   /** Whether to skip the check of min txs per block if more than maxSecondsBetweenBlocks has passed since the previous block. */
-  private skipMinTxsPerBlockCheck(historicalHeader: Header | undefined): boolean {
+  private skipMinTxsPerBlockCheck(historicalHeader: BlockHeader | undefined): boolean {
     const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
     const currentTime = Math.floor(Date.now() / 1000);
     const elapsed = currentTime - lastBlockTime;
@@ -362,7 +362,9 @@ export class Sequencer {
         throw new Error(msg);
       }
 
-      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
+      this.log.verbose(`Can propose block ${proposalBlockNumber} at slot ${slot}`, {
+        publisherAddress: this.publisher.publisherAddress,
+      });
       return slot;
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);
@@ -383,7 +385,6 @@ export class Sequencer {
     }
 
     const bufferSeconds = this.timeTable[proposedState] - secondsIntoSlot;
-    this.metrics.recordStateTransitionBufferMs(bufferSeconds * 1000, proposedState);
 
     if (bufferSeconds < 0) {
       this.log.warn(
@@ -391,6 +392,9 @@ export class Sequencer {
       );
       return false;
     }
+
+    this.metrics.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), proposedState);
+
     this.log.debug(
       `Enough time to transition to ${proposedState}, max allowed: ${this.timeTable[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
     );
@@ -420,7 +424,7 @@ export class Sequencer {
     this.state = proposedState;
   }
 
-  shouldProposeBlock(historicalHeader: Header | undefined, args: ShouldProposeArgs): boolean {
+  shouldProposeBlock(historicalHeader: BlockHeader | undefined, args: ShouldProposeArgs): boolean {
     if (this.isFlushing) {
       this.log.verbose(`Flushing all pending txs in new block`);
       return true;
@@ -499,7 +503,7 @@ export class Sequencer {
   private async buildBlock(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: Header,
+    historicalHeader?: BlockHeader,
     interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
   ) {
     this.log.debug('Requesting L1 to L2 messages from contract');
@@ -567,8 +571,8 @@ export class Sequencer {
   }))
   private async buildBlockAndAttemptToPublish(
     validTxs: Tx[],
-    proposalHeader: Header,
-    historicalHeader: Header | undefined,
+    proposalHeader: BlockHeader,
+    historicalHeader: BlockHeader | undefined,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
@@ -691,6 +695,10 @@ export class Sequencer {
 
     this.log.info('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    if (!proposal) {
+      this.log.verbose(`Failed to create block proposal, skipping`);
+      return undefined;
+    }
 
     const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
 

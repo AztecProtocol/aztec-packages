@@ -1,6 +1,6 @@
 import {
+  type BlockHeader,
   type Fr,
-  type Header,
   type NullifierLeaf,
   type PublicDataTreeLeaf,
   type StateReference,
@@ -133,7 +133,7 @@ export interface MerkleTreeReadOperations {
   /**
    * Gets the initial header.
    */
-  getInitialHeader(): Header;
+  getInitialHeader(): BlockHeader;
 
   /**
    * Gets sibling path for a leaf.
@@ -224,7 +224,7 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param header - The header to insert into the archive.
    */
-  updateArchive(header: Header): Promise<void>;
+  updateArchive(header: BlockHeader): Promise<void>;
 
   /**
    * Batch insert multiple leaves into the tree.

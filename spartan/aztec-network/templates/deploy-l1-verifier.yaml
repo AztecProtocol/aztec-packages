@@ -5,6 +5,11 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-deploy-l1-verifier
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+
 spec:
   template:
     metadata:
@@ -44,6 +49,7 @@ spec:
               chmod +x /tmp/setup-service-addresses.sh
               /tmp/setup-service-addresses.sh
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
 
               until curl -s -X GET "$BOOT_NODE_HOST/status"; do
                 echo "Waiting for Aztec node $BOOT_NODE_HOST..."
@@ -51,19 +57,25 @@ spec:
               done
               echo "Boot node is ready!"
 
-              export ROLLUP_CONTRACT_ADDRESS=$(curl -X POST -H 'Content-Type: application/json' \
+              l1_contracts=$(curl -X POST -H 'Content-Type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
-                  "$BOOT_NODE_HOST" \
-                  | jq -r '.result.rollupAddress.value')
-
+                  "$BOOT_NODE_HOST")
+              echo "L1 Contracts"
+              echo $l1_contracts
+              export ROLLUP_CONTRACT_ADDRESS=$(echo $l1_contracts | jq -r '.result.rollupAddress')
+              [ -z "$ROLLUP_CONTRACT_ADDRESS" ] && echo "Could not retrieve rollup address!" && exit 1
               echo "Rollup contract address: $ROLLUP_CONTRACT_ADDRESS"
-              node /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-verifier --verifier real
+              MAX_RETRIES=5
+              RETRY_DELAY=60
+              for attempt in $(seq 1 $MAX_RETRIES); do
+                node /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-verifier --verifier real
+                echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
+                sleep "$RETRY_DELAY"
+              done || { echo "All L1 verifier deploy attempts failed." >&2; exit 1; }
               echo "L1 verifier deployed"
           env:
             - name: NODE_NO_WARNINGS
               value: "1"
-            - name: DEBUG
-              value: "aztec:*"
             - name: LOG_LEVEL
               value: "debug"
             - name: L1_CHAIN_ID

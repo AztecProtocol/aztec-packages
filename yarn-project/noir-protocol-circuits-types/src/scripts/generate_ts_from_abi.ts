@@ -3,7 +3,7 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@noir-lang/noir_codegen';
 import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const log = createConsoleLogger('aztec:autogenerate');
 

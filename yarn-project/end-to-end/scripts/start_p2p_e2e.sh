@@ -1,6 +1,7 @@
 #! /bin/bash
 set -eu
-export DEBUG='aztec:*'
+export LOG_LEVEL='verbose'
+export DEBUG='libp2p:*'
 export ARCHIVER_POLLING_INTERVAL_MS=500
 export P2P_CHECK_INTERVAL=50
 export WS_CHECK_INTERVAL=50
@@ -13,6 +14,5 @@ export BOOTSTRAP_NODES='/ip4/127.0.0.1/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY
 export P2P_TCP_LISTEN_ADDR='0.0.0.0:40400'
 export P2P_NAT_ENABLED='false'
 export P2P_ENABLED='true'
-export DEBUG='aztec:*,libp2p:*'
 
 yarn test e2e_p2p_network.test.ts
