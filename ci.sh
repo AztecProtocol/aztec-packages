@@ -36,12 +36,13 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 instance_name="${BRANCH//\//_}"
-[ -n "$INSTANCE_POSTFIX" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {
+  local name=$instance_name
+  [ -n "${1:-}" ] && name+="_$1"
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$name" \
     --query "Reservations[].Instances[].PublicIpAddress" \
     --output text)
 }
@@ -130,19 +131,19 @@ case "$cmd" in
     exit 0
     ;;
   "shell")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
       exit 0
     ;;
   "attach")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
   "shell-host")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
       exit 0
