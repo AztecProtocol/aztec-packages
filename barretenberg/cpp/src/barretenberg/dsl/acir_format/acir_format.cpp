@@ -17,7 +17,8 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
-template <typename Builder> void build_constraints(Builder& builder, AcirProgram& program, ProgramMetadata& metadata)
+template <typename Builder>
+void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
@@ -439,7 +440,7 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
 /**
  * @brief WORKTODO
  */
-template <> UltraCircuitBuilder create_circuit(AcirProgram& program, ProgramMetadata& metadata)
+template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
@@ -456,15 +457,10 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, ProgramMeta
 /**
  * @brief WORKTODO
  */
-template <> MegaCircuitBuilder create_circuit(AcirProgram& program, ProgramMetadata& metadata)
+template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
-
-    // // WORKTODO: better handling for case where were constucting an app but still need an op queue
-    // if (metadata.ivc == nullptr) {
-    //     metadata.ivc = std::make_shared<ClientIVC>();
-    // }
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
@@ -513,37 +509,6 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     return builder;
 };
 
-/**
- * @brief Specialization for creating Mega circuit from acir constraints and optionally a witness
- *
- * @tparam Builder
- * @param constraint_system
- * @param size_hint
- * @param witness
- * @return Builder
- */
-template <>
-MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                  [[maybe_unused]] bool recursive,
-                                  [[maybe_unused]] const size_t size_hint,
-                                  const WitnessVector& witness,
-                                  bool honk_recursion,
-                                  std::shared_ptr<ECCOpQueue> op_queue,
-                                  bool collect_gates_per_opcode)
-{
-    // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
-
-    // Populate constraints in the builder via the data in constraint_system
-    AcirProgram program{ constraint_system, witness };
-    ProgramMetadata metadata;
-    metadata.honk_recursion = honk_recursion;
-    metadata.collect_gates_per_opcode = collect_gates_per_opcode;
-    build_constraints(builder, program, metadata);
-
-    return builder;
-};
-
-template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, ProgramMetadata&);
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
 
 } // namespace acir_format

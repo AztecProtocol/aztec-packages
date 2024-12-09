@@ -213,7 +213,7 @@ struct ProgramMetadata {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
-Builder create_circuit(AcirProgram& program, ProgramMetadata& metadata);
+Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
@@ -230,7 +230,8 @@ Builder create_circuit(AcirFormat& constraint_system,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
-template <typename Builder> void build_constraints(Builder& builder, AcirProgram& program, ProgramMetadata& metadata);
+template <typename Builder>
+void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
 
 /**
  * @brief Utility class for tracking the gate count of acir constraints

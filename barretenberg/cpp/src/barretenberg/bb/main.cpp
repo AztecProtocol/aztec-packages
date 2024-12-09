@@ -327,25 +327,30 @@ void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recurs
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
+
+    acir_format::ProgramMetadata metadata;
+    metadata.recursive = recursive;
+    metadata.honk_recursion = honk_recursion;
+    metadata.collect_gates_per_opcode = true;
     size_t i = 0;
-    for (auto constraint_system : constraint_systems) {
-        auto builder = acir_format::create_circuit<Builder>(
-            constraint_system, recursive, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
+    for (const auto& constraint_system : constraint_systems) {
+        acir_format::AcirProgram program{ constraint_system };
+        auto builder = acir_format::create_circuit<Builder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         size_t circuit_size = builder.num_gates;
         vinfo("Calculated circuit size in gateCount: ", circuit_size);
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
-        for (size_t j = 0; j < constraint_system.gates_per_opcode.size(); j++) {
-            gates_per_opcode_str += std::to_string(constraint_system.gates_per_opcode[j]);
-            if (j != constraint_system.gates_per_opcode.size() - 1) {
+        for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(program.constraints.gates_per_opcode[j]);
+            if (j != program.constraints.gates_per_opcode.size() - 1) {
                 gates_per_opcode_str += ",";
             }
         }
 
         auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    constraint_system.num_acir_opcodes,
+                                    program.constraints.num_acir_opcodes,
                                     ",\n        \"circuit_size\": ",
                                     circuit_size,
                                     ",\n        \"gates_per_opcode\": [",
@@ -854,7 +859,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     init_grumpkin_crs(1 << 15);
 
     Program program{ get_constraint_system(bytecodePath, /*honk_recursion=*/false), /*witness=*/{} };
-    auto ivc_constraints = program.constraints.ivc_recursion_constraints;
+    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 

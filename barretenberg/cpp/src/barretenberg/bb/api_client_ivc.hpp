@@ -140,13 +140,15 @@ class ClientIVCAPI : public API {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
         ivc->auto_verify_mode = true;
 
+        // WORKTODO: this is historically recursive=true but prob doesnt need to be
+        ProgramMetadata metadata{ ivc, /*recursive=*/true };
+
         // Accumulate the entire program stack into the IVC
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel
         bool is_kernel = false;
         for (Program& program : folding_stack) {
             // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-            Builder circuit = acir_format::create_circuit<Builder>(
-                program.constraints, true, 0, program.witness, false, ivc->goblin.op_queue);
+            Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
 
             // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
             if (!circuit.databus_propagation_data.is_kernel) {
