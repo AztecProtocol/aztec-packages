@@ -53,7 +53,7 @@ TYPED_TEST(KZGTest, SingleInLagrangeBasis)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
 
-    std::array<uint64_t, 7> factors_of_p_minus_1 = { 1 << 28, 9, 983, 237073, 11003, 405928799, 1670836401704629 };
+    std::array<uint64_t, 7> factors_of_p_minus_1 = { 1 << 27, 9, 983, 237073, 11003, 405928799, 1670836401704629 };
 
     Fr num_random = Fr::random_element();
     Fr prod{ 1 };
@@ -69,7 +69,6 @@ TYPED_TEST(KZGTest, SingleInLagrangeBasis)
 
     uint64_t two_to_16 = 1 << 16;
 
-    auto prod_chunk = Fr{ 1 };
     if (num_random != Fr{ 1 }) {
         info("generator", num_random);
         Fr first_chunk = num_random.pow(fourth_limb);
@@ -89,11 +88,12 @@ TYPED_TEST(KZGTest, SingleInLagrangeBasis)
 
     // info(Fr{ 1 } + prod * Fr{ 29 * 13 });
 
-    if ((gen.pow(377) == Fr{ 1 }) && (gen.pow(376) != Fr{ 1 })) {
+    if ((gen.pow(377 * 2) == Fr{ 1 }) && (gen.pow(377) != Fr{ 1 })) {
         info("gen?", gen);
         info("gen to 13*29? ", gen.pow(13 * 29));
         info("gen to 13? ", gen.pow(13));
         info("gen to 29? ", gen.pow(29));
+        info("gen pow 2", gen.pow(2));
     }
 
     // for (size_t idx = 0; idx < 7; idx++) {

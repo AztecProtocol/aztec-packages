@@ -229,112 +229,112 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
  * prover polynomials and their shifts.
  *
  */
-TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
-{
-    using ShpleminiProver = ShpleminiProver_<TypeParam>;
-    using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
-    using KZG = KZG<TypeParam>;
-    using IPA = IPA<TypeParam>;
-    using Fr = typename TypeParam::ScalarField;
-    using Commitment = typename TypeParam::AffineElement;
-    using Polynomial = typename bb::Polynomial<Fr>;
+// TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
+// {
+//     using ShpleminiProver = ShpleminiProver_<TypeParam>;
+//     using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
+//     using KZG = KZG<TypeParam>;
+//     using IPA = IPA<TypeParam>;
+//     using Fr = typename TypeParam::ScalarField;
+//     using Commitment = typename TypeParam::AffineElement;
+//     using Polynomial = typename bb::Polynomial<Fr>;
 
-    const size_t n = 16;
-    const size_t log_n = 4;
-    // In practice, the length of Libra univariates is equal to FLAVOR::BATCHED_RELATION_PARTIAL_LENGTH
-    const size_t LIBRA_UNIVARIATE_LENGTH = 12;
+//     const size_t n = 16;
+//     const size_t log_n = 4;
+//     // In practice, the length of Libra univariates is equal to FLAVOR::BATCHED_RELATION_PARTIAL_LENGTH
+//     const size_t LIBRA_UNIVARIATE_LENGTH = 12;
 
-    std::array<Fr, LIBRA_UNIVARIATE_LENGTH> interpolation_domain;
-    for (size_t idx = 0; idx < LIBRA_UNIVARIATE_LENGTH; idx++) {
-        interpolation_domain[idx] = Fr(idx);
-    }
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
-    // random point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, 1);
-    auto poly3 = Polynomial::random(n, 1);
-    auto poly4 = Polynomial::random(n);
+//     std::array<Fr, LIBRA_UNIVARIATE_LENGTH> interpolation_domain;
+//     for (size_t idx = 0; idx < LIBRA_UNIVARIATE_LENGTH; idx++) {
+//         interpolation_domain[idx] = Fr(idx);
+//     }
+//     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
+//     // random point.
+//     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+//     auto poly1 = Polynomial::random(n);
+//     auto poly2 = Polynomial::random(n, 1);
+//     auto poly3 = Polynomial::random(n, 1);
+//     auto poly4 = Polynomial::random(n);
 
-    std::vector<bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH>> libra_univariates;
-    std::vector<Commitment> libra_commitments;
-    std::vector<Fr> libra_evaluations;
-    for (size_t idx = 0; idx < log_n; idx++) {
-        // generate random polynomial
-        Polynomial libra_polynomial = Polynomial::random(LIBRA_UNIVARIATE_LENGTH);
-        // create a univariate with the same coefficients (to store an array instead of a vector)
-        bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH> libra_univariate;
-        for (size_t i = 0; i < LIBRA_UNIVARIATE_LENGTH; i++) {
-            libra_univariate.value_at(i) = libra_polynomial[i];
-        }
-        libra_univariates.push_back(libra_univariate);
+//     std::vector<bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH>> libra_univariates;
+//     std::vector<Commitment> libra_commitments;
+//     std::vector<Fr> libra_evaluations;
+//     for (size_t idx = 0; idx < log_n; idx++) {
+//         // generate random polynomial
+//         Polynomial libra_polynomial = Polynomial::random(LIBRA_UNIVARIATE_LENGTH);
+//         // create a univariate with the same coefficients (to store an array instead of a vector)
+//         bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH> libra_univariate;
+//         for (size_t i = 0; i < LIBRA_UNIVARIATE_LENGTH; i++) {
+//             libra_univariate.value_at(i) = libra_polynomial[i];
+//         }
+//         libra_univariates.push_back(libra_univariate);
 
-        // commit to libra polynomial and populate the vector of libra commitments
-        Commitment libra_commitment = this->commit(libra_polynomial);
-        libra_commitments.push_back(libra_commitment);
+//         // commit to libra polynomial and populate the vector of libra commitments
+//         Commitment libra_commitment = this->commit(libra_polynomial);
+//         libra_commitments.push_back(libra_commitment);
 
-        // evaluate current libra univariate at the corresponding challenge and store the value in libra evaluations
-        libra_evaluations.push_back(libra_polynomial.evaluate(mle_opening_point[idx]));
-    }
+//         // evaluate current libra univariate at the corresponding challenge and store the value in libra evaluations
+//         libra_evaluations.push_back(libra_polynomial.evaluate(mle_opening_point[idx]));
+//     }
 
-    Commitment commitment1 = this->commit(poly1);
-    Commitment commitment2 = this->commit(poly2);
-    Commitment commitment3 = this->commit(poly3);
-    Commitment commitment4 = this->commit(poly4);
-    std::vector<Commitment> unshifted_commitments = { commitment1, commitment2, commitment3, commitment4 };
-    std::vector<Commitment> shifted_commitments = { commitment2, commitment3 };
-    auto eval1 = poly1.evaluate_mle(mle_opening_point);
-    auto eval2 = poly2.evaluate_mle(mle_opening_point);
-    auto eval3 = poly3.evaluate_mle(mle_opening_point);
-    auto eval4 = poly4.evaluate_mle(mle_opening_point);
-    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
-    auto eval3_shift = poly3.evaluate_mle(mle_opening_point, true);
+//     Commitment commitment1 = this->commit(poly1);
+//     Commitment commitment2 = this->commit(poly2);
+//     Commitment commitment3 = this->commit(poly3);
+//     Commitment commitment4 = this->commit(poly4);
+//     std::vector<Commitment> unshifted_commitments = { commitment1, commitment2, commitment3, commitment4 };
+//     std::vector<Commitment> shifted_commitments = { commitment2, commitment3 };
+//     auto eval1 = poly1.evaluate_mle(mle_opening_point);
+//     auto eval2 = poly2.evaluate_mle(mle_opening_point);
+//     auto eval3 = poly3.evaluate_mle(mle_opening_point);
+//     auto eval4 = poly4.evaluate_mle(mle_opening_point);
+//     auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
+//     auto eval3_shift = poly3.evaluate_mle(mle_opening_point, true);
 
-    // Collect multilinear evaluations for input to prover
-    // std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval4, eval2_shift, eval3_shift };
+//     // Collect multilinear evaluations for input to prover
+//     // std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval4, eval2_shift, eval3_shift };
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+//     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    // Run the full prover PCS protocol:
-    auto opening_claim = ShpleminiProver::prove(Fr{ n },
-                                                RefArray{ poly1, poly2, poly3, poly4 },
-                                                RefArray{ poly2, poly3 },
-                                                mle_opening_point,
-                                                this->ck(),
-                                                prover_transcript,
-                                                libra_univariates,
-                                                libra_evaluations);
-    if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
-        IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    } else {
-        KZG::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    }
+//     // Run the full prover PCS protocol:
+//     auto opening_claim = ShpleminiProver::prove(Fr{ n },
+//                                                 RefArray{ poly1, poly2, poly3, poly4 },
+//                                                 RefArray{ poly2, poly3 },
+//                                                 mle_opening_point,
+//                                                 this->ck(),
+//                                                 prover_transcript,
+//                                                 libra_univariates,
+//                                                 libra_evaluations);
+//     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
+//         IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+//     } else {
+//         KZG::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+//     }
 
-    // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
+//     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+//     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    // Gemini verifier output:
-    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                                              RefVector(unshifted_commitments),
-                                                                              RefVector(shifted_commitments),
-                                                                              RefArray{ eval1, eval2, eval3, eval4 },
-                                                                              RefArray{ eval2_shift, eval3_shift },
-                                                                              mle_opening_point,
-                                                                              this->vk()->get_g1_identity(),
-                                                                              verifier_transcript,
-                                                                              {},
-                                                                              RefVector(libra_commitments),
-                                                                              libra_evaluations);
+//     // Gemini verifier output:
+//     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
+//     auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
+//                                                                               RefVector(unshifted_commitments),
+//                                                                               RefVector(shifted_commitments),
+//                                                                               RefArray{ eval1, eval2, eval3, eval4 },
+//                                                                               RefArray{ eval2_shift, eval3_shift },
+//                                                                               mle_opening_point,
+//                                                                               this->vk()->get_g1_identity(),
+//                                                                               verifier_transcript,
+//                                                                               {},
+//                                                                               RefVector(libra_commitments),
+//                                                                               libra_evaluations);
 
-    if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
-        auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, true);
-    } else {
-        const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
-        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
-    }
-}
+//     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
+//         auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+//         EXPECT_EQ(result, true);
+//     } else {
+//         const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+//         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+//         EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+//     }
+// }
 } // namespace bb

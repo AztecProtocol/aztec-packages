@@ -77,7 +77,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         Polynomial big_sum_polynomial(377);
         Polynomial challenge_polynomial(377);
         const size_t big_sum_size = 377;
-        // compute challenge polynomial F with coeffs (1, u_1, u_1^2,...., u_{d-1}^12)
+        // compute challenge polynomial F with coeffs (1, 1, u_1, u_1^2,...., u_{d-1}^12)
         for (size_t poly_idx = 0; poly_idx < log_circuit_size; poly_idx++) {
 
             for (size_t idx = 0; idx < Flavor::BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
@@ -86,6 +86,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                 challenge_polynomial.at(current_idx) = sumcheck_output.challenge[poly_idx].pow(idx);
             }
         }
+
         // compute big sum polynomial, commit to it
         big_sum_polynomial.at(0) = FF(0);
         for (size_t idx = 1; idx < big_sum_size; idx++) {
@@ -118,10 +119,9 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         Polynomial x_minus_g = Polynomial(x_minus_g_coeffs);
         info(x_minus_g.at(0));
         for (size_t idx = 1; idx < big_sum_size - 1; idx++) {
-            batched_polynomial_lagrange.at(idx) *= x_minus_g.at(idx);
-            batched_polynomial_lagrange.at(idx) *=
-                (big_sum_polynomial.at(idx + 1) - big_sum_polynomial.at(idx) -
-                 challenge_polynomial.at(idx) * zk_sumcheck_data.polynomial_lagrange_form.at(idx));
+            batched_polynomial_lagrange.at(idx) =
+                x_minus_g.at(idx) * (big_sum_polynomial.at(idx + 1) - big_sum_polynomial.at(idx) -
+                                     challenge_polynomial.at(idx) * zk_sumcheck_data.polynomial_lagrange_form.at(idx));
             info(batched_polynomial_lagrange.at(idx));
         }
 

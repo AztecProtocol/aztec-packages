@@ -3,6 +3,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
+#include <chrono>
 #include <optional>
 #include <vector>
 
@@ -21,11 +22,10 @@ template <typename Flavor> struct ZKSumcheckData {
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
 
     static constexpr FF grumpkin_subgroup_generator =
-        FF(uint256_t("00820eccfa880378746c1f015854b884a8ffa551ab51bf15cea2cecc5d3a8850"));
+        FF(uint256_t("0x2b2f46dc50fb64ea8c28e6331d1371f38ef09ba413bd8287a6b182575351c177"));
 
     static constexpr FF bn_254_subgroup_generator =
-        FF(uint256_t("0e4061303ba140794a3a2d8659909fd6ffb3dfdc290e4d9ca93bccd950f16404"));
-
+        FF(uint256_t("0x02d284e1a6dba4be658d3106583135d5dfc3b35febe48ca10ee1371cb197541e"));
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
@@ -39,8 +39,11 @@ template <typename Flavor> struct ZKSumcheckData {
     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
+
     FF free_term{ 0 };
-    std::array<FF, 377> interpolation_domain;
+    std::array<FF, 1000> interpolation_domain;
+    // to compute product in lagrange basis
+    std::array<FF, 377 * 2> extended_domain;
     Polynomial<FF> polynomial_lagrange_form;
     Polynomial<FF> concatenated;
     LibraUnivariates libra_univariates;
@@ -62,8 +65,9 @@ template <typename Flavor> struct ZKSumcheckData {
         , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
     {
-
-        std::array<FF, 377> coeffs_lagrange_subgroup;
+        info(bn_254_subgroup_generator.pow(2 * 29 * 13));
+        info(grumpkin_subgroup_generator.pow(2 * 983));
+        std::array<FF, 100> coeffs_lagrange_subgroup;
         coeffs_lagrange_subgroup[0] = free_term;
         info(libra_univariates_monomial.size());
         for (size_t poly_idx = 0; poly_idx < libra_univariates_monomial.size(); poly_idx++) {
@@ -76,14 +80,26 @@ template <typename Flavor> struct ZKSumcheckData {
         // 377--> Flavor::SubgroupSize
 
         // create evaluation domain using the generator
-        for (size_t idx = 0; idx < 377; idx++) {
-            interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
+        for (size_t idx = 0; idx < 1000; idx++) {
+            interpolation_domain[idx] = bn_254_subgroup_generator.pow(2 * idx);
+            // extended_domain[idx] = bn_254_subgroup_generator.pow(2 * idx);
+            // size_t wrapping_idx = 2 * 377 + idx;
+            // extended_domain[wrapping_idx] = bn_254_subgroup_generator.pow(idx);
         }
 
         polynomial_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
-        Polynomial<FF> polynomial_to_commit(
-            std::span<FF>(interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 377);
+        using namespace std::chrono;
 
+        auto total_time = 0.0;
+        auto start = high_resolution_clock::now();
+
+        Polynomial<FF> polynomial_to_commit(
+            std::span<FF>(interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 1000);
+
+        auto end = high_resolution_clock::now();
+        total_time += duration<double, std::milli>(end - start).count();
+
+        info("total time", total_time);
         // If proving_key is provided, commit to libra_univariates
         if (commitment_key != nullptr) {
 

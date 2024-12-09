@@ -24,21 +24,20 @@ class IPATest : public CommitmentTest<Curve> {
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
 
-    constexpr std::array<uint64_t, 10> factors_of_p_minus_1 = { { 2,
-                                                                  9, // 3^2
-                                                                  13,
-                                                                  29,
-                                                                  67,
-                                                                  229,
-                                                                  311,
-                                                                  // 983,
-                                                                  11003,
-                                                                  405928799,
-                                                                  11465965001 } };
+    constexpr std::array<uint64_t, 9> factors_of_p_minus_1 = { { 9, // 3^2
+                                                                 13,
+                                                                 29,
+                                                                 67,
+                                                                 229,
+                                                                 311,
+                                                                 // 983,
+                                                                 11003,
+                                                                 405928799,
+                                                                 11465965001 } };
     Fr num_random = Fr::random_element();
     Fr prod{ 1 };
     info(num_random);
-    for (size_t idx = 0; idx < 10; idx++) {
+    for (size_t idx = 0; idx < 9; idx++) {
         num_random = num_random.pow(factors_of_p_minus_1[idx]);
         prod *= Fr{ factors_of_p_minus_1[idx] };
     }
@@ -52,7 +51,6 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 
     uint64_t two_to_16 = 1 << 16;
 
-    auto prod_chunk = Fr{ 1 };
     if (num_random != Fr{ 1 }) {
         info("generator", num_random);
         Fr first_chunk = num_random.pow(limb_4);
@@ -91,15 +89,15 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 
     // info(Fr{ 1 } + prod * Fr{ 29 * 13 });
 
-    if ((gen.pow(983) == Fr{ 1 }) && (gen.pow(982) != Fr{ 1 })) {
+    if ((gen.pow(983 * 2) == Fr{ 1 }) && (gen.pow(983) != Fr{ 1 }) && (gen.pow(2) != Fr{ 1 })) {
         info("gen?", gen);
         // for (size_t idx = 0; idx < 450; idx++) {
         //     info(gen.pow(idx));
         // }
     }
 
-    Fr root_of_unity = Fr::get_root_of_unity(2);
-    info("root of unity", root_of_unity);
+    // Fr root_of_unity = Fr::get_root_of_unity(2);
+    // info("root of unity", root_of_unity);
     constexpr size_t n = 4;
     Polynomial p(n);
     for (size_t i = 0; i < n - 1; i++) {

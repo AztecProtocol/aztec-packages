@@ -132,7 +132,7 @@ void ECCVMProver::execute_pcs_rounds()
                          key->commitment_key,
                          transcript,
                          zk_sumcheck_data.libra_univariates_monomial,
-                         sumcheck_output.claimed_libra_evaluations);
+                         sumcheck_output.claimed_libra_evaluation);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
