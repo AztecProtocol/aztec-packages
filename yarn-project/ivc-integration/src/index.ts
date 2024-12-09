@@ -3,7 +3,6 @@ import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circui
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 import { ungzip } from 'pako';
-import { type Page } from 'playwright';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
