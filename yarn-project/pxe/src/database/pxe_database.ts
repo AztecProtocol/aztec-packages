@@ -102,7 +102,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Gets the most recently processed block number.
    * @returns The most recently processed block number or undefined if never synched.
    */
-  getBlockNumber(): number | undefined;
+  getBlockNumber(): Promise<number | undefined>;
 
   /**
    * Retrieve the stored Block Header from the database.
@@ -115,7 +115,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getBlockHeader(): BlockHeader;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Set the latest Block Header.
@@ -137,7 +137,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Retrieves the list of contact addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): AztecAddress[];
+  getContactAddresses(): Promise<AztecAddress[]>;
 
   /**
    * Removes a contact address from the database.
@@ -179,7 +179,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Get the synched block number for a given public key.
    * @param account - The account to get the synched block number for.
    */
-  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined;
+  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined>;
 
   /**
    * Returns the estimated size in bytes of this db.

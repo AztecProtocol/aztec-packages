@@ -26,7 +26,7 @@ import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { jest } from '@jest/globals';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';

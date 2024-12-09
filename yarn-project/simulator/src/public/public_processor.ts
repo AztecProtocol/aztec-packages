@@ -52,7 +52,13 @@ export class PublicProcessorFactory {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
+    const publicTxSimulator = new PublicTxSimulator(
+      merkleTree,
+      worldStateDB,
+      this.telemetryClient,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+    );
 
     return new PublicProcessor(
       merkleTree,

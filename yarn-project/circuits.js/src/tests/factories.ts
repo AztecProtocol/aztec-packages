@@ -1343,6 +1343,7 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
     instance.contractClassId,
     instance.initializationHash,
     instance.publicKeys,
+    makeAvmNullifierReadTreeHints(seed + 0x2000),
   );
 
   const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
@@ -1413,6 +1414,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
       new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
     ),
+    makeAvmNullifierReadTreeHints(seed + 0x1000),
   );
 }
 
