@@ -25,6 +25,16 @@ on:
         required: false
         type: string
         default: "true"
+      run_terraform_destroy:
+        description: Whether to run terraform destroy before deploying
+        required: false
+        type: string
+        default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
     secrets:
       GCP_SA_KEY:
         required: true
@@ -47,6 +57,16 @@ on:
         description: Whether to respect the Terraform lock
         required: false
         default: "true"
+      run_terraform_destroy:
+        description: Whether to run terraform destroy before deploying
+        required: false
+        type: string
+        default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
 
 jobs:
   network_deployment:
@@ -71,6 +91,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -115,6 +137,12 @@ jobs:
           terraform init \
             -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
             -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate" \
+
+      - name: Terraform Destroy
+        working-directory: ./spartan/terraform/deploy-release
+        if: ${{ inputs.run_terraform_destroy == 'true' }}
+        run: |
+          terraform destroy -auto-approve
 
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
