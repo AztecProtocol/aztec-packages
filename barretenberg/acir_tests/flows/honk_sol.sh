@@ -1,6 +1,5 @@
 #!/bin/sh
-set -eu
-DIR="$(dirname $0)"
+set -eux
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
@@ -18,11 +17,11 @@ $BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$(pwd)/Verifier.sol"
-export TEST_PATH="$DIR/../sol-test/HonkTest.sol"
+export TEST_PATH=$(realpath "../../sol-test/HonkTest.sol")
 export TESTING_HONK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
 export TEST_NAME=$(basename $(pwd))
-yarn --cwd "$DIR/../sol-test/" start
+node ../../sol-test/src/index.js
