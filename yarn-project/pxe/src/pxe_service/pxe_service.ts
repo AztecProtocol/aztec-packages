@@ -64,11 +64,12 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { type PXEServiceConfig } from '../config/index.js';
+import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -887,7 +888,7 @@ export class PXEService implements PXE {
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
-        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
           const registeredAccount = await this.getRegisteredAccount(account);

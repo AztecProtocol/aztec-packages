@@ -23,8 +23,8 @@ import {
 } from '@aztec/circuits.js';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AcirSimulator } from '@aztec/simulator';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -122,7 +122,7 @@ describe('Simulator oracle', () => {
   beforeEach(async () => {
     const db = openTmpStore();
     aztecNode = mock<AztecNode>();
-    database = new KVPxeDatabase(db);
+    database = await KVPxeDatabase.create(db);
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);

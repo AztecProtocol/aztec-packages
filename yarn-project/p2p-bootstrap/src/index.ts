@@ -1,5 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

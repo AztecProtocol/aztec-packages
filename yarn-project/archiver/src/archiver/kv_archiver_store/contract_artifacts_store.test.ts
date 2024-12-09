@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 
 import { beforeEach } from '@jest/globals';

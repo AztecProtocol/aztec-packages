@@ -28,7 +28,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

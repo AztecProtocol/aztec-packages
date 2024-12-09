@@ -315,11 +315,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const header = makeHeader(randomInt(1000), INITIAL_L2_BLOCK_NUM, 0 /** slot number */);
 
         await database.setHeader(header);
-        expect(database.getBlockHeader()).toEqual(header);
+        await expect(database.getBlockHeader()).resolves.toEqual(header);
       });
 
-      it('rejects getting header if no block set', () => {
-        expect(() => database.getBlockHeader()).toThrow();
+      it('rejects getting header if no block set', async () => {
+        await expect(() => database.getBlockHeader()).rejects.toThrow();
       });
     });
 
@@ -356,6 +356,16 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
         const result = await database.getCompleteAddresses();
         expect(result).toEqual(expect.arrayContaining(addresses));
+      });
+
+      it('returns a single address', async () => {
+        const addresses = Array.from({ length: 10 }).map(() => CompleteAddress.random());
+        for (const address of addresses) {
+          await database.addCompleteAddress(address);
+        }
+
+        const result = await database.getCompleteAddress(addresses[3].address);
+        expect(result).toEqual(addresses[3]);
       });
 
       it("returns an empty array if it doesn't have addresses", async () => {
