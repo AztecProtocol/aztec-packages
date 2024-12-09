@@ -259,6 +259,7 @@ export class AvmContractInstanceHint {
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
+    public readonly membershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
   ) {}
   /**
    * Serializes the inputs to a buffer.
@@ -288,7 +289,8 @@ export class AvmContractInstanceHint {
       this.deployer.isZero() &&
       this.contractClassId.isZero() &&
       this.initializationHash.isZero() &&
-      this.publicKeys.isEmpty()
+      this.publicKeys.isEmpty() &&
+      this.membershipHint.isEmpty()
     );
   }
 
@@ -315,6 +317,7 @@ export class AvmContractInstanceHint {
       fields.contractClassId,
       fields.initializationHash,
       fields.publicKeys,
+      fields.membershipHint,
     ] as const;
   }
 
@@ -333,6 +336,7 @@ export class AvmContractInstanceHint {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       PublicKeys.fromBuffer(reader),
+      AvmNullifierReadTreeHint.fromBuffer(reader),
     );
   }
 
@@ -592,7 +596,7 @@ export class AvmNullifierReadTreeHint {
   constructor(
     public readonly lowLeafPreimage: NullifierLeafPreimage,
     public readonly lowLeafIndex: Fr,
-    public readonly _lowLeafSiblingPath: Fr[],
+    public _lowLeafSiblingPath: Fr[],
   ) {
     this.lowLeafSiblingPath = new Vector(_lowLeafSiblingPath);
   }
@@ -628,6 +632,10 @@ export class AvmNullifierReadTreeHint {
    */
   static from(fields: FieldsOf<AvmNullifierReadTreeHint>): AvmNullifierReadTreeHint {
     return new AvmNullifierReadTreeHint(fields.lowLeafPreimage, fields.lowLeafIndex, fields.lowLeafSiblingPath.items);
+  }
+
+  static empty(): AvmNullifierReadTreeHint {
+    return new AvmNullifierReadTreeHint(NullifierLeafPreimage.empty(), Fr.ZERO, []);
   }
 
   /**

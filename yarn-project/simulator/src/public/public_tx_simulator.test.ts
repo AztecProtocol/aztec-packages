@@ -209,7 +209,6 @@ describe('public_tx_simulator', () => {
       worldStateDB,
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      /*realAvmProvingRequest=*/ false,
       /*doMerkleOperations=*/ true,
     );
 

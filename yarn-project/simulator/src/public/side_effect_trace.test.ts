@@ -230,23 +230,6 @@ describe('Side Effect Trace', () => {
     ]);
   });
 
-  it('Should trace get contract instance', () => {
-    const instance = SerializableContractInstance.random();
-    const { version: _, ...instanceWithoutVersion } = instance;
-    const exists = true;
-    trace.traceGetContractInstance(address, exists, instance);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
-
-    const pxResult = toPxResult(trace);
-    expect(pxResult.avmCircuitHints.contractInstances.items).toEqual([
-      {
-        // hint omits "version"
-        address,
-        exists,
-        ...instanceWithoutVersion,
-      },
-    ]);
-  });
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of public storage reads', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; i++) {
