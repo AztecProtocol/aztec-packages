@@ -312,7 +312,7 @@ export class ViewDataOracle extends TypedOracle {
   public override async syncNotes() {
     const taggedLogsByRecipient = await this.db.syncTaggedLogs(
       this.contractAddress,
-      await this.aztecNode.getBlockNumber(),
+      await this.db.getBlockNumber(),
       this.scopes,
     );
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
