@@ -20,7 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, ProtocolContractArtifact } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
@@ -66,6 +66,7 @@ export class PublicTxSimulator {
     private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
+    this.log.info(`fee juice storage balances slot: ${ProtocolContractArtifact.FeeJuice.storageLayout.balances.slot}`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 

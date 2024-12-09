@@ -17,6 +17,7 @@ import {
   TreeSnapshots,
   countAccumulatedItems,
   mergeAccumulatedData,
+  AztecAddress,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -30,6 +31,7 @@ export function generateAvmCircuitPublicInputs(
   startStateReference: StateReference,
   startGasUsed: Gas,
   gasSettings: GasSettings,
+  feePayer: AztecAddress,
   setupCallRequests: PublicCallRequest[],
   appLogicCallRequests: PublicCallRequest[],
   teardownCallRequests: PublicCallRequest[],
@@ -52,6 +54,7 @@ export function generateAvmCircuitPublicInputs(
     startTreeSnapshots,
     startGasUsed,
     gasSettings,
+    feePayer,
     setupCallRequests,
     appLogicCallRequests,
     teardownCallRequests.length ? teardownCallRequests[0] : PublicCallRequest.empty(),

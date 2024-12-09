@@ -227,6 +227,7 @@ class AvmTraceBuilder {
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+    void pay_fee();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)

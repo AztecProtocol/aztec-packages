@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -377,10 +378,16 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
 
         if (!is_ok(phase_error) && phase == TxExecutionPhase::SETUP) {
             // Stop processing phases. Halt TX.
-            info("A revert during SETUP phase halts the entire TX");
+            info("A revert was encountered in the SETUP phase, killing the entire TX");
+            throw std::runtime_error("A revert was encountered in the SETUP phase, killing the entire TX");
             break;
         }
     }
+
+    if (apply_end_gas_assertions) {
+        trace_builder.pay_fee();
+    }
+
     auto trace = trace_builder.finalize(apply_end_gas_assertions);
 
     show_trace_info(trace);

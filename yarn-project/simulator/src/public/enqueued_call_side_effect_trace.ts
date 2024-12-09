@@ -536,6 +536,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     startGasUsed: Gas,
     /** How much gas was available for this public execution. */
     gasLimits: GasSettings,
+    /** Address of the fee payer. */
+    feePayer: AztecAddress,
     /** Call requests for setup phase. */
     publicSetupCallRequests: PublicCallRequest[],
     /** Call requests for app logic phase. */
@@ -559,6 +561,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       startTreeSnapshots,
       startGasUsed,
       gasLimits,
+      feePayer,
       padArrayEnd(publicSetupCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       padArrayEnd(publicAppLogicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       publicTeardownCallRequest,

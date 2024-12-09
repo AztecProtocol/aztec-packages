@@ -306,6 +306,7 @@ class AvmPublicInputs {
     TreeSnapshots start_tree_snapshots;
     Gas start_gas_used;
     GasSettings gas_settings;
+    FF fee_payer;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_setup_call_requests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_app_logic_call_requests;
     PublicCallRequest public_teardown_call_request;
@@ -330,6 +331,7 @@ class AvmPublicInputs {
         read(it, public_inputs.start_tree_snapshots);
         read(it, public_inputs.start_gas_used);
         read(it, public_inputs.gas_settings);
+        read(it, public_inputs.fee_payer);
         read(it, public_inputs.public_setup_call_requests);
         read(it, public_inputs.public_app_logic_call_requests);
         read(it, public_inputs.public_teardown_call_request);

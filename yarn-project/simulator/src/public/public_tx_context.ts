@@ -330,6 +330,7 @@ export class PublicTxContext {
       this.startStateReference,
       this.startGasUsed,
       this.gasSettings,
+      this.feePayer,
       this.setupCallRequests,
       this.appLogicCallRequests,
       this.teardownCallRequests,
