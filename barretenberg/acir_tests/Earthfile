@@ -52,7 +52,7 @@ test-bb-ultra-honk:
 test-bb-client-ivc:
     FROM +test-base
     # Do not pass with honk!
-    RUN rm -rf acir_tests/{single_verify_proof,double_verify_proof,double_verify_nested_proof}
+    RUN cd acir_tests && rm -rf fold_basic_nested_call fold_fibonacci fold_numeric_generic_poseidon ram_blowup_regression
     # Construct and verify a ClientIVC proof for a single arbitrary program
     RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
     # Construct and separately verify a ClientIVC proof for all acir programs

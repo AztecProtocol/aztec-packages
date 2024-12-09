@@ -59,8 +59,11 @@ function build {
   github_endgroup
 }
 
+function hash {
+  cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
+}
 function test {
-  local hash=$(cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns)
+  local hash=$(hash)
   if ! test_should_run barretenberg-acir-tests-$hash; then
     return
   fi
@@ -179,6 +182,9 @@ case "$cmd" in
     denoise build
     denoise test
     ;;
+  "hash")
+    hash
+    exit 1
   "test")
     denoise test
     ;;
