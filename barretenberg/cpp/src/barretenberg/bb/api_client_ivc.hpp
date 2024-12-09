@@ -274,7 +274,9 @@ class ClientIVCAPI : public API {
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
         TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-        auto ivc = std::make_shared<ClientIVC>(trace_settings);
+        bool auto_verify = true;
+        auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
+        vinfo("performing accumulation with auto-verify = ", auto_verify);
         _accumulate(ivc, folding_stack);
         const bool verified = ivc->prove_and_verify();
         return verified;
