@@ -5,7 +5,7 @@ import { type Gauge, type Meter, type TelemetryClient, ValueType } from '@aztec/
 import { type DBStats, type TreeDBStats, type TreeMeta, type WorldStateStatusFull } from '../native/message.js';
 
 type TreeTypeString = 'nullifier' | 'note_hash' | 'archive' | 'message' | 'public_data';
-type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks';
+type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 
 class TreeDBInstrumentation {
   private dbNumItems: Gauge;
@@ -70,6 +70,7 @@ class TreeInstrumentation {
     this.treeDbInstrumentation.set('nodes', new TreeDBInstrumentation(meter, treeName, 'nodes'));
     this.treeDbInstrumentation.set('leaf_preimage', new TreeDBInstrumentation(meter, treeName, 'leaf_preimage'));
     this.treeDbInstrumentation.set('leaf_indices', new TreeDBInstrumentation(meter, treeName, 'leaf_indices'));
+    this.treeDbInstrumentation.set('block_indices', new TreeDBInstrumentation(meter, treeName, 'block_indices'));
   }
 
   private updateDBMetrics(dbName: DBTypeString, dbStats: DBStats) {
@@ -92,6 +93,7 @@ class TreeInstrumentation {
     this.updateDBMetrics('leaf_preimage', treeDbStats.leafPreimagesDBStats);
     this.updateDBMetrics('blocks', treeDbStats.blocksDBStats);
     this.updateDBMetrics('nodes', treeDbStats.nodesDBStats);
+    this.updateDBMetrics('block_indices', treeDbStats.blockIndicesDBStats);
   }
 }
 

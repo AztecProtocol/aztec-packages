@@ -9,11 +9,11 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
   GasSettings,
-  type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
@@ -25,6 +25,7 @@ import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
@@ -52,7 +53,6 @@ import {
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { LightweightBlockBuilder } from '../../../sequencer-client/src/block_builder/light.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
 
@@ -84,7 +84,7 @@ describe('L1Publisher integration', () => {
   let builderDb: MerkleTreeAdminDatabase;
 
   // The header of the last block
-  let prevHeader: Header;
+  let prevHeader: BlockHeader;
 
   let baseFee: GasFees;
 
@@ -584,15 +584,27 @@ describe('L1Publisher integration', () => {
       // Expect the tx to revert
       await expect(publisher.proposeL2Block(block)).resolves.toEqual(false);
 
-      // Expect a proper error to be logged. Full message looks like:
-      // aztec:sequencer:publisher [ERROR] Rollup process tx reverted. The contract function "propose" reverted. Error: Rollup__InvalidInHash(bytes32 expected, bytes32 actual) (0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c, 0x00a5a12af159e0608de45d825718827a36d8a7cdfa9ecc7955bc62180ae78e51) blockNumber=1 slotNumber=49 blockHash=0x131c59ebc2ce21224de6473fe954b0d4eb918043432a3a95406bb7e7a4297fbd txHash=0xc01c3c26b6b67003a8cce352afe475faf7e0196a5a3bba963cfda3792750ed28
-      expect(loggerErrorSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Rollup__InvalidInHash/),
+      // Test for both calls
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
+
+      // Test first call
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/^L1 Transaction 0x[a-f0-9]{64} reverted$/),
+      );
+
+      // Test second call
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.stringMatching(
+          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/,
+        ),
         undefined,
         expect.objectContaining({
           blockHash: expect.any(String),
           blockNumber: expect.any(Number),
           slotNumber: expect.any(BigInt),
+          txHash: expect.any(String),
         }),
       );
     });

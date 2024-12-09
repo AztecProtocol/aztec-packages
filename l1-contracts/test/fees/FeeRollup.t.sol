@@ -6,8 +6,8 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {EpochProofQuoteLib} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -36,10 +36,11 @@ import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {OracleInput} from "@aztec/core/libraries/FeeMath.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/ProposeLib.sol";
+import {
+  ProposeArgs, OracleInput, ProposeLib
+} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {FeeMath} from "@aztec/core/libraries/FeeMath.sol";
+import {FeeMath, MANA_TARGET} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {
   FeeHeader as FeeHeaderModel,
@@ -92,7 +93,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes header;
     bytes body;
     bytes32[] txHashes;
-    SignatureLib.Signature[] signatures;
+    Signature[] signatures;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -113,21 +114,24 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20();
+    asset = new TestERC20("test", "TEST", address(this));
 
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
+    asset.transferOwnership(address(fakeCanonical));
+
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
+      asset,
       bytes32(0),
       bytes32(0),
       address(this),
-      new address[](0),
       Config({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16
+        aztecEpochProofClaimWindowInL2Slots: 16,
+        minimumStake: 100 ether
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -156,7 +160,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 blockHash = 0x267f79fe7e757b20e924fac9f78264a0d1c8c4b481fea21d0bbe74650d87a1f1;
 
     bytes32[] memory txHashes = new bytes32[](0);
-    SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+    Signature[] memory signatures = new Signature[](0);
 
     bytes memory body = full.block.body;
     bytes memory header = full.block.header;
@@ -252,11 +256,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getBlock(rollup.getPendingBlockNumber()).feeHeader;
     uint256 excessManaNoPrune = (
       parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed
-    ).clampedAdd(-int256(FeeMath.MANA_TARGET));
+    ).clampedAdd(-int256(MANA_TARGET));
 
     FeeHeader memory parentFeeHeaderPrune = rollup.getBlock(rollup.getProvenBlockNumber()).feeHeader;
     uint256 excessManaPrune = (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed)
-      .clampedAdd(-int256(FeeMath.MANA_TARGET));
+      .clampedAdd(-int256(MANA_TARGET));
 
     assertGt(excessManaNoPrune, excessManaPrune, "excess mana should be lower if we prune");
 

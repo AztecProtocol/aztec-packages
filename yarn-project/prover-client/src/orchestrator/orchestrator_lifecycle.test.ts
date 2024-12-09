@@ -1,6 +1,5 @@
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/circuits.js';
-import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -28,7 +27,7 @@ describe('prover/orchestrator/lifecycle', () => {
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
-      const orchestrator = new ProvingOrchestrator(context.actualDb, prover, new NoopTelemetryClient());
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, new NoopTelemetryClient());
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -38,8 +37,8 @@ describe('prover/orchestrator/lifecycle', () => {
         return deferred.promise;
       });
 
-      orchestrator.startNewEpoch(1, 1);
-      await orchestrator.startNewBlock(2, makeGlobalVariables(1), []);
+      orchestrator.startNewEpoch(1, 1, 1);
+      await orchestrator.startNewBlock(2, context.globalVariables, []);
 
       await sleep(1);
 

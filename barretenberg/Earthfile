@@ -27,9 +27,9 @@ barretenberg-acir-tests-bb:
     ENV VERBOSE=1
 
     # Fold and verify an ACIR program stack using ClientIvc
-    RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
+    RUN INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
+    RUN INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
     RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
@@ -79,7 +79,7 @@ barretenberg-acir-tests-bb-ultra-honk:
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
 
-barretenberg-acir-tests-bb-mega-honk:
+barretenberg-acir-tests-bb-client-ivc:
     FROM ../build-images/+from-registry
 
     COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -92,12 +92,10 @@ barretenberg-acir-tests-bb-mega-honk:
     ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
 
-    # Construct and separately verify a MegaHonk proof for all acir programs
-    RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
-    # Construct and verify a MegaHonk proof for a single arbitrary program
-    RUN FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
-    RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
+    # Construct and verify a ClientIVC proof for a single arbitrary program
+    RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
+    # Construct and separately verify a ClientIVC proof for all acir programs
+    RUN FLOW=prove_then_verify_client_ivc CLIENT_IVC_SKIPS=true ./run_acir_tests.sh
 
 barretenberg-acir-tests-sol:
     FROM ../build-images/+from-registry

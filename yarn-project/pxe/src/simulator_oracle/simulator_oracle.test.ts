@@ -1,6 +1,5 @@
 import {
   type AztecNode,
-  EncryptedL2NoteLog,
   EncryptedLogPayload,
   L1NotePayload,
   Note,
@@ -76,10 +75,10 @@ class MockNoteRequest {
     }
   }
 
-  encrypt(): EncryptedL2NoteLog {
+  encrypt(): Buffer {
     const ephSk = GrumpkinScalar.random();
-    const log = this.logPayload.encrypt(ephSk, this.recipient, this.ovKeys);
-    return new EncryptedL2NoteLog(log);
+    const log = this.logPayload.generatePayload(ephSk, this.recipient, this.ovKeys);
+    return log.toBuffer();
   }
 
   get indexWithinNoteHashTree(): bigint {
@@ -103,7 +102,7 @@ class MockNoteRequest {
   }
 }
 
-function computeTagForIndex(
+function computeSiloedTagForIndex(
   sender: { completeAddress: CompleteAddress; ivsk: Fq },
   recipient: AztecAddress,
   contractAddress: AztecAddress,
@@ -111,7 +110,8 @@ function computeTagForIndex(
 ) {
   const sharedSecret = computeTaggingSecret(sender.completeAddress, sender.ivsk, recipient);
   const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-  return poseidon2Hash([siloedSecret, recipient, index]);
+  const tag = poseidon2Hash([siloedSecret, recipient, index]);
+  return poseidon2Hash([contractAddress, tag]);
 }
 
 describe('Simulator oracle', () => {
@@ -153,7 +153,7 @@ describe('Simulator oracle', () => {
       // Add a random note from every address in the address book for our account with index senderOffset
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
-        const tag = computeTagForIndex(sender, recipient.address, contractAddress, senderOffset);
+        const tag = computeSiloedTagForIndex(sender, recipient.address, contractAddress, senderOffset);
         const blockNumber = 1;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -163,7 +163,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -171,8 +171,10 @@ describe('Simulator oracle', () => {
       // Add a random note from the first sender in the address book, repeating the tag
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
-      const tag = computeTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, EncryptedL2NoteLog.random(tag).data);
+      const tag = computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
+      const payload = getRandomNoteLogPayload(tag, contractAddress);
+      const logData = payload.generatePayload(GrumpkinScalar.random(), recipient.address, recipientOvKeys).toBuffer();
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, logData);
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -180,7 +182,7 @@ describe('Simulator oracle', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (let i = NUM_SENDERS / 2; i < NUM_SENDERS; i++) {
         const sender = senders[i];
-        const tag = computeTagForIndex(sender, recipient.address, contractAddress, senderOffset + 1);
+        const tag = computeSiloedTagForIndex(sender, recipient.address, contractAddress, senderOffset + 1);
         const blockNumber = 2;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -190,7 +192,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -201,7 +203,7 @@ describe('Simulator oracle', () => {
         const keys = deriveKeys(Fr.random());
         const partialAddress = Fr.random();
         const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
-        const tag = computeTagForIndex(sender, randomRecipient, contractAddress, senderOffset);
+        const tag = computeSiloedTagForIndex(sender, randomRecipient, contractAddress, senderOffset);
         const blockNumber = 3;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
@@ -214,7 +216,7 @@ describe('Simulator oracle', () => {
             computeOvskApp(keys.masterOutgoingViewingSecretKey, contractAddress),
           ),
         );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -526,7 +528,7 @@ describe('Simulator oracle', () => {
             }
             const dataStartIndex =
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
-            const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, request.encrypt().data);
+            const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, request.encrypt());
             const note = request.snippetOfNoteDao.note;
             const noteHash = pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;

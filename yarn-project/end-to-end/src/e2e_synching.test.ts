@@ -46,7 +46,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
+import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
@@ -513,9 +513,10 @@ describe('e2e_synching', () => {
           });
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).not.toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).not.toEqual([]);
 
           await rollup.write.prune();
 
@@ -537,9 +538,10 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).toEqual([]);
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));

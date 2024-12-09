@@ -123,7 +123,7 @@ void check_sibling_path(TreeType& tree,
 void check_historic_sibling_path(TreeType& tree,
                                  index_t index,
                                  fr_sibling_path expected_sibling_path,
-                                 index_t blockNumber,
+                                 block_number_t blockNumber,
                                  bool expected_success = true)
 {
     Signal signal;
@@ -160,7 +160,7 @@ void rollback_tree(TreeType& tree)
     signal.wait_for_level();
 }
 
-void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void remove_historic_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
@@ -171,7 +171,7 @@ void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expe
     signal.wait_for_level();
 }
 
-void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
@@ -206,7 +206,7 @@ void add_values(TreeType& tree, const std::vector<fr>& values)
     signal.wait_for_level();
 }
 
-void finalise_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -312,7 +312,7 @@ void check_leaf(
 }
 
 void check_historic_leaf(TreeType& tree,
-                         const index_t& blockNumber,
+                         const block_number_t& blockNumber,
                          const fr& leaf,
                          index_t leaf_index,
                          bool expected_success,
@@ -348,6 +348,31 @@ void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_pat
     }
 
     EXPECT_EQ(hash, expected_root);
+}
+
+void get_blocks_for_indices(TreeType& tree,
+                            const std::vector<index_t>& indices,
+                            std::vector<std::optional<block_number_t>>& blockNumbers)
+{
+    Signal signal;
+    tree.find_block_numbers(indices, [&](const TypedResponse<BlockForIndexResponse>& response) {
+        blockNumbers = response.inner.blockNumbers;
+        signal.signal_level();
+    });
+    signal.wait_for_level();
+}
+
+void get_blocks_for_indices(TreeType& tree,
+                            const block_number_t& blockNumber,
+                            const std::vector<index_t>& indices,
+                            std::vector<std::optional<block_number_t>>& blockNumbers)
+{
+    Signal signal;
+    tree.find_block_numbers(indices, blockNumber, [&](const TypedResponse<BlockForIndexResponse>& response) {
+        blockNumbers = response.inner.blockNumbers;
+        signal.signal_level();
+    });
+    signal.wait_for_level();
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
@@ -1284,7 +1309,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             // retrieving historic data should fail if the block is outside of the window
-            const index_t blockNumber = i + 1;
+            const block_number_t blockNumber = i + 1;
             const bool expectedSuccess =
                 expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
@@ -1399,7 +1424,7 @@ void test_unwind(std::string directory,
 
     const uint32_t blocksToRemove = numBlocksToUnwind;
     for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
+        const block_number_t blockNumber = numBlocks - i;
 
         check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], true);
         // attempting to unwind a block that is not the tip should fail
@@ -1510,6 +1535,101 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_bl
         std::stringstream ss;
         ss << "DB " << actualSize;
         test_unwind(_directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_by_index)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    const size_t block_size = 32;
+
+    for (size_t i = 0; i < 5; i++) {
+        std::vector<fr> values = create_values(block_size);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+    std::vector<index_t> indices{ 12, 33, 63, 64, 65, 80, 96, 159, 160 };
+    std::vector<std::optional<block_number_t>> blockNumbers;
+
+    // All but the last block number should be valid when looking at latest
+    get_blocks_for_indices(tree, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    index_t maxIndex = 5 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // Now get blocks for indices from the perspective of block 2
+    get_blocks_for_indices(tree, 2, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = 2 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    unwind_block(tree, 5);
+    unwind_block(tree, 4);
+
+    get_blocks_for_indices(tree, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+    maxIndex = 3 * block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // fork from block 1
+    std::unique_ptr<Store> forkStore = std::make_unique<Store>(name, depth, 1, db);
+    TreeType treeFork(std::move(forkStore), pool);
+
+    // Now, using the fork, get block indices but find it's limited to those of block 1
+    get_blocks_for_indices(treeFork, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
+    }
+
+    // Now, using the fork, get block indics from the perspective of block 2, but find it's limited to those of block 1
+    get_blocks_for_indices(treeFork, 2, indices, blockNumbers);
+    EXPECT_EQ(blockNumbers.size(), indices.size());
+
+    maxIndex = block_size - 1;
+    for (size_t i = 0; i < blockNumbers.size(); i++) {
+        bool present = indices[i] <= maxIndex;
+        if (present) {
+            block_number_t expected = 1 + indices[i] / block_size;
+            EXPECT_EQ(blockNumbers[i].value(), expected);
+        }
+        EXPECT_EQ(blockNumbers[i].has_value(), present);
     }
 }
 

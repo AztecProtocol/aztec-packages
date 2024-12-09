@@ -6,7 +6,6 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeWriteOperations,
   type ProverCache,
   type ProverCoordination,
   type ProverNodeApi,
@@ -35,6 +34,7 @@ import { type QuoteSigner } from './quote-signer.js';
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
+  maxParallelBlocksPerEpoch: number;
 };
 
 /**
@@ -71,6 +71,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
+      maxParallelBlocksPerEpoch: 32,
       ...compact(options),
     };
 
@@ -246,10 +247,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
     await this.worldState.syncImmediate(fromBlock - 1);
-    // NB: separated the dbs as both a block builder and public processor need to track and update tree state
-    // see public_processor.ts for context
-    const publicDb = await this.worldState.fork(fromBlock - 1);
-    const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
@@ -258,22 +255,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     const proverCache = await this.proverCacheManager.openCache(epochNumber, epochHash);
 
     const cleanUp = async () => {
-      await publicDb.close();
-      await proverDb.close();
       await proverCache.close();
       await this.proverCacheManager.removeStaleCaches(epochNumber);
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateEpochProvingJob(
-      epochNumber,
-      blocks,
-      publicDb,
-      proverDb,
-      proverCache,
-      publicProcessorFactory,
-      cleanUp,
-    );
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, proverCache, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -282,23 +269,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    publicDb: MerkleTreeWriteOperations,
-    proverDb: MerkleTreeWriteOperations,
     proverCache: ProverCache,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
-      publicDb,
+      this.worldState,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(proverDb, proverCache),
+      this.prover.createEpochProver(proverCache),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
       this.coordination,
       this.metrics,
+      { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,
     );
   }

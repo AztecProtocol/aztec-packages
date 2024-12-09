@@ -5,7 +5,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 export type DataStoreConfig = {
   dataDirectory: string | undefined;
   dataStoreMapSizeKB: number;
-  l1Contracts: { rollupAddress: EthAddress };
+  l1Contracts?: { rollupAddress: EthAddress };
 };
 
 export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {

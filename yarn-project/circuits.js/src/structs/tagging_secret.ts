@@ -16,4 +16,9 @@ export class IndexedTaggingSecret {
   computeTag(recipient: AztecAddress) {
     return poseidon2Hash([this.secret, recipient, this.index]);
   }
+
+  computeSiloedTag(recipient: AztecAddress, contractAddress: AztecAddress) {
+    const tag = this.computeTag(recipient);
+    return poseidon2Hash([contractAddress, tag]);
+  }
 }

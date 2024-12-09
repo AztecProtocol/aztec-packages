@@ -13,11 +13,10 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
-  ContractClassRegisteredEvent,
+  type BlockHeader,
   type ContractDataSource,
   Fr,
   type GlobalVariables,
-  type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -26,7 +25,7 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
@@ -48,13 +47,19 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: Header | undefined,
+    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
+    const publicTxSimulator = new PublicTxSimulator(
+      merkleTree,
+      worldStateDB,
+      this.telemetryClient,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+    );
 
     return new PublicProcessor(
       merkleTree,
@@ -76,7 +81,7 @@ export class PublicProcessor {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
@@ -167,10 +172,9 @@ export class PublicProcessor {
           }
         }
 
-        await this.db.batchInsert(
+        await this.db.sequentialInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
           processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-          0,
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
@@ -275,10 +279,10 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(
-        tx.contractClassLogs.unrollLogs(),
-        ProtocolContractAddress.ContractClassRegisterer,
-      ),
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
 
     const phaseCount = processedPhases.length;

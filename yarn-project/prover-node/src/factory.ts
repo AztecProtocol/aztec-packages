@@ -21,7 +21,7 @@ import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
-import { ProverNode } from './prover-node.js';
+import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
 import { QuoteSigner } from './quote-signer.js';
@@ -43,12 +43,12 @@ export async function createProverNode(
   const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
-  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
+  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config));
-  const prover = await createProverClient(config, broker, telemetry);
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
+  const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
@@ -65,9 +65,10 @@ export async function createProverNode(
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
-  const proverNodeConfig = {
+  const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
+    maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
   };
 
   const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);

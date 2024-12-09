@@ -14,14 +14,15 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
   Fr,
   type FunctionSelector,
-  type Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  PrivateLog,
   computeAddressSecret,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
@@ -228,10 +229,10 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a Header object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHeader(): Promise<Header> {
-    return Promise.resolve(this.db.getHeader());
+  getBlockHeader(): Promise<BlockHeader> {
+    return Promise.resolve(this.db.getBlockHeader());
   }
 
   /**
@@ -373,7 +374,7 @@ export class SimulatorOracle implements DBOracle {
     do {
       const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
-        return indexedAppTaggingSecret.computeTag(recipient);
+        return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
       previousEmptyBack = currentEmptyBack;
 
@@ -466,7 +467,9 @@ export class SimulatorOracle implements DBOracle {
 
       while (currentTagggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = currentTagggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
+        const currentTags = currentTagggingSecrets.map(taggingSecret =>
+          taggingSecret.computeSiloedTag(recipient, contractAddress),
+        );
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
         const newTaggingSecrets: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
@@ -547,12 +550,12 @@ export class SimulatorOracle implements DBOracle {
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = L1NotePayload.decryptAsIncoming(
-        scopedLog.logData,
-        addressSecret,
-        scopedLog.isFromPublic,
-      );
-      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.logData, ovskM, scopedLog.isFromPublic);
+      const incomingNotePayload = scopedLog.isFromPublic
+        ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
+        : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
+      const outgoingNotePayload = scopedLog.isFromPublic
+        ? L1NotePayload.decryptAsOutgoingFromPublic(scopedLog.logData, ovskM)
+        : L1NotePayload.decryptAsOutgoing(PrivateLog.fromBuffer(scopedLog.logData), ovskM);
 
       if (incomingNotePayload || outgoingNotePayload) {
         if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {

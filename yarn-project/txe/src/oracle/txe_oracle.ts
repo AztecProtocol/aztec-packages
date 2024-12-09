@@ -1,6 +1,5 @@
 import {
   AuthWitness,
-  type EncryptedL2NoteLog,
   MerkleTreeId,
   Note,
   type NoteStatus,
@@ -12,13 +11,14 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  BlockHeader,
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
+  DEPLOYER_CONTRACT_ADDRESS,
   Gas,
   GasFees,
   GlobalVariables,
-  Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -94,8 +94,6 @@ export class TXE implements TypedOracle {
 
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
-
-  private logsByTags = new Map<string, EncryptedL2NoteLog[]>();
 
   constructor(
     private logger: Logger,
@@ -365,8 +363,8 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async getHeader(blockNumber: number): Promise<Header | undefined> {
-    const header = Header.empty();
+  async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+    const header = BlockHeader.empty();
     const db = await this.#getTreesAt(blockNumber);
     header.state = await db.getStateReference();
     header.globalVariables.blockNumber = new Fr(blockNumber);
@@ -509,21 +507,6 @@ export class TXE implements TypedOracle {
     return publicDataWrites.map(write => write.value);
   }
 
-  emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, counter: number): void {
-    this.sideEffectCounter = counter + 1;
-    return;
-  }
-
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
@@ -652,6 +635,7 @@ export class TXE implements TypedOracle {
     const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
+    const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this));
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = this.chainId;
@@ -659,12 +643,23 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
+    // If the contract instance exists in the TXE's world state, make sure its nullifier is present in the tree
+    // so its nullifier check passes.
+    if ((await worldStateDb.getContractInstance(callContext.contractAddress)) !== undefined) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        callContext.contractAddress.toField(),
+      );
+      if ((await worldStateDb.getNullifierIndex(contractAddressNullifier)) === undefined) {
+        await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+      }
+    }
+
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
       globalVariables,
-      /*realAvmProvingRequests=*/ false,
     );
 
     // When setting up a teardown call, we tell it that
@@ -760,16 +755,6 @@ export class TXE implements TypedOracle {
 
   debugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
-  }
-
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    counter: number,
-  ): void {
-    this.sideEffectCounter = counter + 1;
-    return;
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {

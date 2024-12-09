@@ -72,7 +72,11 @@ describe('tx_delayer', () => {
   }, 20000);
 
   it('delays a tx sent through a contract', async () => {
-    const deployTxHash = await client.deployContract({ abi: TestERC20Abi, bytecode: TestERC20Bytecode, args: [] });
+    const deployTxHash = await client.deployContract({
+      abi: TestERC20Abi,
+      bytecode: TestERC20Bytecode,
+      args: ['test', 'TST', account.address],
+    });
     const { contractAddress, blockNumber } = await client.waitForTransactionReceipt({
       hash: deployTxHash,
       pollingInterval: 100,

@@ -54,6 +54,13 @@ import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
  */
 export interface PXE {
   /**
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
+   */
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
+  /**
    * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
    * authorization from the user to move their tokens. This authorization is granted by the user
@@ -470,6 +477,7 @@ const PXEInfoSchema = z.object({
 }) satisfies ZodFor<PXEInfo>;
 
 export const PXESchema: ApiSchemaFor<PXE> = {
+  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
   addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
   getAuthWitness: z
     .function()

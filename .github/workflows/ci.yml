@@ -444,7 +444,7 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
-  bb-acir-tests-bb-mega-honk:
+  bb-acir-tests-bb-client-ivc:
     needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
@@ -453,11 +453,11 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: barretenberg-acir-tests-bb-mega-honk-x86
-      - name: "BB Native Acir Tests (Megahonk)"
+          concurrency_key: barretenberg-acir-tests-bb-client-ivc-x86
+      - name: "BB Native Acir Tests (ClientIVC)"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-client-ivc
 
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, build, configure]
@@ -875,6 +875,19 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
 
+  rough-rhino-installer:
+    needs: [configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: rough-rhino-installer
+      - name: Rough Rhino Installer Helper Script
+        working-directory: ./spartan/releases/rough-rhino
+        run: earthly-ci +test-all
+
   protocol-circuits-gates-report:
     needs: [build, configure]
     if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
@@ -969,7 +982,7 @@ jobs:
       - bb-acir-tests-bb
       - bb-acir-tests-bb-ultra-plonk
       - bb-acir-tests-bb-ultra-honk
-      - bb-acir-tests-bb-mega-honk
+      - bb-acir-tests-bb-client-ivc
       - bb-acir-tests-sol
       - bb-acir-tests-sol-honk
       - bb-acir-tests-bb-js

@@ -240,6 +240,16 @@ export class PrivateKernelTailCircuitPublicInputs {
     return nullifiers.filter(n => !n.isZero());
   }
 
+  getNonEmptyPrivateLogs() {
+    const privateLogs = this.forPublic
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+          this.forPublic.revertibleAccumulatedData.privateLogs,
+        )
+      : this.forRollup!.end.privateLogs;
+    return privateLogs.filter(n => !n.isEmpty());
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();

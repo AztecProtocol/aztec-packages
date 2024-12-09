@@ -269,6 +269,7 @@ export class FullProverTest {
       proverAgentCount: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
       quoteProviderBasisPointFee: 100,
       quoteProviderBondAmount: 1000n,

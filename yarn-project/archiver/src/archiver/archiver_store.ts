@@ -1,23 +1,21 @@
 import {
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
-  type L2BlockL2Logs,
   type LogFilter,
-  type LogType,
   type TxEffect,
   type TxHash,
   type TxReceipt,
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
+  type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
@@ -73,7 +71,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers.
    */
-  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
 
   /**
    * Gets a tx effect.
@@ -142,17 +140,12 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).

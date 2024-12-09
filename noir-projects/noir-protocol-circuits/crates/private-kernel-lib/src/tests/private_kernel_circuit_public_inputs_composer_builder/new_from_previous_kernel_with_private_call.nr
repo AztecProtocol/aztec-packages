@@ -191,35 +191,18 @@ fn new_from_previous_kernel_with_private_call_l2_to_l1_msgs_succeeds() {
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_succeeds() {
+fn new_from_previous_kernel_with_private_call_private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_note_encrypted_log_hashes(2);
-    let prev = builder.previous_kernel.note_encrypted_logs_hashes.storage;
-    builder.private_call.append_note_encrypted_log_hashes(2);
-    let curr = builder.private_call.note_encrypted_logs_hashes.storage;
+    builder.previous_kernel.append_private_logs(2);
+    let prev = builder.previous_kernel.private_logs.storage;
+    builder.private_call.append_private_logs(2);
+    let curr = builder.private_call.private_logs.storage;
 
     let output = builder.compose_from_previous_kernel();
 
     assert_array_eq(
-        output.end.note_encrypted_logs_hashes,
-        [prev[0], prev[1], curr[0], curr[1]],
-    );
-}
-
-#[test]
-fn new_from_previous_kernel_with_private_call_encrypted_log_hashes_succeeds() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.previous_kernel.append_encrypted_log_hashes(2);
-    let prev = builder.previous_kernel.encrypted_logs_hashes.storage;
-    builder.private_call.append_encrypted_log_hashes(2);
-    let curr = builder.private_call.encrypted_logs_hashes.storage;
-
-    let output = builder.compose_from_previous_kernel();
-
-    assert_array_eq(
-        output.end.encrypted_logs_hashes,
+        output.end.private_logs,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }

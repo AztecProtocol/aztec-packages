@@ -47,7 +47,7 @@ This provide an interactive environment for debugging the CI test.
 
 ## Debugging
 
-Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
+Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
 
 ## Releases
 

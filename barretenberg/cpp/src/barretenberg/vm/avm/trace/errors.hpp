@@ -6,6 +6,7 @@ namespace bb::avm_trace {
 
 enum class AvmError : uint32_t {
     NO_ERROR,
+    REVERT_OPCODE,
     INVALID_PROGRAM_COUNTER,
     INVALID_OPCODE,
     INVALID_TAG_VALUE,
@@ -18,6 +19,7 @@ enum class AvmError : uint32_t {
     CONTRACT_INST_MEM_UNKNOWN,
     RADIX_OUT_OF_BOUNDS,
     DUPLICATE_NULLIFIER,
+    SIDE_EFFECT_LIMIT_REACHED,
 };
 
 } // namespace bb::avm_trace

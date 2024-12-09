@@ -3,6 +3,10 @@ import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProvingJobBrokerSchema, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { extractRelevantOptions } from '../util.js';
 
@@ -22,7 +26,8 @@ export async function startProverBroker(
     ...extractRelevantOptions<ProverBrokerConfig>(options, proverBrokerConfigMappings, 'proverBroker'), // override with command line options
   };
 
-  const broker = await createAndStartProvingBroker(config);
+  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  const broker = await createAndStartProvingBroker(config, client);
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());
 
