@@ -259,14 +259,39 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                                         block.w_4()[index + 1] });
             }
         }
-        if (q_2 == 1 && q_3 == 1) {
-            // bigfield product 1
-        }
-        if (q_2 == 1 && q_4 == 1) {
-            // bigfield product 2
-        }
-        if (q_2 == 1 && q_m == 1) {
-            // bigfield product 3
+        if (q_2 == 1 && (q_3 == 1 || q_4 == 1 || q_m == 1)) {
+            // bigfield product cases
+            if (index < block.size() - 1) {
+                std::vector<uint32_t> limb_subproduct_vars = {
+                    block.w_l()[index], block.w_r()[index], block.w_l()[index + 1], block.w_r()[index + 1]
+                };
+                if (q_3 == 1) {
+                    // bigfield product 1
+                    gate_variables.insert(
+                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
+                    gate_variables.insert(gate_variables.end(), { block.w_o()[index], block.w_4()[index] });
+                }
+                if (q_4 == 1) {
+                    // bigfield product 2
+                    std::vector<uint32_t> non_native_field_gate_2 = { block.w_l()[index],
+                                                                      block.w_4()[index],
+                                                                      block.w_r()[index],
+                                                                      block.w_o()[index],
+                                                                      block.w_o()[index + 1] };
+                    gate_variables.insert(
+                        gate_variables.end(), non_native_field_gate_2.begin(), non_native_field_gate_2.end());
+                    gate_variables.emplace_back(block.w_4()[index + 1]);
+                    gate_variables.insert(
+                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
+                }
+                if (q_m == 1) {
+                    // bigfield product 3
+                    gate_variables.insert(
+                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
+                    gate_variables.insert(gate_variables.end(),
+                                          { block.w_4()[index], block.w_o()[index + 1], block.w_4()[index + 1] });
+                }
+            }
         }
         if (q_1 == 1 && q_m == 1) {
             // ram/rom access gate
