@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733740878152,
+  "lastUpdate": 1733757445226,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c6ab0c9c7a270104fb3e9f6160be50a90ce5e77d",
-          "message": "feat: Improved data storage metrics (#10020)\n\nThis PR increases the level of telemetry around all of the node's data\r\nstores. For every LMDB instance it reports the size of the specified\r\nmapping, the actual DB size and the number of items. Additionally, for\r\nthe world state we report the number of leaves for every tree along with\r\nthe pending and proven chain heights.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-11-25T13:25:16Z",
-          "tree_id": "7a592c669bad829556b9ef45ad143aea6b42f156",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c6ab0c9c7a270104fb3e9f6160be50a90ce5e77d"
-        },
-        "date": 1732542524763,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27789.318643000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 25821.050672 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4634.288642999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4347.551165999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 88953.114798,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 88953115000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16574.012262000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16574012000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3067835983,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3067835983 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134914012,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134914012 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2980,6 +2920,66 @@ window.BENCHMARK_DATA = {
             "value": 142816444,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142816444 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c376725a29ec18e25a7c9a89c0df8f5a1e06ff4",
+          "message": "feat: Several Updates in SMT verification module (part 1) (#10437)\n\nThis pr enhances symbolic circuit to produce valid witnesses. \r\n\r\n# Utils\r\n\r\nAdded post processing functionality. So now, while optimizing something\r\ninside the circuit, you can postpone some witness calculations until\r\nhere, in case the variable has been optimized and does not fit as an\r\nSTerm.\r\n\r\n# Builders + Schema\r\n\r\nAdded `circuit_finalized` flag to the export. Should be used in the\r\nfuture, during RAM/ROM processing.\r\n\r\n# StandardCircuit\r\n\r\nPushed the post processing for standard logic operations. They were used\r\nto test the sha256 witness, which is coming in part 3, I guess.",
+          "timestamp": "2024-12-09T17:29:12+03:00",
+          "tree_id": "68b68e14c5d4eab18b74a38dbcddd8d2a8ff4c5c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c376725a29ec18e25a7c9a89c0df8f5a1e06ff4"
+        },
+        "date": 1733757438289,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24904.424422000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22998.633256 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4945.819821000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4631.735119 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84248.706783,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84248707000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15180.103952,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15180106000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2809749867,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2809749867 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140951230,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140951230 ns\nthreads: 1"
           }
         ]
       }
