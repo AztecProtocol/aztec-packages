@@ -483,7 +483,7 @@ template <typename T> std::vector<uint8_t> to_buffer_with_size(T const& value)
     using serialize::write;
     std::vector<uint8_t> buf{ 0, 0, 0, 0 };
     write(buf, value);
-    uint32_t size = static_cast<uint32_t>(buf.size()) - 4;
+    uint32_t size = static_cast<uint32_t>(buf.size() - 4);
     std::vector<uint8_t> size_buf;
     write(size_buf, size);
     buf[0] = size_buf[0];

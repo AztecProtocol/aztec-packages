@@ -566,8 +566,8 @@ export class BarretenbergApi {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    console.log(`number of things in outTypes: ${outTypes.length}`);
-    console.log(`number of things in out: ${out.length}`);
+    // console.log(`number of things in outTypes: ${outTypes.length}`);
+    // console.log(`number of things in out: ${out.length}`);
     return [out[0], out[1]];
   }
 

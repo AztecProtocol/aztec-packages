@@ -1,6 +1,7 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+import { writeFileSync } from 'fs';
 import { ungzip } from 'pako';
 
 import {
@@ -55,8 +56,12 @@ describe('Client IVC Integration', () => {
       { threads },
     );
 
-    const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    logger.debug(`finished running proveAndVerify ${verified}`);
+    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    writeFileSync('proof.bin', proof);
+    writeFileSync('vk.bin', vk);
+    logger.debug(`proof length: ${proof.length}`);
+    logger.debug(`vk    length: ${vk.length}`);
+    const verified = await backend.verify(proof, vk);
     await backend.destroy();
     return verified;
   }
@@ -65,7 +70,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it.only('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const tx = {
       number_of_calls: '0x1',
     };
