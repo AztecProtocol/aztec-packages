@@ -2,7 +2,7 @@
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"
 
-namespace bb {
+namespace bb::avm {
 namespace {
 
 template <typename FF> std::string field_to_string(const FF& ff)
@@ -1568,4 +1568,4 @@ template std::ostream& operator<<(std::ostream& os, AvmFullRow<AvmFlavorSettings
 template std::vector<std::string> AvmFullRow<AvmFlavorSettings::FF>::names();
 template RefVector<const AvmFlavorSettings::FF> AvmFullRow<AvmFlavorSettings::FF>::as_vector() const;
 
-} // namespace bb
+} // namespace bb::avm

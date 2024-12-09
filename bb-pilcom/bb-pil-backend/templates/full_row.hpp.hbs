@@ -6,21 +6,41 @@
 #include <vector>
 
 #include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/vm/{{snakeCase name}}/generated/columns.hpp"
 
-namespace bb {
+namespace bb::avm {
 
-template <typename FF>
+template <typename FF_>
 struct {{name}}FullRow {
-    {{#each all_cols as |col|}}
-    FF {{col}}{};
-    {{/each}}
-    
-    RefVector<const FF> as_vector() const;
+    using FF = FF_;
 
+    FF ALL_ENTITIES;
+
+    RefVector<const FF> as_vector() const;
     static std::vector<std::string> names();
     static constexpr size_t SIZE = {{len all_cols}};
+
+    // Risky but oh so efficient.
+    FF& get_column(ColumnAndShifts col)
+    {
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
+    }
+
+    const FF& get_column(ColumnAndShifts col) const
+    {
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
+    }
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, {{name}}FullRow<FF> const& row);
+
+} // namespace bb::avm
+
+namespace bb {
+
+// Expose this in the bb namespace. For compatibility with the old witgen.
+using avm::AvmFullRow;
 
 } // namespace bb

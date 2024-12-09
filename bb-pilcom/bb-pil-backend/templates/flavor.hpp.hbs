@@ -13,6 +13,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 
 #include "barretenberg/vm/{{snakeCase name}}/generated/flavor_settings.hpp"
+#include "barretenberg/vm/{{snakeCase name}}/generated/columns.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 
 // Relations
@@ -27,16 +28,6 @@
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
-// The entities that will be used in the flavor.
-// clang-format off
-#define PRECOMPUTED_ENTITIES {{#each fixed as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define WIRE_ENTITIES {{#each witness_without_inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define DERIVED_WITNESS_ENTITIES {{#each inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define SHIFTED_ENTITIES {{#each shifted as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
-#define ALL_ENTITIES {{#if (len fixed)}}PRECOMPUTED_ENTITIES{{/if}}{{#if (len witness_without_inverses)}}, WIRE_ENTITIES{{/if}}{{#if (len lookups)}}, DERIVED_WITNESS_ENTITIES{{/if}}{{#if (len shifted)}}, SHIFTED_ENTITIES{{/if}}
-// clang-format on
 
 namespace bb {
 

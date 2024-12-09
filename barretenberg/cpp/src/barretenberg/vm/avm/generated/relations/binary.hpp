@@ -114,6 +114,13 @@ template <typename FF> class binary : public Relation<binaryImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_OP_ID_REL = 1;
+    static constexpr size_t SR_MEM_TAG_REL = 2;
+    static constexpr size_t SR_SEL_BIN_CTR_REL = 3;
+    static constexpr size_t SR_ACC_REL_A = 7;
+    static constexpr size_t SR_ACC_REL_B = 8;
+    static constexpr size_t SR_ACC_REL_C = 9;
 };
 
 } // namespace bb::Avm_vm

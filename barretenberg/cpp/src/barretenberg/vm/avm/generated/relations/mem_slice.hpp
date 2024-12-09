@@ -122,6 +122,17 @@ template <typename FF> class mem_slice : public Relation<mem_sliceImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_SLICE_CNT_ZERO_TEST1 = 1;
+    static constexpr size_t SR_SLICE_CNT_ZERO_TEST2 = 2;
+    static constexpr size_t SR_SLICE_CNT_DECREMENT = 3;
+    static constexpr size_t SR_ADDR_INCREMENT = 4;
+    static constexpr size_t SR_COL_OFFSET_INCREMENT = 5;
+    static constexpr size_t SR_SAME_CLK = 6;
+    static constexpr size_t SR_SAME_SPACE_ID = 7;
+    static constexpr size_t SR_SAME_SEL_RETURN = 8;
+    static constexpr size_t SR_SAME_SEL_CD_CPY = 9;
+    static constexpr size_t SR_SEL_MEM_INACTIVE = 10;
 };
 
 } // namespace bb::Avm_vm

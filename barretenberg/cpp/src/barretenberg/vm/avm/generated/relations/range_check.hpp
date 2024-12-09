@@ -264,6 +264,8 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
 };
 
 } // namespace bb::Avm_vm
