@@ -11,7 +11,7 @@ export TEST=$2
 
 case "$TYPE" in
   "simple")
-    local container=$(docker run -d --rm \
+    container=$(docker run -d --rm \
       -v$PWD/../..:/root/aztec-packages \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST)

@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash .rebuild_patterns)
+export hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
   github_group "l1-contracts build"
@@ -35,6 +35,7 @@ function test {
     github_endgroup
   fi
 }
+export -f test
 
 case "$cmd" in
   "clean")
@@ -48,7 +49,7 @@ case "$cmd" in
     ;;
   "ci")
     build
-    test
+    denoise test
     ;;
   "hash")
     echo $hash

@@ -57,11 +57,11 @@ function compile {
   local json_path="./target/$filename"
   local program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
   local hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
-  if ! cache_download circuit-$hash.tar.gz 2> /dev/null; then
+  if ! cache_download circuit-$hash.tar.gz &> /dev/null; then
     SECONDS=0
     $NARGO compile --package $name --silence-warnings
     echo "Compilation complete for: $name (${SECONDS}s)"
-    cache_upload circuit-$hash.tar.gz $json_path 2> /dev/null
+    cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
   if echo "$name" | grep -qE "${megahonk_regex}"; then
@@ -85,7 +85,7 @@ function compile {
   # Will require changing TS code downstream.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   local hash=$(echo "$BB_HASH-$bytecode_hash-$proto" | sha256sum | tr -d ' -')
-  if ! cache_download vk-$hash.tar.gz 2> /dev/null; then
+  if ! cache_download vk-$hash.tar.gz &> /dev/null; then
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
@@ -93,7 +93,7 @@ function compile {
     local vk_fields=$(echo "$vk" | base64 -d | $BB $vk_as_fields_cmd -k - -o - 2>/dev/null)
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo "Key output at: $key_path (${SECONDS}s)"
-    cache_upload vk-$hash.tar.gz $key_path 2> /dev/null
+    cache_upload vk-$hash.tar.gz $key_path &> /dev/null
   fi
 }
 

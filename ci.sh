@@ -47,8 +47,12 @@ function get_ip_for_instance {
 
 case "$cmd" in
   "ec2")
-    # Spin up ec2 instance and bootstrap.
-    bootstrap_ec2 "$@"
+    # Spin up ec2 instance and execute given command or default (fast bootstrap with shell on failure).
+    bootstrap_ec2 "${1:-}" ${2:-}
+    ;;
+  "ec2-full")
+    # Spin up ec2 instance and full bootstrap.
+    bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance and drop into shell.
@@ -136,7 +140,7 @@ case "$cmd" in
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
-  "ssh-host")
+  "shell-host")
       get_ip_for_instance
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
