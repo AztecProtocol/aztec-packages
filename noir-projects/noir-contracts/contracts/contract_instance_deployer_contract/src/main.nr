@@ -13,8 +13,8 @@ contract ContractInstanceDeployer {
     };
     use std::meta::derive;
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
         address: AztecAddress,
