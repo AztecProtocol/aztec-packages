@@ -1,7 +1,7 @@
 use crate::{constants::TUBE_PROOF_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct TubeProof {
-    fields: [Field; TUBE_PROOF_LENGTH],
+    pub fields: [Field; TUBE_PROOF_LENGTH],
 }
 
 impl Serialize<TUBE_PROOF_LENGTH> for TubeProof {

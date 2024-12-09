@@ -26,25 +26,25 @@ use std::hash::{poseidon2, poseidon2_permutation};
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
-    global_variables: GlobalVariables,
-    start_tree_snapshots: TreeSnapshots,
-    start_gas_used: Gas,
-    gas_settings: GasSettings,
-    public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_teardown_call_request: PublicCallRequest,
-    previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
-    previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub global_variables: GlobalVariables,
+    pub start_tree_snapshots: TreeSnapshots,
+    pub start_gas_used: Gas,
+    pub gas_settings: GasSettings,
+    pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_teardown_call_request: PublicCallRequest,
+    pub previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
 
     ///////////////////////////////////
     // Outputs.
-    end_tree_snapshots: TreeSnapshots,
-    end_gas_used: Gas,
-    accumulated_data: AvmAccumulatedData,
-    transaction_fee: Field,
-    reverted: bool,
+    pub end_tree_snapshots: TreeSnapshots,
+    pub end_gas_used: Gas,
+    pub accumulated_data: AvmAccumulatedData,
+    pub transaction_fee: Field,
+    pub reverted: bool,
 }
 
 impl Empty for AvmCircuitPublicInputs {
@@ -205,7 +205,7 @@ impl AvmProofData {
         );
 
         let mut result: [Field; 4] = [input_hash, 0, 0, 0];
-        for i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
+        for _i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
             result = poseidon2_permutation(result, 4);
         }
 
