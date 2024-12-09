@@ -47,9 +47,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
             add_gates_to_ensure_all_polys_are_non_zero();
         }
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+#endif
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
