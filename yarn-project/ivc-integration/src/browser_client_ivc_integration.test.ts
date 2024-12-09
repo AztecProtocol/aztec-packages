@@ -92,7 +92,7 @@ describe('Client IVC Integration', () => {
 
     logger(`calling prove then verify...`);
     const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);
-    logger(`generated and verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -107,9 +107,9 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
-    logger(`calling prove and verify...`);
+    logger(`calling prove then verify...`);
     const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);
-    logger(`generated and verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

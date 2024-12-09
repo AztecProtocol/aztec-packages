@@ -70,7 +70,7 @@ describe('Client IVC Integration', () => {
     logger.debug('built witness stack');
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    logger.debug(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -137,7 +137,7 @@ describe('Client IVC Integration', () => {
     ];
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    logger.debug(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
