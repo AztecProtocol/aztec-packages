@@ -32,7 +32,7 @@ export class EpochCache {
   private committee: EthAddress[];
   private cachedEpoch: bigint;
   private cachedSampleSeed: bigint;
-  private readonly log: Logger = createLogger('aztec:EpochCache');
+  private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
     private rollup: RollupContract,
