@@ -231,6 +231,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                               auto& relation_parameters,
                                               const size_t circuit_size)
     {
+        PROFILE_THIS_NAME("Databus::compute_logderivative_inverse");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread

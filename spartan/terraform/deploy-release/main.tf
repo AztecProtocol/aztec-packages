@@ -6,7 +6,7 @@ terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12.1"
+      version = "~> 2.16.1"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -37,6 +37,7 @@ resource "helm_release" "aztec-gke-cluster" {
   chart            = "aztec-network"
   namespace        = var.RELEASE_NAME
   create_namespace = true
+  upgrade_install  = true
 
   # base values file
   values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
@@ -48,7 +49,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "aztec.l1DeploymentMnemonic"
-    value = var.l1_deployment_mnemonic
+    value = var.L1_DEPLOYMENT_MNEMONIC
   }
 
   # Setting timeout and wait conditions

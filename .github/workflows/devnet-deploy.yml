@@ -36,7 +36,7 @@ jobs:
     uses: ./.github/workflows/network-deploy.yml
     with:
       namespace: ${{ github.event.inputs.namespace }}
-      values_file: release-devnet
+      values_file: release-devnet.yaml
       aztec_docker_image: ${{ github.event.inputs.aztec_docker_image }}
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
@@ -48,8 +48,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-network
     steps:
-      - uses: ./.github/ci-setup-action
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -97,7 +95,7 @@ jobs:
           trap cleanup EXIT
 
           echo "Waiting for PXE pods to be ready..."
-          if ! kubectl wait --for=condition=ready pod -l app=$NAMESPACE-aztec-network-pxe --timeout=10m; then
+          if ! kubectl wait -n $NAMESPACE --for=condition=ready pod -l app=pxe --timeout=10m; then
               echo "Error: PXE pods did not become ready within timeout"
               exit 1
           fi
@@ -105,7 +103,7 @@ jobs:
           helm get values $NAMESPACE -n $NAMESPACE -o json --all > helm_values.json
 
           PXE_PORT="$(jq -r .pxe.service.nodePort helm_values.json)"
-          ETHEREUM_PORT="$(jq -r ethereum.service.port helm_values.json)"
+          ETHEREUM_PORT="$(jq -r .ethereum.service.port helm_values.json)"
           L1_CHAIN_ID="$(jq -r .ethereum.chainId helm_values.json)"
 
           MNEMONIC="$(jq -r .aztec.l1DeploymentMnemonic helm_values.json)"
@@ -115,18 +113,20 @@ jobs:
 
           kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &
           pxe_port_forward_pid=$!
-          kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-ethereum $ETHEREUM_PORT &
+
+          # port-forward directly to the pod because the Eth node does not have a service definition
+          ETH_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=ethereum -o jsonpath='{.items[0].metadata.name}')
+          kubectl port-forward -n $NAMESPACE pod/$ETH_POD_NAME $ETHEREUM_PORT &
           ethereum_port_forward_pid=$!
 
           # wait for port-forwards to establish
           sleep 5
 
-          docker run --rm $AZTEC_DOCKER_IMAGE bootstrap-network \
-            --network host \
+          docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
             --rpc-url http://127.0.0.1:$PXE_PORT \
             --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
-            --l1-chain-id $CHAIN_ID \
-            --mnemonic $MNEMONIC \
+            --l1-chain-id "$L1_CHAIN_ID" \
+            --mnemonic "$MNEMONIC" \
             --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json

@@ -60,7 +60,6 @@ export class PublicTxSimulator {
     private worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
-    private realAvmProvingRequests: boolean = true,
     private doMerkleOperations: boolean = false,
   ) {
     this.log = createDebugLogger(`aztec:public_tx_simulator`);
@@ -288,17 +287,6 @@ export class PublicTxSimulator {
     context.consumeGas(phase, gasUsed);
     this.log.verbose(
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
-    );
-
-    // TODO(dbanks12): remove once AVM proves entire public tx
-    context.updateProvingRequest(
-      this.realAvmProvingRequests,
-      phase,
-      fnName,
-      stateManager,
-      executionRequest,
-      result,
-      allocatedGas,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);

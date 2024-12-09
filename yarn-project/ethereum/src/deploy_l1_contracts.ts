@@ -265,6 +265,7 @@ export function createL1Clients(
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
+    pollingInterval: 100,
   });
 
   return { walletClient, publicClient };
@@ -363,6 +364,7 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
+  logger.verbose(`Waiting for governance contracts to be deployed`);
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);
 

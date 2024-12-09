@@ -13,10 +13,10 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type ContractDataSource,
   Fr,
   type GlobalVariables,
-  type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -47,13 +47,19 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: Header | undefined,
+    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
+    const publicTxSimulator = new PublicTxSimulator(
+      merkleTree,
+      worldStateDB,
+      this.telemetryClient,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+    );
 
     return new PublicProcessor(
       merkleTree,
@@ -75,7 +81,7 @@ export class PublicProcessor {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,

@@ -1,6 +1,8 @@
 import { createColors } from 'colorette';
 import isNode from 'detect-node';
-import { type LoggerOptions, pino } from 'pino';
+import { pino, symbols } from 'pino';
+import pretty from 'pino-pretty';
+import { type Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
@@ -67,24 +69,26 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
-// Transport options for pretty logging to stdout via pino-pretty.
+// Transport options for pretty logging to stderr via pino-pretty.
 const useColor = true;
 const { bold, reset } = createColors({ useColor });
-const prettyTransport: LoggerOptions['transport'] = {
+const pinoPrettyOpts = {
+  destination: 2,
+  sync: true,
+  colorize: useColor,
+  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
+  messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
+  customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
+  customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
+  minimumLevel: 'trace' as const,
+};
+const prettyTransport: pino.TransportSingleOptions = {
   target: 'pino-pretty',
-  options: {
-    destination: 2,
-    sync: true,
-    colorize: useColor,
-    ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
-    messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
-    customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
-    customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
-  },
+  options: pinoPrettyOpts,
 };
 
 // Transport for vanilla stdio logging as JSON.
-const stdioTransport: LoggerOptions['transport'] = {
+const stdioTransport: pino.TransportSingleOptions = {
   target: 'pino/file',
   options: { destination: 2 },
 };
@@ -92,7 +96,8 @@ const stdioTransport: LoggerOptions['transport'] = {
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
-const levels = {
+
+export const levels = {
   labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },
   values: { ...pino.levels.values, ...customLevels },
 };
@@ -103,27 +108,32 @@ const levels = {
 // would mean that all child loggers created before the telemetry-client is initialized would not have
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
-
-const otelTransport: LoggerOptions['transport'] = {
+const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+const otelOpts = { levels };
+const otelTransport: pino.TransportSingleOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
-  options: { levels, messageKey: 'msg' },
+  options: otelOpts,
 };
 
-// In nodejs, create a new pino instance with an stdout transport (either vanilla or json), and optionally
-// an OTLP transport if the OTLP endpoint is provided. Note that transports are initialized in a worker thread.
-// On the browser, we just log to the console.
-const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
-const logger = isNode
-  ? pino(
-      pinoOpts,
-      pino.transport({
-        targets: compactArray([
-          ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
-          process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ? otelTransport : undefined,
-        ]),
-      }),
-    )
-  : pino({ ...pinoOpts, browser: { asObject: false } });
+function makeLogger() {
+  if (!isNode) {
+    // We are on the browser
+    return pino({ ...pinoOpts, browser: { asObject: false } });
+  } else if (process.env.JEST_WORKER_ID) {
+    // We are on jest, so we need sync logging. We stream to stderr with pretty.
+    return pino(pinoOpts, pretty(pinoPrettyOpts));
+  } else {
+    // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
+    // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
+    const targets: pino.TransportSingleOptions[] = compactArray([
+      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
+      otlpEndpoint ? otelTransport : undefined,
+    ]);
+    return pino(pinoOpts, pino.transport({ targets }));
+  }
+}
+
+const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(
@@ -135,6 +145,27 @@ logger.verbose(
     ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
     : `Browser console logger initialized with level ${logLevel}`,
 );
+
+/**
+ * Registers an additional destination to the pino logger.
+ * Use only when working with destinations, not worker transports.
+ */
+export function registerLoggingStream(stream: Writable): void {
+  logger.verbose({ module: 'logger' }, `Registering additional logging stream`);
+  const original = (logger as any)[symbols.streamSym];
+  const destination = original
+    ? pino.multistream(
+        [
+          // Set streams to lowest logging level, and control actual logging from the parent logger
+          // otherwise streams default to info and refuse to log anything below that.
+          { level: 'trace', stream: original },
+          { level: 'trace', stream },
+        ],
+        { levels: levels.values },
+      )
+    : stream;
+  (logger as any)[symbols.streamSym] = destination;
+}
 
 /** Log function that accepts an exception object */
 type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;

@@ -32,6 +32,7 @@ PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
 METRICS=false
+LOG_LEVEL="info"
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
@@ -120,7 +121,7 @@ cd $(git rev-parse --show-toplevel)
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
         $TEST_SCRIPT \
-        ./deploy-l1-contracts.sh \
+        \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
