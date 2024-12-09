@@ -171,6 +171,7 @@ impl<'context> Elaborator<'context> {
         }
     }
 
+    /// Resolve an attribute to the function it refers to and add it to `attributes_to_run`
     fn collect_comptime_attribute_name_on_item(
         &mut self,
         attribute: &MetaAttribute,
