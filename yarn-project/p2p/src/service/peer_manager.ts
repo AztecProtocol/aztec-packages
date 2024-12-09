@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ENR } from '@chainsafe/enr';
 import { type PeerId } from '@libp2p/interface';
@@ -27,7 +27,7 @@ export class PeerManager {
     private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
-    private logger = createDebugLogger('aztec:p2p:peer_manager'),
+    private logger = createLogger('p2p:peer_manager'),
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections

@@ -9,7 +9,7 @@ import {
   createL1Clients,
   deployL1Contract,
 } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -34,7 +34,7 @@ export async function bootstrapNetwork(
   l1Mnemonic: string,
   json: boolean,
   log: LogFn,
-  debugLog: DebugLogger,
+  debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
@@ -249,7 +249,7 @@ async function fundFPC(
   wallet: Wallet,
   l1Clients: L1Clients,
   fpcAddress: AztecAddress,
-  debugLog: DebugLogger,
+  debugLog: Logger,
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment

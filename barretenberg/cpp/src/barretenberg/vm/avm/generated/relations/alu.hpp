@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class aluImpl {
   public:
@@ -441,6 +441,11 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_ALU_MULTIPLICATION_FF = 20;
+    static constexpr size_t SR_ALU_PROD_MUL = 24;
+    static constexpr size_t SR_DIVISION_RELATION = 31;
+    static constexpr size_t SR_ALU_OP_NOT = 32;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

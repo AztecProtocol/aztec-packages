@@ -31,7 +31,7 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -111,7 +111,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
   private initialStateReference: AztecSingleton<Buffer>;
   private metrics: WorldStateMetrics;
 
-  private constructor(private store: AztecKVStore, private telemetryClient: TelemetryClient, private log: DebugLogger) {
+  private constructor(private store: AztecKVStore, private telemetryClient: TelemetryClient, private log: Logger) {
     this.initialStateReference = store.openSingleton('merkle_trees_initial_state_reference');
     this.metrics = new WorldStateMetrics(telemetryClient);
   }
@@ -121,7 +121,11 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore, client: TelemetryClient, log = createDebugLogger('aztec:merkle_trees')) {
+  public static async new(
+    store: AztecKVStore,
+    client: TelemetryClient,
+    log = createLogger('world-state:merkle_trees'),
+  ) {
     const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
@@ -239,7 +243,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     const forked = new MerkleTrees(
       this.store,
       this.telemetryClient,
-      createDebugLogger('aztec:merkle_trees:ephemeral_fork'),
+      createLogger('world-state:merkle_trees:ephemeral_fork'),
     );
     await forked.#init(true);
     return new MerkleTreeReadOperationsFacade(forked, true);

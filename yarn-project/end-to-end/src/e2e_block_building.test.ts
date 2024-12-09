@@ -5,11 +5,11 @@ import {
   type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
-  type DebugLogger,
   Fq,
   Fr,
   L1EventPayload,
   L1NotePayload,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
@@ -34,7 +34,7 @@ describe('e2e_block_building', () => {
   jest.setTimeout(10 * 60 * 1000); // 10 minutes
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let owner: Wallet;
   let minter: Wallet;
   let aztecNode: AztecNode;

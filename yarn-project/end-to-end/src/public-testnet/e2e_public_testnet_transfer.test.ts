@@ -1,5 +1,5 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type DebugLogger, Fr, type PXE } from '@aztec/aztec.js';
+import { Fr, type Logger, type PXE } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -16,7 +16,7 @@ describe(`deploys and transfers a private only token`, () => {
   let secretKey2: Fr;
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {

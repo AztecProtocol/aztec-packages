@@ -1,4 +1,4 @@
-import { type AztecAddress, type AztecNode, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
@@ -12,7 +12,7 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: Wallet;
-  let logger: DebugLogger;
+  let logger: Logger;
   let owner: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;

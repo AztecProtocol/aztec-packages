@@ -2,13 +2,13 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
-  type DebugLogger,
   ExtendedNote,
   Fr,
+  type Logger,
   Note,
   type TxHash,
   computeSecretHash,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
 
@@ -58,7 +58,7 @@ export class BlacklistTokenContractTest {
   static DELAY = 2;
 
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
@@ -70,7 +70,7 @@ export class BlacklistTokenContractTest {
   blacklisted!: AccountWallet;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_blacklist_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
   }
 
