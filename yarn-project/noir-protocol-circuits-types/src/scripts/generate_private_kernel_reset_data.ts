@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 const log = createConsoleLogger('aztec:autogenerate');
 
