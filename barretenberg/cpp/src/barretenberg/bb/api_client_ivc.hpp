@@ -136,12 +136,8 @@ class ClientIVCAPI : public API {
         init_bn254_crs(1 << 20);
         init_grumpkin_crs(1 << 15);
 
-        // TODO(#7371) dedupe this with the rest of the similar code
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-        ivc->auto_verify_mode = true;
-
         // WORKTODO: this is historically recursive=true but prob doesnt need to be
-        ProgramMetadata metadata{ ivc, /*recursive=*/true };
+        ProgramMetadata metadata{ ivc };
 
         // Accumulate the entire program stack into the IVC
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel
@@ -151,10 +147,12 @@ class ClientIVCAPI : public API {
             Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
 
             // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-            if (!circuit.databus_propagation_data.is_kernel) {
-                circuit.databus_propagation_data.is_kernel = is_kernel;
+            if (ivc->auto_verify_mode) {
+                if (!circuit.databus_propagation_data.is_kernel) {
+                    circuit.databus_propagation_data.is_kernel = is_kernel;
+                }
+                is_kernel = !is_kernel;
             }
-            is_kernel = !is_kernel;
 
             // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
             // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
@@ -162,30 +160,31 @@ class ClientIVCAPI : public API {
         }
     };
 
-    static void _accumulate_without_auto_verify(const std::shared_ptr<ClientIVC>& ivc,
-                                                std::vector<acir_format::AcirProgram>& folding_stack)
-    {
-        using Builder = MegaCircuitBuilder;
-        using Program = acir_format::AcirProgram;
+    // static void _accumulate_without_auto_verify(const std::shared_ptr<ClientIVC>& ivc,
+    //                                             std::vector<acir_format::AcirProgram>& folding_stack)
+    // {
+    //     using Builder = MegaCircuitBuilder;
+    //     using Program = acir_format::AcirProgram;
 
-        using namespace acir_format;
+    //     using namespace acir_format;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    //     init_bn254_crs(1 << 20);
+    //     init_grumpkin_crs(1 << 15);
 
-        ProgramMetadata metadata{ ivc };
+    //     ProgramMetadata metadata{ ivc };
 
-        // Accumulate the entire program stack into the IVC
-        for (Program& program : folding_stack) {
+    //     // Accumulate the entire program stack into the IVC
+    //     for (Program& program : folding_stack) {
 
-            Builder circuit = create_circuit<Builder>(program, metadata);
+    //         Builder circuit = create_circuit<Builder>(program, metadata);
 
-            // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-            // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
-            ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
-        }
-    };
+    //         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In
+    //         this
+    //         // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
+    //         ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
+    //     }
+    // };
 
   public:
     void prove(const API::Flags& flags,
@@ -209,14 +208,10 @@ class ClientIVCAPI : public API {
         init_grumpkin_crs(1 << 15);
 
         TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-        auto ivc = std::make_shared<ClientIVC>(trace_settings);
-        if (flags.no_auto_verify) {
-            vinfo("performing accumulation WITHOUT auto-verify");
-            _accumulate_without_auto_verify(ivc, folding_stack);
-        } else {
-            vinfo("performing accumulation with auto-verify");
-            _accumulate(ivc, folding_stack);
-        }
+        bool auto_verify = !flags.no_auto_verify;
+        auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
+        vinfo("performing accumulation with auto-verify = ", auto_verify);
+        _accumulate(ivc, folding_stack);
         ClientIVC::Proof proof = ivc->prove();
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
