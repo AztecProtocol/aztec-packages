@@ -1,8 +1,6 @@
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
 #define PARENS ()
