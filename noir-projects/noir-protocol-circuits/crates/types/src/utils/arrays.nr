@@ -40,6 +40,21 @@ pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
+use std::static_assert;
+
+pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
+    src: [Field; SRC_LEN],
+    offset: u32,
+) -> [Field; DST_LEN] {
+    static_assert(offset + DST_LEN <= SRC_LEN, "offset too large");
+
+    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
+    for i in 0..DST_LEN {
+        dst[i] = src[i + offset];
+    }
+
+    dst
+}
 
 pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where

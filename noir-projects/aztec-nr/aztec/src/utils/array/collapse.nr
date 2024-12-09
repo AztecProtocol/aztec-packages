@@ -1,9 +1,11 @@
-// Collapses an array of Options with sparse Some values into a BoundedVec, essentially unwrapping the Options and
-// removing the None values. For example, given:
-//   input: [some(3), none(), some(1)]
-// this returns
-//   collapsed: [3, 1]
-pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N>
+/// Collapses an array of `Option`s with sparse `Some` values into a `BoundedVec`, essentially unwrapping the `Option`s
+/// and removing the `None` values.
+///
+/// For example, given:
+///   `input: [some(3), none(), some(1)]`
+/// this returns
+///   `collapsed: [3, 1]`
+pub fn collapse<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N>
 where
     T: Eq,
 {
@@ -104,12 +106,12 @@ unconstrained fn get_collapse_hints<T, let N: u32>(
 }
 
 mod test {
-    use super::{collapse_array, verify_collapse_hints};
+    use super::{collapse, verify_collapse_hints};
 
     #[test]
     unconstrained fn collapse_empty_array() {
         let original: [Option<Field>; 2] = [Option::none(), Option::none()];
-        let collapsed = collapse_array(original);
+        let collapsed = collapse(original);
 
         assert_eq(collapsed.len(), 0);
     }
@@ -117,7 +119,7 @@ mod test {
     #[test]
     unconstrained fn collapse_non_sparse_array() {
         let original = [Option::some(7), Option::some(3), Option::none()];
-        let collapsed = collapse_array(original);
+        let collapsed = collapse(original);
 
         assert_eq(collapsed.len(), 2);
         assert_eq(collapsed.get(0), 7);
@@ -127,7 +129,7 @@ mod test {
     #[test]
     unconstrained fn collapse_sparse_array() {
         let original = [Option::some(7), Option::none(), Option::some(3)];
-        let collapsed = collapse_array(original);
+        let collapsed = collapse(original);
 
         assert_eq(collapsed.len(), 2);
         assert_eq(collapsed.get(0), 7);
@@ -135,10 +137,10 @@ mod test {
     }
 
     #[test]
-    unconstrained fn collapse_array_front_padding() {
+    unconstrained fn collapse_front_padding() {
         let original =
             [Option::none(), Option::none(), Option::some(7), Option::none(), Option::some(3)];
-        let collapsed = collapse_array(original);
+        let collapsed = collapse(original);
 
         assert_eq(collapsed.len(), 2);
         assert_eq(collapsed.get(0), 7);
@@ -146,10 +148,10 @@ mod test {
     }
 
     #[test]
-    unconstrained fn collapse_array_back_padding() {
+    unconstrained fn collapse_back_padding() {
         let original =
             [Option::some(7), Option::none(), Option::some(3), Option::none(), Option::none()];
-        let collapsed = collapse_array(original);
+        let collapsed = collapse(original);
 
         assert_eq(collapsed.len(), 2);
         assert_eq(collapsed.get(0), 7);
