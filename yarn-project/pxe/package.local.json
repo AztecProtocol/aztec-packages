@@ -1,7 +1,7 @@
 {
-  "scripts": {
-    "build": "yarn clean && yarn generate:package_info && tsc -b",
-    "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
-    "generate:package_info": "node ./scripts/generate_package_info.js"
-  }
+    "scripts": {
+        "build": "yarn clean && yarn generate && tsc -b",
+        "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
+        "generate": "node ./scripts/generate_package_info.js"
+    }
 }

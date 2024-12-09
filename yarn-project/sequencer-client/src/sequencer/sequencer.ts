@@ -385,7 +385,6 @@ export class Sequencer {
     }
 
     const bufferSeconds = this.timeTable[proposedState] - secondsIntoSlot;
-    this.metrics.recordStateTransitionBufferMs(bufferSeconds * 1000, proposedState);
 
     if (bufferSeconds < 0) {
       this.log.warn(
@@ -393,6 +392,9 @@ export class Sequencer {
       );
       return false;
     }
+
+    this.metrics.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), proposedState);
+
     this.log.debug(
       `Enough time to transition to ${proposedState}, max allowed: ${this.timeTable[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
     );
