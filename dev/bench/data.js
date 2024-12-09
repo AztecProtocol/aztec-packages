@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733708121706,
+  "lastUpdate": 1733740878152,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ece1d455548bccd80a3c9660cc32149bcb129562",
-          "message": "chore: Remove handling of duplicates from the note hash tree (#10016)\n\nThis PR removes the abilitity to handle duplicates in the note hash\r\ntree. Since #9492, all trees now contain unique leaves only. Removing\r\nthe handling of duplicates reduces the complexity and storage\r\nrequirements of the trees.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-11-25T11:47:43Z",
-          "tree_id": "eb18c3379316afbf90dbf81511da6d4f5457ec95",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ece1d455548bccd80a3c9660cc32149bcb129562"
-        },
-        "date": 1732537277660,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27502.335485000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 25662.363468 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4591.292156999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4280.504266 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87605.323446,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87605323000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16486.247683999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16486249000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3038854989,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3038854989 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132815854,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132815854 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2980,6 +2920,66 @@ window.BENCHMARK_DATA = {
             "value": 140003553,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140003553 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7fa8f844d9e389f8636118f1d3c3ecce707e771e",
+          "message": "chore: Optimise grand product computation round based on active ranges (#10460)\n\nSkip computation of numerator and denominator of z_perm at indexes that\r\nare not part of the active ranges, and refine the threshold in\r\ncommit_structured for `z_perm`. New benchmarks:\r\n**Now: 5.6 s difference**\r\nWe still see a difference between committing to z_perm between an\r\nambient trace of 2^19 and 2^20, caused by the fact that the active\r\nranges complement are larger (i.e. the ranges in the trace blocks where\r\nz_perm is constant) because the blocks themselves are larger. We \r\nmake sure to at least avoid computing and committing to z_perm after the\r\nfinal active wire index.",
+          "timestamp": "2024-12-09T09:53:47Z",
+          "tree_id": "e07b9816aa0a2b96dfd8c944278cc45ff76196b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7fa8f844d9e389f8636118f1d3c3ecce707e771e"
+        },
+        "date": 1733740870659,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25051.447335000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23098.617967 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4955.206206,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4610.698397 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84998.268733,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84998270000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15135.86786,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15135869000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2841811673,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2841811673 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142816444,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142816444 ns\nthreads: 1"
           }
         ]
       }
