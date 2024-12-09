@@ -7,7 +7,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { TokenBridgeContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts.js';
 import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';

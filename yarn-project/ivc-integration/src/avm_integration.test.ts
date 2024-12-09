@@ -12,7 +12,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';
 import os from 'os';
 import path from 'path';

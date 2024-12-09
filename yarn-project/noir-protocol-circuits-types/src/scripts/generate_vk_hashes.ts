@@ -3,7 +3,7 @@ import { hashVK } from '@aztec/circuits.js/hash';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { join } from 'path';
 
 const log = createConsoleLogger('aztec:autogenerate');

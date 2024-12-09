@@ -1,4 +1,4 @@
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
