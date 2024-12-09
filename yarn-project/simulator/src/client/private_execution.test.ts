@@ -85,8 +85,8 @@ describe('Private Execution test suite', () => {
   let logger: Logger;
 
   const defaultContractAddress = AztecAddress.random();
-  const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-  const recipientSk = Fr.fromString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
+  const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+  const recipientSk = Fr.fromHexString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
   let owner: AztecAddress;
   let recipient: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;

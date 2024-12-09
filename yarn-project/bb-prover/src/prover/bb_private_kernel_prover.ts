@@ -392,7 +392,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
     ]);
     const json = JSON.parse(proofString);
-    const fields = json.map(Fr.fromString);
+    const fields = json.map(Fr.fromHexString);
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.info(

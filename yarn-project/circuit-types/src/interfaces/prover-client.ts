@@ -73,7 +73,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
 };
 
 function parseProverId(str: string) {
-  return Fr.fromString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
+  return Fr.fromHexString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
 }
 
 /**
