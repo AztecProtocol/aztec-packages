@@ -138,11 +138,16 @@ impl PrivateContext {
     }
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
-        self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
         debug_log_format(
-            "\nPushed new note hash: (note_hash:{0}, counter: {1})",
+            "\n\nMIKE About to push new note hash: (note_hash:{0}, counter: {1})",
             [note_hash, (self.side_effect_counter - 1) as Field],
         );
+        self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+        debug_log("And just to make doubly sure, here is the context after pushing:");
+        debug_log_format("\n\nMIKE context note hash values after pushing: {0}", self.note_hashes.storage().map(|nh: NoteHash| nh.value));
+        debug_log_format("\n\nMIKE context note hash counters after pushing: {0}", self.note_hashes.storage().map(|nh: NoteHash| nh.counter as Field));
+        debug_log_format("And in case I can't print arrays like I'm trying, here's the [0].value element: {0}", [self.note_hashes.get(0).value]);
+        debug_log_format("And in case I can't print arrays like I'm trying, here's the [0].counter element: {0}", [self.note_hashes.get(0).counter as Field]);
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
