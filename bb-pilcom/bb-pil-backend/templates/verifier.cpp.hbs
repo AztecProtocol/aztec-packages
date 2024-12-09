@@ -26,7 +26,7 @@ namespace bb {
 using FF = {{name}}Flavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
+inline FF {{name}}Verifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
     Polynomial<FF> polynomial(points, key->circuit_size);
     return polynomial.evaluate_mle(challenges);

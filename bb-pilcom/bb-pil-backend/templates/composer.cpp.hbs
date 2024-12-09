@@ -28,7 +28,7 @@ void {{name}}Composer::compute_witness(CircuitConstructor& circuit)
     AVM_TRACK_TIME("composer/create_prover:commitment_key",
                    compute_commitment_key(circuit_constructor.get_circuit_subgroup_size()));
     auto output_state = AVM_TRACK_TIME_V("composer/create_prover:construct_prover",
-                                         AvmProver(proving_key, proving_key->commitment_key));
+                                         {{name}}Prover(proving_key, proving_key->commitment_key));
     return output_state;
 }
 
