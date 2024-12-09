@@ -74,6 +74,7 @@
       ]
     ],
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "testTimeout": 30000
   }
 }

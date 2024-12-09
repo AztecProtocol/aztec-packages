@@ -1,6 +1,9 @@
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -10,7 +13,8 @@ using namespace bb;
 
 struct HonkRecursionConstraintOutput {
     PairingPointAccumulatorIndices agg_obj_indices;
-    IPAClaimIndices ipa_claim_indices;
+    OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
+    StdlibProof<Builder> ipa_proof;
 };
 
 template <typename Flavor>
