@@ -3,20 +3,23 @@ VERSION --raw-output 0.8
 ########################################################################################################################
 # Builds
 ########################################################################################################################
-bootstrap-noir-bb:
-  # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
+bootstrap-base:
+  # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   FROM ./build-images+from-registry
   ARG EARTHLY_GIT_HASH
   ENV GITHUB_LOG=1
   WORKDIR /build-volume
-  # ENV AZTEC_CACHE_COMMIT=3d41cba64667950d6c0c3686864d9065da640fd7
-  # Use a cache volume for performance
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     mkdir -p $HOME/.aws/ && \
     echo "[default]" > $HOME/.aws/credentials && \
     echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
     echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
     chmod 600 $HOME/.aws/credentials
+
+bootstrap-noir-bb:
+  FROM +bootstrap-base
+  # Use a mounted volume for performance.
+  # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init >/dev/null 2>&1 && \
@@ -26,7 +29,6 @@ bootstrap-noir-bb:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
-    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/acir_tests/bootstrap.sh && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/sr
@@ -37,19 +39,10 @@ bootstrap-noir-bb:
   ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
 bootstrap:
-  # Note: Assumes EARTHLY_BUILD_SHA has been pushed!
-  FROM ./build-images+from-registry
-  ARG EARTHLY_GIT_HASH
-  ENV GITHUB_LOG=1
-  WORKDIR /build-volume
-  # ENV AZTEC_CACHE_COMMIT=5684b5052e4f7b4d44d98a7ba407bbf7eb462c1d
-  # Use a cache volume for performance
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    mkdir -p $HOME/.aws/ && \
-    echo "[default]" > $HOME/.aws/credentials && \
-    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
-    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
-    chmod 600 $HOME/.aws/credentials
+  # Skips boxes.
+  FROM +bootstrap-base
+  # Use a mounted volume for performance.
+  # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init >/dev/null 2>&1 && \
@@ -59,7 +52,6 @@ bootstrap:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 parallel ::: ./noir/bootstrap.sh ./barretenberg/cpp/bootstrap.sh ./barretenberg/ts/bootstrap.sh && \
-    DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./barretenberg/acir_tests/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./l1-contracts/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./avm-transpiler/bootstrap.sh && \
     DENOISE=1 CI=1 TEST=0 USE_CACHE=1 ./noir-projects/bootstrap.sh && \
@@ -72,7 +64,6 @@ bootstrap:
   ENV USE_CACHE=1
   ARG GITHUB_RUN_URL=""
   ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
-  RUN false
 
 bootstrap-aztec:
   FROM +bootstrap
@@ -209,13 +200,13 @@ ci:
   END
   WAIT
     BUILD ./barretenberg/cpp/+bench
-    BUILD ./barretenberg/cpp/+test
+    BUILD ./barretenberg/cpp/+test --jobs=32
   END
   WAIT
     BUILD +ci-rest
   END
   WAIT
-    BUILD ./docs/+deploy-preview
+    BUILD ./docs/+build
   END
   LOCALLY
   RUN ./bootstrap.sh test-e2e e2e_blacklist
