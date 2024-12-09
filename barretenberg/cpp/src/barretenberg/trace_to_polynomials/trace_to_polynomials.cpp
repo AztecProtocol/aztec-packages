@@ -150,6 +150,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
+
     return trace_data;
 }
 

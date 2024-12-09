@@ -1,10 +1,10 @@
 import {
+  type BlockHeader,
   ClientIvcProof,
   CombinedConstantData,
   Fr,
   Gas,
   type GlobalVariables,
-  type Header,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
@@ -86,7 +86,7 @@ export type FailedTx = {
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(
-  header: Header,
+  header: BlockHeader,
   chainId: Fr,
   version: Fr,
   vkTreeRoot: Fr,

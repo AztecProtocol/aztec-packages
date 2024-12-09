@@ -587,7 +587,6 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
  * Communication:
  * - Filesystem: The proof and vk are written to the paths output_path/proof and output_path/{vk, vk_fields.json}
  *
- * @param bytecode_path Path to the file containing the serialised bytecode
  * @param public_inputs_path Path to the file containing the serialised avm public inputs
  * @param hints_path Path to the file containing the serialised avm circuit hints
  * @param output_path Path (directory) to write the output proof and verification keys
@@ -597,8 +596,8 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
                const std::filesystem::path& output_path)
 {
 
-    auto const avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
-    auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
+    const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+    const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());

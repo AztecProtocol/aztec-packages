@@ -37,6 +37,7 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
@@ -52,7 +53,6 @@ use crate::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         silo_note_hash,
     },
-    header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
@@ -101,7 +101,7 @@ pub struct FixtureBuilder {
     pub end_gas_left: Gas,
 
     // Constant data.
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -1059,7 +1059,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),

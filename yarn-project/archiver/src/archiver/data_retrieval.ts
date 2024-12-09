@@ -1,5 +1,5 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
@@ -150,7 +150,7 @@ async function getBlockFromRollupTx(
     Hex,
   ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();

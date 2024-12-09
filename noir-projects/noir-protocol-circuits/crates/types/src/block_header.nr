@@ -1,6 +1,6 @@
 use crate::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH},
+    constants::{BLOCK_HEADER_LENGTH, GENERATOR_INDEX__BLOCK_HASH},
     content_commitment::ContentCommitment,
     hash::poseidon2_hash_with_separator,
     state_reference::StateReference,
@@ -8,8 +8,8 @@ use crate::{
     utils::arrays::subarray,
 };
 
-// docs:start:header
-pub struct Header {
+// docs:start:block-header
+pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
     pub content_commitment: ContentCommitment,
     pub state: StateReference,
@@ -17,9 +17,9 @@ pub struct Header {
     pub total_fees: Field,
     pub total_mana_used: Field,
 }
-// docs:end:header
+// docs:end:block-header
 
-impl Eq for Header {
+impl Eq for BlockHeader {
     fn eq(self, other: Self) -> bool {
         self.last_archive.eq(other.last_archive)
             & self.content_commitment.eq(other.content_commitment)
@@ -30,9 +30,9 @@ impl Eq for Header {
     }
 }
 
-impl Serialize<HEADER_LENGTH> for Header {
-    fn serialize(self) -> [Field; HEADER_LENGTH] {
-        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new();
+impl Serialize<BLOCK_HEADER_LENGTH> for BlockHeader {
+    fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
+        let mut fields: BoundedVec<Field, BLOCK_HEADER_LENGTH> = BoundedVec::new();
 
         fields.extend_from_array(self.last_archive.serialize());
         fields.extend_from_array(self.content_commitment.serialize());
@@ -44,8 +44,8 @@ impl Serialize<HEADER_LENGTH> for Header {
     }
 }
 
-impl Deserialize<HEADER_LENGTH> for Header {
-    fn deserialize(serialized: [Field; HEADER_LENGTH]) -> Self {
+impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader {
+    fn deserialize(serialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
         let mut offset = 0;
 
         let last_archive_fields = subarray(serialized, offset);
@@ -65,7 +65,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
 
         let total_mana_used = serialized[offset];
 
-        Header {
+        BlockHeader {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
             content_commitment: ContentCommitment::deserialize(content_commitment_fields),
             state: StateReference::deserialize(state_fields),
@@ -76,7 +76,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
     }
 }
 
-impl Empty for Header {
+impl Empty for BlockHeader {
     fn empty() -> Self {
         Self {
             last_archive: AppendOnlyTreeSnapshot::zero(),
@@ -89,7 +89,7 @@ impl Empty for Header {
     }
 }
 
-impl Hash for Header {
+impl Hash for BlockHeader {
     fn hash(self) -> Field {
         poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
     }
@@ -97,21 +97,21 @@ impl Hash for Header {
 
 #[test]
 fn serialization_of_empty() {
-    let header = Header::empty();
+    let header = BlockHeader::empty();
     let serialized = header.serialize();
-    let deserialized = Header::deserialize(serialized);
+    let deserialized = BlockHeader::deserialize(serialized);
     assert(header.eq(deserialized));
 }
 
 #[test]
 fn hash_smoke() {
-    let header = Header::empty();
+    let header = BlockHeader::empty();
     let _hashed = header.hash();
 }
 
 #[test]
 fn empty_hash_is_zero() {
-    let header = Header::empty();
+    let header = BlockHeader::empty();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
