@@ -21,6 +21,7 @@ describe('Avm Context', () => {
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
+        fnName: 'top level function',
         contractCallDepth: Fr.ONE,
         calldata: newCalldata,
         isStaticCall: false,
@@ -50,12 +51,13 @@ describe('Avm Context', () => {
       newCalldata,
       allocatedGas,
       'STATICCALL',
-      'static func',
+      'static function',
     );
 
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
+        fnName: 'static function',
         contractCallDepth: Fr.ONE,
         calldata: newCalldata,
         isStaticCall: true,

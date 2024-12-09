@@ -14,6 +14,7 @@ describe('Execution Environment', () => {
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
+        fnName: 'func',
         contractCallDepth: Fr.ONE,
         calldata: calldata,
       }),
@@ -31,6 +32,7 @@ describe('Execution Environment', () => {
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
+        fnName: 'static func',
         contractCallDepth: Fr.ONE,
         isStaticCall: true,
         calldata: calldata,
