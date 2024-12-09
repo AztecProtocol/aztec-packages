@@ -108,7 +108,7 @@ test:
     BUILD +test-bb
     BUILD +test-bb-ultra-plonk
     BUILD +test-bb-ultra-honk
-    BUILD +test-bb-mega-honk
+    BUILD +test-bb-client-ivc
     BUILD +test-sol
     BUILD +test-sol-honk
     BUILD +test-bb.js
