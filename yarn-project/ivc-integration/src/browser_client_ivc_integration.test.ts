@@ -1,9 +1,18 @@
 import { jest } from '@jest/globals';
 import chalk from 'chalk';
 import createDebug from 'debug';
-import { type Browser, type Page, chromium } from 'playwright';
+import {
+  type Browser,
+  type Page,
+  chromium,
+  /* firefox, webkit */
+} from 'playwright';
 
-import { generate3FunctionTestingIVCStack, proveAndVerifyAztecClient } from './index.js';
+import {
+  generate3FunctionTestingIVCStack,
+  generate6FunctionTestingIVCStack,
+  proveThenVerifyAztecClient,
+} from './index.js';
 
 /* eslint-disable camelcase */
 
@@ -40,6 +49,24 @@ function formatAndPrintLog(message: string): void {
   logger(formattedMessage);
 }
 
+export async function proveThenVerifyAztecClientBrowser(
+  page: Page,
+  bytecodes: string[],
+  witnessStack: Uint8Array[],
+): Promise<boolean> {
+  const threads = 16;
+
+  const result: boolean = await page.evaluate(
+    ([acir, witness, numThreads]) => {
+      (window as any).proveThenVerifyAztecClient = proveThenVerifyAztecClient;
+      return (window as any).proveThenVerifyAztecClient(acir, witness, numThreads);
+    },
+    [bytecodes, witnessStack, threads],
+  );
+
+  return result;
+}
+
 describe('Client IVC Integration', () => {
   let page: Page;
   let browser: Browser;
@@ -64,7 +91,26 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     logger(`calling prove then verify...`);
-    const result = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
-    expect(result).toEqual(true);
+    const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);
+    logger(`generated and verified proof. result: ${verifyResult}`);
+
+    expect(verifyResult).toEqual(true);
+  });
+
+  // This test will verify a client IVC proof of a more complex tx:
+  // 1. Run a mock app that creates two commitments
+  // 2. Run the init kernel to process the app run
+  // 3. Run a mock app that reads one of those commitments
+  // 4. Run the inner kernel to process the second app run
+  // 5. Run the reset kernel to process the read request emitted by the reader app
+  // 6. Run the tail kernel to finish the client IVC chain
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+    const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
+
+    logger(`calling prove and verify...`);
+    const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);
+    logger(`generated and verified proof. result: ${verifyResult}`);
+
+    expect(verifyResult).toEqual(true);
   });
 });

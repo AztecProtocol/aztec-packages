@@ -1,7 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { ungzip } from 'pako';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -17,6 +16,7 @@ import {
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
   getVkAsFields,
+  proveThenVerifyAztecClient,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -34,38 +34,11 @@ jest.setTimeout(120_000);
 describe('Client IVC Integration', () => {
   beforeEach(async () => {});
 
-  function base64ToUint8Array(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  async function proveAndVerifyAztecClient(
-    witnessStack: Uint8Array[],
-    bytecodes: string[],
-    threads?: number,
-  ): Promise<boolean> {
-    const { AztecClientBackend } = await import('@aztec/bb.js');
-    const backend = new AztecClientBackend(
-      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-      { threads },
-    );
-
-    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    const verified = await backend.verify(proof, vk);
-    await backend.destroy();
-    return verified;
-  }
-
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it.only('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const tx = {
       number_of_calls: '0x1',
     };
@@ -96,7 +69,7 @@ describe('Client IVC Integration', () => {
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger.debug('built witness stack');
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
     logger.debug(`generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
@@ -163,7 +136,7 @@ describe('Client IVC Integration', () => {
       tailWitnessGenResult.witness,
     ];
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
     logger.debug(`generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);

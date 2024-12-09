@@ -242,30 +242,19 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
 
-export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
+export async function proveThenVerifyAztecClient(
+  bytecodes: string[],
+  witnessStack: Uint8Array[],
+  threads?: number,
+): Promise<boolean> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
-  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
-  const backend = new AztecClientBackend(preparedBytecodes, { threads });
+  const backend = new AztecClientBackend(
+    bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+    { threads },
+  );
+
   const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
   const verified = await backend.verify(proof, vk);
   await backend.destroy();
   return verified;
-}
-
-export async function proveAndVerifyAztecClient(
-  page: Page,
-  bytecodes: string[],
-  witnessStack: Uint8Array[],
-): Promise<boolean> {
-  const threads = 16;
-
-  const result: boolean = await page.evaluate(
-    ([acir, witness, numThreads]) => {
-      (window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
-      return (window as any).proveAndVerifyBrowser(acir, witness, numThreads);
-    },
-    [bytecodes, witnessStack, threads],
-  );
-
-  return result;
 }
