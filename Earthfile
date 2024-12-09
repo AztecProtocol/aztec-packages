@@ -202,6 +202,24 @@ ci-rest:
     RUN ci3/cache_upload_flag $artifact
   END
 
+# Not actually used by current CI, but a good approximation.
+ci:
+  WAIT
+    BUILD +ci-noir-bb
+  END
+  WAIT
+    BUILD ./barretenberg/cpp/+bench
+    BUILD ./barretenberg/cpp/+test
+  END
+  WAIT
+    BUILD +ci-rest
+  END
+  WAIT
+    BUILD ./docs/+deploy-preview
+  END
+  LOCALLY
+  RUN ./bootstrap.sh test-e2e e2e_blacklist
+
 ########################################################################################################################
 # Build helpers
 ########################################################################################################################
