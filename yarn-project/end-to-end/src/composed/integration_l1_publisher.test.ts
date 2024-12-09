@@ -590,14 +590,14 @@ describe('L1Publisher integration', () => {
       // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
-        expect.stringMatching(/^L1 Transaction 0x[a-f0-9]{64} reverted$/),
+        expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
       );
 
       // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/,
+          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({
