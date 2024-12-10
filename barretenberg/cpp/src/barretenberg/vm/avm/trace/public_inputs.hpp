@@ -4,7 +4,7 @@
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 
-using FF = bb::AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 
 struct EthAddress {
     std::array<uint8_t, 20> value{};

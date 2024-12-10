@@ -7,7 +7,6 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
-  AvmExternalCallHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -51,9 +50,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { assert } from 'console';
+import { strict as assert } from 'assert';
 
-import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
@@ -169,13 +168,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private mergeHints(forkedTrace: this) {
     this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
 
-    this.avmCircuitHints.storageValues.items.push(...forkedTrace.avmCircuitHints.storageValues.items);
-    this.avmCircuitHints.noteHashExists.items.push(...forkedTrace.avmCircuitHints.noteHashExists.items);
-    this.avmCircuitHints.nullifierExists.items.push(...forkedTrace.avmCircuitHints.nullifierExists.items);
-    this.avmCircuitHints.l1ToL2MessageExists.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageExists.items);
-
-    this.avmCircuitHints.externalCalls.items.push(...forkedTrace.avmCircuitHints.externalCalls.items);
-
     this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
     this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
 
@@ -197,20 +189,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public tracePublicStorageRead(
-    _contractAddress: AztecAddress,
+    contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
     leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!leafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
-    }
-
     this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
-    this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
+    this.log.debug(
+      `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
+    );
     this.incrementSideEffectCounter();
   }
 
@@ -224,10 +213,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!lowLeafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
-    }
     if (
       this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -248,7 +233,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
 
     this.log.debug(
-      `Traced public data write (address=${contractAddress}, slot=${slot}, leafSlot=${leafSlot}): value=${value} (counter=${this.sideEffectCounter})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
     );
     this.incrementSideEffectCounter();
   }
@@ -420,45 +405,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
     this.log.debug(
       `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
-    );
-  }
-
-  /**
-   * Trace a nested call.
-   * Accept some results from a finished nested call's trace into this one.
-   */
-  public traceNestedCall(
-    /** The trace of the nested call. */
-    _nestedCallTrace: this,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    _bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name for logging */
-    _functionName: string = 'unknown',
-  ) {
-    // TODO(4805): check if some threshold is reached for max nested calls (to unique contracts?)
-    //
-    // Store end side effect counter before it gets updated by absorbing nested call trace
-    const endSideEffectCounter = new Fr(this.sideEffectCounter);
-
-    const gasUsed = new Gas(
-      startGasLeft.daGas - avmCallResults.gasLeft.daGas,
-      startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
-    );
-
-    this.avmCircuitHints.externalCalls.items.push(
-      new AvmExternalCallHint(
-        /*success=*/ new Fr(avmCallResults.reverted ? 0 : 1),
-        avmCallResults.output,
-        gasUsed,
-        endSideEffectCounter,
-        nestedEnvironment.address,
-      ),
     );
   }
 

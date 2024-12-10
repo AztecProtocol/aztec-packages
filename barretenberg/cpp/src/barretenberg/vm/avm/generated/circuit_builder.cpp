@@ -15,7 +15,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/vm/stats.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
@@ -914,4 +914,4 @@ bool AvmCircuitBuilder::check_circuit() const
     return errors.empty();
 }
 
-} // namespace bb
+} // namespace bb::avm
