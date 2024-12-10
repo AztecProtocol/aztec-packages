@@ -1,7 +1,7 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
@@ -38,10 +38,10 @@ export async function createPXEService(
   } as PXEServiceConfig;
 
   const keyStore = new KeyStore(
-    await createStore('pxe_key_store', configWithContracts, createDebugLogger('aztec:pxe:keystore:lmdb')),
+    await createStore('pxe_key_store', configWithContracts, createLogger('pxe:keystore:lmdb')),
   );
 
-  const store = await createStore('pxe_data', configWithContracts, createDebugLogger('aztec:pxe:data:lmdb'));
+  const store = await createStore('pxe_data', configWithContracts, createLogger('pxe:data:lmdb'));
 
   const db = await KVPxeDatabase.create(store);
   const tips = new L2TipsStore(store, 'pxe');
@@ -62,6 +62,6 @@ function createProver(config: PXEServiceConfig, logSuffix?: string) {
     throw new Error(`Prover must be configured with binary path and working directory`);
   }
   const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> & PXEServiceConfig;
-  const log = createDebugLogger('aztec:pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
+  const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
   return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
 }

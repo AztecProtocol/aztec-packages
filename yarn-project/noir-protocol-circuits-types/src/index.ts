@@ -26,7 +26,7 @@ import {
   SpongeBlob,
 } from '@aztec/circuits.js';
 import { Blob } from '@aztec/foundation/blob';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
 import { type CompiledCircuit, type InputMap, Noir } from '@noir-lang/noir_js';
@@ -767,7 +767,7 @@ function toACVMField(field: Fr): string {
 
 export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
-  const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
+  const log = createLogger('noir-protocol-circuits:oracle');
 
   if (name === 'debugLog') {
     assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');

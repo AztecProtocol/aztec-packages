@@ -12,12 +12,11 @@ struct Cli {
     /// Input file
     file: String,
 
-    /// Output directory for the PIL file, json file and fixed and witness column data.
+    /// Output directory for the generated files
     #[arg(short, long)]
-    #[arg(default_value_t = String::from("."))]
-    output_directory: String,
+    output_directory: Option<String>,
 
-    /// BBerg: Name of the output file for bberg
+    /// BBerg: Name of the VM
     #[arg(long)]
     name: Option<String>,
 
@@ -34,7 +33,7 @@ fn main() -> Result<(), io::Error> {
     let name = args.name.unwrap();
     let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name));
 
-    analyzed_to_cpp(&analyzed, &name, args.yes);
+    analyzed_to_cpp(&analyzed, args.output_directory.as_deref(), &name, args.yes);
 
     Ok(())
 }

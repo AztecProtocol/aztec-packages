@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-restricted-imports
-import { type DebugLogger, type EpochConstants, getTimestampRangeForEpoch, retryUntil } from '@aztec/aztec.js';
+import { type EpochConstants, type Logger, getTimestampRangeForEpoch, retryUntil } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 
@@ -15,7 +15,7 @@ describe('e2e_epochs', () => {
   let l1Client: PublicClient;
   let rollup: RollupContract;
   let constants: EpochConstants;
-  let logger: DebugLogger;
+  let logger: Logger;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
 

@@ -1,0 +1,23 @@
+name: Nightly masternet deploy
+on:
+  schedule:
+    # Run the workflow every night at 2:00 AM UTC.
+    - cron: "0 2 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-network:
+    uses: ./.github/workflows/network-deploy.yml
+    with:
+      ref: master
+      namespace: masternet
+      values_file: rc-1.yaml
+      aztec_docker_image: aztecprotocol/aztec:master
+      deployment_mnemonic_secret_name: testnet-deployment-mnemonic
+      respect_tf_lock: "false"
+      run_terraform_destroy: "true"
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

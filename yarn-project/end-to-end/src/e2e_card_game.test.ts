@@ -3,8 +3,8 @@ import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
-  type DebugLogger,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
   computeAppNullifierSecretKey,
@@ -67,7 +67,7 @@ describe('e2e_card_game', () => {
   jest.setTimeout(TIMEOUT);
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let wallets: AccountWallet[];

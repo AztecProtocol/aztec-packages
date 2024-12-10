@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-errors');
+const logger = createLogger('prover-client:test:orchestrator-errors');
 
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;

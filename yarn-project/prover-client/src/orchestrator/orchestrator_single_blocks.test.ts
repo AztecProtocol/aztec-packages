@@ -2,11 +2,11 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-single-blocks');
+const logger = createLogger('prover-client:test:orchestrator-single-blocks');
 
 describe('prover/orchestrator/blocks', () => {
   let context: TestContext;

@@ -54,7 +54,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -308,7 +308,7 @@ export function buildHeaderFromCircuitOutputs(
   parityPublicInputs: ParityPublicInputs,
   rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
-  logger?: DebugLogger,
+  logger?: Logger,
 ) {
   const blobsHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
   const contentCommitment = new ContentCommitment(

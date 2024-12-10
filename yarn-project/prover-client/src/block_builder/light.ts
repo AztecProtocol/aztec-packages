@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -34,7 +34,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private txs: ProcessedTx[] = [];
 
-  private readonly logger = createDebugLogger('aztec:sequencer-client:block_builder_light');
+  private readonly logger = createLogger('prover-client:block_builder');
 
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 

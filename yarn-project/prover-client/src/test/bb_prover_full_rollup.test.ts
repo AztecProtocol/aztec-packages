@@ -3,7 +3,7 @@ import { mockTx } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -15,14 +15,14 @@ import { TestContext } from '../mocks/test_context.js';
 describe('prover/bb_prover/full-rollup', () => {
   let context: TestContext;
   let prover: BBNativeRollupProver;
-  let log: DebugLogger;
+  let log: Logger;
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    log = createDebugLogger('aztec:bb-prover-full-rollup');
+    log = createLogger('prover-client:test:bb-prover-full-rollup');
     context = await TestContext.new(log, 1, buildProver);
   });
 

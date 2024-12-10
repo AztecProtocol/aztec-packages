@@ -7,7 +7,7 @@ import {
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
 
 import fs from 'node:fs/promises';
@@ -90,7 +90,7 @@ describe('AVM WitGen, proof generation and verification', () => {
 async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = [], expectRevert = false) {
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata, expectRevert);
 
-  const internalLogger = createDebugLogger('aztec:avm-proving-test');
+  const internalLogger = createLogger('bb-prover:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.

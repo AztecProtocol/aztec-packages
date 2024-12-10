@@ -97,7 +97,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
