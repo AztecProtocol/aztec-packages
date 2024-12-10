@@ -23,6 +23,12 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+    },
+  },
   plugins: [
     react(),
     nodePolyfillsFix({
@@ -34,6 +40,6 @@ export default defineConfig({
     topLevelAwait(),
   ],
   optimizeDeps: {
-    exclude: ["@noir-lang/acvm_js", "@noir-lang/noirc_abi"],
+    exclude: ["@noir-lang/acvm_js", "@noir-lang/noirc_abi", "@aztec/bb-prover"],
   },
 });

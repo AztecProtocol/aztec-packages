@@ -39,7 +39,7 @@ import { ungzip } from 'pako';
 export class BBWasmPrivateKernelProver implements PrivateKernelProver {
   private simulator = new WASMSimulator();
 
-  constructor(private log = createLogger('bb-prover:wasm')) {}
+  constructor(private threads: number = 1, private log = createLogger('bb-prover:wasm')) {}
 
   public async simulateProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
@@ -133,14 +133,20 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
   }
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
-    // TODO: ???
-    const threads = 16;
+    const timer = new Timer();
+    this.log.debug(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
-      acirs.map(arr => ungzip(arr)),
-      { threads },
+      acirs.map(acir => ungzip(acir)),
+      { threads: this.threads },
     );
 
-    const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => serializeWitness(witnessMap)));
+    const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => ungzip(serializeWitness(witnessMap))));
+    this.log.debug(`Generated ClientIVC proof`, {
+      eventName: 'client-ivc-proof-generation',
+      duration: timer.ms(),
+      proofSize: proof.length,
+      vkSize: vk.length,
+    });
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
   }
 
