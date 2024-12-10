@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_rng_non_ff_cmp_permutation_settings {
   public:
@@ -50,4 +50,4 @@ class perm_rng_non_ff_cmp_relation : public GenericPermutationRelation<perm_rng_
 };
 template <typename FF_> using perm_rng_non_ff_cmp = GenericPermutation<perm_rng_non_ff_cmp_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

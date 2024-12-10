@@ -3,18 +3,28 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { expect } from 'chai';
 import { ungzip } from 'pako';
 
-import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger, base64ToUint8Array } from './index.js';
+import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger } from './index.js';
+
+zs;
 
 const logger = mockLogger;
 
-export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
-  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
-  const backend = new AztecClientBackend(preparedBytecodes, { threads });
-  await backend.instantiate();
-  const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+export async function proveThenVerifyAztecClientBrowser(
+  page: Page,
+  bytecodes: string[],
+  witnessStack: Uint8Array[],
+): Promise<boolean> {
+  const threads = 16;
 
-  await backend.destroy();
-  return verified;
+  const result: boolean = await page.evaluate(
+    ([acir, witness, numThreads]) => {
+      (window as any).proveThenVerifyAztecClient = proveThenVerifyAztecClient;
+      return (window as any).proveThenVerifyAztecClient(acir, witness, numThreads);
+    },
+    [bytecodes, witnessStack, threads],
+  );
+
+  return result;
 }
 
 describe('Client IVC Integration', () => {
@@ -38,7 +48,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     logger.debug('msg', `calling prove and verify...`);
-    const verifyResult = await proveAndVerifyBrowser(bytecodes, witnessStack);
+    const verifyResult = await proveThenVerifyAztecClientBrowser(bytecodes, witnessStack);
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).to.equal(true);
@@ -55,7 +65,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     logger.debug('msg', `calling prove and verify...`);
-    const verifyResult = await proveAndVerifyBrowser(bytecodes, witnessStack);
+    const verifyResult = await proveThenVerifyAztecClientBrowser(bytecodes, witnessStack);
     logger.debug('msg', `generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).to.equal(true);

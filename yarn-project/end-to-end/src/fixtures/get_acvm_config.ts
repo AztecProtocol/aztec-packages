@@ -1,4 +1,4 @@
-import { type DebugLogger } from '@aztec/aztec.js';
+import { type Logger } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 import { promises as fs } from 'fs';
@@ -14,7 +14,7 @@ const {
 } = process.env;
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
-export async function getACVMConfig(logger: DebugLogger): Promise<
+export async function getACVMConfig(logger: Logger): Promise<
   | {
       acvmWorkingDirectory: string;
       acvmBinaryPath: string;

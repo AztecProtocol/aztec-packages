@@ -1,12 +1,12 @@
 import EventEmitter from 'events';
 import { format } from 'util';
 
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 import { type EventMessage, type ResponseMessage, isEventMessage } from './dispatch/messages.js';
 import { type Connector } from './interface/connector.js';
 import { type Socket } from './interface/socket.js';
 
-const log = createDebugLogger('aztec:transport_client');
+const log = createLogger('foundation:transport_client');
 
 /**
  * Represents a pending request in the TransportClient.

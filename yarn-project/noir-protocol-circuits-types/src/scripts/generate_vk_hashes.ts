@@ -6,7 +6,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 function resolveRelativePath(relativePath: string) {
   return fileURLToPath(new URL(relativePath, import.meta.url).href);

@@ -1,6 +1,6 @@
 import { type Tx, TxExecutionPhase, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
@@ -9,7 +9,7 @@ export interface PublicStateSource {
 }
 
 export class GasTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_gas');
+  #log = createLogger('sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
 

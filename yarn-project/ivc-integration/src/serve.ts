@@ -1,6 +1,6 @@
 import createDebug from 'debug';
 
-import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser } from './index.js';
+import { generate3FunctionTestingIVCStack, proveThenVerifyAztecClient } from './index.js';
 
 createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
@@ -78,7 +78,7 @@ function setupConsoleOutput() {
   };
 }
 
-(window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
+(window as any).proveThenVerifyAztecClient = proveThenVerifyAztecClient;
 
 document.addEventListener('DOMContentLoaded', function () {
   setupConsoleOutput(); // Initialize console output capture
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
     logger(`generating circuit and witness...`);
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
     logger(`done. proving and verifying...`);
-    const verified = await proveAndVerifyBrowser(bytecodes, witnessStack);
+    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack);
     logger(`verified? ${verified}`);
   });
   document.body.appendChild(button);

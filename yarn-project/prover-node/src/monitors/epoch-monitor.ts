@@ -1,5 +1,5 @@
 import { type L2BlockSource } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 export interface EpochMonitorHandler {
@@ -9,7 +9,7 @@ export interface EpochMonitorHandler {
 
 export class EpochMonitor {
   private runningPromise: RunningPromise;
-  private log = createDebugLogger('aztec:prover-node:epoch-monitor');
+  private log = createLogger('prover-node:epoch-monitor');
 
   private handler: EpochMonitorHandler | undefined;
 

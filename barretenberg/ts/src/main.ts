@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import { decode } from '@msgpack/msgpack';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
+import { UltraHonkBackendOptions } from './barretenberg/backend.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -334,6 +335,27 @@ export async function contract(outputPath: string, vkPath: string) {
   }
 }
 
+export async function contractUltraHonk(bytecodePath: string, vkPath: string, crsPath: string, outputPath: string) {
+  const { api } = await initUltraHonk(bytecodePath, false, crsPath);
+  try {
+    console.log('bytecodePath', bytecodePath);
+    const bytecode = getBytecode(bytecodePath);
+    console.log('vkPath', vkPath);
+    const vk = new RawBuffer(readFileSync(vkPath));
+    const contract = await api.acirHonkSolidityVerifier(bytecode, vk);
+
+    if (outputPath === '-') {
+      process.stdout.write(contract);
+      debug(`contract written to stdout`);
+    } else {
+      writeFileSync(outputPath, contract);
+      debug(`contract written to: ${outputPath}`);
+    }
+  } finally {
+    await api.destroy();
+  }
+}
+
 export async function writeVk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
   const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
@@ -432,13 +454,18 @@ export async function proveUltraHonk(
   witnessPath: string,
   crsPath: string,
   outputPath: string,
+  options?: UltraHonkBackendOptions,
 ) {
   const { api } = await initUltraHonk(bytecodePath, recursive, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const proof = await api.acirProveUltraHonk(bytecode, recursive, witness);
+
+    const acirProveUltraHonk = options?.keccak
+      ? api.acirProveUltraKeccakHonk.bind(api)
+      : api.acirProveUltraHonk.bind(api);
+    const proof = await acirProveUltraHonk(bytecode, recursive, witness);
     debug(`done.`);
 
     if (outputPath === '-') {
@@ -453,12 +480,22 @@ export async function proveUltraHonk(
   }
 }
 
-export async function writeVkUltraHonk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
+export async function writeVkUltraHonk(
+  bytecodePath: string,
+  recursive: boolean,
+  crsPath: string,
+  outputPath: string,
+  options?: UltraHonkBackendOptions,
+) {
   const { api } = await initUltraHonk(bytecodePath, recursive, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     debug('initing verification key...');
-    const vk = await api.acirWriteVkUltraHonk(bytecode, recursive);
+
+    const acirWriteVkUltraHonk = options?.keccak
+      ? api.acirWriteVkUltraKeccakHonk.bind(api)
+      : api.acirWriteVkUltraHonk.bind(api);
+    const vk = await acirWriteVkUltraHonk(bytecode, recursive);
 
     if (outputPath === '-') {
       process.stdout.write(vk);
@@ -472,10 +509,14 @@ export async function writeVkUltraHonk(bytecodePath: string, recursive: boolean,
   }
 }
 
-export async function verifyUltraHonk(proofPath: string, vkPath: string) {
+export async function verifyUltraHonk(proofPath: string, vkPath: string, options?: UltraHonkBackendOptions) {
   const { api } = await initLite();
   try {
-    const verified = await api.acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
+    const acirVerifyUltraHonk = options?.keccak
+      ? api.acirVerifyUltraKeccakHonk.bind(api)
+      : api.acirVerifyUltraHonk.bind(api);
+    const verified = await acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
+
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -642,6 +683,17 @@ program
   });
 
 program
+  .command('contract_ultra_honk')
+  .description('Output solidity verification key contract.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
+  .requiredOption('-k, --vk-path <path>', 'Path to a verification key.')
+  .action(async ({ bytecodePath, outputPath, vkPath, crsPath }) => {
+    handleGlobalOptions();
+    await contractUltraHonk(bytecodePath, vkPath, crsPath, outputPath);
+  });
+
+program
   .command('write_vk')
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
@@ -697,6 +749,18 @@ program
   });
 
 program
+  .command('prove_ultra_keccak_honk')
+  .description('Generate a proof and write it to a file.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
+  .action(async ({ bytecodePath, recursive, witnessPath, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await proveUltraHonk(bytecodePath, recursive, witnessPath, crsPath, outputPath, { keccak: true });
+  });
+
+program
   .command('write_vk_ultra_honk')
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
@@ -708,6 +772,17 @@ program
   });
 
 program
+  .command('write_vk_ultra_keccak_honk')
+  .description('Output verification key.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
+  .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
+  .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await writeVkUltraHonk(bytecodePath, recursive, crsPath, outputPath, { keccak: true });
+  });
+
+program
   .command('verify_ultra_honk')
   .description('Verify a proof. Process exists with success or failure code.')
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
@@ -715,6 +790,17 @@ program
   .action(async ({ proofPath, vk }) => {
     handleGlobalOptions();
     const result = await verifyUltraHonk(proofPath, vk);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('verify_ultra_keccak_honk')
+  .description('Verify a proof. Process exists with success or failure code.')
+  .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
+  .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
+  .action(async ({ proofPath, vk }) => {
+    handleGlobalOptions();
+    const result = await verifyUltraHonk(proofPath, vk, { keccak: true });
     process.exit(result ? 0 : 1);
   });
 

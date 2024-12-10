@@ -1,5 +1,4 @@
 import { GasFees } from '@aztec/circuits.js';
-import { FunctionSelector as FunctionSelectorType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -14,7 +13,6 @@ import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 describe('Environment getters', () => {
   const address = AztecAddress.random();
   const sender = AztecAddress.random();
-  const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
@@ -34,7 +32,6 @@ describe('Environment getters', () => {
   const env = initExecutionEnvironment({
     address,
     sender,
-    functionSelector,
     transactionFee,
     globals,
     isStaticCall,
