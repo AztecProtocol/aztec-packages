@@ -329,7 +329,9 @@ class UltraKeccakFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
+namespace avm {
 class AvmFlavor;
+}
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;

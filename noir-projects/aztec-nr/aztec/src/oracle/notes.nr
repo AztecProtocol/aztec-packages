@@ -1,9 +1,8 @@
-use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
+use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
-    utils::arr_copy_slice,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -181,12 +180,14 @@ where
             let return_header_length: u32 = 2; // num_notes & contract_address.
             let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
             let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
+
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
-            let header = NoteHeader { contract_address, nonce, storage_slot, note_hash_counter };
-            let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
-            let mut note = Note::deserialize_content(serialized_note);
-            note.set_header(header);
+            let note_content = array::subarray(fields, read_offset + 2);
+
+            let mut note = Note::deserialize_content(note_content);
+            note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
+
             placeholder_opt_notes[i] = Option::some(note);
         };
     }

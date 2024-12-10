@@ -28,6 +28,8 @@ import { type Gauge, type TelemetryClient } from './telemetry.js';
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
   targetInfo: Gauge | undefined;
+  private meters: Map<string, Meter> = new Map<string, Meter>();
+  private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
   protected constructor(
     private resource: IResource,
@@ -38,11 +40,21 @@ export class OpenTelemetryClient implements TelemetryClient {
   ) {}
 
   getMeter(name: string): Meter {
-    return this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+    let meter = this.meters.get(name);
+    if (!meter) {
+      meter = this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      this.meters.set(name, meter);
+    }
+    return meter;
   }
 
   getTracer(name: string): Tracer {
-    return this.traceProvider.getTracer(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+    let tracer = this.tracers.get(name);
+    if (!tracer) {
+      tracer = this.traceProvider.getTracer(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      this.tracers.set(name, tracer);
+    }
+    return tracer;
   }
 
   public start() {

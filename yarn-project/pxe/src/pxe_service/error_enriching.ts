@@ -20,7 +20,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
     if (!mentionedFunctions.has(contractAddress.toString())) {
       mentionedFunctions.set(contractAddress.toString(), new Set());
     }
-    mentionedFunctions.get(contractAddress.toString())!.add(functionSelector.toString());
+    mentionedFunctions.get(contractAddress.toString())!.add(functionSelector?.toString() ?? '');
   });
 
   await Promise.all(
@@ -89,7 +89,9 @@ export async function enrichPublicSimulationError(
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(
-          `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+          `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${
+            originalFailingFunction.functionName?.toString() ?? ''
+          }: ${err}`,
         );
       }
     }
