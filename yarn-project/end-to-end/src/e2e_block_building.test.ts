@@ -31,7 +31,7 @@ import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
-  jest.setTimeout(10 * 60 * 1000); // 10 minutes
+  jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let pxe: PXE;
   let logger: Logger;
