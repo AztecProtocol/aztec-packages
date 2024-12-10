@@ -191,5 +191,12 @@ class ClientIVC {
 
     std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
+
+    VerificationKey get_vk()
+    {
+        return { honk_vk,
+                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
+                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
+    }
 };
 } // namespace bb

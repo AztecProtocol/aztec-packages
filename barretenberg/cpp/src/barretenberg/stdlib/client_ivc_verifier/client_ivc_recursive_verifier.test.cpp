@@ -8,20 +8,16 @@ namespace bb::stdlib::recursion::honk {
 class ClientIVCRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using ClientCircuit = ClientIVC::ClientCircuit;
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
-    using VerifierInput = ClientIVCVerifier::VerifierInput;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
-    using GoblinVerifierInput = ClientIVCVerifier::GoblinVerifierInput;
-    using DeciderVerificationKey = FoldVerifierInput::DeciderVK;
-    using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-    using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
     using Flavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = Flavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
+
+    static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
 
     static void SetUpTestSuite()
     {
@@ -31,7 +27,7 @@ class ClientIVCRecursionTests : public testing::Test {
 
     struct ClientIVCProverOutput {
         Proof proof;
-        VerifierInput verifier_input;
+        IVCVerificationKey ivc_vk;
     };
 
     /**
@@ -40,23 +36,15 @@ class ClientIVCRecursionTests : public testing::Test {
      */
     static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
-
-        MockCircuitProducer circuit_producer;
-
         // Construct and accumulate a series of mocked private function execution circuits
+        MockCircuitProducer circuit_producer;
         size_t NUM_CIRCUITS = 2;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            ClientCircuit circuit = circuit_producer.create_next_circuit(ivc);
-
+            auto circuit = circuit_producer.create_next_circuit(ivc);
             ivc.accumulate(circuit);
         }
 
-        Proof proof = ivc.prove();
-        GoblinVerifierInput goblin_verifier_input{ std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key()),
-                                                   std::make_shared<TranslatorVK>(
-                                                       ivc.goblin.get_translator_proving_key()) };
-
-        return { proof, { ivc.honk_vk, goblin_verifier_input } };
+        return { ivc.prove(), ivc.get_vk() };
     }
 };
 
@@ -66,8 +54,8 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
-    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
+    ClientIVC ivc{ trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(ivc.verify(proof));
@@ -82,12 +70,12 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
-    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
+    ClientIVC ivc{ trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ builder, verifier_input };
+    ClientIVCVerifier verifier{ builder, ivc_vk };
 
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput output = verifier.verify(proof);
@@ -105,12 +93,12 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
-    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
+    ClientIVC ivc{ trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
     auto tube_builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ tube_builder, verifier_input };
+    ClientIVCVerifier verifier{ tube_builder, ivc_vk };
 
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
