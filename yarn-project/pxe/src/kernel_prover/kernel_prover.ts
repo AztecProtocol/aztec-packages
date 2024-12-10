@@ -78,6 +78,8 @@ export class KernelProver {
     profile: boolean = false,
     dryRun: boolean = false,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
+
     const executionStack = [executionResult];
     let firstIteration = true;
 
@@ -153,6 +155,7 @@ export class KernelProver {
           getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
+          isPrivateOnlyTx,
         );
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.simulateProofInit(proofInput);
@@ -277,5 +280,15 @@ export class KernelProver {
       protocolContractSiblingPath,
       acirHash,
     });
+  }
+
+  private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
+    const makesPublicCalls =
+      executionResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
+      !executionResult.publicTeardownFunctionCall.isEmpty();
+    return (
+      !makesPublicCalls &&
+      executionResult.nestedExecutions.every(nestedExecution => this.isPrivateOnly(nestedExecution))
+    );
   }
 }

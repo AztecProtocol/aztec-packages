@@ -123,6 +123,7 @@ export async function executeInit(
     mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     mapPrivateCircuitPublicInputsToNoir(privateKernelInitCircuitPrivateInputs.privateCall.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact as CompiledCircuit,
     foreignCallHandler,
