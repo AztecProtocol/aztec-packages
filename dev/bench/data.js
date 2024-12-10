@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733859771168,
+  "lastUpdate": 1733867315525,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da265b6b7d61a0d991fa23bd044f711513a0e86c",
-          "message": "feat: Speed up transaction execution (#10172)\n\nThis PR make a number of optimisation related to the speed up of\r\ntransaction execution. Namely:\r\n\r\n1. We don't re-initialise the instruction set mapping with each\r\ninstruction decode.\r\n2. We now compute public bytecode commitments at the point of receiving\r\na contract and persist them, meaning they don't need to be computed at\r\nthe point of execution.\r\n3. We only store and iterate opcode and program counter tally\r\ninformation when in debug.\r\n4. Function names are also cached at the point contract artifacts are\r\nshared with the node.\r\n5. World state status summary and previous block archive roots are\r\ncached to reduce the impact on the world state DB whilst execution is\r\ntaking place.",
-          "timestamp": "2024-11-26T20:01:54Z",
-          "tree_id": "a366fb8e89dec841f0a838e327e8b9c49f3f9dd6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da265b6b7d61a0d991fa23bd044f711513a0e86c"
-        },
-        "date": 1732653336019,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28053.537981999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26512.373425 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5051.639926999982,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4669.6807739999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83771.467434,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83771467000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15206.716956999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15206717000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3085343907,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3085343907 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141354712,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141354712 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 135022949,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135022949 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4dfe13c1c0af3d527f5c9b2fcc38fe059e9bc38",
+          "message": "feat: unified create circuit from acir (#10440)\n\nThe main goal of this PR is to allow for all circuits (including\r\nkernels) to be created using a single `create_circuit()` method. (Prior\r\nto this PR things had diverged for kernels/ivc_recursion_constraints and\r\na separate `create_kernel_circuit()` method was required). To facilitate\r\nthis and as general cleanup, this PR introduces struct `ProgramMetadata`\r\nso that the create_circuit interface is reduced to\r\n`create_circuit(AcirProgram&, ProgramMetadata&)`.\r\n\r\nNote: `ProgramMetadata` simply contains all the stuff that used to be\r\nindividual defaulted inputs to the create_circuit methods (plus a\r\npointer to a ClientIVC instance). This is a better pattern but I haven't\r\nyet made an effort to address whether some of the parameters can be\r\nremoved altogether. (It may be that they cannot).",
+          "timestamp": "2024-12-10T14:08:24-07:00",
+          "tree_id": "de8f5dad237ac6e7333151914e57f140a6a5ea6b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4dfe13c1c0af3d527f5c9b2fcc38fe059e9bc38"
+        },
+        "date": 1733867308372,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25006.930574000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23013.879139 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4927.290060999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4611.554363 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84133.171972,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84133173000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15444.037854999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15444038000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2810950106,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2810950106 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140482713,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140482713 ns\nthreads: 1"
           }
         ]
       }
