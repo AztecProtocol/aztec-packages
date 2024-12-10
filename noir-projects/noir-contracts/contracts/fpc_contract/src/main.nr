@@ -26,16 +26,17 @@ contract FPC {
         storage.config.initialize(config);
     }
 
-    /// Pays for the tx fee with msg_sender's private balance.
+    /// Pays for the tx fee with msg_sender's private balance of accepted token (AT).
     ///
     /// ## Overview
     /// Uses partial notes to implement a refund flow which works as follows:
-    /// 1. `setup_refund` function subtracts the funded `max_amount` from user's balance, prepares partial notes for
-    /// the FPC recipient (to obtain the payment for the fee) and for the msg_sender (for refund note) and sets a public
-    /// teardown function (in which the partial notes will be finalized),
+    /// 1. `setup_refund` function subtracts the funded `max_amount` from user's balance of AT, prepares partial notes
+    /// for the FPC recipient (to obtain the payment in AT for the fee) and for the msg_sender (for refund note of
+    /// the AT) and sets a public teardown function (in which the partial notes will be finalized),
     /// 2. then user's private and public functions get executed,
-    /// 3. at this point we now the gas/"fee juice" `max_amount` consumed so the public teardown function is executed,
-    /// which finalizes the partial notes.
+    /// 3. at this point we know the tx fee so we can compute in the teardown function how much of the accepted asset
+    /// the user needs to pay to the FPC recipient and how much of it will be refunded back. Note that this is computed
+    /// based on an exchange rate between the accepted asset and the fee token (called fee juice in some places).
     ///
     /// ***Note:***
     /// This flow allows us to pay for the tx with msg_sender's private balance and hence msg_sender's identity is not
