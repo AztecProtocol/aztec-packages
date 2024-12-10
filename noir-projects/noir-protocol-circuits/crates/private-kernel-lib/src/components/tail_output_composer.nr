@@ -8,11 +8,11 @@ use dep::types::{
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
         log_hash::ScopedLogHash,
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::PrivateLogData,
         side_effect::scoped::Scoped,
     },
-    hash::compute_unique_siloed_note_hash,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
 };
 pub use meter_gas_used::meter_gas_used;
@@ -45,12 +45,7 @@ impl TailOutputComposer {
     unconstrained fn build_combined_accumulated_data(self) -> CombinedAccumulatedData {
         let source = self.output_composer.public_inputs.end;
         let mut data = CombinedAccumulatedData::empty();
-        let first_nullifier = source.nullifiers.get_unchecked(0).value();
-        for i in 0..source.note_hashes.len() {
-            let note_hash = source.note_hashes.get_unchecked(i).value();
-            data.note_hashes[i] = compute_unique_siloed_note_hash(note_hash, first_nullifier, i);
-        }
-
+        data.note_hashes = source.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
         data.nullifiers = source.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value);
         data.l2_to_l1_msgs =
             source.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public());

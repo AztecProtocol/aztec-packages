@@ -2,11 +2,8 @@ mod meter_gas_used;
 mod split_to_public;
 
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
-use dep::types::{
-    abis::kernel_circuit_public_inputs::{
-        PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
-    },
-    hash::compute_unique_siloed_note_hash,
+use dep::types::abis::kernel_circuit_public_inputs::{
+    PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
 };
 use split_to_public::split_to_public;
 pub use meter_gas_used::meter_gas_used;
@@ -27,17 +24,8 @@ impl TailToPublicOutputComposer {
     pub unconstrained fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
         let source = self.output_composer.public_inputs;
 
-        let (mut non_revertible_accumulated_data, revertible_accumulated_data) =
+        let (non_revertible_accumulated_data, revertible_accumulated_data) =
             split_to_public(source.end, source.min_revertible_side_effect_counter);
-
-        let non_revertible_note_hashes = non_revertible_accumulated_data.note_hashes;
-
-        let first_nullifier = non_revertible_accumulated_data.nullifiers[0];
-        for i in 0..non_revertible_note_hashes.len() {
-            let note_hash = non_revertible_note_hashes[i];
-            non_revertible_accumulated_data.note_hashes[i] =
-                compute_unique_siloed_note_hash(note_hash, first_nullifier, i);
-        }
 
         let gas_used = meter_gas_used(
             non_revertible_accumulated_data,
@@ -46,7 +34,7 @@ impl TailToPublicOutputComposer {
             source.constants.tx_context.gas_settings.teardown_gas_limits,
         );
 
-        let output = PrivateToPublicKernelCircuitPublicInputs {
+        let mut output = PrivateToPublicKernelCircuitPublicInputs {
             constants: source.constants,
             rollup_validation_requests: source.validation_requests.for_rollup(),
             non_revertible_accumulated_data,
@@ -59,4 +47,3 @@ impl TailToPublicOutputComposer {
         output
     }
 }
-

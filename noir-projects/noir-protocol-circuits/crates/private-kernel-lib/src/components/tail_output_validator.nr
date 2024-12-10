@@ -8,7 +8,6 @@ use dep::types::{
         private_log::PrivateLogData,
         side_effect::scoped::Scoped,
     },
-    hash::compute_unique_siloed_note_hash,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
@@ -78,11 +77,10 @@ impl TailOutputValidator {
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
         // note_hashes
-        let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         let note_hashes = self.previous_kernel.end.note_hashes;
         for i in 0..note_hashes.len() {
             assert_eq(
-                compute_unique_siloed_note_hash(note_hashes[i].value(), first_nullifier, i),
+                note_hashes[i].value(),
                 self.output.end.note_hashes[i],
                 "mismatch note_hashes",
             );

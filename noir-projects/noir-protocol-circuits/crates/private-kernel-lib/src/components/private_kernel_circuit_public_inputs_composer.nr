@@ -28,8 +28,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
+        public_inputs.is_private_only = is_private_only;
 
         public_inputs.constants = TxConstantData {
             historical_header: private_call_public_inputs.historical_header,
@@ -52,6 +54,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
+        public_inputs.is_private_only = previous_kernel_public_inputs.is_private_only;
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;

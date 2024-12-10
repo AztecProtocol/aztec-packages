@@ -4,8 +4,8 @@ use crate::components::previous_kernel_validator::previous_kernel_validator_hint
     generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
 };
 use dep::types::{
-    abis::private_kernel_data::PrivateKernelData, address::AztecAddress,
-    hash::compute_unique_siloed_note_hash, traits::is_empty, utils::arrays::array_length,
+    abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
+    utils::arrays::array_length,
 };
 
 pub struct PreviousKernelValidator {
@@ -27,11 +27,19 @@ impl PreviousKernelValidator {
     }
 
     pub fn validate_for_private_tail(self) {
+        assert(
+            self.previous_kernel.public_inputs.is_private_only,
+            "Must be private only to be processed in tail",
+        );
         self.validate_common();
         self.validate_empty_data();
     }
 
     pub fn validate_for_private_tail_to_public(self) {
+        assert(
+            !self.previous_kernel.public_inputs.is_private_only,
+            "Must not be private only to be processed in tail to public",
+        );
         self.validate_common();
         self.validate_non_empty_data();
     }
@@ -179,15 +187,9 @@ impl PreviousKernelValidator {
             let nullifier = nullifiers[i];
             let nullified_note_hash = nullifier.nullifier.note_hash;
             if nullified_note_hash != 0 {
-                let note_hash_index = note_hash_indexes_for_nullifiers[i];
-                let note_hash = note_hashes[note_hash_index];
-                let unique_note_hash = compute_unique_siloed_note_hash(
-                    note_hash.value(),
-                    nullifiers[0].value(),
-                    note_hash_index,
-                );
+                let note_hash = note_hashes[note_hash_indexes_for_nullifiers[i]];
                 assert_eq(
-                    unique_note_hash,
+                    note_hash.value(),
                     nullified_note_hash,
                     "Hinted siloed note hash does not match nullified note hash",
                 );

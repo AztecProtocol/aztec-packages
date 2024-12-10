@@ -2,20 +2,17 @@ use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX,
     },
     utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
 };
 
 pub struct TailToPublicOutputHints {
     // L2 to l1 msgs.
-    pub sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
+    sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
     // Contract class log hashes.
-    pub sorted_contract_class_log_hash_hints: SplitOrderHints<MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    sorted_contract_class_log_hash_hints: SplitOrderHints<MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     // Public call requests.
-    pub sorted_public_call_request_hints: SplitOrderHints<MAX_ENQUEUED_CALLS_PER_TX>,
-    // The non revertible note hashes before hashing with nonces.
-    pub non_revertible_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    sorted_public_call_request_hints: SplitOrderHints<MAX_ENQUEUED_CALLS_PER_TX>,
 }
 
 pub unconstrained fn generate_tail_to_public_output_hints(
@@ -37,21 +34,9 @@ pub unconstrained fn generate_tail_to_public_output_hints(
     let sorted_public_call_request_hints =
         get_split_order_hints_desc(previous_kernel.end.public_call_requests, split_counter);
 
-    let mut non_revertible_note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
-
-    for i in 0..MAX_NOTE_HASHES_PER_TX {
-        let note_hash = previous_kernel.end.note_hashes[i];
-        if note_hash.counter() < split_counter {
-            non_revertible_note_hashes[i] = note_hash.value();
-        } else {
-            break;
-        }
-    }
-
     TailToPublicOutputHints {
         sorted_l2_to_l1_msg_hints,
         sorted_contract_class_log_hash_hints,
         sorted_public_call_request_hints,
-        non_revertible_note_hashes,
     }
 }

@@ -91,6 +91,7 @@ pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
+    pub is_private_only: bool,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -462,6 +463,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
         }
     }
 
@@ -1074,6 +1076,7 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
+            is_private_only: false,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),

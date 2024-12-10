@@ -11,7 +11,10 @@ use dep::types::{
         side_effect::scoped::Scoped,
     },
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    hash::{compute_siloed_private_log_field, silo_note_hash, silo_nullifier},
+    hash::{
+        compute_siloed_private_log_field, compute_unique_siloed_note_hash, silo_note_hash,
+        silo_nullifier,
+    },
     traits::is_empty,
     utils::arrays::assert_sorted_transformed_value_array_capped_size,
 };
@@ -77,6 +80,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     }
 
     fn validate_unchanged_data(self) {
+        assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
         assert_eq(self.output.constants, self.previous_kernel.constants);
 
         assert_eq(
@@ -184,15 +188,31 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         // Check siloing.
         let kept_note_hashes = self.hints.kept_note_hashes;
-        let siloed_note_hashes = self.output.end.note_hashes;
+        let output_note_hashes = self.output.end.note_hashes;
         let sorted_indexes = self.hints.sorted_note_hash_indexes;
+        let first_nullifier = self.output.end.nullifiers[0].value();
+        let is_private_only = self.output.is_private_only;
+        let min_revertible_side_effect_counter = self.output.min_revertible_side_effect_counter;
+
         for i in 0..kept_note_hashes.len() {
             if i < self.note_hash_siloing_amount {
-                let note_hash = kept_note_hashes[i];
                 let sorted_index = sorted_indexes[i];
-                let siloed_note_hash = siloed_note_hashes[sorted_index];
-                let siloed_value = silo_note_hash(note_hash);
-                assert_eq(siloed_note_hash.value(), siloed_value, "incorrect siloed note hashes");
+                let output_note_hash = output_note_hashes[sorted_index];
+                let note_hash = kept_note_hashes[i];
+                let siloed_note_hash = silo_note_hash(note_hash);
+                let siloed_unique_note_hash = compute_unique_siloed_note_hash(
+                    siloed_note_hash,
+                    first_nullifier,
+                    sorted_index,
+                );
+                // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
+                let expected_value = if is_private_only
+                    | (note_hash.counter() < min_revertible_side_effect_counter) {
+                    siloed_unique_note_hash
+                } else {
+                    siloed_note_hash
+                };
+                assert_eq(output_note_hash.value(), expected_value, "incorrect siloed note hashes");
             } else {
                 // Don't have to check empty items here.
                 // assert_sorted_transformed_value_array_capped_size ensures that there are the same amount of empty items padded in kept_note_hashes and in self.output.end.note_hashes.
@@ -202,7 +222,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Check ordering.
         assert_sorted_transformed_value_array_capped_size(
             kept_note_hashes,
-            siloed_note_hashes,
+            output_note_hashes,
             |prev: ScopedNoteHash, out: ScopedNoteHash| {
                 out.contract_address.is_zero() & (out.counter() == prev.counter())
             },

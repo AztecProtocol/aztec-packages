@@ -18,6 +18,7 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     private_call: PrivateCallData,
+    is_private_only: bool,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -27,12 +28,14 @@ impl PrivateKernelInitCircuitPrivateInputs {
         protocol_contract_tree_root: Field,
         private_call: PrivateCallDataWithoutPublicInputs,
         app_public_inputs: PrivateCircuitPublicInputs,
+        is_private_only: bool,
     ) -> Self {
         Self {
             tx_request,
             vk_tree_root,
             protocol_contract_tree_root,
             private_call: private_call.to_private_call_data(app_public_inputs),
+            is_private_only,
         }
     }
 
@@ -43,6 +46,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             private_call_public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root,
+            self.is_private_only,
         )
             .with_private_call(private_call_public_inputs)
             .finish()
@@ -69,6 +73,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
+                self.is_private_only,
             );
         }
         output
@@ -102,6 +107,7 @@ mod tests {
                 private_call,
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
                 protocol_contract_tree_root: 0,
+                is_private_only: false,
             }
                 .execute()
         }

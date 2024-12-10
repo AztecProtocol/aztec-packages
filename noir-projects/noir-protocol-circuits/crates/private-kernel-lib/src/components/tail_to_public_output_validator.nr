@@ -13,7 +13,6 @@ use dep::types::{
         public_call_request::PublicCallRequest,
         side_effect::{Counted, scoped::Scoped},
     },
-    hash::compute_unique_siloed_note_hash,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
         assert_split_sorted_transformed_value_arrays_asc,
@@ -71,20 +70,11 @@ impl TailToPublicOutputValidator {
         // note_hashes
         assert_split_transformed_value_arrays(
             prev_data.note_hashes,
-            self.hints.non_revertible_note_hashes,
+            output_non_revertible.note_hashes,
             output_revertible.note_hashes,
             |prev: ScopedNoteHash, out: Field| out == prev.note_hash.value,
             split_counter,
         );
-
-        let first_nullifier = prev_data.nullifiers[0].value();
-        for i in 0..output_non_revertible.note_hashes.len() {
-            let siloed_note_hash = self.hints.non_revertible_note_hashes[i];
-            assert_eq(
-                output_non_revertible.note_hashes[i], // Unique siloed note hash
-                compute_unique_siloed_note_hash(siloed_note_hash, first_nullifier, i),
-            );
-        }
 
         // nullifiers
         assert_split_transformed_value_arrays(
