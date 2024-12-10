@@ -58,7 +58,7 @@ mod tests {
         },
         address::AztecAddress,
         constants::NOTE_HASH_TREE_HEIGHT,
-        hash::{compute_siloed_note_hash, compute_unique_siloed_note_hash},
+        hash::compute_siloed_note_hash,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,
