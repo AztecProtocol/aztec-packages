@@ -41,6 +41,10 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
+
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = TranslatorFlavor::USE_SHORT_MONOMIALS;
+
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
