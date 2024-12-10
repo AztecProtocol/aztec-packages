@@ -465,7 +465,6 @@ export async function proveUltraHonk(
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
       : api.acirProveUltraHonk.bind(api);
-    console.log('keccak option', options?.keccak);
     const proof = await acirProveUltraHonk(bytecode, recursive, witness);
     debug(`done.`);
 
