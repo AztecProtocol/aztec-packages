@@ -42,6 +42,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
+  // TODO(benesjan): obtain directly from contract?
   getAsset() {
     return this.asset;
   }
@@ -78,10 +79,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset.toField(), nonce],
+        args: [maxFee, nonce],
         returnTypes: [],
       },
     ];
