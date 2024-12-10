@@ -112,16 +112,6 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     return Promise.resolve(0);
   }
 
-  computeAppCircuitVerificationKey(
-    _bytecode: Buffer,
-    _appCircuitName?: string | undefined,
-  ): Promise<AppCircuitSimulateOutput> {
-    const appCircuitProofOutput: AppCircuitSimulateOutput = {
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    };
-    return Promise.resolve(appCircuitProofOutput);
-  }
-
   private makeEmptyKernelSimulateOutput<
     PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
   >(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {

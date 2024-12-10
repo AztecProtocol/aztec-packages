@@ -150,16 +150,6 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
   }
 
-  computeAppCircuitVerificationKey(
-    _bytecode: Buffer,
-    _appCircuitName?: string | undefined,
-  ): Promise<AppCircuitSimulateOutput> {
-    const appCircuitProofOutput: AppCircuitSimulateOutput = {
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    };
-    return Promise.resolve(appCircuitProofOutput);
-  }
-
   computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
     return Promise.resolve(0);
   }
