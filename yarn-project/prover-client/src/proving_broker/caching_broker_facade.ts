@@ -107,7 +107,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     // notify broker of cancelled job
     const abortFn = async () => {
       signal?.removeEventListener('abort', abortFn);
-      await this.broker.removeAndCancelProvingJob(id);
+      await this.broker.cancelProvingJob(id);
     };
 
     signal?.addEventListener('abort', abortFn);
@@ -147,6 +147,8 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       }
     } finally {
       signal?.removeEventListener('abort', abortFn);
+      // we've saved the result in our cache. We can tell the broker to clear its state
+      await this.broker.cleanUpProvingJobState(id);
     }
   }
 

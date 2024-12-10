@@ -122,11 +122,10 @@ describe.each([
         type: ProvingRequestType.BASE_PARITY,
         inputsUri: makeInputsUri(),
       });
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({ status: 'in-queue' });
+      await assertJobStatus(id, 'in-queue');
 
-      await broker.removeAndCancelProvingJob(id);
-
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({ status: 'not-found' });
+      await broker.cancelProvingJob(id);
+      await assertJobStatus(id, 'rejected');
     });
 
     it('cancels jobs in-progress', async () => {
@@ -137,11 +136,11 @@ describe.each([
         type: ProvingRequestType.BASE_PARITY,
         inputsUri: makeInputsUri(),
       });
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({ status: 'in-queue' });
+      await assertJobStatus(id, 'in-queue');
       await broker.getProvingJob();
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({ status: 'in-progress' });
-      await broker.removeAndCancelProvingJob(id);
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({ status: 'not-found' });
+      await assertJobStatus(id, 'in-progress');
+      await broker.cancelProvingJob(id);
+      await assertJobStatus(id, 'rejected');
     });
 
     it('returns job result if successful', async () => {
@@ -356,8 +355,8 @@ describe.each([
       });
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
-      await broker.removeAndCancelProvingJob(id);
-      await assertJobStatus(id, 'not-found');
+      await broker.cancelProvingJob(id);
+      await assertJobStatus(id, 'rejected');
 
       const id2 = makeProvingJobId();
       await broker.enqueueProvingJob({
@@ -691,22 +690,13 @@ describe.each([
       };
 
       await broker.enqueueProvingJob(provingJob);
-
-      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({
-        status: 'in-queue',
-      });
+      await assertJobStatus(provingJob.id, 'in-queue');
 
       await expect(broker.getProvingJob()).resolves.toEqual({ job: provingJob, time: expect.any(Number) });
-
-      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({
-        status: 'in-progress',
-      });
+      await assertJobStatus(provingJob.id, 'in-progress');
 
       await broker.reportProvingJobError(provingJob.id, 'test error', true);
-
-      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({
-        status: 'in-queue',
-      });
+      await assertJobStatus(provingJob.id, 'in-queue');
     });
 
     it('retries up to a maximum number of times', async () => {
@@ -892,8 +882,10 @@ describe.each([
 
       jest.spyOn(database, 'deleteProvingJobAndResult');
 
-      await broker.removeAndCancelProvingJob(id1);
-      await broker.removeAndCancelProvingJob(id2);
+      await broker.cleanUpProvingJobState(id1);
+
+      await broker.cancelProvingJob(id2);
+      await broker.cleanUpProvingJobState(id2);
 
       expect(database.deleteProvingJobAndResult).toHaveBeenCalledWith(id1);
       expect(database.deleteProvingJobAndResult).toHaveBeenCalledWith(id2);

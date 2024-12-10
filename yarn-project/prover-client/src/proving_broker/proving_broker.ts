@@ -159,15 +159,20 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return promiseWithResolvers.promise;
   }
 
-  public async removeAndCancelProvingJob(id: ProvingJobId): Promise<void> {
-    this.logger.info(`Cancelling job id=${id}`);
-    await this.database.deleteProvingJobAndResult(id);
-
+  public async cancelProvingJob(id: ProvingJobId): Promise<void> {
     // notify listeners of the cancellation
     if (!this.resultsCache.has(id)) {
-      this.promises.get(id)?.resolve({ status: 'rejected', reason: 'Aborted' });
+      this.logger.info(`Cancelling job id=${id}`);
+      await this.reportProvingJobError(id, 'Aborted', false);
+    }
+  }
+
+  public async cleanUpProvingJobState(id: ProvingJobId): Promise<void> {
+    if (!this.resultsCache.has(id)) {
+      throw new Error(`Can't cancel busy proving job: id=${id}`);
     }
 
+    await this.database.deleteProvingJobAndResult(id);
     this.jobsCache.delete(id);
     this.promises.delete(id);
     this.resultsCache.delete(id);
@@ -254,8 +259,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       return;
     }
 
-    this.logger.debug(
-      `Marking proving job id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1} as failed`,
+    this.logger.warn(
+      `Marking proving job as failed id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${
+        retries + 1
+      } err=${err}`,
     );
 
     await this.database.setProvingJobError(id, err);
@@ -278,6 +285,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     const job = this.jobsCache.get(id);
     if (!job) {
       this.logger.warn(`Proving job id=${id} does not exist`);
+      return filter ? this.getProvingJob(filter) : Promise.resolve(undefined);
+    }
+
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} has already been completed`);
       return filter ? this.getProvingJob(filter) : Promise.resolve(undefined);
     }
 
