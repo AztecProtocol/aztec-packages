@@ -244,13 +244,11 @@ void prove_tube(const std::string& output_path)
     builder->add_pairing_point_accumulator(current_aggregation_object);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): We shouldn't add these to the public inputs for
-    // now since we don't handle them correctly. Uncomment when we start using UltraRollupHonk in the rollup.
-    // builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
-    // builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
 
-    using Prover = UltraProver_<UltraFlavor>;
-    using Verifier = UltraVerifier_<UltraFlavor>;
+    using Prover = UltraProver_<UltraRollupFlavor>;
+    using Verifier = UltraVerifier_<UltraRollupFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubeProofPath = output_path + "/proof";
@@ -262,7 +260,7 @@ void prove_tube(const std::string& output_path)
 
     std::string tubeVkPath = output_path + "/vk";
     auto tube_verification_key =
-        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
@@ -274,7 +272,18 @@ void prove_tube(const std::string& output_path)
     info("Native verification of the tube_proof");
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
-    bool verified = tube_verifier.verify_proof(tube_proof, builder->ipa_proof);
+
+    // Break up the tube proof into the honk portion and the ipa portion
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
+    const size_t HONK_PROOF_LENGTH = 473;
+    // The extra calculation is for the IPA proof length.
+    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+    // split out the ipa proof
+    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+    auto ipa_proof = HonkProof(tube_proof.begin() + honk_proof_with_pub_inputs_length, tube_proof.end());
+    auto tube_honk_proof = HonkProof(tube_proof.begin(), tube_proof.end() + honk_proof_with_pub_inputs_length);
+    bool verified = tube_verifier.verify_proof(tube_honk_proof, ipa_proof);
     info("Tube proof verification: ", verified);
 }
 
@@ -797,8 +806,23 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     }
     Verifier verifier{ vk, ipa_verification_key };
 
-    bool verified = verifier.verify_proof(proof);
-
+    bool verified;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // Break up the tube proof into the honk portion and the ipa portion
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
+        const size_t HONK_PROOF_LENGTH = 473;
+        const size_t num_public_inputs = static_cast<size_t>(proof[1]);
+        // The extra calculation is for the IPA proof length.
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+        // split out the ipa proof
+        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+        auto ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
+        auto tube_honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+        verified = verifier.verify_proof(proof, ipa_proof);
+    } else {
+        verified = verifier.verify_proof(proof);
+    }
     vinfo("verified: ", verified);
     return verified;
 }
@@ -1212,7 +1236,7 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
-            return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
+            return verify_honk<UltraRollupFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_mega_honk") {
