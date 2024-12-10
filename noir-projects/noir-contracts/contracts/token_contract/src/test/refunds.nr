@@ -71,7 +71,7 @@ unconstrained fn setup_refund_success() {
 
 // This test should be reworked when final support for partial notes is in
 // Once that happens, the expected error message is commented out below
-//#[test(should_fail_with="funded amount not enough to cover tx fee")]
+//#[test(should_fail_with="max fee not enough to cover tx fee")]
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn setup_refund_insufficient_funded_amount() {
     let (env, token_contract_address, owner, recipient, _mint_amount) =
@@ -96,6 +96,6 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     env.impersonate(fee_payer);
 
-    // The following should fail with "funded amount not enough to cover tx fee" because funded amount is 0
+    // The following should fail with "max fee not enough to cover tx fee" because funded amount is 0
     setup_refund_from_call_interface.call(&mut env.private())
 }

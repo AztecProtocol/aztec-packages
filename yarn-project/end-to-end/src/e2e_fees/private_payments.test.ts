@@ -370,6 +370,6 @@ describe('e2e_fees private_payment', () => {
           ),
         },
       }),
-    ).rejects.toThrow('funded amount not enough to cover tx fee');
+    ).rejects.toThrow('max fee not enough to cover tx fee');
   });
 });

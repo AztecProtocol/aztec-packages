@@ -615,9 +615,9 @@ contract Token {
 
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
-    ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
-    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness + G_slot * fee_payer_slot)
-    ///                                - G_npk * fee_payer_npk - G_slot * fee_payer_slot =
+    ///      1) randomness_influence = fee_recipient_point - G_npk * fee_recipient_npk =
+    ///                              = (G_npk * fee_recipient_npk + G_rnd * randomness + G_slot * fee_recipient_slot)
+    ///                                - G_npk * fee_recipient_npk - G_slot * fee_recipient_slot =
     ///                              = G_rnd * randomness
     ///      2) user_fingerprint = user_point - randomness_influence =
     ///                          = (G_npk * user_npk + G_rnd * randomness + G_slot * user_slot) - G_rnd * randomness =
@@ -627,21 +627,22 @@ contract Token {
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
     ///         by trying different fee payers is a feasible attack.
     ///
-    /// Note 1: fee_payer_npk is part of the fee_payer address preimage derivation, and is assumed to be known. So
-    //          if we have a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is
-    //          trivial (slot is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
-    /// Note 2: fee_payer_point and user_point above are public information because they are passed as args to
+    /// Note 1: fee_recipient_npk is part of the fee_recipient address preimage derivation, and is assumed to be known.
+    ///         So if we have a known set of fee payer contract addresses getting fee_recipient_npk
+    ///         and fee_recipient_slot is trivial (slot is derived in a `Map<...>` as a hash of balances map slot
+    ///         and a fee payer address).
+    /// Note 2: fee_recipient_point and user_point above are public information because they are passed as args to
     ///         the public `complete_refund(...)` function.
     // docs:start:setup_refund
     #[private]
     fn setup_refund(
-        fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
+        fee_recipient: AztecAddress, // Receives the fee note (set by the fee payer contract (FPC))
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        max_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
+        max_fee: Field, // The amount the user funded the fee payer with (represents fee limit).
         nonce: Field, // A nonce to make authwitness unique.
     ) {
-        // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
-        // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
+        // 1. This function is called by FPC when setting up a refund so we need to support the authwit flow here
+        // and check that the user really permitted fee_recipient to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, user);
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
@@ -651,7 +652,7 @@ contract Token {
             &mut context,
             storage,
             user,
-            U128::from_integer(max_amount),
+            U128::from_integer(max_fee),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
         storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
@@ -661,8 +662,8 @@ contract Token {
         ));
 
         // 4. We prepare the partial notes
-        let fee_payer_point_slot =
-            _prepare_private_balance_increase(user, fee_payer, &mut context, storage);
+        let fee_recipient_point_slot =
+            _prepare_private_balance_increase(user, fee_recipient, &mut context, storage);
         let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
 
         // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
@@ -670,7 +671,7 @@ contract Token {
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("complete_refund(Field,Field,Field)") },
-            [fee_payer_point_slot, user_point_slot, max_amount],
+            [fee_recipient_point_slot, user_point_slot, max_fee],
         );
     }
     // docs:end:setup_refund
@@ -691,32 +692,32 @@ contract Token {
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
 
-    // TODO(#7728): even though the max_amount should be a U128, we can't have that type in a contract interface due
+    // TODO(#7728): even though the max_fee should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(fee_payer_slot: Field, user_slot: Field, max_amount: Field) {
+    fn complete_refund(fee_recipient_slot: Field, user_slot: Field, max_fee: Field) {
         // TODO(#7728): Remove the next line
-        let max_amount = U128::from_integer(max_amount);
+        let max_fee = U128::from_integer(max_fee);
         let tx_fee = U128::from_integer(context.transaction_fee());
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#7796): we should try to prevent reverts here
-        assert(max_amount >= tx_fee, "max amount not enough to cover tx fee");
+        assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
 
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
-        let refund_amount = max_amount - tx_fee;
+        let refund_amount = max_fee - tx_fee;
 
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.
-        let fee_payer_finalization_payload =
-            UintNote::finalization_payload().new(&mut context, fee_payer_slot, tx_fee);
+        let fee_recipient_finalization_payload =
+            UintNote::finalization_payload().new(&mut context, fee_recipient_slot, tx_fee);
         let user_finalization_payload =
             UintNote::finalization_payload().new(&mut context, user_slot, refund_amount);
 
         // 4. At last we emit the note hashes and the final note logs.
-        fee_payer_finalization_payload.emit();
+        fee_recipient_finalization_payload.emit();
         user_finalization_payload.emit();
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }

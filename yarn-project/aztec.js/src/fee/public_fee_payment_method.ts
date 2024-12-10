@@ -68,10 +68,10 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset.toField(), nonce],
+        args: [maxFee, nonce],
         returnTypes: [],
       },
     ]);
