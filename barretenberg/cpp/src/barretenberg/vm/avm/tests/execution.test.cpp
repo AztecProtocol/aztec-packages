@@ -1958,10 +1958,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
 
-    // Generate Hint for Sload operation
-    // side effect counter 0 = value 42
-    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
-
+    ExecutionHints execution_hints;
     auto trace = gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
 
     // CHECK SLOAD
@@ -2089,10 +2086,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
 
-    // Generate Hint for Sload operation
-    // side effect counter 0 = value 42
-    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
-
+    ExecutionHints execution_hints;
     auto trace = gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
 
     // CHECK SLOAD
@@ -2178,9 +2172,7 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for hash exists operation
-    auto execution_hints = ExecutionHints()
-                               .with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } })
-                               .with_note_hash_exists_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
+    ExecutionHints execution_hints;
 
     auto trace = gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
 

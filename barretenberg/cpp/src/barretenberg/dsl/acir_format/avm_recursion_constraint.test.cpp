@@ -29,9 +29,10 @@ using namespace bb::avm_trace;
 
 class AcirAvmRecursionConstraint : public ::testing::Test {
   public:
-    using InnerBuilder = AvmCircuitBuilder;
-    using InnerProver = AvmProver;
-    using InnerVerifier = AvmVerifier;
+    using InnerBuilder = bb::avm::AvmCircuitBuilder;
+    using InnerProver = bb::avm::AvmProver;
+    using InnerVerifier = bb::avm::AvmVerifier;
+    using InnerComposer = bb::avm::AvmComposer;
 
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
@@ -77,7 +78,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
         SlabVector<fr> witness;
 
         for (auto& avm_circuit : inner_avm_circuits) {
-            AvmComposer composer = AvmComposer();
+            InnerComposer composer = InnerComposer();
             InnerProver prover = composer.create_prover(avm_circuit);
             InnerVerifier verifier = composer.create_verifier(avm_circuit);
 

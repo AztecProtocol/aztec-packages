@@ -7,7 +7,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "flavor.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 class AvmProver {
     using Flavor = AvmFlavor;
@@ -23,16 +23,20 @@ class AvmProver {
 
   public:
     explicit AvmProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    AvmProver(AvmProver&& prover) = default;
+    virtual ~AvmProver() = default;
 
-    void execute_preamble_round();
-    void execute_wire_commitments_round();
-    void execute_log_derivative_inverse_round();
-    void execute_log_derivative_inverse_commitments_round();
-    void execute_relation_check_rounds();
-    void execute_pcs_rounds();
+    // Note: all the following methods are virtual to allow Avm2 to tweak the behaviour.
+    // We can remove this once the transition is done.
+    virtual void execute_preamble_round();
+    virtual void execute_wire_commitments_round();
+    virtual void execute_log_derivative_inverse_round();
+    virtual void execute_log_derivative_inverse_commitments_round();
+    virtual void execute_relation_check_rounds();
+    virtual void execute_pcs_rounds();
 
-    HonkProof export_proof();
-    HonkProof construct_proof();
+    virtual HonkProof export_proof();
+    virtual HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -54,8 +58,8 @@ class AvmProver {
 
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
-  private:
+  protected:
     HonkProof proof;
 };
 
-} // namespace bb
+} // namespace bb::avm
