@@ -17,6 +17,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
+  FunctionSelector,
   Gas,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
@@ -535,7 +536,7 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
     contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
+    functionSelector: FunctionSelector.empty(), // TODO(#10563): Remove functionSelector in public call context
     isStaticCall: avmEnvironment.isStaticCall,
   });
   return new PublicExecutionRequest(callContext, avmEnvironment.calldata);
