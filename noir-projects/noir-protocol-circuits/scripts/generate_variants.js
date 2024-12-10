@@ -111,8 +111,7 @@ function generateCircuits(dimensionsList, nargoToml, isSimulated) {
       const value = dimensions[i];
       const name = dimensionNames[i];
       const regex = new RegExp(`^global\\s+${name}:\\su32\\s=\\s(.*);.*$`, "m");
-      const [, constant] = mainDotNoirCode.match(regex) || [];
-      if (!constant) {
+      if (!mainDotNoirCode.match(regex)) {
         throw new Error(`Could not find dimension ${name} in main.nr`);
       }
       // Update value.
@@ -120,8 +119,11 @@ function generateCircuits(dimensionsList, nargoToml, isSimulated) {
         regex,
         `global ${name}: u32 = ${value};`
       );
-      // Remove constant import.
-      mainDotNoirCode = mainDotNoirCode.replace(new RegExp(`${constant},`), "");
+      // Remove constants import.
+      mainDotNoirCode = mainDotNoirCode.replace(
+        /constants::\{\s*[^}]*?\},/,
+        ""
+      );
     }
 
     const variantFolder = path.join(

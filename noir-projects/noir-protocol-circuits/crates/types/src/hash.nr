@@ -238,7 +238,17 @@ pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> 
 where
     T: ToField,
 {
-    poseidon2_hash_with_separator(inputs.as_array(), separator)
+    let in_len = inputs.len() + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv: Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
 }
 
 #[no_predicates]
@@ -255,7 +265,9 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
             field_index += 1;
         }
     }
-    fields[field_index] = field_from_bytes(current_field, false);
+    if field_index != fields.len() {
+        fields[field_index] = field_from_bytes(current_field, false);
+    }
     poseidon2_hash(fields)
 }
 
