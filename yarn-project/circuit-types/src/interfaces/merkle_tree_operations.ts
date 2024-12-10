@@ -5,7 +5,7 @@ import {
   type PublicDataTreeLeaf,
   type StateReference,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MerkleTreeId } from '../merkle_tree_id.js';
@@ -263,7 +263,7 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
 export async function inspectTree(
   db: MerkleTreeReadOperations,
   treeId: MerkleTreeId,
-  log = createDebugLogger('aztec:inspect-tree'),
+  log = createLogger('types:inspect-tree'),
 ) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];

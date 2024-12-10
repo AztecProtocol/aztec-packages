@@ -12,31 +12,22 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
-#include "barretenberg/vm/{{snakeCase name}}/generated/flavor_settings.hpp"
+#include "flavor_settings.hpp"
+#include "columns.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 
 // Relations
 {{#each relation_file_names as |r|}}
-#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
+#include "relations/{{r}}.hpp"
 {{/each}}
 
 // Lookup and permutation relations
 {{#each lookups as |r|}}
-#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
+#include "relations/{{r}}.hpp"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
-// The entities that will be used in the flavor.
-// clang-format off
-#define PRECOMPUTED_ENTITIES {{#each fixed as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define WIRE_ENTITIES {{#each witness_without_inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define DERIVED_WITNESS_ENTITIES {{#each inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define SHIFTED_ENTITIES {{#each shifted as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
-#define TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
-#define ALL_ENTITIES {{#if (len fixed)}}PRECOMPUTED_ENTITIES{{/if}}{{#if (len witness_without_inverses)}}, WIRE_ENTITIES{{/if}}{{#if (len lookups)}}, DERIVED_WITNESS_ENTITIES{{/if}}{{#if (len shifted)}}, SHIFTED_ENTITIES{{/if}}
-// clang-format on
 
 namespace bb {
 
@@ -72,7 +63,7 @@ class {{name}}Flavor {
     template <typename FF_>
     using MainRelations_ = std::tuple<
       // Relations
-      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{../name}}_vm::{{item}}<FF_>{{/each}}
+      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{snakeCase ../name}}::{{item}}<FF_>{{/each}}
     >;
 
     using MainRelations = MainRelations_<FF>;
@@ -220,7 +211,7 @@ class {{name}}Flavor {
         auto get_witness_polynomials() { return WitnessEntities<Polynomial>::get_all(); }
         auto get_precomputed_polynomials() { return PrecomputedEntities<Polynomial>::get_all(); }
         auto get_selectors() { return PrecomputedEntities<Polynomial>::get_all(); }
-        auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
+        auto get_to_be_shifted() { return {{name}}Flavor::get_to_be_shifted<Polynomial>(*this); }
         // This order matters! must match get_unshifted in entity classes
         auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
     };

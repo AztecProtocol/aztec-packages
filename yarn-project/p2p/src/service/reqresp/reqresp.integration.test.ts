@@ -1,11 +1,11 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -82,7 +82,7 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  const logger = createDebugLogger('p2p-client-integration-test');
+  const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
     ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());

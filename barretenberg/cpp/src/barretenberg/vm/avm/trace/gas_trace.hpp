@@ -32,6 +32,7 @@ class AvmGasTraceBuilder {
     void finalize(std::vector<AvmFullRow<FF>>& trace);
     void finalize_lookups(std::vector<AvmFullRow<FF>>& trace);
 
+    static std::tuple<uint32_t, uint32_t> unconstrained_compute_gas(OpCode opcode, uint32_t dyn_gas_multiplier);
     void constrain_gas(uint32_t clk,
                        OpCode opcode,
                        uint32_t dyn_gas_multiplier = 0,

@@ -15,7 +15,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -88,7 +88,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private worldStateSynchronizer: WorldStateSynchronizer,
     private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
-    private logger = createDebugLogger('aztec:libp2p_service'),
+    private logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
 

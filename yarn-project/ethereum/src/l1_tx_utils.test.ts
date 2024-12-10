@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil } from '@viem/anvil';
@@ -38,7 +38,7 @@ describe('GasUtils', () => {
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
-  const logger = createDebugLogger('l1_gas_test');
+  const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
     const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);

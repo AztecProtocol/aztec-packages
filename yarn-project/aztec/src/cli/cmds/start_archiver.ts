@@ -1,9 +1,9 @@
 import { Archiver, type ArchiverConfig, KVArchiverDataStore, archiverConfigMappings } from '@aztec/archiver';
-import { createDebugLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js';
 import { ArchiverApiSchema } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import {
   createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
@@ -26,7 +26,7 @@ export async function startArchiver(
     'archiver',
   );
 
-  const storeLog = createDebugLogger('aztec:archiver:lmdb');
+  const storeLog = createLogger('archiver:lmdb');
   const store = await createStore('archiver', archiverConfig, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 

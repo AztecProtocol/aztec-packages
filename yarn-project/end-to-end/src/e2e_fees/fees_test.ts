@@ -3,10 +3,10 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
+  type Logger,
   type PXE,
   SignerlessWallet,
-  createDebugLogger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
@@ -51,7 +51,7 @@ export class FeesTest {
   private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
-  public logger: DebugLogger;
+  public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
 
@@ -83,7 +83,7 @@ export class FeesTest {
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
+    this.logger = createLogger(`e2e:e2e_fees:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
   }
 
