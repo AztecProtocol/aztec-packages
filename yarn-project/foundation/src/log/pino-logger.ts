@@ -1,7 +1,6 @@
 import { createColors } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
-import pretty from 'pino-pretty';
 import { type Writable } from 'stream';
 import { inspect } from 'util';
 
@@ -68,7 +67,7 @@ const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 // Transport options for pretty logging to stderr via pino-pretty.
 const useColor = true;
 const { bold, reset } = createColors({ useColor });
-const pinoPrettyOpts = {
+export const pinoPrettyOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
@@ -78,6 +77,7 @@ const pinoPrettyOpts = {
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
 };
+
 const prettyTransport: pino.TransportSingleOptions = {
   target: 'pino-pretty',
   options: pinoPrettyOpts,
@@ -113,11 +113,13 @@ const otelTransport: pino.TransportSingleOptions = {
 
 function makeLogger() {
   if (!isNode) {
-    // We are on the browser
+    // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
   } else if (process.env.JEST_WORKER_ID) {
-    // We are on jest, so we need sync logging. We stream to stderr with pretty.
-    return pino(pinoOpts, pretty(pinoPrettyOpts));
+    // We are on jest, so we need sync logging and stream to stderr.
+    // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
+    // but if for some reason it doesn't, at least we're covered with a default logger.
+    return pino(pinoOpts, pino.destination(2));
   } else {
     // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
     // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
@@ -141,6 +143,14 @@ logger.verbose(
     ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
     : `Browser console logger initialized with level ${logLevel}`,
 );
+
+/**
+ * Overwrites the logging stream with a different destination.
+ * Used by jest/setup.mjs to set up a pretty logger.
+ */
+export function overwriteLoggingStream(stream: Writable): void {
+  (logger as any)[symbols.streamSym] = stream;
+}
 
 /**
  * Registers an additional destination to the pino logger.
