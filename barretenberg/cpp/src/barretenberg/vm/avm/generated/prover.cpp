@@ -12,7 +12,7 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm/stats.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
@@ -154,4 +154,4 @@ HonkProof AvmProver::construct_proof()
     return export_proof();
 }
 
-} // namespace bb
+} // namespace bb::avm

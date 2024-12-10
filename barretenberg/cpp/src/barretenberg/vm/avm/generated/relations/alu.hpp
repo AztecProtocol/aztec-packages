@@ -442,6 +442,7 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_ALU_MULTIPLICATION_FF = 20;
     static constexpr size_t SR_ALU_PROD_MUL = 24;
     static constexpr size_t SR_DIVISION_RELATION = 31;

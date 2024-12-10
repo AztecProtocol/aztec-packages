@@ -608,7 +608,6 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
     vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
     vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
     vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
-    vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
     vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
 
@@ -659,7 +658,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
  */
 bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
 {
-    using Commitment = AvmFlavorSettings::Commitment;
+    using Commitment = bb::avm::AvmFlavorSettings::Commitment;
     std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
     std::vector<fr> vk_as_fields = many_from_buffer<fr>(vk_bytes);
@@ -683,14 +682,14 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
         return false;
     }
 
-    std::array<Commitment, AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
-    for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
+    std::array<Commitment, bb::avm::AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
+    for (size_t i = 0; i < bb::avm::AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
         // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
         precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(
-            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
+            vk_span.subspan(bb::avm::AvmFlavor::NUM_FRS_COM * i + 2, bb::avm::AvmFlavor::NUM_FRS_COM));
     }
 
-    auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
+    auto vk = bb::avm::AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
 
     const bool verified = AVM_TRACK_TIME_V("verify/all", avm_trace::Execution::verify(vk, proof));
     vinfo("verified: ", verified);

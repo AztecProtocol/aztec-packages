@@ -27,7 +27,6 @@ import { MockedAvmTestContractDataSource } from '../public/fixtures/index.js';
 import { WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
@@ -876,31 +875,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     describe('Nested external calls', () => {
-      const expectTracedNestedCall = (
-        environment: AvmExecutionEnvironment,
-        nestedTrace: PublicSideEffectTraceInterface,
-        isStaticCall: boolean = false,
-        exists: boolean = true,
-      ) => {
-        expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
-        expect(trace.traceNestedCall).toHaveBeenCalledWith(
-          /*nestedCallTrace=*/ nestedTrace,
-          /*nestedEnvironment=*/ expect.objectContaining({
-            sender: environment.address, // sender is top-level call
-            contractCallDepth: new Fr(1), // top call is depth 0, nested is depth 1
-            globals: environment.globals, // just confirming that nested env looks roughly right
-            isStaticCall: isStaticCall,
-            // top-level calls forward args in these tests,
-            // but nested calls in these tests use public_dispatch, so selector is inserted as first arg
-            calldata: expect.arrayContaining([/*selector=*/ expect.anything(), ...environment.calldata]),
-          }),
-          /*startGasLeft=*/ expect.anything(),
-          /*bytecode=*/ exists ? expect.anything() : undefined,
-          /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
-          /*functionName=*/ expect.anything(),
-        );
-      };
-
       it(`Nested call to non-existent contract`, async () => {
         const calldata = [value0, value1];
         const context = createContext(calldata);
@@ -914,8 +888,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true);
         expect(results.output).toEqual([]);
-
-        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ false, /*exists=*/ false);
       });
 
       it(`Nested call`, async () => {
@@ -940,8 +912,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0.add(value1)]);
-
-        expectTracedNestedCall(context.environment, nestedTrace);
       });
 
       it(`Nested static call`, async () => {
@@ -966,8 +936,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0.add(value1)]);
-
-        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ true);
       });
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
@@ -994,9 +962,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(artifact.bytecode);
         expect(results.reverted).toBe(true);
         expect(results.revertReason?.message).toMatch('Not enough L2GAS gas left');
-
-        // Nested call should have been made (and failed).
-        expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
       });
 
       it(`Nested static call which modifies storage (expect failure)`, async () => {
@@ -1023,8 +988,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.revertReason?.message).toEqual(
           'Static call cannot update the state, emit L2->L1 messages or generate logs',
         );
-
-        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ true);
 
         // Nested call should NOT have been able to write storage
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(0);
@@ -1117,6 +1080,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
     });
   });
+
   describe('Side effects including merkle checks', () => {
     const address = AztecAddress.fromNumber(1);
     const sender = AztecAddress.fromNumber(42);

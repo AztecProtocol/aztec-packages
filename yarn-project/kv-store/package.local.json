@@ -1,5 +1,5 @@
 {
-    "scripts": {
-        "test": "yarn test:node && yarn test:browser"
-    }
+  "scripts": {
+    "test": "yarn test:node && yarn test:browser"
+  }
 }
