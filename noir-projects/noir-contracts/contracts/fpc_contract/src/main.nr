@@ -36,7 +36,10 @@ contract FPC {
     /// 2. then the private and public functions of a tx get executed,
     /// 3. at this point we know the tx fee so we can compute in the teardown function how much of AT the user needs
     /// to pay to the FPC recipient and how much of it will be refunded back. Note that this is computed based on
-    /// an exchange rate between the accepted asset and the fee token (called fee juice in some places).
+    /// an exchange rate between the accepted asset and the fee token (called fee juice in some places),
+    /// 4. the protocol deducts the actual fee denominated in fee juice from the FPC's balance.
+    ///
+    /// With this scheme a user has privately paid for the tx fee with an arbitrary AT (e.g. could be a stablecoin).
     ///
     /// ***Note:***
     /// This flow allows us to pay for the tx with msg_sender's private balance of AT and hence msg_sender's identity

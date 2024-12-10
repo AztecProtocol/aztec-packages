@@ -703,13 +703,6 @@ contract Token {
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#7796): we should try to prevent reverts here
-        // How could we ensure the following assert does not fail?
-        // - We could enforce during setup that the fee payer has enough funds to cover a "maximally complex tx"
-        // --> do we have something like max gas limit to compute the gas fee of such a tx?
-        // --> would this be acceptable or is it considered too expensive?
-        //
-        // Currently we also assume that an exchange rate between "gas" (fee juice) and the token we fund the FPC
-        // with is fixed (e.g. stablecoin).
         assert(max_amount >= tx_fee, "max amount not enough to cover tx fee");
 
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
