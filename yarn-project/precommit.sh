@@ -1,5 +1,8 @@
 #!/bin/bash
 # Precommit hook for formatting staged files.
+# Formatting is slow. Linting is slow. That's not much fun in a precommit hook.
+# We only run the formatter over staged files, and we parallelize with chunks of 10 files per prettier.
+# Linting is run over everything, but we parallelize over projects directories, and use --cache to improve repeat runs.
 set -euo pipefail
 
 cd $(dirname $0)
