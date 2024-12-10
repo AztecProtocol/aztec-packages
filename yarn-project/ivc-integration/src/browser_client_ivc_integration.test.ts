@@ -71,7 +71,7 @@ describe('Client IVC Integration', () => {
   let page: Page;
   let browser: Browser;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     page = await context.newPage();
@@ -79,7 +79,7 @@ describe('Client IVC Integration', () => {
     await page.goto('http://localhost:8080');
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await browser.close();
   });
 
