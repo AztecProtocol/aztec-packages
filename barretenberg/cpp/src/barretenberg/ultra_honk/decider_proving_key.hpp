@@ -242,6 +242,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
+                    info("lookup_inverses_length: ", lookup_inverses_end - lookup_inverses_start);
                     // proving_key.polynomials.lookup_inverses = Polynomial(
                     //     lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
