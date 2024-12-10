@@ -132,6 +132,7 @@ template <typename FF> class gas : public Relation<gasImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_IS_GAS_ACCOUNTED = 0;
     static constexpr size_t SR_L2_GAS_NO_DECREMENT_FAKE_ROW = 4;
     static constexpr size_t SR_DA_GAS_NO_DECREMENT_FAKE_ROW = 5;

@@ -63,7 +63,9 @@ describe('e2e_avm_simulator', () => {
 
     describe('From private', () => {
       it('Should enqueue a public function correctly', async () => {
-        await avmContract.methods.enqueue_public_from_private().simulate();
+        const request = await avmContract.methods.enqueue_public_from_private().create();
+        const simulation = await wallet.simulateTx(request, true);
+        expect(simulation.publicOutput!.revertReason).toBeUndefined();
       });
     });
 

@@ -1,17 +1,11 @@
 use crate::{
-    abis::{
-        append_only_tree_snapshot::{APPEND_ONLY_TREE_SNAPSHOT_LENGTH, AppendOnlyTreeSnapshot},
-        global_variables::GlobalVariables,
-    },
-    constants::{
-        BLOCK_HEADER_LENGTH, CONTENT_COMMITMENT_LENGTH, GENERATOR_INDEX__BLOCK_HASH,
-        GLOBAL_VARIABLES_LENGTH, STATE_REFERENCE_LENGTH,
-    },
+    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
+    constants::{BLOCK_HEADER_LENGTH, GENERATOR_INDEX__BLOCK_HASH},
     content_commitment::ContentCommitment,
     hash::poseidon2_hash_with_separator,
     state_reference::StateReference,
     traits::{Deserialize, Empty, Hash, Serialize},
-    utils::arr_copy_slice,
+    utils::arrays::subarray,
 };
 
 // docs:start:block-header
@@ -54,20 +48,17 @@ impl Deserialize<BLOCK_HEADER_LENGTH> for BlockHeader {
     fn deserialize(serialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
         let mut offset = 0;
 
-        let last_archive_fields =
-            arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
-        offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
+        let last_archive_fields = subarray(serialized, offset);
+        offset = offset + last_archive_fields.len();
 
-        let content_commitment_fields =
-            arr_copy_slice(serialized, [0; CONTENT_COMMITMENT_LENGTH], offset);
-        offset = offset + CONTENT_COMMITMENT_LENGTH;
+        let content_commitment_fields = subarray(serialized, offset);
+        offset = offset + content_commitment_fields.len();
 
-        let state_fields = arr_copy_slice(serialized, [0; STATE_REFERENCE_LENGTH], offset);
-        offset = offset + STATE_REFERENCE_LENGTH;
+        let state_fields = subarray(serialized, offset);
+        offset = offset + state_fields.len();
 
-        let global_variables_fields =
-            arr_copy_slice(serialized, [0; GLOBAL_VARIABLES_LENGTH], offset);
-        offset = offset + GLOBAL_VARIABLES_LENGTH;
+        let global_variables_fields = subarray(serialized, offset);
+        offset = offset + global_variables_fields.len();
 
         let total_fees = serialized[offset];
         offset = offset + 1;

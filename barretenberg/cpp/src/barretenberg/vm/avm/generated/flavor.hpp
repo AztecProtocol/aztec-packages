@@ -93,7 +93,7 @@
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
 
-namespace bb {
+namespace bb::avm {
 
 class AvmFlavor {
   public:
@@ -252,7 +252,7 @@ class AvmFlavor {
       public:
         using DataType = DataType_;
 
-        DEFINE_FLAVOR_MEMBERS(DataType, PRECOMPUTED_ENTITIES)
+        DEFINE_FLAVOR_MEMBERS(DataType, AVM_PRECOMPUTED_ENTITIES)
 
         RefVector<DataType> get_selectors() { return get_all(); }
         RefVector<DataType> get_sigma_polynomials() { return {}; }
@@ -263,23 +263,23 @@ class AvmFlavor {
   private:
     template <typename DataType> class WireEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, WIRE_ENTITIES)
+        DEFINE_FLAVOR_MEMBERS(DataType, AVM_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, DERIVED_WITNESS_ENTITIES)
+        DEFINE_FLAVOR_MEMBERS(DataType, AVM_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, SHIFTED_ENTITIES)
+        DEFINE_FLAVOR_MEMBERS(DataType, AVM_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
     static auto get_to_be_shifted([[maybe_unused]] PrecomputedAndWitnessEntitiesSuperset& entities)
     {
-        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ TO_BE_SHIFTED(entities) };
+        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM_TO_BE_SHIFTED(entities) };
     }
 
   public:
@@ -386,7 +386,7 @@ class AvmFlavor {
         using BaseDataType = const FF;
         using DataType = BaseDataType&;
 
-        DEFINE_FLAVOR_MEMBERS(DataType, ALL_ENTITIES)
+        DEFINE_FLAVOR_MEMBERS(DataType, AVM_ALL_ENTITIES)
 
         AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
     };
@@ -513,4 +513,4 @@ class AvmFlavor {
     };
 };
 
-} // namespace bb
+} // namespace bb::avm

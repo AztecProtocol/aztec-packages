@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::{{snakeCase root_name}} {
 
 class {{perm_name}}_permutation_settings {
   public:
@@ -43,4 +43,4 @@ template <typename FF_> class {{perm_name}}_relation : public GenericPermutation
 };
 template <typename FF_> using {{perm_name}} = GenericPermutation<{{perm_name}}_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::{{snakeCase root_name}}
