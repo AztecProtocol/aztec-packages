@@ -9,7 +9,7 @@ on:
         type: string
         default: metrics
       values_file:
-        description: The values file to use, e.g. 1-validators.yaml
+        description: The values file to use, e.g. prod.yaml
         required: true
         type: string
         default: "prod.yaml"
