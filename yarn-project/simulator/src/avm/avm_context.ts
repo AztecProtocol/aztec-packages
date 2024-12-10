@@ -16,7 +16,6 @@ export class AvmContext {
    * @param persistableState - Manages world state and accrued substate during execution - (caching, fetching, tracing)
    * @param environment - Contains constant variables provided by the kernel
    * @param machineState - VM state that is modified on an instruction-by-instruction basis
-   * @param fnName - The function name which initiated this context.
    * @returns new AvmContext instance
    */
   constructor(
