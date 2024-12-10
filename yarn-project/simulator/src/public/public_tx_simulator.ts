@@ -20,7 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress, ProtocolContractArtifact } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
