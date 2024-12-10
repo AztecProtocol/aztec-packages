@@ -292,6 +292,16 @@ export class AztecClientBackend {
     }
   }
 
+  async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+    await this.instantiate();
+    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirVerifyAztecClient(proof, vk);
+  }
+
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
