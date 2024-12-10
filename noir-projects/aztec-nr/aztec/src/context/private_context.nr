@@ -1,4 +1,4 @@
-use dep::protocol_types::debug_log::{debug_log, debug_log_format};
+use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
