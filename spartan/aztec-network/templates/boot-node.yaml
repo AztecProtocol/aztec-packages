@@ -78,6 +78,8 @@ spec:
               value: "true"
             - name: MNEMONIC
               value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: L1_DEPLOYMENT_PRIVATE_KEY
+              value: "{{ .Values.ethereum.deployL1ContractsPrivateKey }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -99,7 +101,7 @@ spec:
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
               env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
           startupProbe:
             httpGet:
               path: /status

@@ -1,7 +1,7 @@
 variable "GKE_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
-  default     = "gke_testnet-440309_us-east4-a_spartan-gke"
+  default     = "gke_testnet-440309_us-west1-a_aztec-gke"
 }
 
 variable "RELEASE_NAME" {
@@ -21,6 +21,30 @@ variable "AZTEC_DOCKER_IMAGE" {
 
 variable "L1_DEPLOYMENT_MNEMONIC" {
   description = "Mnemonic to use for the L1 contract deployments"
+  type        = string
+  sensitive   = true
+}
+
+variable "L1_DEPLOYMENT_PRIVATE_KEY" {
+  description = "Private key to use for the L1 contract deployments"
+  type        = string
+  sensitive   = true
+}
+
+variable "VALIDATOR_KEYS" {
+  description = "List of private keys to use for the validators"
+  type        = list(string)
+  sensitive   = true
+}
+
+variable "BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY" {
+  description = "Private key to use for the boot node"
+  type        = string
+  sensitive   = true
+}
+
+variable "PROVER_PUBLISHER_PRIVATE_KEY" {
+  description = "Private key to use for the prover"
   type        = string
   sensitive   = true
 }

@@ -217,6 +217,7 @@ ethereum:
       memory: "2Gi"
       cpu: "200m"
   storage: "80Gi"
+  deployL1ContractsPrivateKey:
 
 proverAgent:
   service:
@@ -233,20 +234,6 @@ proverAgent:
   nodeSelector: {}
   resources: {}
   pollInterval: 200
-
-proverBroker:
-  service:
-    nodePort: 8084
-  enabled: true
-  replicas: 1
-  jobTimeoutMs: 30000
-  pollIntervalMs: 1000
-  jobMaxRetries: 3
-  dataDirectory: ""
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  nodeSelector: {}
-  resources: {}
 
 proverBroker:
   service:

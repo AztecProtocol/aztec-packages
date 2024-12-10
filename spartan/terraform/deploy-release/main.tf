@@ -52,6 +52,28 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.L1_DEPLOYMENT_MNEMONIC
   }
 
+  set {
+    name  = "ethereum.deployL1ContractsPrivateKey"
+    value = var.L1_DEPLOYMENT_PRIVATE_KEY
+  }
+
+  set {
+    name = "validator.validatorKeys"
+    value = jsonencode({
+      for key in var.VALIDATOR_KEYS : key => true
+    })
+  }
+
+  set {
+    name  = "bootNode.seqPublisherPrivateKey"
+    value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
+  }
+
+  set {
+    name  = "proverNode.proverPublisherPrivateKey"
+    value = var.PROVER_PUBLISHER_PRIVATE_KEY
+  }
+
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
   wait          = true

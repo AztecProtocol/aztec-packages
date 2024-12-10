@@ -37,14 +37,7 @@ if [ "$NUM_VALIDATORS" -eq 1 ]; then
   eval "${CMD[0]}"
 else
   echo "Running $NUM_VALIDATORS validators sequentially, interleaved"
-  FIRST_PORT=8081
 
-  # check if we're running against anvil
-  if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOST | jq .result | grep -q anvil; then
-    "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" "${CMD[@]}"
-  else
-    # Use run_interleaved with a wait condition
-    WAIT_CONDITION="curl -s http://127.0.0.1:$FIRST_PORT/status >/dev/null"
-    "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" -w "$WAIT_CONDITION" "${CMD[@]}"
-  fi
+  # Execute the run_interleaved.sh script with the commands
+  "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" "${CMD[@]}"
 fi

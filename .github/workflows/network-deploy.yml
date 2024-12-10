@@ -17,7 +17,7 @@ on:
         type: string
       deployment_mnemonic_secret_name:
         description: The name of the secret which holds the boot node's contract deployment mnemonic
-        required: true
+        required: false
         type: string
         default: testnet-deployment-mnemonic
       respect_tf_lock:
@@ -41,7 +41,7 @@ on:
         required: true
       deployment_mnemonic_secret_name:
         description: The name of the secret which holds the boot node's contract deployment mnemonic
-        required: true
+        required: false
         default: testnet-deployment-mnemonic
       respect_tf_lock:
         description: Whether to respect the Terraform lock
@@ -67,6 +67,12 @@ jobs:
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+
+      # Sepolia deployment secrets
+      TF_VAR_L1_DEPLOYMENT_PRIVATE_KEY: ${{ secrets.L1_DEPLOYMENT_PRIVATE_KEY }}
+      TF_VAR_VALIDATOR_KEYS: ${{ secrets.VALIDATOR_KEYS }}
+      TF_VAR_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}
+      TF_VAR_PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}
 
     steps:
       - name: Checkout code
@@ -125,6 +131,10 @@ jobs:
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
             -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+            -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.L1_DEPLOYMENT_PRIVATE_KEY }}" \
+            -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
+            -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
+            -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 

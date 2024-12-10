@@ -13,15 +13,18 @@ ethereum:
 
 validator:
   replicas: 3
-  validatorKeys: ${VALIDATOR_KEYS}
-  validatorAddresses: ${VALIDATOR_ADDRESSES}
+  validatorKeys:
+  validatorAddresses:
+    - 0xB5221f3FA03acDEA5A68e355CcDed3f76847F375
+    - 0x226E9D4c69525884b0A52C1E9E4C11054729223e
+    - 0xA33Fa6E2890C37C42CFC0875B86462E73885e02b
   validator:
     disabled: false
 
 bootNode:
-  seqPublisherPrivateKey: ${SEQ_PUBLISHER_PRIVATE_KEY}
+  seqPublisherPrivateKey:
   validator:
     disabled: true
 
 proverNode:
-  proverPublisherPrivateKey: ${PROVER_PUBLISHER_PRIVATE_KEY}
+  proverPublisherPrivateKey:
