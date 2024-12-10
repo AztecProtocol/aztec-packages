@@ -255,19 +255,33 @@ Transfers token with `token_id` from public balance of the sender to a private b
 
 #### `prepare_private_balance_increase`
 
-TODO
+This function prepares a partial note to transfer an NFT from the public context to the private context. The caller specifies an `AztecAddress` that will receive the NFT in private storage.
+
+:::note
+
+This function calls `_prepare_private_balance_increase` which is marked as `#[contract_library_method]`, which means the compiler will inline the `_prepare_private_balance_increase` function. Click through to the source to see the implementation.
+
+:::
+
+#include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `cancel_authwit`
 
-TODO
+Cancels a private authwit by emitting the corresponding nullifier.
+
+#include_code cancel_authwit /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `transfer_in_private`
 
-TODO
+Transfers an NFT in the private context. Uses [authwits](../../../aztec/concepts/accounts/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
+
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `transfer_to_public`
 
-TODO
+Transfers and NFT from private storage to public storage. The private call enqueues a call to [`_finish_transfer_to_public`](#_finish_transfer_to_public) which updates the public owner of the `token_id`.
+
+#include_code transfer_to_public /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ### Internal function implementations
 
@@ -277,19 +291,19 @@ Internal functions are functions that can only be called by this contract. The f
 
 It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
 
-#include_code \_store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
+#include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `_finalize_transfer_to_private_unsafe`
 
 This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
 
-#include_code \_finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
+#include_code finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `_finish_transfer_to_public`
 
 Updates the public owner of the `token_id` to the `to` address.
 
-#include_code \_finish_transfer_to_public /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
+#include_code finish_transfer_to_public /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ### View function implementations
 

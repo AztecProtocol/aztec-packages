@@ -17,9 +17,12 @@ contract NFT {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{
-            events::event, functions::{initializer, internal, private, public, view},
+            events::event,
+            functions::{initializer, internal, private, public, view},
             storage::storage,
-        }, note::constants::MAX_NOTES_PER_PAGE, oracle::random::random,
+        },
+        note::constants::MAX_NOTES_PER_PAGE,
+        oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
@@ -175,11 +178,12 @@ contract NFT {
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
     /// `finalize_transfer_to_private. Returns a hiding point slot.
+    // docs:start:prepare_private_balance_increase
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress) -> Field {
         _prepare_private_balance_increase(to, &mut context, storage)
     }
-
+    // docs:end:prepare_private_balance_increase
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
@@ -236,6 +240,7 @@ contract NFT {
     // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
     // will allow us to use generics and hence user will not need to define it explicitly. We cannot use generics here
     // as it is an entrypoint function.
+    // docs:start:store_payload_in_transient_storage_unsafe
     #[public]
     #[internal]
     fn _store_payload_in_transient_storage_unsafe(
@@ -246,7 +251,7 @@ contract NFT {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
-
+    // docs:end:store_payload_in_transient_storage_unsafe
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
@@ -258,6 +263,7 @@ contract NFT {
     }
     // docs:end:finalize_transfer_to_private
 
+    // docs:start:finalize_transfer_to_private_unsafe
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
@@ -267,6 +273,7 @@ contract NFT {
     ) {
         _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
     }
+    // docs:end:finalize_transfer_to_private_unsafe
 
     #[contract_library_method]
     fn _finalize_transfer_to_private(
@@ -294,13 +301,16 @@ contract NFT {
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
+    // docs:start:cancel_authwit
     #[private]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }
+    // docs:end:cancel_authwit
 
+    // docs:start:transfer_in_private
     #[private]
     fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
@@ -326,7 +336,9 @@ contract NFT {
             from,
         ));
     }
+    // docs:end:transfer_in_private
 
+    // docs:start:transfer_to_public
     #[private]
     fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
@@ -344,12 +356,15 @@ contract NFT {
             &mut context,
         );
     }
+    // docs:end:transfer_to_public
 
+    // docs:start:finish_transfer_to_public
     #[public]
     #[internal]
     fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
         storage.public_owners.at(token_id).write(to);
     }
+    // docs:end:finish_transfer_to_public
 
     // Returns zero address when the token does not have a public owner. Reverts if the token does not exist.
     #[public]
