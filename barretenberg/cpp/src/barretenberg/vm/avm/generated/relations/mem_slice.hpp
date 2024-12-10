@@ -123,6 +123,7 @@ template <typename FF> class mem_slice : public Relation<mem_sliceImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SLICE_CNT_ZERO_TEST1 = 1;
     static constexpr size_t SR_SLICE_CNT_ZERO_TEST2 = 2;
     static constexpr size_t SR_SLICE_CNT_DECREMENT = 3;
