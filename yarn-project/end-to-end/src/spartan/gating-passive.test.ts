@@ -1,5 +1,5 @@
 import { EthCheatCodes, createCompatibleClient, sleep } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
@@ -41,7 +41,7 @@ const {
   SPARTAN_DIR,
   INSTANCE_NAME,
 } = config;
-const debugLogger = createDebugLogger('aztec:spartan-test:gating-passive');
+const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes

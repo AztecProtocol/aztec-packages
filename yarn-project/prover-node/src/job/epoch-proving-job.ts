@@ -12,7 +12,7 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -29,7 +29,7 @@ import { type ProverNodeMetrics } from '../metrics.js';
  */
 export class EpochProvingJob {
   private state: EpochProvingJobState = 'initialized';
-  private log = createDebugLogger('aztec:epoch-proving-job');
+  private log = createLogger('prover-node:epoch-proving-job');
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;

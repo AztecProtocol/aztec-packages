@@ -18,7 +18,7 @@ import {
   type PublicCallRequest,
   type RevertCode,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress, ProtocolContractArtifact } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -55,7 +55,7 @@ export type PublicTxResult = {
 export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(
     private db: MerkleTreeReadOperations,
@@ -64,8 +64,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_simulator`);
-    this.log.info(`fee juice storage balances slot: ${ProtocolContractArtifact.FeeJuice.storageLayout.balances.slot}`);
+    this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
@@ -270,8 +269,7 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const selector = executionRequest.callContext.functionSelector;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
 
     const availableGas = context.getGasLeftForPhase(phase);
     // Gas allocated to an enqueued call can be different from the available gas
@@ -334,18 +332,16 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
-    const selector = executionRequest.callContext.functionSelector;
 
     this.log.verbose(
       `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
-    const simulator = AvmSimulator.create(
+    const simulator = await AvmSimulator.create(
       stateManager,
       address,
       sender,
-      selector,
       transactionFee,
       this.globalVariables,
       executionRequest.callContext.isStaticCall,

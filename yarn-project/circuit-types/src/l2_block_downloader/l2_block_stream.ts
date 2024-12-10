@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type L2Block } from '../l2_block.js';
@@ -9,7 +9,7 @@ import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_sou
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
-  private readonly log = createDebugLogger('aztec:l2_block_stream');
+  private readonly log = createLogger('types:l2_block_stream');
 
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,

@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class gasImpl {
   public:
@@ -131,6 +131,12 @@ template <typename FF> class gas : public Relation<gasImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_IS_GAS_ACCOUNTED = 0;
+    static constexpr size_t SR_L2_GAS_NO_DECREMENT_FAKE_ROW = 4;
+    static constexpr size_t SR_DA_GAS_NO_DECREMENT_FAKE_ROW = 5;
+    static constexpr size_t SR_L2_GAS_REMAINING_DECREMENT_NOT_CALL = 6;
+    static constexpr size_t SR_DA_GAS_REMAINING_DECREMENT_NOT_CALL = 7;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

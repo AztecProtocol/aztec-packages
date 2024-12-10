@@ -16,7 +16,7 @@ import {
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
@@ -39,7 +39,7 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class AvmPersistableStateManager {
-  private readonly log = createDebugLogger('aztec:avm_simulator:state_manager');
+  private readonly log = createLogger('simulator:avm:state_manager');
 
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
@@ -688,7 +688,6 @@ export class AvmPersistableStateManager {
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
       nestedEnvironment.address,
-      nestedEnvironment.functionSelector,
       nestedEnvironment.calldata,
     );
 
@@ -706,6 +705,10 @@ export class AvmPersistableStateManager {
 
   public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
     this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
+  }
+
+  public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
+    return await getPublicFunctionDebugName(this.worldStateDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 }
 

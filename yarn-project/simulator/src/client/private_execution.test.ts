@@ -52,7 +52,7 @@ import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
@@ -83,7 +83,7 @@ describe('Private Execution test suite', () => {
   let acirSimulator: AcirSimulator;
 
   let header = BlockHeader.empty();
-  let logger: DebugLogger;
+  let logger: Logger;
 
   const defaultContractAddress = AztecAddress.random();
   const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -184,7 +184,7 @@ describe('Private Execution test suite', () => {
   };
 
   beforeAll(() => {
-    logger = createDebugLogger('aztec:test:private_execution');
+    logger = createLogger('simulator:test:private_execution');
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
