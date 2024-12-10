@@ -1,19 +1,22 @@
 import * as core from "@actions/core";
 
-import * as AWS from "aws-sdk";
+import { DescribeLaunchTemplatesCommandInput, EC2 } from '@aws-sdk/client-ec2';
 import { ActionConfig } from "./config";
 
 // Main function to prune instances older than 2 weeks
 async function pruneOldInstances(config: ActionConfig) {
   // Initialize EC2 client
-  const credentials = new AWS.Credentials({
+  const credentials = {
     accessKeyId: config.awsAccessKeyId,
     secretAccessKey: config.awsSecretAccessKey,
+  };
+  const ec2 = new EC2({
+    region: config.awsRegion,
+    credentials,
   });
-  const ec2 = new AWS.EC2({ region: config.awsRegion, credentials });
   try {
     // Fetch all instances
-    const describeLaunchTemplatesCommand: AWS.EC2.DescribeLaunchTemplatesRequest = {
+    const describeLaunchTemplatesCommand: DescribeLaunchTemplatesCommandInput = {
         Filters: [
             {
                 Name: 'launch-template-name',
@@ -23,7 +26,7 @@ async function pruneOldInstances(config: ActionConfig) {
     };
     core.info(`Searching for launch templates with params: ${JSON.stringify(describeLaunchTemplatesCommand, null, 2)}`);
 
-    const response = await ec2.describeLaunchTemplates(describeLaunchTemplatesCommand).promise();
+    const response = await ec2.describeLaunchTemplates(describeLaunchTemplatesCommand);
 
     core.info(`Raw response contains ${response.LaunchTemplates?.length || 0} launch templates`);
 
@@ -69,7 +72,7 @@ async function pruneOldInstances(config: ActionConfig) {
         if (template.LaunchTemplateId) {
           await ec2.deleteLaunchTemplate({
             LaunchTemplateId: template.LaunchTemplateId
-          }).promise();
+          });
           core.info(`Deleted launch template: ${template.LaunchTemplateId}`);
         }
       } else {
@@ -79,7 +82,7 @@ async function pruneOldInstances(config: ActionConfig) {
   } catch (error) {
     core.error("Error pruning instances:", error);
   }
-};
+}
 
 // Run the script
 (async function () {
