@@ -10,6 +10,7 @@ template <typename Curve>
 std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Curve>::add_in_place(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
 {
+    PROFILE_THIS_NAME("BatchedAffineAddition::add_in_place");
     // Instantiate scratch space for point addition denominators and their calculation
     std::vector<Fq> scratch_space_vector(points.size());
     std::span<Fq> scratch_space(scratch_space_vector);

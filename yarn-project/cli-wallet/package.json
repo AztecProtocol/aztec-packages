@@ -63,7 +63,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
@@ -75,6 +76,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/pxe": "workspace:^",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",

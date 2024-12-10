@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -82,7 +82,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(dataDir: string, dbMapSizeKb: number, private log = createLogger('world-state:database')) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
       `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,

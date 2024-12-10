@@ -10,7 +10,7 @@ import {
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
@@ -25,10 +25,10 @@ import { ViewDataOracle } from './view_data_oracle.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(private db: DBOracle, private node: AztecNode) {
-    this.log = createDebugLogger('aztec:simulator');
+    this.log = createLogger('simulator');
   }
 
   /**

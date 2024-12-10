@@ -49,7 +49,7 @@ import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
@@ -99,7 +99,7 @@ export class SideEffectArrayLengths {
  * Trace side effects for an entire enqueued call.
  */
 export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createDebugLogger('aztec:public_enqueued_call_side_effect_trace');
+  public log = createLogger('simulator:public_enqueued_call_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;
@@ -365,7 +365,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         contractAddress,
@@ -375,6 +379,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         instance.contractClassId,
         instance.initializationHash,
         instance.publicKeys,
+        membershipHint,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
@@ -394,7 +399,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
       exists,
@@ -403,6 +412,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       contractInstance.contractClassId,
       contractInstance.initializationHash,
       contractInstance.publicKeys,
+      membershipHint,
     );
     // We need to deduplicate the contract instances based on addresses
     this.avmCircuitHints.contractBytecodeHints.items.push(

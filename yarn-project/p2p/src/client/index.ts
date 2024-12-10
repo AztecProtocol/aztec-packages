@@ -1,8 +1,8 @@
 import type { ClientProtocolCircuitVerifier, L2BlockSource, WorldStateSynchronizer } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -35,7 +35,7 @@ export const createP2PClient = async (
   } = {},
 ) => {
   let config = { ..._config };
-  const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
+  const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb')));
 
   const mempools: MemPools = {
     txPool: deps.txPool ?? new AztecKVTxPool(store, telemetry),

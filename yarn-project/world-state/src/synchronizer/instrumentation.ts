@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Gauge, type Meter, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 import { type DBStats, type TreeDBStats, type TreeMeta, type WorldStateStatusFull } from '../native/message.js';
@@ -40,7 +40,7 @@ class TreeInstrumentation {
   private finalisedHeight: Gauge;
   private oldestBlock: Gauge;
 
-  constructor(meter: Meter, treeName: TreeTypeString, private log: DebugLogger) {
+  constructor(meter: Meter, treeName: TreeTypeString, private log: Logger) {
     this.dbMapSize = meter.createGauge(`aztec.world_state.db_map_size.${treeName}`, {
       description: `The current configured map size for the ${treeName} tree`,
       valueType: ValueType.INT,
@@ -100,7 +100,7 @@ class TreeInstrumentation {
 export class WorldStateInstrumentation {
   private treeInstrumentation: Map<MerkleTreeId, TreeInstrumentation> = new Map<MerkleTreeId, TreeInstrumentation>();
 
-  constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:world-state:instrumentation')) {
+  constructor(telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
     const meter = telemetry.getMeter('World State');
     this.treeInstrumentation.set(MerkleTreeId.ARCHIVE, new TreeInstrumentation(meter, 'archive', log));
     this.treeInstrumentation.set(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, new TreeInstrumentation(meter, 'message', log));

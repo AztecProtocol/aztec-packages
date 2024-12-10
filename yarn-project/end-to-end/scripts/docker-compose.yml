@@ -35,6 +35,7 @@ services:
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
       PXE_URL: http://sandbox:8080
+      AZTEC_NODE_URL: http://sandbox:8080
     # Voodoo explanation.
     # Why do we do all this? To ensure tests can have their own traps for cleanup. Namely up_quick_start...
     # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.

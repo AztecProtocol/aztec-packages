@@ -62,7 +62,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",

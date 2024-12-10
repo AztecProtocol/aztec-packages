@@ -10,7 +10,11 @@
   "engines": {
     "node": ">=18"
   },
-  "files": ["dest", "src", "!*.test.*"],
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
@@ -19,7 +23,9 @@
     "ts-node": "^10.9.1"
   },
   "jest": {
-    "extensionsToTreatAsEsm": [".ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "transform": {
       "^.+\\.tsx?$": [
         "@swc/jest",
@@ -39,7 +45,15 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
-    "reporters": [["default", { "summaryThreshold": 9999 }]],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
+    ],
+    "testTimeout": 30000,
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   }

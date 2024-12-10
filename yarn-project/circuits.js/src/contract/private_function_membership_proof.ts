@@ -1,7 +1,7 @@
 import { type ContractArtifact, type FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { computeRootFromSiblingPath } from '../merkle/index.js';
 import {
@@ -29,7 +29,7 @@ export function createPrivateFunctionMembershipProof(
   selector: FunctionSelector,
   artifact: ContractArtifact,
 ): PrivateFunctionMembershipProof {
-  const log = createDebugLogger('aztec:circuits:function_membership_proof');
+  const log = createLogger('circuits:function_membership_proof');
 
   // Locate private function definition and artifact
   const privateFunctions = artifact.functions
@@ -107,7 +107,7 @@ export function isValidPrivateFunctionMembershipProof(
   fn: ExecutablePrivateFunctionWithMembershipProof,
   contractClass: Pick<ContractClassPublic, 'privateFunctionsRoot' | 'artifactHash'>,
 ) {
-  const log = createDebugLogger('aztec:circuits:function_membership_proof');
+  const log = createLogger('circuits:function_membership_proof');
 
   // Check private function tree membership
   const functionLeaf = computePrivateFunctionLeaf(fn);
