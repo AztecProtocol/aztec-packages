@@ -27,7 +27,7 @@ mod test {
 
     #[test]
     unconstrained fn subarray_into_empty() {
-        // In all of these cases we're setting DST_LEN to be 0, so we always get back an emtpy array.
+        // In all of these cases we're setting DST_LEN to be 0, so we always get back an empty array.
         assert_eq(subarray([], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 2), []);
