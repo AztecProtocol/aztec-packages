@@ -6,9 +6,9 @@ import {
   AccountManager,
   AccountWallet,
   type CompleteAddress,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -29,7 +29,7 @@ function itShouldBehaveLikeAnAccountContract(
     let secretKey: Fr;
 
     let pxe: PXE;
-    let logger: DebugLogger;
+    let logger: Logger;
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {

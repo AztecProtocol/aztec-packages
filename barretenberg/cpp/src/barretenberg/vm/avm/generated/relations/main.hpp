@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class mainImpl {
   public:
@@ -739,6 +739,27 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    static constexpr size_t SR_OPCODE_SELECTORS = 0;
+    static constexpr size_t SR_OUTPUT_U1 = 75;
+    static constexpr size_t SR_SUBOP_FDIV = 76;
+    static constexpr size_t SR_SUBOP_FDIV_ZERO_ERR1 = 77;
+    static constexpr size_t SR_SUBOP_FDIV_ZERO_ERR2 = 78;
+    static constexpr size_t SR_SUBOP_FDIV_R_IN_TAG_FF = 79;
+    static constexpr size_t SR_SUBOP_FDIV_W_IN_TAG_FF = 80;
+    static constexpr size_t SR_TAG_ERR_IMPLIES_OP_ERR = 81;
+    static constexpr size_t SR_PC_JUMP = 82;
+    static constexpr size_t SR_PC_JUMPI = 83;
+    static constexpr size_t SR_SPACE_ID_STANDARD_OPCODES = 84;
+    static constexpr size_t SR_JMP_CONDITION_RES_1 = 85;
+    static constexpr size_t SR_JMP_CONDITION_RES_2 = 86;
+    static constexpr size_t SR_MOV_SAME_VALUE_A = 88;
+    static constexpr size_t SR_MOV_SAME_VALUE_B = 89;
+    static constexpr size_t SR_MOV_MAIN_SAME_TAG = 90;
+    static constexpr size_t SR_L2GASLEFT = 94;
+    static constexpr size_t SR_DAGASLEFT = 95;
+    static constexpr size_t SR_BIN_SEL_1 = 96;
+    static constexpr size_t SR_BIN_SEL_2 = 97;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

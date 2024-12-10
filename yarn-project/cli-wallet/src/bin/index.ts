@@ -1,6 +1,6 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
-import { type LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { type PXEService } from '@aztec/pxe';
 
@@ -14,7 +14,7 @@ import { createAliasOption } from '../utils/options/index.js';
 import { PXEWrapper } from '../utils/pxe_wrapper.js';
 
 const userLog = createConsoleLogger();
-const debugLogger = createDebugLogger('aztec:wallet');
+const debugLogger = createLogger('wallet');
 
 const { WALLET_DATA_DIRECTORY } = process.env;
 

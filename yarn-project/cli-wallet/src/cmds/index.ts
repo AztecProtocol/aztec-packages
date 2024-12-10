@@ -13,7 +13,7 @@ import {
   parsePublicKey,
   pxeOption,
 } from '@aztec/cli/utils';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
@@ -44,7 +44,7 @@ import { type PXEWrapper } from '../utils/pxe_wrapper.js';
 export function injectCommands(
   program: Command,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   db?: WalletDB,
   pxeWrapper?: PXEWrapper,
 ) {
