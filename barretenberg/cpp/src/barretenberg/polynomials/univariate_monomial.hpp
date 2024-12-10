@@ -19,6 +19,15 @@ namespace bb {
  * memory efficiency purposes, we store the coefficients in an array starting from 0 and make the mapping to the right
  * domain under the hood.
  *
+ * @details We represent a UnivariateMonomial as a polynomial P(X) = a0 + a1.X + a2.X^2
+ * @tparam has_a0_plus_a1: This is true if we know the sum of the above coefficients `a0 + a1`
+ *         This is an optimisation to improve the performance of Karatsuba polynomial multiplication, which requires
+ * this term. When converting from a degree-1 Monomial in the Lagrange basis, into a UnivariateMonomial, we can get `a0
+ * + a1` for free. i.e. for a Lagrange-basis poly, we have P(X) = v0.L0(X) + v1.L1(X) = v0.(1 - X) + v1.X = v0 + (v1 -
+ * v0).X From this we can see that a0 = v0, a1 = v1 - v0 and therefore (a0 + a1) = v1
+ * @note `has_a0_plus_a1` should only be true in the case where `LENGTH == 2` as this is the only case where we can
+ *        acquire this term for free
+ * @note After performing any arithmetic operation on UnivaraiteMonomial, the output will have `has_a0_plus_a1 = false`
  */
 template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMonomial {
   public:
@@ -26,6 +35,13 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     static_assert(LENGTH == 2 || LENGTH == 3);
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
+    /**
+     * @brief coefficients is a length-3 array with the following representation:
+     * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
+     *          We define `coefficients[0] = a0` and `coefficients[1] = a1`
+     *          If LENGTH == 2 AND `has_a0_plus_a1 = true` then `coefficients[2] = a0 + a1`
+     *          If LENGTH == 3 then `coefficients[3] = a2`
+     */
     std::array<Fr, 3> coefficients;
 
     UnivariateMonomial() = default;
@@ -172,14 +188,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return result;
     }
 
-    // UnivariateMonomial& self_sqr()
-    // {
-    //     coefficients[0].self_sqr();
-    //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-    //         coefficients[i].self_sqr();
-    //     }
-    //     return *this;
-    // }
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
     UnivariateMonomial<Fr, domain_end, false> operator+(
         const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const

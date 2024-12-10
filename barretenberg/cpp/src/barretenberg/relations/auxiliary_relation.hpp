@@ -376,7 +376,6 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto memory_identity = ROM_consistency_check_identity;                             // deg 3 or 4
         memory_identity += RAM_timestamp_check_identity * ShortAccumulator(q_4_m * q_1_m); // deg 4
         memory_identity += memory_record_check * ShortAccumulator(q_m_m * q_1_m);          // deg 3 or 4
-        // memory_identity += RAM_consistency_check_identity;                                 // deg 3 or 5
 
         // (deg 3 or 5) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
