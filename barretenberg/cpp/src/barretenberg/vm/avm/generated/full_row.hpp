@@ -13,7 +13,7 @@ namespace bb::avm {
 template <typename FF_> struct AvmFullRow {
     using FF = FF_;
 
-    FF ALL_ENTITIES;
+    FF AVM_ALL_ENTITIES;
 
     RefVector<const FF> as_vector() const;
     static std::vector<std::string> names();

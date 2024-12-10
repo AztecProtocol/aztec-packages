@@ -35,6 +35,7 @@ export const createP2PClient = async (
   } = {},
 ) => {
   let config = { ..._config };
+  const logger = createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb')));
 
   const mempools: MemPools = {
@@ -46,6 +47,7 @@ export const createP2PClient = async (
   let p2pService;
 
   if (_config.p2pEnabled) {
+    logger.verbose('P2P is enabled. Using LibP2P service.');
     config = await configureP2PClientAddresses(_config);
 
     // Create peer discovery service
@@ -65,6 +67,7 @@ export const createP2PClient = async (
       telemetry,
     );
   } else {
+    logger.verbose('P2P is disabled. Using dummy P2P service');
     p2pService = new DummyP2PService();
   }
   return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor, telemetry);

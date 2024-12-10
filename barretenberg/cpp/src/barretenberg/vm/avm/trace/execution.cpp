@@ -73,7 +73,7 @@ std::vector<PublicCallRequest> non_empty_call_requests(std::array<PublicCallRequ
 
 // The SRS needs to be able to accommodate the circuit subgroup size.
 // Note: The *2 is due to how init_bn254_crs works, look there.
-static_assert(Execution::SRS_SIZE >= AvmCircuitBuilder::CIRCUIT_SUBGROUP_SIZE * 2);
+static_assert(Execution::SRS_SIZE >= bb::avm::AvmCircuitBuilder::CIRCUIT_SUBGROUP_SIZE * 2);
 
 template <typename K, typename V>
 std::vector<std::pair<K, V>> sorted_entries(const std::unordered_map<K, V>& map, bool invert = false)
@@ -98,9 +98,9 @@ std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relati
 {
     std::unordered_map<std::string, std::string> relations_degrees;
 
-    bb::constexpr_for<0, std::tuple_size_v<AvmFlavor::MainRelations>, 1>([&]<size_t i>() {
+    bb::constexpr_for<0, std::tuple_size_v<bb::avm::AvmFlavor::MainRelations>, 1>([&]<size_t i>() {
         std::unordered_map<int, int> degree_distribution;
-        using Relation = std::tuple_element_t<i, AvmFlavor::Relations>;
+        using Relation = std::tuple_element_t<i, bb::avm::AvmFlavor::Relations>;
         for (const auto& len : Relation::SUBRELATION_PARTIAL_LENGTHS) {
             degree_distribution[static_cast<int>(len - 1)]++;
         }
@@ -207,8 +207,8 @@ std::vector<FF> Execution::getDefaultPublicInputs()
  * @throws runtime_error exception when the bytecode is invalid.
  * @return The verifier key and zk proof of the execution.
  */
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInputs const& public_inputs,
-                                                                   ExecutionHints const& execution_hints)
+std::tuple<bb::avm::AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInputs const& public_inputs,
+                                                                            ExecutionHints const& execution_hints)
 {
     std::vector<FF> returndata;
     std::vector<FF> calldata;
@@ -221,7 +221,7 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInpu
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
     }
-    auto circuit_builder = bb::AvmCircuitBuilder();
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     vinfo("Circuit subgroup size: 2^",
           // this calculates the integer log2
@@ -237,7 +237,7 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInpu
         AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
     }
 
-    auto composer = AVM_TRACK_TIME_V("prove/create_composer", AvmComposer());
+    auto composer = AVM_TRACK_TIME_V("prove/create_composer", bb::avm::AvmComposer());
     auto prover = AVM_TRACK_TIME_V("prove/create_prover", composer.create_prover(circuit_builder));
     auto verifier = AVM_TRACK_TIME_V("prove/create_verifier", composer.create_verifier(circuit_builder));
     // Reclaim memory. Ideally this would be done as soon as the polynomials are created, but the above flow requires
@@ -258,9 +258,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(AvmPublicInpu
     return std::make_tuple(*verifier.key, proof);
 }
 
-bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
+bool Execution::verify(bb::avm::AvmFlavor::VerificationKey vk, HonkProof const& proof)
 {
-    AvmVerifier verifier(std::make_shared<AvmFlavor::VerificationKey>(vk));
+    bb::avm::AvmVerifier verifier(std::make_shared<bb::avm::AvmFlavor::VerificationKey>(vk));
 
     // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     std::vector<FF> public_inputs_vec;

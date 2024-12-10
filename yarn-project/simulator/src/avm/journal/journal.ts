@@ -4,7 +4,6 @@ import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
-  type Gas,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   NullifierLeafPreimage,
   type PublicCallRequest,
@@ -23,7 +22,6 @@ import { strict as assert } from 'assert';
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmEphemeralForest } from '../avm_tree.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
@@ -156,9 +154,11 @@ export class AvmPersistableStateManager {
    */
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+
     if (this.doMerkleOperations) {
       const result = await this.merkleTrees.writePublicStorage(leafSlot, value);
       assert(result !== undefined, 'Public data tree insertion error. You might want to disable doMerkleOperations.');
@@ -170,10 +170,13 @@ export class AvmPersistableStateManager {
       const lowLeafPath = lowLeafInfo.siblingPath;
 
       const newLeafPreimage = result.element as PublicDataTreeLeafPreimage;
-      let insertionPath;
-
+      let insertionPath: Fr[] | undefined;
       if (!result.update) {
         insertionPath = result.insertionPath;
+        assert(
+          newLeafPreimage.value.equals(value),
+          `Value mismatch when performing public data write (got value: ${value}, value in ephemeral tree: ${newLeafPreimage.value})`,
+        );
       }
 
       this.trace.tracePublicStorageWrite(
@@ -201,8 +204,8 @@ export class AvmPersistableStateManager {
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
     const { value, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
-
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
 
     if (this.doMerkleOperations) {
       // Get leaf if present, low leaf if absent
@@ -217,12 +220,18 @@ export class AvmPersistableStateManager {
       const leafPath = await this.merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
       const leafPreimage = preimage as PublicDataTreeLeafPreimage;
 
+      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
       this.log.debug(
         `leafPreimage.nextSlot: ${leafPreimage.nextSlot}, leafPreimage.nextIndex: ${Number(leafPreimage.nextIndex)}`,
       );
-      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
 
-      if (!alreadyPresent) {
+      if (alreadyPresent) {
+        assert(
+          leafPreimage.value.equals(value),
+          `Value mismatch when performing public data read (got value: ${value}, value in ephemeral tree: ${leafPreimage.value})`,
+        );
+      } else {
+        this.log.debug(`Slot has never been written before!`);
         // Sanity check that the leaf slot is skipped by low leaf when it doesn't exist
         assert(
           leafPreimage.slot.toBigInt() < leafSlot.toBigInt() &&
@@ -230,9 +239,6 @@ export class AvmPersistableStateManager {
           'Public data tree low leaf should skip the target leaf slot when the target leaf does not exist or is the max value.',
         );
       }
-      this.log.debug(
-        `Tracing storage leaf preimage slot=${slot}, leafSlot=${leafSlot}, value=${value}, nextKey=${leafPreimage.nextSlot}, nextIndex=${leafPreimage.nextIndex}`,
-      );
       // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
       // prove that this is a low leaf that skips leafSlot, and then prove membership of the leaf.
       this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
@@ -677,34 +683,12 @@ export class AvmPersistableStateManager {
     }
   }
 
-  public async traceNestedCall(
-    forkedState: AvmPersistableStateManager,
-    nestedEnvironment: AvmExecutionEnvironment,
-    startGasLeft: Gas,
-    bytecode: Buffer,
-    avmCallResults: AvmContractCallResult,
-  ) {
-    const functionName = await getPublicFunctionDebugName(
-      this.worldStateDB,
-      nestedEnvironment.address,
-      nestedEnvironment.functionSelector,
-      nestedEnvironment.calldata,
-    );
-
-    this.log.verbose(`[AVM] Tracing nested external contract call ${functionName}`);
-
-    this.trace.traceNestedCall(
-      forkedState.trace,
-      nestedEnvironment,
-      startGasLeft,
-      bytecode,
-      avmCallResults,
-      functionName,
-    );
-  }
-
   public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
     this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
+  }
+
+  public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
+    return await getPublicFunctionDebugName(this.worldStateDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 }
 

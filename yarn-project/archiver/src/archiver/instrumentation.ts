@@ -62,16 +62,16 @@ export class ArchiverInstrumentation {
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
-        name: Metrics.ARCHIVER_DB_MAP_SIZE,
         description: 'Database map size for the archiver',
       },
       {
-        name: Metrics.ARCHIVER_DB_USED_SIZE,
         description: 'Database used size for the archiver',
       },
       {
-        name: Metrics.ARCHIVER_DB_NUM_ITEMS,
         description: 'Num items in the archiver database',
+      },
+      {
+        [Attributes.DB_DATA_TYPE]: 'archiver',
       },
       lmdbStats,
     );
