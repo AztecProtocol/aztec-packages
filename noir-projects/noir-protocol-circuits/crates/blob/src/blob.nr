@@ -393,7 +393,6 @@ unconstrained fn __compute_partial_sum(
     [partial_sum, accumulator.__add(partial_sum)]
 }
 
-
 mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
     use crate::{
