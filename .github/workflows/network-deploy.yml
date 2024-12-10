@@ -141,8 +141,16 @@ jobs:
       - name: Terraform Destroy
         working-directory: ./spartan/terraform/deploy-release
         if: ${{ inputs.run_terraform_destroy == 'true' }}
+        # Destroy fails if the resources are already destroyed, so we continue on error
+        continue-on-error: true
         run: |
-          terraform destroy -auto-approve
+          terraform destroy -auto-approve \
+            -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+            -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+            -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+            -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}"
+            -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
