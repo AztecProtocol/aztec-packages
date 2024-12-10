@@ -52,7 +52,7 @@ export const browserTestSuite = (
      */
     pxeURL: string;
   }>,
-  pageLogger: AztecJs.DebugLogger,
+  pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;

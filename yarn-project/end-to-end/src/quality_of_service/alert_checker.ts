@@ -1,4 +1,4 @@
-import { type DebugLogger } from '@aztec/aztec.js';
+import { type Logger } from '@aztec/aztec.js';
 
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
@@ -24,9 +24,9 @@ const DEFAULT_CONFIG: AlertCheckerConfig = {
 
 export class AlertChecker {
   private config: AlertCheckerConfig;
-  private logger: DebugLogger;
+  private logger: Logger;
 
-  constructor(logger: DebugLogger, config: Partial<AlertCheckerConfig> = {}) {
+  constructor(logger: Logger, config: Partial<AlertCheckerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.logger = logger;
   }

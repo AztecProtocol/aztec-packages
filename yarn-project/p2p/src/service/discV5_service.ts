@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -46,7 +46,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private peerId: PeerId,
     config: P2PConfig,
     telemetry: TelemetryClient,
-    private logger = createDebugLogger('aztec:discv5_service'),
+    private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;

@@ -10,7 +10,7 @@
 namespace tests_avm {
 
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmSkippableTests, shouldSkipCorrectly)
 {

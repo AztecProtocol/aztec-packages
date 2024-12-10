@@ -1,5 +1,5 @@
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -9,7 +9,7 @@ import { promises as fs } from 'fs';
 
 import { type SimulationProvider } from './simulation_provider.js';
 
-const logger = createDebugLogger('aztec:acvm-native');
+const logger = createLogger('simulator:acvm-native');
 
 export enum ACVM_RESULT {
   SUCCESS,

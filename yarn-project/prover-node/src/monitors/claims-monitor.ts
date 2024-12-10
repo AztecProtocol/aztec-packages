@@ -1,6 +1,6 @@
 import { type EpochProofClaim } from '@aztec/circuit-types';
 import { type EthAddress } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L1Publisher } from '@aztec/sequencer-client';
 
@@ -10,7 +10,7 @@ export interface ClaimsMonitorHandler {
 
 export class ClaimsMonitor {
   private runningPromise: RunningPromise;
-  private log = createDebugLogger('aztec:prover-node:claims-monitor');
+  private log = createLogger('prover-node:claims-monitor');
 
   private handler: ClaimsMonitorHandler | undefined;
   private lastClaimEpochNumber: bigint | undefined;
