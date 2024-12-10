@@ -9,7 +9,7 @@
     "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "yarn prep && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

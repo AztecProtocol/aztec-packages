@@ -4,8 +4,8 @@
   "version": "0.5.0",
   "type": "module",
   "scripts": {
-    "compile": "yarn workspaces foreach -A -v run compile",
-    "build": "yarn workspaces foreach -A -p -v run build",
+    "compile": "yarn workspaces foreach --exclude vite -A -p -v run compile",
+    "build": "yarn workspaces foreach --exclude vite -A -p -v run build",
     "install-browsers": "playwright install --with-deps",
     "publish": "yarn npm publish",
     "test": "vitest bin.test.js",
