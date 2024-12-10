@@ -11,7 +11,7 @@ pub struct NoteHashReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_S
 }
 
 impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NoteHashReadRequestHintsBuilder<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
-    pub unconstrained fn new() -> Self {
+    pub fn new() -> Self {
         NoteHashReadRequestHintsBuilder {
             read_request_statuses: [ReadRequestStatus::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
             pending_read_hints: BoundedVec::from_parts_unchecked(
@@ -28,9 +28,7 @@ impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NoteHashReadRequest
             }
         }
 
-    pub unconstrained fn to_hints(
-        self,
-    ) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    pub fn to_hints(self) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
         NoteHashReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage(),

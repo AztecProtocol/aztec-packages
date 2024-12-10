@@ -44,10 +44,8 @@ impl ResetOutputValidatorBuilder {
         output.validation_requests_split_counter = Option::some(0);
         previous_kernel.validation_requests_split_counter = Option::some(0);
 
-        let note_hash_read_request_hints_builder =
-            unsafe { NoteHashReadRequestHintsBuilder::new() };
-        let nullifier_read_request_hints_builder =
-            unsafe { NullifierReadRequestHintsBuilder::new() };
+        let note_hash_read_request_hints_builder = NoteHashReadRequestHintsBuilder::new();
+        let nullifier_read_request_hints_builder = NullifierReadRequestHintsBuilder::new();
         let key_validation_hints =
             [KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); NULLIFIER_KEYS];
         let transient_data_index_hints = [

@@ -11,7 +11,7 @@ pub struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_
 }
 
 impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NullifierReadRequestHintsBuilder<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
-    pub unconstrained fn new() -> Self {
+    pub fn new() -> Self {
         NullifierReadRequestHintsBuilder {
             read_request_statuses: [ReadRequestStatus::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             pending_read_hints: BoundedVec::from_parts_unchecked(
@@ -28,9 +28,7 @@ impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NullifierReadReques
             }
         }
 
-    pub unconstrained fn to_hints(
-        self,
-    ) -> NullifierReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    pub fn to_hints(self) -> NullifierReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
         NullifierReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage(),

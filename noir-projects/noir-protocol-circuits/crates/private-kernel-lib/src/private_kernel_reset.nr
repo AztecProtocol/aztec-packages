@@ -182,19 +182,14 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.set_first_nullifier();
 
-            let note_hash_read_request_hints_builder =
-                unsafe { NoteHashReadRequestHintsBuilder::new() };
-            let nullifier_read_request_hints_builder =
-                unsafe { NullifierReadRequestHintsBuilder::new() };
-
             Self {
                 previous_kernel,
                 transient_data_index_hints: [
                     TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                          TRANSIENT_DATA_AMOUNT
                     ],
-                    note_hash_read_request_hints_builder,
-                    nullifier_read_request_hints_builder,
+                    note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
+                    nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
                     validation_requests_split_counter: 0,
                     note_hash_siloing_amount: 0,
                     nullifier_siloing_amount: 0,
