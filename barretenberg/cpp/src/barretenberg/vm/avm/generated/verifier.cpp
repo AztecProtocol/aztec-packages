@@ -6,7 +6,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm/constants.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(std::move(verifier_key))
@@ -150,4 +150,4 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     return true;
 }
 
-} // namespace bb
+} // namespace bb::avm

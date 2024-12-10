@@ -18,6 +18,7 @@ import { compact } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
+import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -78,6 +79,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
   }
 
+  public getP2P() {
+    const asP2PClient = this.coordination as P2P;
+    if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
+      return asP2PClient;
+    }
+    return undefined;
+  }
+
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
     if (proofClaim.epochToProve === this.latestEpochWeAreProving) {
       this.log.verbose(`Already proving claim for epoch ${proofClaim.epochToProve}`);
@@ -128,9 +137,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       // Construct a quote for the epoch
       const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+      if (blocks.length === 0) {
+        this.log.info(`No blocks found for epoch ${epochNumber}`);
+        return;
+      }
+
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
-        this.log.verbose(`No quote produced for epoch ${epochNumber}`);
+        this.log.info(`No quote produced for epoch ${epochNumber}`);
         return;
       }
 

@@ -218,6 +218,10 @@ export class AztecNodeService implements AztecNode {
     return this.blockSource;
   }
 
+  public getP2P(): P2P {
+    return this.p2pClient;
+  }
+
   /**
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
@@ -427,11 +431,12 @@ export class AztecNodeService implements AztecNode {
    * @returns - The pending txs.
    */
   public getPendingTxs() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending'));
+    return this.p2pClient!.getPendingTxs();
   }
 
-  public getPendingTxCount() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending').length);
+  public async getPendingTxCount() {
+    const pendingTxs = await this.getPendingTxs();
+    return pendingTxs.length;
   }
 
   /**

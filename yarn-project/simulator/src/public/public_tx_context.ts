@@ -31,10 +31,8 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { PublicSideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
@@ -87,7 +85,6 @@ export class PublicTxContext {
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const innerCallTrace = new PublicSideEffectTrace();
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
@@ -99,10 +96,9 @@ export class PublicTxContext {
       /*startSideEffectCounter=*/ 0,
       previousAccumulatedDataArrayLengths,
     );
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
+    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, enqueuedCallTrace, doMerkleOperations);
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
