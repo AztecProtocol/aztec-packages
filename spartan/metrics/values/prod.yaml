@@ -57,7 +57,3 @@ loki:
     enabled: true
     persistence:
       size: 64Gi
-
-  gateway:
-    service:
-      type: LoadBalancer
