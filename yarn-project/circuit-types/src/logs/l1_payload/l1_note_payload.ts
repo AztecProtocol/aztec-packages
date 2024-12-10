@@ -90,37 +90,6 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsOutgoing(log: PrivateLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log, sk);
-    if (!decryptedLog) {
-      return undefined;
-    }
-
-    return this.fromIncomingBodyPlaintextContractAndPublicValues(
-      decryptedLog.incomingBodyPlaintext,
-      decryptedLog.contractAddress,
-      /* publicValues */ [],
-    );
-  }
-
-  static decryptAsOutgoingFromPublic(log: Buffer, sk: Fq): L1NotePayload | undefined {
-    const { privateValues, publicValues } = parseLogFromPublic(log);
-    if (!privateValues) {
-      return undefined;
-    }
-
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoingFromPublic(privateValues, sk);
-    if (!decryptedLog) {
-      return undefined;
-    }
-
-    return this.fromIncomingBodyPlaintextContractAndPublicValues(
-      decryptedLog.incomingBodyPlaintext,
-      decryptedLog.contractAddress,
-      publicValues,
-    );
-  }
-
   /**
    * Serializes the L1NotePayload object into a Buffer.
    * @returns Buffer representation of the L1NotePayload object.
