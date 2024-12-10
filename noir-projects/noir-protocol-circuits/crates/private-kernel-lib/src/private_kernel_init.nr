@@ -9,7 +9,6 @@ use dep::types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
     },
-    constants::PROOF_TYPE_OINK,
     transaction::tx_request::TxRequest,
 };
 
