@@ -126,7 +126,9 @@ export class SimulationError extends Error {
 
   getMessage() {
     if (this.noirErrorStack && !isNoirCallStackUnresolved(this.noirErrorStack) && this.noirErrorStack.length) {
-      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'${this.aztecContext}`;
+      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'${
+        this.aztecContext
+      }`;
     }
     return this.originalMessage;
   }
