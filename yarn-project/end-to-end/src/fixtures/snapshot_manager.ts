@@ -244,7 +244,7 @@ async function teardown(context: SubsystemsContext | undefined) {
     return;
   }
   try {
-    getLogger().verbose('Tearing down subsystems...');
+    getLogger().info('Tearing down subsystems');
     await context.proverNode?.stop();
     await context.aztecNode.stop();
     await context.pxe.stop();
@@ -253,12 +253,7 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.watcher.stop();
     context.timer?.uninstall();
   } catch (err) {
-    try {
-      getLogger().error('Error during teardown', err);
-    } catch (err2) {
-      // eslint-disable-next-line no-console
-      console.error(`Error logging teardown error`, err, err2);
-    }
+    getLogger().error('Error during teardown', err);
   }
 }
 
