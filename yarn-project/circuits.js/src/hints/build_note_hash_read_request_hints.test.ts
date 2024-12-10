@@ -4,7 +4,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '../constants.gen.js';
-import { siloNoteHash } from '../hash/index.js';
 import {
   NoteHash,
   type NoteHashReadRequestHints,
