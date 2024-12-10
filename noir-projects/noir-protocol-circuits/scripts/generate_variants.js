@@ -119,10 +119,21 @@ function generateCircuits(dimensionsList, nargoToml, isSimulated) {
         regex,
         `global ${name}: u32 = ${value};`
       );
-      // Remove constants import.
+      // Remove constants.
       mainDotNoirCode = mainDotNoirCode.replace(
-        /constants::\{\s*[^}]*?\},/,
-        ""
+        /use dep::types::\{\s*constants::\{[^}]*?\},\s*([^}]*?)\};/,
+        (_, rest) => {
+          const restVars = rest
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+
+          return restVars.length > 1
+            ? `use dep::types::{${restVars.join(", ")}};`
+            : restVars.length === 1
+            ? `use dep::types::${restVars[0]};`
+            : "";
+        }
       );
     }
 

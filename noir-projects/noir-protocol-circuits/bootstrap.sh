@@ -19,11 +19,6 @@ yarn
 node ./scripts/generate_variants.js
 
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-
-# Format auto-generated files.
-echo "Formatting..."
-$NARGO fmt
-
 echo "Compiling protocol circuits with ${RAYON_NUM_THREADS:-1} threads"
 RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1} $NARGO compile --silence-warnings
 
