@@ -56,14 +56,15 @@ spec:
         - name: deploy-l1-contracts
           image: {{ .Values.images.aztec.image }}
           command:
-            [
-              "/bin/bash",
-              "-c",
-              "cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh && \
-               chmod +x /tmp/deploy-l1-contracts.sh && \
-               source /shared/config/service-addresses && \
-               /tmp/deploy-l1-contracts.sh {{ .Values.ethereum.chainId }} \"{{ join "," .Values.validator.validatorAddresses }}\""
-            ]
+            - /bin/bash
+            - -c
+            - |
+              cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
+              chmod +x /tmp/deploy-l1-contracts.sh
+              source /shared/config/service-addresses
+              HASH=$(echo "$RELEASE_NAME-$RELEASE_REVISION" | sha256sum | head -c 8) # first 4 hex characters = 4 bytes
+              SALT=$((16#$HASH)) # convert to decimal
+              /tmp/deploy-l1-contracts.sh $SALT {{ .Values.ethereum.chainId }} "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -72,6 +73,10 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
+            - name: RELEASE_NAME
+              value: "{{ .Release.Name }}" # e.g. rough-rhino
+            - name: RELEASE_REVISION
+              value: "{{ .Release.Revision }}" # e.g. 1, 2, 3. Increased with every helm install of the same name
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: INIT_VALIDATORS

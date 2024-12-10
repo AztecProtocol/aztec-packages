@@ -1,7 +1,8 @@
 #!/bin/bash
 set -exu
 
-CHAIN_ID=$1
+SALT=$1
+CHAIN_ID=$2
 
 
 # Run the deploy-l1-contracts command and capture the output
@@ -11,9 +12,9 @@ RETRY_DELAY=60
 for attempt in $(seq 1 $MAX_RETRIES); do
   # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $2 --l1-chain-id $CHAIN_ID) && break
+    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $3 --l1-chain-id $CHAIN_ID --salt $SALT) && break
   else
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID) && break
+    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID --salt $SALT) && break
   fi
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
   sleep "$RETRY_DELAY"
