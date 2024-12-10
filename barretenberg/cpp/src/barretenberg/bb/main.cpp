@@ -13,6 +13,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
@@ -736,6 +737,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+    }
     return std::move(prover);
 }
 
