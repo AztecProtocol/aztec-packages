@@ -1,5 +1,3 @@
-use std::static_assert;
-
 /// Returns `DST_LEN` elements from a source array, starting at `offset`. `DST_LEN` must be large enough to hold all of
 /// the elements past `offset`.
 ///
@@ -12,7 +10,7 @@ pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
     src: [Field; SRC_LEN],
     offset: u32,
 ) -> [Field; DST_LEN] {
-    static_assert(offset + DST_LEN <= SRC_LEN, "offset too large");
+    assert(offset + DST_LEN <= SRC_LEN, "offset too large");
 
     let mut dst: [Field; DST_LEN] = std::mem::zeroed();
     for i in 0..DST_LEN {
@@ -27,7 +25,7 @@ mod test {
 
     #[test]
     unconstrained fn subarray_into_empty() {
-        // In all of these cases we're setting DST_LEN to be 0, so we always get back an empty array.
+        // In all of these cases we're setting DST_LEN to be 0, so we always get back an emtpy array.
         assert_eq(subarray([], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 2), []);
