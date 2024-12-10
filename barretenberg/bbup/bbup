@@ -66,11 +66,62 @@ install_bb() {
         exit 1
     fi
 
-    # Determine platform
+    # Determine platform and install dependencies
     if [ "$(uname)" = "Darwin" ]; then
         platform="apple-darwin"
+        # Check for brew and install if needed
+        if ! command -v brew &> /dev/null; then
+            printf "${BLUE}Installing Homebrew...${NC}\n"
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
+                printf "${RED}${ERROR} Failed to install Homebrew${NC}\n"
+                exit 1
+            }
+        }
+        # Install jq and check for libc++
+        printf "${BLUE}Installing jq...${NC}\n"
+        brew install jq || {
+            printf "${RED}${ERROR} Failed to install jq${NC}\n"
+            exit 1
+        }
+        if ! [ -f "/usr/lib/libc++.1.dylib" ]; then
+            printf "${BLUE}Installing libc++ via xcode command line tools...${NC}\n"
+            xcode-select --install || {
+                printf "${RED}${ERROR} Failed to install xcode command line tools${NC}\n"
+                exit 1
+            }
+        fi
     elif [ "$(uname)" = "Linux" ]; then
         platform="linux-gnu"
+        # Check for package manager and install dependencies
+        if command -v apt-get &> /dev/null; then
+            printf "${BLUE}Installing dependencies via apt...${NC}\n"
+            sudo apt-get update && sudo apt-get install -y libc++1 libc++abi1 jq || {
+                printf "${RED}${ERROR} Failed to install dependencies via apt${NC}\n"
+                exit 1
+            }
+        elif command -v dnf &> /dev/null; then
+            printf "${BLUE}Installing dependencies via dnf...${NC}\n"
+            sudo dnf install -y libcxx libcxxabi jq || {
+                printf "${RED}${ERROR} Failed to install dependencies via dnf${NC}\n"
+                exit 1
+            }
+        elif command -v pacman &> /dev/null; then
+            printf "${BLUE}Installing dependencies via pacman...${NC}\n"
+            sudo pacman -S --noconfirm libc++ jq || {
+                printf "${RED}${ERROR} Failed to install dependencies via pacman${NC}\n"
+                exit 1
+            }
+        elif command -v zypper &> /dev/null; then
+            printf "${BLUE}Installing dependencies via zypper...${NC}\n"
+            sudo zypper install -y libc++ jq || {
+                printf "${RED}${ERROR} Failed to install dependencies via zypper${NC}\n"
+                exit 1
+            }
+        else
+            printf "${RED}${ERROR} Could not find a supported package manager to install dependencies${NC}\n"
+            printf "${BLUE}Please install libc++ and jq manually for your distribution${NC}\n"
+            exit 1
+        fi
     else
         printf "${RED}${ERROR} Unsupported platform: $(uname)${NC}\n"
         exit 1
