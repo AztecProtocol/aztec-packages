@@ -57,8 +57,10 @@ function build_wasm {
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
     cmake --build --preset wasm
+    /opt/wasi-sdk/bin/llvm-strip ./build-wasm/bin/barretenberg.wasm
     cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
   fi
+  (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 function build_wasm_threads {
@@ -66,8 +68,10 @@ function build_wasm_threads {
     rm -f build-wasm-threads/CMakeCache.txt
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
+    /opt/wasi-sdk/bin/llvm-strip ./build-wasm-threads/bin/barretenberg.wasm
     cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
   fi
+  (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 function build {

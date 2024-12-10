@@ -173,5 +173,20 @@
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
   "typescript.tsserver.maxTsServerMemory": 4096,
   "markdown.extension.toc.levels": "2..6",
-  "cSpell.userWords": ["anytype", "deinit", "denoise", "endgroup", "setsid", "pgid"]
+  "cSpell.userWords": [
+    "anytype",
+    "barretenberg",
+    "deinit",
+    "denoise",
+    "endgroup",
+    "napi",
+    "setsid",
+    "pgid",
+    "DCMAKE",
+    "toplevel",
+    "grumpkin",
+    "gtest",
+    "wasi",
+    "memfree"
+  ]
 }

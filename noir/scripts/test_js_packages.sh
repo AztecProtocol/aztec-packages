@@ -3,7 +3,7 @@ set -eu
 
 cd $(dirname "$0")/../noir-repo
 
-# ./.github/scripts/wasm-bindgen-install.sh
+./.github/scripts/wasm-bindgen-install.sh
 # ./.github/scripts/playwright-install.sh
 
 # Set build data manually.
