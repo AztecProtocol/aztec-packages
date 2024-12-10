@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus, sleep } from '@aztec/aztec.js';
 import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -29,6 +29,9 @@ describe('e2e_avm_simulator', () => {
     beforeEach(async () => {
       avmContract = await AvmTestContract.deploy(wallet).send().deployed();
       secondAvmContract = await AvmTestContract.deploy(wallet).send().deployed();
+    });
+    afterEach(async () => {
+      await sleep(1000);
     });
 
     describe('Assertions', () => {
@@ -63,7 +66,9 @@ describe('e2e_avm_simulator', () => {
 
     describe('From private', () => {
       it('Should enqueue a public function correctly', async () => {
-        await avmContract.methods.enqueue_public_from_private().simulate();
+        const request = await avmContract.methods.enqueue_public_from_private().create();
+        const simulation = await wallet.simulateTx(request, true);
+        expect(simulation.publicOutput!.revertReason).toBeUndefined();
       });
     });
 

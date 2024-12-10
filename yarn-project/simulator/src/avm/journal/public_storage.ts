@@ -30,6 +30,8 @@ export class PublicStorage {
    * Create a new public storage manager forked from this one
    */
   public fork() {
+    console.log(`Forking public storage`);
+    this.cache.dumpCache();
     return new PublicStorage(this.hostPublicStorage, this);
   }
 
@@ -49,12 +51,16 @@ export class PublicStorage {
    * @returns value: the latest value written according to this cache or the parent's. undefined on cache miss.
    */
   public readHereOrParent(contractAddress: AztecAddress, slot: Fr): Fr | undefined {
+    console.log(`Reading here or in parent`);
+    this.cache.dumpCache();
     // First try check this storage cache
     let value = this.cache.read(contractAddress, slot);
+    console.log(`Reading here ${value}`);
     // Then try parent's storage cache
     if (!value && this.parent) {
       // Note: this will recurse to grandparent/etc until a cache-hit is encountered.
       value = this.parent.readHereOrParent(contractAddress, slot);
+      console.log(`Reading in parent ${value}`);
     }
     return value;
   }
@@ -79,6 +85,7 @@ export class PublicStorage {
       // This functions returns Fr.ZERO if it has never been written to before
       // we explicity coalesce to Fr.ZERO in case we have some implementations that cause this to return undefined
       value = (await this.hostPublicStorage.storageRead(contractAddress, slot)) ?? Fr.ZERO;
+      console.log(`Fell back on host storage: ${value}`);
       // TODO(dbanks12): if value retrieved from host storage, we can cache it here
       // any future reads to the same slot can read from cache instead of more expensive
       // DB access
@@ -177,6 +184,9 @@ class PublicStorageCache {
     // Iterate over all incoming contracts with staged writes.
     for (const [incomingAddress, incomingCacheAtContract] of incomingStorageCache.cachePerContract) {
       const thisCacheAtContract = this.cachePerContract.get(incomingAddress);
+      for (const [slot, value] of incomingCacheAtContract) {
+        console.log(`acceptAndMerge: slot: ${slot}, value: ${value}`);
+      }
       if (!thisCacheAtContract) {
         // The contract has no storage writes staged here
         // so just accept the incoming cache as-is for this contract.
@@ -187,6 +197,15 @@ class PublicStorageCache {
         for (const [slot, value] of incomingCacheAtContract) {
           thisCacheAtContract.set(slot, value);
         }
+      }
+    }
+  }
+
+  public dumpCache() {
+    for (const [addr, cache] of this.cachePerContract) {
+      console.log(`dumping cache for contract @ ${addr}`);
+      for (const [slot, value] of cache) {
+        console.log(`\tslot: ${slot}, value: ${value}`);
       }
     }
   }

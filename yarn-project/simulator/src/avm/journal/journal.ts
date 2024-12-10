@@ -170,8 +170,7 @@ export class AvmPersistableStateManager {
       const lowLeafPath = lowLeafInfo.siblingPath;
 
       const newLeafPreimage = result.element as PublicDataTreeLeafPreimage;
-      let insertionPath;
-
+      let insertionPath: Fr[] | undefined;
       if (!result.update) {
         insertionPath = result.insertionPath;
       }

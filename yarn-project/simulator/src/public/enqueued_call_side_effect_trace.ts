@@ -51,7 +51,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { assert } from 'console';
+import { strict as assert } from 'assert';
 
 import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
@@ -206,7 +206,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   ) {
     if (!leafIndex.equals(Fr.zero())) {
       // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
+      assert(leafPreimage.value.equals(value), `Value mismatch when tracing in public data read (value: ${value}, value in leaf preimage: ${leafPreimage.value})`);
     }
 
     this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
@@ -226,7 +226,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   ) {
     if (!lowLeafIndex.equals(Fr.zero())) {
       // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
+      assert(newLeafPreimage.value.equals(value), `Value mismatch when tracing in public data write (value: ${value}, value in leaf preimage: ${newLeafPreimage.value})`);
     }
     if (
       this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
