@@ -210,7 +210,7 @@ export class ReqResp {
 
       return result;
     } catch (e: any) {
-      this.logger.error(`Error sending request to peer`, e, { peerId, subProtocol });
+      this.logger.error(`Error sending request to peer`, e, { peerId: peerId.toString(), subProtocol });
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     } finally {
       if (stream) {

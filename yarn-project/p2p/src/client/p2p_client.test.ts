@@ -26,20 +26,18 @@ describe('In-Memory P2P Client', () => {
   let client: P2PClient;
 
   beforeEach(() => {
-    txPool = mock<TxPool>({
-      getAllTxs: () => [],
-      getAllTxHashes: () => [],
-      getPendingTxHashes: () => [],
-      getMinedTxHashes: () => [],
-    });
+    txPool = mock<TxPool>();
+    txPool.getAllTxs.mockReturnValue([]);
+    txPool.getPendingTxHashes.mockReturnValue([]);
+    txPool.getMinedTxHashes.mockReturnValue([]);
+    txPool.getAllTxHashes.mockReturnValue([]);
 
     p2pService = mock<P2PService>();
 
     attestationPool = mock<AttestationPool>();
 
-    epochProofQuotePool = mock<EpochProofQuotePool>({
-      getQuotes: () => [],
-    });
+    epochProofQuotePool = mock<EpochProofQuotePool>();
+    epochProofQuotePool.getQuotes.mockReturnValue([]);
 
     blockSource = new MockL2BlockSource();
     blockSource.createBlocks(100);

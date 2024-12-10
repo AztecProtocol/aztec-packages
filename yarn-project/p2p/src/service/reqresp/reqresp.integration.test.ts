@@ -223,7 +223,7 @@ describe('Req Resp p2p client integration', () => {
       // We want to create a set of nodes and request transaction from them
       const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/ false);
       const [client1, client2] = clients;
-      const client2PeerId = client2.getEnr()!;
+      const client2PeerId = await client2.getEnr()!.peerId();
 
       // Give the nodes time to discover each other
       await sleep(6000);
