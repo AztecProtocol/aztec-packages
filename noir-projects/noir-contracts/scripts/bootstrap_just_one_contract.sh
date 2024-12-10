@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")"
 
 # Call example:
-# `./scripts/bootstraph_just_one_contract.sh nft_contract NFT`
+# `./scripts/bootstrap_just_one_contract.sh nft_contract NFT`
 
 # Check if the filename argument is provided
 if [ "$#" -lt 2 ]; then

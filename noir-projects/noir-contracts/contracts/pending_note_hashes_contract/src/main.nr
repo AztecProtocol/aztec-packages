@@ -71,11 +71,6 @@ contract PendingNoteHashes {
         0
     }
 
-    // Dummy nested/inner function (to pass a function which does nothing)
-    // QUESTION: can this be removed? I can't `dummy(` being used anywhere in typescript-land.
-    #[private]
-    fn dummy(amount: Field, owner: AztecAddress, sender: AztecAddress) {}
-
     // Nested/inner function to create and insert a note
     #[private]
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
