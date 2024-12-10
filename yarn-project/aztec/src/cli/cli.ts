@@ -5,7 +5,7 @@ import {
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
@@ -25,7 +25,7 @@ import {
  * @param userLog - log function for logging user output.
  * @param debugLogger - logger for logging debug messages.
  */
-export function injectAztecCommands(program: Command, userLog: LogFn, debugLogger: DebugLogger): Command {
+export function injectAztecCommands(program: Command, userLog: LogFn, debugLogger: Logger): Command {
   const startCmd = new Command('start').description(
     'Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.',
   );

@@ -16,7 +16,7 @@ import {
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
@@ -44,7 +44,7 @@ export type ProverNodeOptions = {
  * proof for the epoch, and submits it to L1.
  */
 export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
-  private log = createDebugLogger('aztec:prover-node');
+  private log = createLogger('prover-node');
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
@@ -128,9 +128,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       // Construct a quote for the epoch
       const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+      if (blocks.length === 0) {
+        this.log.info(`No blocks found for epoch ${epochNumber}`);
+        return;
+      }
+
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
-        this.log.verbose(`No quote produced for epoch ${epochNumber}`);
+        this.log.info(`No quote produced for epoch ${epochNumber}`);
         return;
       }
 

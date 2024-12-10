@@ -10,7 +10,6 @@
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "honk_contract.hpp"
 #include <cstdint>
 #include <memory>
@@ -245,7 +244,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
-    TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
 
     acir_format::ProgramMetadata metadata{ ivc };
@@ -285,6 +284,87 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     *verified = result;
 }
 
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
+                                         uint8_t const* witness_stack,
+                                         uint8_t** out_proof,
+                                         uint8_t** out_vk)
+{
+    using Program = acir_format::AcirProgram;
+
+    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
+    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    std::vector<Program> folding_stack;
+
+    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
+        folding_stack.push_back(Program{ constraints, witness });
+    }
+    // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
+
+    // Accumulate the entire program stack into the IVC
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
+    bool is_kernel = false;
+    auto start = std::chrono::steady_clock::now();
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        vinfo("constructing circuit...");
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(
+            program.constraints, false, 0, program.witness, false, ivc.goblin.op_queue);
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
+        is_kernel = !is_kernel;
+
+        vinfo("done constructing circuit. calling ivc.accumulate...");
+        ivc.accumulate(circuit);
+        vinfo("done accumulating.");
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to construct and accumulate all circuits: ", diff.count());
+
+    vinfo("calling ivc.prove ...");
+    ClientIVC::Proof proof = ivc.prove();
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
+
+    start = std::chrono::steady_clock::now();
+    *out_proof = to_heap_buffer(to_buffer(proof));
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to serialize proof: ", diff.count());
+
+    start = std::chrono::steady_clock::now();
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to serialize vk: ", diff.count());
+}
+
+WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
+{
+
+    const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
+
+    vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    vk.eccvm->pcs_verification_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
+    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
+    *result = ClientIVC::verify(proof, vk);
+}
+
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
                                        bool const* recursive,
                                        uint8_t const* witness_vec,
@@ -306,11 +386,43 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
 }
 
+WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
+                                              bool const* recursive,
+                                              uint8_t const* witness_vec,
+                                              uint8_t** out)
+{
+    auto constraint_system =
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(
+        constraint_system, *recursive, 0, witness, /*honk_recursion=*/true);
+
+    UltraKeccakProver prover{ builder };
+    auto proof = prover.construct_proof();
+    *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+}
+
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraFlavor::VerificationKey;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using Verifier = UltraVerifier_<UltraFlavor>;
+
+    auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+    Verifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+}
+
+WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
+{
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    using Verifier = UltraVerifier_<UltraKeccakFlavor>;
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
@@ -339,10 +451,10 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
     *out = to_heap_buffer(to_buffer(vk));
 }
 
-WASM_EXPORT void get_honk_solidity_verifier_vk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out)
+WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out)
 {
-    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using VerificationKey = UltraFlavor::VerificationKey;
+    using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
     acir_format::ProgramMetadata metadata;
     metadata.recursive = *recursive;
@@ -354,8 +466,19 @@ WASM_EXPORT void get_honk_solidity_verifier_vk(uint8_t const* acir_vec, bool con
 
     DeciderProvingKey proving_key(builder);
     VerificationKey vk(proving_key.proving_key);
+    *out = to_heap_buffer(to_buffer(vk));
+}
 
-    auto str = get_honk_solidity_verifier(&vk);
+WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t const* vk_buf, uint8_t** out)
+{
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+
+    auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto verification_key = from_buffer<VerificationKey>(vk_buf);
+    verification_key.pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+    auto str = get_honk_solidity_verifier(&verification_key);
     *out = to_heap_buffer(str);
 }
 

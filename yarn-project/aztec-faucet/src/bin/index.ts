@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
 import { NULL_KEY, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
 import http from 'http';
@@ -34,7 +34,7 @@ const {
   EXTRA_ASSET_AMOUNT = '',
 } = process.env;
 
-const logger = createDebugLogger('aztec:faucet');
+const logger = createLogger('faucet');
 
 const rpcUrl = RPC_URL;
 const l1ChainId = +L1_CHAIN_ID;

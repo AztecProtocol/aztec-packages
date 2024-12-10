@@ -12,7 +12,7 @@ import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import { type AppendOnlyTreeSnapshot, BlockHeader, type Gas, type GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
@@ -53,7 +53,7 @@ export class TestContext {
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
-    public logger: DebugLogger,
+    public logger: Logger,
   ) {}
 
   public get epochProver() {
@@ -61,7 +61,7 @@ export class TestContext {
   }
 
   static async new(
-    logger: DebugLogger,
+    logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),

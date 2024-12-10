@@ -11,24 +11,24 @@
 #include <cstddef>
 #include <memory>
 
-namespace bb {
+namespace bb::{{snakeCase name}} {
 
 template <typename Flavor>
-{{name}}RecursiveVerifier_<Flavor>::{{name}}RecursiveVerifier_(
+AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
     Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
     : key(std::make_shared<VerificationKey>(builder, native_verification_key))
     , builder(builder)
 {}
 
 template <typename Flavor>
-{{name}}RecursiveVerifier_<Flavor>::{{name}}RecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey)
+AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey)
     : key(vkey)
     , builder(builder)
 {}
 
 // Evaluate the given public input column over the multivariate challenge points
 template <typename Flavor>
-Flavor::FF {{name}}RecursiveVerifier_<Flavor>::evaluate_public_input_column(const std::vector<FF>& points,
+Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std::vector<FF>& points,
                                                                        const std::vector<FF>& challenges)
 {
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
@@ -45,7 +45,7 @@ Flavor::FF {{name}}RecursiveVerifier_<Flavor>::evaluate_public_input_column(cons
 }
 
 template <typename Flavor>
-{{name}}RecursiveVerifier_<Flavor>::AggregationObject {{name}}RecursiveVerifier_<Flavor>::verify_proof(
+AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<bb::fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
@@ -67,7 +67,7 @@ template <typename Flavor>
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
-{{name}}RecursiveVerifier_<Flavor>::AggregationObject {{name}}RecursiveVerifier_<Flavor>::verify_proof(
+AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& stdlib_proof,
     const std::vector<std::vector<FF>>& public_inputs,
     AggregationObject agg_obj)
@@ -88,7 +88,7 @@ template <typename Flavor>
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
-        throw_or_abort("{{name}}RecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
 
     // Get commitments to VM wires
@@ -154,5 +154,6 @@ template <typename Flavor>
     return agg_obj;
 }
 
-template class {{name}}RecursiveVerifier_<{{name}}RecursiveFlavor_<UltraCircuitBuilder>>;
-} // namespace bb
+template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+
+} // namespace bb::{{snakeCase name}}

@@ -24,6 +24,7 @@ jobs:
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
+          default-branch: ${{ env.BRANCH_NAME }}
 
       - name: Dispatch to publish Aztec packages workflow
         uses: benc-uk/workflow-dispatch@v1

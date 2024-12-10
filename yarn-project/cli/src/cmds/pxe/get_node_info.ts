@@ -1,7 +1,7 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
-export async function getNodeInfo(rpcUrl: string, pxeRequest: boolean, debugLogger: DebugLogger, log: LogFn) {
+export async function getNodeInfo(rpcUrl: string, pxeRequest: boolean, debugLogger: Logger, log: LogFn) {
   let client: AztecNode | PXE;
   if (pxeRequest) {
     client = await createCompatibleClient(rpcUrl, debugLogger);

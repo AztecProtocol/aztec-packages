@@ -17,6 +17,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
+  FunctionSelector,
   Gas,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
@@ -46,7 +47,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
@@ -68,7 +69,7 @@ const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero()
 const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
 
 export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createDebugLogger('aztec:public_side_effect_trace');
+  public log = createLogger('public_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number; // kept as number until finalized for efficiency
@@ -535,7 +536,7 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
     contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
+    functionSelector: FunctionSelector.empty(), // TODO(#10563): Remove functionSelector in public call context
     isStaticCall: avmEnvironment.isStaticCall,
   });
   return new PublicExecutionRequest(callContext, avmEnvironment.calldata);

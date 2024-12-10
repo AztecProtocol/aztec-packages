@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -353,12 +354,43 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
 {
     // Add recursion constraints
     size_t idx = 0;
+    std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
+    std::vector<StdlibProof<Builder>> nested_ipa_proofs;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
-        current_aggregation_object = create_honk_recursion_constraints(
-            builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+        if (constraint.proof_type == HONK) {
+            auto [next_aggregation_object, _ipa_claim, _ipa_proof] =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            current_aggregation_object = next_aggregation_object;
+        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROLLUP_ROOT_HONK) {
+            auto [next_aggregation_object, ipa_claim, ipa_proof] =
+                create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
+                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            current_aggregation_object = next_aggregation_object;
+
+            nested_ipa_claims.push_back(ipa_claim);
+            nested_ipa_proofs.push_back(ipa_proof);
+        } else {
+            throw_or_abort("Invalid Honk proof type");
+        }
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
+    }
+    // Accumulate the claims
+    if (nested_ipa_claims.size() == 2) {
+        auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
+        IPA<stdlib::grumpkin<Builder>>::accumulate(
+            commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+    } else if (nested_ipa_claims.size() == 1) {
+        builder.add_ipa_claim(nested_ipa_claims[0].get_witness_indices());
+        // This conversion looks suspicious but there's no need to make this an output of the circuit since its a proof
+        // that will be checked anyway.
+        builder.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
     }
     return current_aggregation_object;
 }
