@@ -98,110 +98,13 @@ export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
-
-export const WORLD_STATE_DB_MAP_SIZE_NULLIFIER = 'aztec.world_state.db_map_size.nullifier';
-export const WORLD_STATE_DB_MAP_SIZE_PUBLIC_DATA = 'aztec.world_state.db_map_size.public_data';
-export const WORLD_STATE_DB_MAP_SIZE_ARCHIVE = 'aztec.world_state.db_map_size.archive';
-export const WORLD_STATE_DB_MAP_SIZE_MESSAGE = 'aztec.world_state.db_map_size.message';
-export const WORLD_STATE_DB_MAP_SIZE_NOTE_HASH = 'aztec.world_state.db_map_size.note_hash';
-
-export const WORLD_STATE_TREE_SIZE_NULLIFIER = 'aztec.world_state.tree_size.nullifier';
-export const WORLD_STATE_TREE_SIZE_PUBLIC_DATA = 'aztec.world_state.tree_size.public_data';
-export const WORLD_STATE_TREE_SIZE_ARCHIVE = 'aztec.world_state.tree_size.archive';
-export const WORLD_STATE_TREE_SIZE_MESSAGE = 'aztec.world_state.tree_size.message';
-export const WORLD_STATE_TREE_SIZE_NOTE_HASH = 'aztec.world_state.tree_size.note_hash';
-
-export const WORLD_STATE_UNFINALISED_HEIGHT_NULLIFIER = 'aztec.world_state.unfinalised_height.nullifier';
-export const WORLD_STATE_UNFINALISED_HEIGHT_PUBLIC_DATA = 'aztec.world_state.unfinalised_height.public_data';
-export const WORLD_STATE_UNFINALISED_HEIGHT_ARCHIVE = 'aztec.world_state.unfinalised_height.archive';
-export const WORLD_STATE_UNFINALISED_HEIGHT_MESSAGE = 'aztec.world_state.unfinalised_height.message';
-export const WORLD_STATE_UNFINALISED_HEIGHT_NOTE_HASH = 'aztec.world_state.unfinalised_height.note_hash';
-
-export const WORLD_STATE_FINALISED_HEIGHT_NULLIFIER = 'aztec.world_state.finalised_height.nullifier';
-export const WORLD_STATE_FINALISED_HEIGHT_PUBLIC_DATA = 'aztec.world_state.finalised_height.public_data';
-export const WORLD_STATE_FINALISED_HEIGHT_ARCHIVE = 'aztec.world_state.finalised_height.archive';
-export const WORLD_STATE_FINALISED_HEIGHT_MESSAGE = 'aztec.world_state.finalised_height.message';
-export const WORLD_STATE_FINALISED_HEIGHT_NOTE_HASH = 'aztec.world_state.finalised_height.note_hash';
-
-export const WORLD_STATE_OLDEST_BLOCK_NULLIFIER = 'aztec.world_state.oldest_block.nullifier';
-export const WORLD_STATE_OLDEST_BLOCK_PUBLIC_DATA = 'aztec.world_state.oldest_block.public_data';
-export const WORLD_STATE_OLDEST_BLOCK_ARCHIVE = 'aztec.world_state.oldest_block.archive';
-export const WORLD_STATE_OLDEST_BLOCK_MESSAGE = 'aztec.world_state.oldest_block.message';
-export const WORLD_STATE_OLDEST_BLOCK_NOTE_HASH = 'aztec.world_state.oldest_block.note_hash';
-
-export const WORLD_STATE_BLOCKS_DB_USED_SIZE_NULLIFIER = 'aztec.world_state.db_used_size.blocks.nullifier';
-export const WORLD_STATE_BLOCKS_DB_USED_SIZE_PUBLIC_DATA = 'aztec.world_state.db_used_size.blocks.public_data';
-export const WORLD_STATE_BLOCKS_DB_USED_SIZE_ARCHIVE = 'aztec.world_state.db_used_size.blocks.archive';
-export const WORLD_STATE_BLOCKS_DB_USED_SIZE_MESSAGE = 'aztec.world_state.db_used_size.blocks.message';
-export const WORLD_STATE_BLOCKS_DB_USED_SIZE_NOTE_HASH = 'aztec.world_state.db_used_size.blocks.note_hash';
-
-export const WORLD_STATE_BLOCKS_DB_NUM_ITEMS_NULLIFIER = 'aztec.world_state.db_num_items.blocks.nullifier';
-export const WORLD_STATE_BLOCKS_DB_NUM_ITEMS_PUBLIC_DATA = 'aztec.world_state.db_num_items.blocks.public_data';
-export const WORLD_STATE_BLOCKS_DB_NUM_ITEMS_ARCHIVE = 'aztec.world_state.db_num_items.blocks.archive';
-export const WORLD_STATE_BLOCKS_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.db_num_items.blocks.message';
-export const WORLD_STATE_BLOCKS_DB_NUM_ITEMS_NOTE_HASH = 'aztec.world_state.db_num_items.blocks.note_hash';
-
-export const WORLD_STATE_NODES_DB_USED_SIZE_NULLIFIER = 'aztec.world_state.db_used_size.nodes.nullifier';
-export const WORLD_STATE_NODES_DB_USED_SIZE_PUBLIC_DATA = 'aztec.world_state.db_used_size.nodes.public_data';
-export const WORLD_STATE_NODES_DB_USED_SIZE_ARCHIVE = 'aztec.world_state.db_used_size.nodes.archive';
-export const WORLD_STATE_NODES_DB_USED_SIZE_MESSAGE = 'aztec.world_state.db_used_size.nodes.message';
-export const WORLD_STATE_NODES_DB_USED_SIZE_NOTE_HASH = 'aztec.world_state.db_used_size.nodes.note_hash';
-
-export const WORLD_STATE_NODES_DB_NUM_ITEMS_NULLIFIER = 'aztec.world_state.db_num_items.nodes.nullifier';
-export const WORLD_STATE_NODES_DB_NUM_ITEMS_PUBLIC_DATA = 'aztec.world_state.db_num_items.nodes.public_data';
-export const WORLD_STATE_NODES_DB_NUM_ITEMS_ARCHIVE = 'aztec.world_state.db_num_items.nodes.archive';
-export const WORLD_STATE_NODES_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.db_num_items.nodes.message';
-export const WORLD_STATE_NODES_DB_NUM_ITEMS_NOTE_HASH = 'aztec.world_state.db_num_items.nodes.note_hash';
-
-export const WORLD_STATE_LEAF_PREIMAGE_DB_USED_SIZE_NULLIFIER =
-  'aztec.world_state.db_used_size.leaf_preimage.nullifier';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_USED_SIZE_PUBLIC_DATA =
-  'aztec.world_state.db_used_size.leaf_preimage.public_data';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_USED_SIZE_ARCHIVE = 'aztec.world_state.db_used_size.leaf_preimage.archive';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_USED_SIZE_MESSAGE = 'aztec.world_state.db_used_size.leaf_preimage.message';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_USED_SIZE_NOTE_HASH =
-  'aztec.world_state.db_used_size.leaf_preimage.note_hash';
-
-export const WORLD_STATE_LEAF_PREIMAGE_DB_NUM_ITEMS_NULLIFIER =
-  'aztec.world_state.db_num_items.leaf_preimage.nullifier';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_NUM_ITEMS_PUBLIC_DATA =
-  'aztec.world_state.db_num_items.leaf_preimage.public_data';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_NUM_ITEMS_ARCHIVE = 'aztec.world_state.db_num_items.leaf_preimage.archive';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.db_num_items.leaf_preimage.message';
-export const WORLD_STATE_LEAF_PREIMAGE_DB_NUM_ITEMS_NOTE_HASH =
-  'aztec.world_state.db_num_items.leaf_preimage.note_hash';
-
-export const WORLD_STATE_LEAF_INDICES_DB_USED_SIZE_NULLIFIER = 'aztec.world_state.db_used_size.leaf_indices.nullifier';
-export const WORLD_STATE_LEAF_INDICES_DB_USED_SIZE_PUBLIC_DATA =
-  'aztec.world_state.db_used_size.leaf_indices.public_data';
-export const WORLD_STATE_LEAF_INDICES_DB_USED_SIZE_ARCHIVE = 'aztec.world_state.db_used_size.leaf_indices.archive';
-export const WORLD_STATE_LEAF_INDICES_DB_USED_SIZE_MESSAGE = 'aztec.world_state.db_used_size.leaf_indices.message';
-export const WORLD_STATE_LEAF_INDICES_DB_USED_SIZE_NOTE_HASH = 'aztec.world_state.db_used_size.leaf_indices.note_hash';
-
-export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_NULLIFIER = 'aztec.world_state.db_num_items.leaf_indices.nullifier';
-export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_PUBLIC_DATA =
-  'aztec.world_state.db_num_items.leaf_indices.public_data';
-export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_ARCHIVE = 'aztec.world_state.db_num_items.leaf_indices.archive';
-export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.db_num_items.leaf_indices.message';
-export const WORLD_STATE_LEAF_INDICES_DB_NUM_ITEMS_NOTE_HASH = 'aztec.world_state.db_num_items.leaf_indices.note_hash';
-
-export const WORLD_STATE_BLOCK_INDICES_DB_USED_SIZE_NULLIFIER =
-  'aztec.world_state.db_used_size.block_indices.nullifier';
-export const WORLD_STATE_BLOCK_INDICES_DB_USED_SIZE_PUBLIC_DATA =
-  'aztec.world_state.db_used_size.block_indices.public_data';
-export const WORLD_STATE_BLOCK_INDICES_DB_USED_SIZE_ARCHIVE = 'aztec.world_state.db_used_size.block_indices.archive';
-export const WORLD_STATE_BLOCK_INDICES_DB_USED_SIZE_MESSAGE = 'aztec.world_state.db_used_size.block_indices.message';
-export const WORLD_STATE_BLOCK_INDICES_DB_USED_SIZE_NOTE_HASH =
-  'aztec.world_state.db_used_size.block_indices.note_hash';
-
-export const WORLD_STATE_BLOCK_INDICES_DB_NUM_ITEMS_NULLIFIER =
-  'aztec.world_state.db_num_items.block_indices.nullifier';
-export const WORLD_STATE_BLOCK_INDICES_DB_NUM_ITEMS_PUBLIC_DATA =
-  'aztec.world_state.db_num_items.block_indices.public_data';
-export const WORLD_STATE_BLOCK_INDICES_DB_NUM_ITEMS_ARCHIVE = 'aztec.world_state.db_num_items.block_indices.archive';
-export const WORLD_STATE_BLOCK_INDICES_DB_NUM_ITEMS_MESSAGE = 'aztec.world_state.db_num_items.block_indices.message';
-export const WORLD_STATE_BLOCK_INDICES_DB_NUM_ITEMS_NOTE_HASH =
-  'aztec.world_state.db_num_items.block_indices.note_hash';
+export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
+export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
+export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
+export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';
+export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
+export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
+export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
