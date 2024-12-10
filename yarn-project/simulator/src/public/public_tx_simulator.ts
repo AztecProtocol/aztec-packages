@@ -264,8 +264,7 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const selector = executionRequest.callContext.functionSelector;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
 
     const availableGas = context.getGasLeftForPhase(phase);
     // Gas allocated to an enqueued call can be different from the available gas
@@ -328,18 +327,16 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
-    const selector = executionRequest.callContext.functionSelector;
 
     this.log.verbose(
       `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
-    const simulator = AvmSimulator.create(
+    const simulator = await AvmSimulator.create(
       stateManager,
       address,
       sender,
-      selector,
       transactionFee,
       this.globalVariables,
       executionRequest.callContext.isStaticCall,

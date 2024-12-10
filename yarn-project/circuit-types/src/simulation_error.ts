@@ -19,7 +19,7 @@ export interface FailingFunction {
   /**
    * The selector of the function that failed.
    */
-  functionSelector: FunctionSelector;
+  functionSelector?: FunctionSelector;
   /**
    * The name of the function that failed.
    */
@@ -160,6 +160,7 @@ export class SimulationError extends Error {
     this.functionErrorStack.forEach(failingFunction => {
       if (
         failingFunction.contractAddress.equals(contractAddress) &&
+        !!failingFunction.functionSelector &&
         failingFunction.functionSelector.equals(functionSelector)
       ) {
         failingFunction.functionName = functionName;
@@ -175,7 +176,7 @@ export class SimulationError extends Error {
     const stackLines: string[] = [
       ...functionCallStack.map(failingFunction => {
         return `at ${failingFunction.contractName ?? failingFunction.contractAddress.toString()}.${
-          failingFunction.functionName ?? failingFunction.functionSelector.toString()
+          failingFunction.functionName ?? failingFunction.functionSelector?.toString() ?? 'unknown'
         }`;
       }),
       ...noirCallStack.map(errorLocation =>
