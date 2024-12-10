@@ -116,7 +116,7 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private verificationKeys = new Map<
-    `ultra${'_keccak_' | '_'}honk_${ServerProtocolArtifact}`,
+    `ultra${'_keccak_' | '_' | '_rollup_'}honk_${ServerProtocolArtifact}`,
     Promise<VerificationKeyData>
   >();
 
