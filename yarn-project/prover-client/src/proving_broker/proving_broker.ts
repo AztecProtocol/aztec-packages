@@ -9,7 +9,7 @@ import {
   type ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -87,7 +87,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     private database: ProvingBrokerDatabase,
     client: TelemetryClient,
     { jobTimeoutMs = 30_000, timeoutIntervalMs = 10_000, maxRetries = 3 }: ProofRequestBrokerConfig = {},
-    private logger = createDebugLogger('aztec:prover-client:proving-broker'),
+    private logger = createLogger('prover-client:proving-broker'),
   ) {
     this.instrumentation = new ProvingBrokerInstrumentation(client);
     this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalMs);

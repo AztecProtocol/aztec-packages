@@ -56,7 +56,7 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { Fr, type Point } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
@@ -65,11 +65,12 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { type PXEServiceConfig } from '../config/index.js';
+import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -87,7 +88,7 @@ export class PXEService implements PXE {
   private synchronizer: Synchronizer;
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
-  private log: DebugLogger;
+  private log: Logger;
   private packageVersion: string;
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
@@ -102,7 +103,7 @@ export class PXEService implements PXE {
     config: PXEServiceConfig,
     logSuffix?: string,
   ) {
-    this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
+    this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
@@ -915,7 +916,7 @@ export class PXEService implements PXE {
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
-        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
           const registeredAccount = await this.getRegisteredAccount(account);

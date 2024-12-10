@@ -1,7 +1,7 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-import { type DebugLogger } from '@aztec/foundation/log';
-import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator';
+import { type Logger } from '@aztec/foundation/log';
+import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/errors';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
@@ -10,7 +10,7 @@ import { type ContractDataOracle, type PxeDatabase } from '../index.js';
  * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: DebugLogger) {
+export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: Logger) {
   // Maps contract addresses to the set of functions selectors that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
@@ -56,7 +56,7 @@ export async function enrichPublicSimulationError(
   err: SimulationError,
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
-  logger: DebugLogger,
+  logger: Logger,
 ) {
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];

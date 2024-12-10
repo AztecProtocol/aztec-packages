@@ -118,10 +118,8 @@ describe('JsonRpc integration', () => {
       await expect(() => client.fail()).rejects.toThrow('Test state failed');
     });
 
-    it('fails if calls non-existing method in handler', async () => {
-      await expect(() => (client as TestState).forceClear()).rejects.toThrow(
-        'Unspecified method forceClear in client schema',
-      );
+    it('fails if calls non-existing method in handler', () => {
+      expect(() => (client as TestState).forceClear()).toThrow(/not a function/i);
     });
   });
 

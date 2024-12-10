@@ -1,6 +1,6 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
@@ -15,7 +15,7 @@ export async function sequencers(opts: {
   chainId: number;
   blockNumber?: number;
   log: LogFn;
-  debugLogger: DebugLogger;
+  debugLogger: Logger;
 }) {
   const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrl, chainId, log, debugLogger } = opts;
   const client = await createCompatibleClient(rpcUrl, debugLogger);

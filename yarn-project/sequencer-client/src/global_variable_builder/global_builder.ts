@@ -2,7 +2,7 @@ import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@a
 import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -20,7 +20,7 @@ import type * as chains from 'viem/chains';
  * Simple global variables builder.
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private log = createDebugLogger('aztec:sequencer:global_variable_builder');
+  private log = createLogger('sequencer:global_variable_builder');
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
@@ -103,7 +103,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       feeRecipient,
       gasFees,
     );
-    this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toFriendlyJSON());
+
     return globalVariables;
   }
 }

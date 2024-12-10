@@ -7,12 +7,12 @@ import {
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';
 import os from 'os';
 import path from 'path';
@@ -22,7 +22,7 @@ import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-const logger = createDebugLogger('aztec:avm-integration');
+const logger = createLogger('ivc-integration:test:avm-integration');
 
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
@@ -122,7 +122,7 @@ describe('AVM Integration', () => {
 async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
 
-  const internalLogger = createDebugLogger('aztec:avm-proving-test');
+  const internalLogger = createLogger('ivc-integration:test:avm-proving');
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');

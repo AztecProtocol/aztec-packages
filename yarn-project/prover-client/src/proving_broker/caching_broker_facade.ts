@@ -33,7 +33,7 @@ import {
   type TubeInputs,
 } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { InlineProofStore, type ProofStore } from './proof_store.js';
@@ -52,7 +52,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     private proofStore: ProofStore = new InlineProofStore(),
     private waitTimeoutMs = MAX_WAIT_MS,
     private pollIntervalMs = 1000,
-    private log = createDebugLogger('aztec:prover-client:caching-prover-broker'),
+    private log = createLogger('prover-client:caching-prover-broker'),
   ) {}
 
   private async enqueueAndWaitForJob<T extends ProvingRequestType>(
