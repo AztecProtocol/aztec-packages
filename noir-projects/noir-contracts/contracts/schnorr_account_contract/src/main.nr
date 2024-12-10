@@ -112,7 +112,7 @@ contract SchnorrAccount {
             is_infinite: false,
         };
         let valid_in_private =
-            std::schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
+            schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and
