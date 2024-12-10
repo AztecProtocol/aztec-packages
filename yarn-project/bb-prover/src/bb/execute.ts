@@ -673,7 +673,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'verify_ultra_keccak_honk' | 'avm_verify',
+  command: 'verify_ultra_honk' | 'verify_ultra_rollup_honk' | 'verify_ultra_keccak_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
