@@ -2,7 +2,7 @@ import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types'
 import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { EthCheatCodes, type L1ContractAddresses } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -51,7 +51,7 @@ export class RollupCheatCodes {
   private client: WalletClient & PublicClient;
   private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
 
-  private logger = createDebugLogger('aztec:js:cheat_codes');
+  private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
     this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
@@ -197,7 +197,7 @@ export class AztecCheatCodes {
     /**
      * The logger to use for the aztec cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:aztec'),
+    public logger = createLogger('aztecjs:cheat_codes'),
   ) {}
 
   /**
