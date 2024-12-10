@@ -1004,10 +1004,15 @@ export class PXEService implements PXE {
   }
 
   private contextualizeError(err: Error, ...context: string[]): Error {
-    this.log.error(err.name, err);
-    this.log.debug('Context:');
-    for (const c of context) {
-      this.log.debug(c);
+    let contextStr = '';
+    if (context.length > 0) {
+      contextStr = `\nContext:\n${context.join('\n')}`;
+    }
+    if (err instanceof SimulationError) {
+      err.setAztecContext(contextStr);
+    } else {
+      this.log.error(err.name, err);
+      this.log.debug(contextStr);
     }
     return err;
   }

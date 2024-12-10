@@ -1,7 +1,7 @@
 import {
   AztecNode,
   Fr,
-  createDebugLogger,
+  createLogger,
   deriveMasterIncomingViewingSecretKey,
 } from "@aztec/aztec.js";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
@@ -24,10 +24,7 @@ export class PrivateEnv {
   accountContract;
   account: AccountManager;
 
-  constructor(
-    private secretKey: Fr,
-    private nodeURL: string,
-  ) {}
+  constructor(private secretKey: Fr, private nodeURL: string) {}
 
   async init() {
     const config = getPXEServiceConfig();
@@ -36,20 +33,20 @@ export class PrivateEnv {
     const proofCreator = new TestPrivateKernelProver();
     this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
     const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
-      this.secretKey,
+      this.secretKey
     );
     this.accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
     this.account = new AccountManager(
       this.pxe,
       this.secretKey,
-      this.accountContract,
+      this.accountContract
     );
   }
 
   async createPXEService(
     aztecNode: AztecNode,
     config: PXEServiceConfig,
-    proofCreator?: PrivateKernelProver,
+    proofCreator?: PrivateKernelProver
   ) {
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
@@ -60,7 +57,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createDebugLogger("aztec:pxe:data:indexeddb"),
+      createLogger("pxe:data:indexeddb")
     );
 
     const keyStore = new KeyStore(store);
@@ -74,7 +71,7 @@ export class PrivateEnv {
       db,
       tips,
       proofCreator,
-      config,
+      config
     );
     await server.start();
     return server;
@@ -88,7 +85,7 @@ export class PrivateEnv {
 
 export const deployerEnv = new PrivateEnv(
   SECRET_KEY,
-  process.env.PXE_URL || "http://localhost:8080",
+  process.env.PXE_URL || "http://localhost:8080"
 );
 
 const IGNORE_FUNCTIONS = [
@@ -97,5 +94,5 @@ const IGNORE_FUNCTIONS = [
   "sync_notes",
 ];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name),
+  (f) => !IGNORE_FUNCTIONS.includes(f.name)
 );
