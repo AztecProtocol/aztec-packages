@@ -1,15 +1,12 @@
 use crate::{
     context::PrivateContext,
     note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
+    utils::array,
 };
 
-use dep::protocol_types::{
-    hash::{
-        compute_siloed_note_hash,
-        compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-        compute_unique_note_hash,
-    },
-    utils::arr_copy_slice,
+use dep::protocol_types::hash::{
+    compute_siloed_note_hash, compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
+    compute_unique_note_hash,
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(
@@ -128,7 +125,7 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32,
 where
     T: NoteInterface<N> + NullifiableNote,
 {
-    let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
+    let mut note = deserialize_content(array::subarray(serialized_note, 0));
     note.set_header(note_header);
 
     let note_hash = note.compute_note_hash();
