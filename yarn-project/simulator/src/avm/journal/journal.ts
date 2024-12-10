@@ -175,9 +175,6 @@ export class AvmPersistableStateManager {
       let insertionPath: Fr[] | undefined;
       if (!result.update) {
         insertionPath = result.insertionPath;
-      }
-
-      if (lowLeafIndex !== 0n) {
         assert(
           newLeafPreimage.value.equals(value),
           `Value mismatch when performing public data write (got value: ${value}, value in ephemeral tree: ${newLeafPreimage.value})`,
@@ -225,10 +222,10 @@ export class AvmPersistableStateManager {
       const leafPath = await this.merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
       const leafPreimage = preimage as PublicDataTreeLeafPreimage;
 
+      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
       this.log.debug(
         `leafPreimage.nextSlot: ${leafPreimage.nextSlot}, leafPreimage.nextIndex: ${Number(leafPreimage.nextIndex)}`,
       );
-      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
 
       if (alreadyPresent) {
         assert(
