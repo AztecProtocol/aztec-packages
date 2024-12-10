@@ -24,12 +24,15 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
+  jest.setTimeout(20 * 60 * 1000); // 20 minutes
+
   let pxe: PXE;
   let logger: Logger;
   let owner: Wallet;
@@ -63,11 +66,11 @@ describe('e2e_block_building', () => {
       const deployer = new ContractDeployer(artifact, owner);
 
       const ownerAddress = owner.getCompleteAddress().address;
-      const outgoingViewer = ownerAddress;
+      const sender = ownerAddress;
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, outgoingViewer, i + 1));
+      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, sender, i + 1));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
         provenTxs.push(
@@ -291,10 +294,10 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
-      const outgoingViewer = thisWallet.getAddress();
+      const sender = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), outgoingViewer);
+      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), sender);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -317,17 +320,12 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
-      const outgoingViewer = thisWallet.getAddress();
+      const sender = thisWallet.getAddress();
 
       // call test contract
       const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
       const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
-      const action = testContract.methods.emit_array_as_encrypted_log(
-        values,
-        thisWallet.getAddress(),
-        outgoingViewer,
-        true,
-      );
+      const action = testContract.methods.emit_array_as_encrypted_log(values, thisWallet.getAddress(), sender, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
