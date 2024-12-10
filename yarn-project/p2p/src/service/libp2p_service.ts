@@ -311,8 +311,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
   }
 
-  public getPeers(): PeerInfo[] {
-    return this.peerManager.getPeers();
+  public getPeers(includePending?: boolean): PeerInfo[] {
+    return this.peerManager.getPeers(includePending);
   }
 
   /**

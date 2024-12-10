@@ -76,10 +76,14 @@ export class PeerManager {
     return this.peerScoring.getScore(peerId);
   }
 
-  public getPeers(): PeerInfo[] {
+  public getPeers(includePending = false): PeerInfo[] {
     const connected = this.libP2PNode
       .getPeers()
       .map(peer => ({ id: peer.toString(), score: this.getPeerScore(peer.toString()), status: 'connected' as const }));
+
+    if (!includePending) {
+      return connected;
+    }
 
     const dialQueue = this.libP2PNode
       .getDialQueue()

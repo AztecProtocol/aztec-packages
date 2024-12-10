@@ -239,8 +239,8 @@ export class P2PClient extends WithTracer implements P2P {
     return true;
   }
 
-  public getPeers(): Promise<PeerInfo[]> {
-    return Promise.resolve(this.p2pService.getPeers());
+  public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
+    return Promise.resolve(this.p2pService.getPeers(includePending));
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {

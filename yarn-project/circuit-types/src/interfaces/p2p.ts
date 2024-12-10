@@ -56,7 +56,7 @@ export interface P2PApi {
   /**
    * Returns info for all connected, dialing, and cached peers.
    */
-  getPeers(): Promise<PeerInfo[]>;
+  getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
@@ -67,5 +67,5 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
   getEncodedEnr: z.function().returns(z.string().optional()),
-  getPeers: z.function().returns(z.array(PeerInfoSchema)),
+  getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
 };

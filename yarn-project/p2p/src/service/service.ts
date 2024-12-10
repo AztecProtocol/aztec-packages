@@ -50,7 +50,7 @@ export interface P2PService {
 
   getEnr(): ENR | undefined;
 
-  getPeers(): PeerInfo[];
+  getPeers(includePending?: boolean): PeerInfo[];
 }
 
 /**

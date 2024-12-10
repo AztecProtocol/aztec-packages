@@ -52,6 +52,11 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers();
     expect(peers).toEqual(peers);
   });
+
+  it('getPeers(true)', async () => {
+    const peers = await context.client.getPeers(true);
+    expect(peers).toEqual(peers);
+  });
 });
 
 const peers: PeerInfo[] = [
@@ -76,7 +81,8 @@ class MockP2P implements P2PApi {
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr');
   }
-  getPeers(): Promise<PeerInfo[]> {
+  getPeers(includePending?: boolean): Promise<PeerInfo[]> {
+    expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);
   }
 }
