@@ -6,7 +6,6 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract FPC {
     use crate::config::Config;
-    use crate::lib::compute_rebate;
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
@@ -56,9 +55,12 @@ contract FPC {
     }
 
     #[private]
-    fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
+    fn fee_entrypoint_public(amount: Field, nonce: Field) {
+        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
+        let config = storage.config.read();
+
         FPC::at(context.this_address())
-            .prepare_fee(context.msg_sender(), amount, asset, nonce)
+            .prepare_fee(context.msg_sender(), amount, config.accepted_asset, nonce)
             .enqueue(&mut context);
         context.set_as_fee_payer();
         // TODO(#6277) for improving interface:
@@ -66,15 +68,21 @@ contract FPC {
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
-            [context.msg_sender().to_field(), amount, asset.to_field()],
+            [context.msg_sender().to_field(), amount, config.accepted_asset.to_field()],
         );
     }
 
     #[public]
     #[internal]
-    fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
+    fn prepare_fee(
+        from: AztecAddress,
+        recipient: AztecAddress,
+        amount: Field,
+        accepted_asset: AztecAddress,
+        nonce: Field,
+    ) {
         // docs:start:public_call
-        Token::at(asset).transfer_in_public(from, context.this_address(), amount, nonce).call(
+        Token::at(accepted_asset).transfer_in_public(from, recipient, amount, nonce).call(
             &mut context,
         );
         // docs:end:public_call
@@ -82,11 +90,16 @@ contract FPC {
 
     #[public]
     #[internal]
-    fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
-        // Just do public refunds for the present
-        let refund = compute_rebate(context, amount);
-        Token::at(asset).transfer_in_public(context.this_address(), refund_address, refund, 0).call(
-            &mut context,
+    fn pay_refund(refund_address: AztecAddress, max_amount: Field, accepted_asset: AztecAddress) {
+        let actual_fee = context.transaction_fee();
+        assert(
+            !max_amount.lt(actual_fee),
+            "Max amount paid to the paymaster does not cover actual fee",
         );
+        let refund = max_amount - actual_fee;
+
+        Token::at(accepted_asset)
+            .transfer_in_public(context.this_address(), refund_address, refund, 0)
+            .call(&mut context);
     }
 }
