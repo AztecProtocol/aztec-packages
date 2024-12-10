@@ -58,7 +58,8 @@ mod tests {
     use dep::types::{
         abis::{
             gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
+            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
+            side_effect::scoped::Scoped,
         },
         address::{AztecAddress, EthAddress},
         point::Point,
@@ -210,6 +211,34 @@ mod tests {
             + L2_GAS_PER_NULLIFIER
             + num_note_hashes * L2_GAS_PER_NOTE_HASH;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
+    }
+
+    #[test]
+    unconstrained fn split_private_logs() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+        // expect 2 non-revertible note hashes
+        builder.previous_kernel.append_siloed_private_logs_for_note(2, 11);
+        builder.previous_kernel.end_setup();
+
+        // expect 2 revertible note hashes
+        builder.previous_kernel.append_siloed_private_logs_for_note(3, 12);
+
+        let exposed_private_logs = builder.previous_kernel.private_logs.storage().map(
+            |n: Scoped<PrivateLogData>| n.inner.log,
+        );
+
+        let public_inputs = builder.execute();
+
+        assert_array_eq(
+            public_inputs.non_revertible_accumulated_data.private_logs,
+            [exposed_private_logs[0], exposed_private_logs[1]],
+        );
+
+        assert_array_eq(
+            public_inputs.revertible_accumulated_data.private_logs,
+            [exposed_private_logs[2], exposed_private_logs[3], exposed_private_logs[4]],
+        );
     }
 
     #[test(should_fail_with = "Non empty note hash read requests")]
