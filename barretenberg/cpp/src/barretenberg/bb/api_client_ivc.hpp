@@ -132,11 +132,6 @@ class ClientIVCAPI : public API {
 
         using namespace acir_format;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
-
-        // WORKTODO: this is historically recursive=true but prob doesnt need to be
         ProgramMetadata metadata{ ivc };
 
         // Accumulate the entire program stack into the IVC
@@ -159,32 +154,6 @@ class ClientIVCAPI : public API {
             ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
         }
     };
-
-    // static void _accumulate_without_auto_verify(const std::shared_ptr<ClientIVC>& ivc,
-    //                                             std::vector<acir_format::AcirProgram>& folding_stack)
-    // {
-    //     using Builder = MegaCircuitBuilder;
-    //     using Program = acir_format::AcirProgram;
-
-    //     using namespace acir_format;
-
-    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    //     init_bn254_crs(1 << 20);
-    //     init_grumpkin_crs(1 << 15);
-
-    //     ProgramMetadata metadata{ ivc };
-
-    //     // Accumulate the entire program stack into the IVC
-    //     for (Program& program : folding_stack) {
-
-    //         Builder circuit = create_circuit<Builder>(program, metadata);
-
-    //         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In
-    //         this
-    //         // case, no work is added to the Goblin opqueue, but VM proofs for trivial inputs are produced.
-    //         ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
-    //     }
-    // };
 
   public:
     void prove(const API::Flags& flags,

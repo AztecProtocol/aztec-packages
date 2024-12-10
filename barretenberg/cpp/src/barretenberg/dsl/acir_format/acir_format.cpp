@@ -438,7 +438,10 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
 #endif // DISABLE_AZTEC_VM
 
 /**
- * @brief WORKTODO
+ * @brief Specialization for creating an Ultra circuit from an acir program
+ *
+ * @param program constraints and optionally a witness
+ * @param metadata additional data needed to construct the circuit
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
@@ -455,7 +458,10 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
 };
 
 /**
- * @brief WORKTODO
+ * @brief Specialization for creating a Mega circuit from an acir program
+ *
+ * @param program constraints and optionally a witness
+ * @param metadata additional data needed to construct the circuit
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
@@ -493,9 +499,6 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
 {
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
-    // WORKTODO: making a copy here potentially breaks the gate count mechanism if we look to the input
-    // constraint_system.gate_counts to compute it. Just do away with this method altogether in favor of the newer
-    // simpler one
     AcirProgram program{ constraint_system, witness };
     ProgramMetadata metadata;
     metadata.recursive = recursive;
