@@ -18,7 +18,7 @@ pub use transformers::{transform, MIN_EXPRESSION_WIDTH};
 
 /// We need multiple passes to stabilize the output.
 /// The value was determined by running tests.
-const MAX_OPTIMIZER_PASSES: usize = 1;
+const MAX_OPTIMIZER_PASSES: usize = 3;
 
 /// This module moves and decomposes acir opcodes. The transformation map allows consumers of this module to map
 /// metadata they had about the opcodes to the new opcode structure generated after the transformation.

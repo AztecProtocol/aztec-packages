@@ -384,7 +384,6 @@ mod tests {
     /// This test is here purely because of the convenience of having access to
     /// the utility functions to process workspaces.
     #[test]
-    #[ignore]
     fn test_transform_program_is_idempotent() {
         let opts = Options::parse();
 
