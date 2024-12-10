@@ -49,6 +49,9 @@
     ],
     "testTimeout": 30000,
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   }
 }
