@@ -1,11 +1,6 @@
-import { AztecClientBackend } from '@aztec/bb.js';
-
 import { expect } from 'chai';
-import { ungzip } from 'pako';
 
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack, mockLogger } from './index.js';
-
-zs;
 
 const logger = mockLogger;
 
