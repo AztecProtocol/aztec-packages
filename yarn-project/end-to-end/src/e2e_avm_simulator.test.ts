@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus, sleep } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
 import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -29,9 +29,6 @@ describe('e2e_avm_simulator', () => {
     beforeEach(async () => {
       avmContract = await AvmTestContract.deploy(wallet).send().deployed();
       secondAvmContract = await AvmTestContract.deploy(wallet).send().deployed();
-    });
-    afterEach(async () => {
-      await sleep(1000);
     });
 
     describe('Assertions', () => {

@@ -197,20 +197,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public tracePublicStorageRead(
-    _contractAddress: AztecAddress,
+    contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
     leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!leafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(leafPreimage.value.equals(value), `Value mismatch when tracing in public data read (value: ${value}, value in leaf preimage: ${leafPreimage.value})`);
-    }
-
     this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
-    this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
+    this.log.debug(
+      `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
+    );
     this.incrementSideEffectCounter();
   }
 
@@ -224,10 +221,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!lowLeafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(newLeafPreimage.value.equals(value), `Value mismatch when tracing in public data write (value: ${value}, value in leaf preimage: ${newLeafPreimage.value})`);
-    }
     if (
       this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -248,7 +241,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
 
     this.log.debug(
-      `Traced public data write (address=${contractAddress}, slot=${slot}, leafSlot=${leafSlot}): value=${value} (counter=${this.sideEffectCounter})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
     );
     this.incrementSideEffectCounter();
   }

@@ -156,9 +156,11 @@ export class AvmPersistableStateManager {
    */
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+
     if (this.doMerkleOperations) {
       const result = await this.merkleTrees.writePublicStorage(leafSlot, value);
       assert(result !== undefined, 'Public data tree insertion error. You might want to disable doMerkleOperations.');
@@ -173,6 +175,13 @@ export class AvmPersistableStateManager {
       let insertionPath: Fr[] | undefined;
       if (!result.update) {
         insertionPath = result.insertionPath;
+      }
+
+      if (lowLeafIndex !== 0n) {
+        assert(
+          newLeafPreimage.value.equals(value),
+          `Value mismatch when performing public data write (got value: ${value}, value in ephemeral tree: ${newLeafPreimage.value})`,
+        );
       }
 
       this.trace.tracePublicStorageWrite(
@@ -200,8 +209,8 @@ export class AvmPersistableStateManager {
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
     const { value, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
-
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
 
     if (this.doMerkleOperations) {
       // Get leaf if present, low leaf if absent
@@ -221,7 +230,13 @@ export class AvmPersistableStateManager {
       );
       this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
 
-      if (!alreadyPresent) {
+      if (alreadyPresent) {
+        assert(
+          leafPreimage.value.equals(value),
+          `Value mismatch when performing public data read (got value: ${value}, value in ephemeral tree: ${leafPreimage.value})`,
+        );
+      } else {
+        this.log.debug(`Slot has never been written before!`);
         // Sanity check that the leaf slot is skipped by low leaf when it doesn't exist
         assert(
           leafPreimage.slot.toBigInt() < leafSlot.toBigInt() &&
@@ -229,9 +244,6 @@ export class AvmPersistableStateManager {
           'Public data tree low leaf should skip the target leaf slot when the target leaf does not exist or is the max value.',
         );
       }
-      this.log.debug(
-        `Tracing storage leaf preimage slot=${slot}, leafSlot=${leafSlot}, value=${value}, nextKey=${leafPreimage.nextSlot}, nextIndex=${leafPreimage.nextIndex}`,
-      );
       // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
       // prove that this is a low leaf that skips leafSlot, and then prove membership of the leaf.
       this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
