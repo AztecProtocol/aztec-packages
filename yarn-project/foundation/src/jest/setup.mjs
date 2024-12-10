@@ -1,4 +1,5 @@
 import { overwriteLoggingStream, pinoPrettyOpts } from '@aztec/foundation/log';
+
 import pretty from 'pino-pretty';
 
 // Overwrite logging stream with pino-pretty. We define this as a separate
