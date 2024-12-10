@@ -158,7 +158,7 @@ template <typename Flavor> class RelationUtils {
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             // FIXME: You wan't /*consider_skipping=*/false here, but tests need to be fixed.
-            accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/true>(
+            accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/false>(
                 evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
         });
     }
