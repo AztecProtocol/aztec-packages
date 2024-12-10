@@ -138,7 +138,7 @@ export class AvmRevertReason extends ExecutionError {
   }
 }
 
-function createRevertReason(message: string, revertData: Fr[], context: AvmContext): AvmRevertReason {
+async function createRevertReason(message: string, revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
   // We drop the returnPc information.
   const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
 
@@ -153,11 +153,13 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
     message = context.machineState.collectedRevertInfo.recursiveRevertReason.message;
   }
 
+  const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
+
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
       contractAddress: context.environment.address,
-      functionName: context.environment.fnName,
+      functionName: fnName,
     },
     /*noirCallStack=*/ [...internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
     /*options=*/ { cause: nestedError },
@@ -170,8 +172,11 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
  * @param haltingError - the lower-level error causing the exceptional halt
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError, context: AvmContext): AvmRevertReason {
-  return createRevertReason(haltingError.message, [], context);
+export async function revertReasonFromExceptionalHalt(
+  haltingError: AvmExecutionError,
+  context: AvmContext,
+): Promise<AvmRevertReason> {
+  return await createRevertReason(haltingError.message, [], context);
 }
 
 /**
@@ -180,6 +185,6 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
  * @param revertData - output data of the explicit REVERT instruction
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): AvmRevertReason {
-  return createRevertReason('Assertion failed: ', revertData, context);
+export async function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
+  return await createRevertReason('Assertion failed: ', revertData, context);
 }

@@ -44,13 +44,12 @@ export class AvmContext {
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-    fnName: string,
   ): AvmContext {
     const deriveFn =
       callType === 'CALL'
         ? this.environment.deriveEnvironmentForNestedCall
         : this.environment.deriveEnvironmentForNestedStaticCall;
-    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata, fnName);
+    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
     const forkedWorldState = this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);

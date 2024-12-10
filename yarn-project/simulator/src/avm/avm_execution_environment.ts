@@ -10,7 +10,6 @@ export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
     public readonly sender: AztecAddress,
-    public readonly fnName: string,
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
     public readonly globals: GlobalVariables,
@@ -18,16 +17,10 @@ export class AvmExecutionEnvironment {
     public readonly calldata: Fr[],
   ) {}
 
-  private deriveEnvironmentForNestedCallInternal(
-    targetAddress: AztecAddress,
-    calldata: Fr[],
-    fnName: string,
-    isStaticCall: boolean,
-  ) {
+  private deriveEnvironmentForNestedCallInternal(targetAddress: AztecAddress, calldata: Fr[], isStaticCall: boolean) {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
       /*sender=*/ this.address,
-      fnName,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
       this.globals,
@@ -36,19 +29,11 @@ export class AvmExecutionEnvironment {
     );
   }
 
-  public deriveEnvironmentForNestedCall(
-    targetAddress: AztecAddress,
-    calldata: Fr[],
-    fnName: string,
-  ): AvmExecutionEnvironment {
-    return this.deriveEnvironmentForNestedCallInternal(targetAddress, calldata, fnName, /*isStaticCall=*/ false);
+  public deriveEnvironmentForNestedCall(targetAddress: AztecAddress, calldata: Fr[]): AvmExecutionEnvironment {
+    return this.deriveEnvironmentForNestedCallInternal(targetAddress, calldata, /*isStaticCall=*/ false);
   }
 
-  public deriveEnvironmentForNestedStaticCall(
-    targetAddress: AztecAddress,
-    calldata: Fr[],
-    fnName: string,
-  ): AvmExecutionEnvironment {
-    return this.deriveEnvironmentForNestedCallInternal(targetAddress, calldata, fnName, /*isStaticCall=*/ true);
+  public deriveEnvironmentForNestedStaticCall(targetAddress: AztecAddress, calldata: Fr[]): AvmExecutionEnvironment {
+    return this.deriveEnvironmentForNestedCallInternal(targetAddress, calldata, /*isStaticCall=*/ true);
   }
 }

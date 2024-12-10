@@ -9,30 +9,24 @@ describe('Execution Environment', () => {
 
   it('New call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(newAddress, calldata, 'func');
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(newAddress, calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
-        fnName: 'func',
         contractCallDepth: Fr.ONE,
         calldata: calldata,
       }),
     );
   });
 
-  it('New static call call should fork execution environment correctly', () => {
+  it('New static call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(
-      newAddress,
-      calldata,
-      'static func',
-    );
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(newAddress, calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
-        fnName: 'static func',
         contractCallDepth: Fr.ONE,
         isStaticCall: true,
         calldata: calldata,

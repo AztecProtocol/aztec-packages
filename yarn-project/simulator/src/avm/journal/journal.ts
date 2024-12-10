@@ -706,8 +706,8 @@ export class AvmPersistableStateManager {
     this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
 
-  public async getPublicFunctionDebugName(contractAddress: AztecAddress, calldata: Fr[]): Promise<string> {
-    return await getPublicFunctionDebugName(this.worldStateDB, contractAddress, calldata);
+  public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
+    return await getPublicFunctionDebugName(this.worldStateDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 }
 

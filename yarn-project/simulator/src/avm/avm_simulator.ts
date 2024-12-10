@@ -43,12 +43,14 @@ export class AvmSimulator {
   private tallyPrintFunction = () => {};
   private tallyInstructionFunction = (_a: number, _b: string, _c: Gas) => {};
 
+  // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
+  // only. Otherwise, use build() below.
   constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
-    this.log = createLogger(`simulator:avm:core(f:${this.context.environment.fnName})`);
+    this.log = createLogger(`aztec:avm_simulator:core(calldata[0]: ${context.environment.calldata[0]})`);
     // TODO(palla/log): Should tallies be printed on debug, or only on trace?
     if (this.log.isLevelEnabled('debug')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
@@ -56,10 +58,19 @@ export class AvmSimulator {
     }
   }
 
-  public static create(
+  // Factory to have a proper function name in the logger. Retrieving the name is asynchronous and
+  // cannot be done as part of the constructor.
+  public static async build(context: AvmContext): Promise<AvmSimulator> {
+    const simulator = new AvmSimulator(context);
+    const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
+    simulator.log = createLogger(`aztec:avm_simulator:core(f:${fnName})`);
+
+    return simulator;
+  }
+
+  public static async create(
     stateManager: AvmPersistableStateManager,
     address: AztecAddress,
-    fnName: string,
     sender: AztecAddress,
     transactionFee: Fr,
     globals: GlobalVariables,
@@ -70,7 +81,6 @@ export class AvmSimulator {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
       sender,
-      fnName,
       /*contractCallDepth=*/ Fr.zero(),
       transactionFee,
       globals,
@@ -80,8 +90,7 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    const instructionSet = INSTRUCTION_SET();
-    return new AvmSimulator(avmContext, instructionSet);
+    return await AvmSimulator.build(avmContext);
   }
 
   /**
@@ -92,11 +101,12 @@ export class AvmSimulator {
     if (!bytecode) {
       // revert, consuming all gas
       const message = `No bytecode found at: ${this.context.environment.address}. Reverting...`;
+      const fnName = await this.context.persistableState.getPublicFunctionDebugName(this.context.environment);
       const revertReason = new AvmRevertReason(
         message,
         /*failingFunction=*/ {
           contractAddress: this.context.environment.address,
-          functionName: this.context.environment.fnName,
+          functionName: fnName,
         },
         /*noirCallStack=*/ [],
       );
@@ -170,7 +180,7 @@ export class AvmSimulator {
 
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
-      const revertReason = reverted ? revertReasonFromExplicitRevert(output, this.context) : undefined;
+      const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
@@ -184,7 +194,7 @@ export class AvmSimulator {
         throw err;
       }
 
-      const revertReason = revertReasonFromExceptionalHalt(err, this.context);
+      const revertReason = await revertReasonFromExceptionalHalt(err, this.context);
       // Note: "exceptional halts" cannot return data, hence [].
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);

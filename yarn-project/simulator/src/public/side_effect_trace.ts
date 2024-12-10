@@ -536,7 +536,7 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
     contractAddress: avmEnvironment.address,
-    functionSelector: FunctionSelector.empty(),
+    functionSelector: FunctionSelector.empty(), // TODO(#10563): Remove functionSelector in public call context
     isStaticCall: avmEnvironment.isStaticCall,
   });
   return new PublicExecutionRequest(callContext, avmEnvironment.calldata);

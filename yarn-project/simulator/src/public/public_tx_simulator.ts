@@ -333,10 +333,9 @@ export class PublicTxSimulator {
     );
     const timer = new Timer();
 
-    const simulator = AvmSimulator.create(
+    const simulator = await AvmSimulator.create(
       stateManager,
       address,
-      fnName,
       sender,
       transactionFee,
       this.globalVariables,
