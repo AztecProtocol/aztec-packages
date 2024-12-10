@@ -19,7 +19,7 @@ opentelemetry-collector:
         endpoint: ${env:MY_POD_IP}:8889
         metric_expiration: 5m
         resource_to_telemetry_conversion:
-          enabled: true# Enable and configure Grafana
+          enabled: true
 
 loki:
   loki:

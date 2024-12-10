@@ -39,6 +39,7 @@ resource "helm_release" "aztec-gke-cluster" {
   create_namespace  = true
   upgrade_install   = true
   dependency_update = true
+  force_update      = true
 
   # base values file
   values = [file("../../metrics/values/${var.VALUES_FILE}")]
