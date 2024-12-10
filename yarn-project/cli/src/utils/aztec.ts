@@ -3,7 +3,7 @@ import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -59,7 +59,7 @@ export async function deployAztecContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   config: L1ContractsConfig,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');

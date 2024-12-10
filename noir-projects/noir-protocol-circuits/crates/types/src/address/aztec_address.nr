@@ -12,7 +12,6 @@ use crate::{
     merkle_tree::membership::MembershipWitness,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
 };
 
 // We do below because `use crate::point::Point;` does not work
@@ -147,11 +146,6 @@ impl AztecAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }
 

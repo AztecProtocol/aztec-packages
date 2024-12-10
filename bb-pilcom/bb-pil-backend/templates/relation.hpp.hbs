@@ -4,25 +4,17 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::{{root_name}}_vm {
-
-{{!-- 
-template <typename FF> struct {{upperCamelCase name}}Row {
-    {{#each all_cols as |col|}}
-    FF {{col}}{};
-    {{/each}}
-};
---}}
+namespace bb::{{snakeCase root_name}} {
 
 template <typename FF_> class {{name}}Impl {
     public:
         using FF = FF_;
-        
+
         static constexpr std::array<size_t, {{len degrees}}> SUBRELATION_PARTIAL_LENGTHS = {
             {{#each degrees as |degree|}}{{degree}}{{#unless @last}},{{/unless}}{{/each}}
         };
 
-        {{#if skippable_if}}        
+        {{#if skippable_if}}
         template <typename AllEntities> inline static bool skip(const AllEntities& in)
         {
             const auto& new_term = in;
@@ -65,6 +57,11 @@ template <typename FF> class {{name}} : public Relation<{{name}}Impl<FF>> {
             }
             return std::to_string(index);
         }
+
+        {{#if (len labels)}}// Subrelation indices constants, to be used in tests.{{/if}}
+        {{#each labels as |label|}}
+        static constexpr size_t SR_{{label.1}} = {{label.0}};
+        {{/each}}
 };
 
-} // namespace bb::{{root_name}}_vm
+} // namespace bb::{{snakeCase root_name}}

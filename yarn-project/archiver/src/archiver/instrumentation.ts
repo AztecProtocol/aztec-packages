@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Gauge,
@@ -22,7 +22,7 @@ export class ArchiverInstrumentation {
   private proofsSubmittedCount: UpDownCounter;
   private dbMetrics: LmdbMetrics;
 
-  private log = createDebugLogger('aztec:archiver:instrumentation');
+  private log = createLogger('archiver:instrumentation');
 
   constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
     const meter = telemetry.getMeter('Archiver');
@@ -62,16 +62,16 @@ export class ArchiverInstrumentation {
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
-        name: Metrics.ARCHIVER_DB_MAP_SIZE,
         description: 'Database map size for the archiver',
       },
       {
-        name: Metrics.ARCHIVER_DB_USED_SIZE,
         description: 'Database used size for the archiver',
       },
       {
-        name: Metrics.ARCHIVER_DB_NUM_ITEMS,
         description: 'Num items in the archiver database',
+      },
+      {
+        [Attributes.DB_DATA_TYPE]: 'archiver',
       },
       lmdbStats,
     );

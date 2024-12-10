@@ -1,10 +1,10 @@
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import { ETHEREUM_HOST, l1ChainIdOption, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('bootstrap-network')
     .description('Bootstrap a new network')

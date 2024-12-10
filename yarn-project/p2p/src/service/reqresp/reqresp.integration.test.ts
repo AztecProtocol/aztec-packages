@@ -1,7 +1,7 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -82,7 +82,7 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  const logger = createDebugLogger('p2p-client-integration-test');
+  const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
     ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());
@@ -223,7 +223,7 @@ describe('Req Resp p2p client integration', () => {
       // We want to create a set of nodes and request transaction from them
       const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/ false);
       const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
+      const client2PeerId = await client2.getEnr()!.peerId();
 
       // Give the nodes time to discover each other
       await sleep(6000);

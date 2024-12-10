@@ -30,7 +30,7 @@ export class CompleteAddress {
   }
 
   /** Size in bytes of an instance */
-  static readonly SIZE_IN_BYTES = 32 * 4;
+  static readonly SIZE_IN_BYTES = 32 * 10;
 
   static get schema() {
     return hexSchemaFor(CompleteAddress);

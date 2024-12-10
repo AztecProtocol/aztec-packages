@@ -5,6 +5,7 @@ import { hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { type Signable, type SignatureDomainSeperator } from './signature_utils.js';
@@ -20,6 +21,16 @@ export class ConsensusPayload implements Signable {
     /** The sequence of transactions in the block */
     public readonly txHashes: TxHash[],
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        header: BlockHeader.schema,
+        archive: Fr.schema,
+        txHashes: z.array(TxHash.schema),
+      })
+      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.txHashes));
+  }
 
   static getFields(fields: FieldsOf<ConsensusPayload>) {
     return [fields.header, fields.archive, fields.txHashes] as const;
