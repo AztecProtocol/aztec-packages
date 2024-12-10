@@ -15,6 +15,7 @@ import {
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
+  DEPLOYER_CONTRACT_ADDRESS,
   Gas,
   GasFees,
   GlobalVariables,
@@ -210,7 +211,7 @@ export class TXE implements TypedOracle {
   }
 
   async addAuthWitness(address: AztecAddress, messageHash: Fr) {
-    const account = this.txeDatabase.getAccount(address);
+    const account = await this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
     const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
@@ -634,6 +635,7 @@ export class TXE implements TypedOracle {
     const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
+    const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this));
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = this.chainId;
@@ -641,12 +643,23 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
+    // If the contract instance exists in the TXE's world state, make sure its nullifier is present in the tree
+    // so its nullifier check passes.
+    if ((await worldStateDb.getContractInstance(callContext.contractAddress)) !== undefined) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        callContext.contractAddress.toField(),
+      );
+      if ((await worldStateDb.getNullifierIndex(contractAddressNullifier)) === undefined) {
+        await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+      }
+    }
+
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
       globalVariables,
-      /*realAvmProvingRequests=*/ false,
     );
 
     // When setting up a teardown call, we tell it that

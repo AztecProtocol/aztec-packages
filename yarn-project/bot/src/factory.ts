@@ -4,7 +4,7 @@ import {
   BatchCall,
   type DeployMethod,
   type DeployOptions,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
@@ -22,7 +22,7 @@ const MIN_BALANCE = 1e3;
 export class BotFactory {
   private pxe: PXE;
   private node?: AztecNode;
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   constructor(private readonly config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}) {
     if (config.flushSetupTransactions && !dependencies.node) {

@@ -3,8 +3,8 @@
 
 #include <vector>
 
-#include "barretenberg/vm/avm/generated/flavor.hpp"
-#include "barretenberg/vm/avm/generated/full_row.hpp"
+#include "flavor.hpp"
+#include "full_row.hpp"
 
 namespace bb {
 

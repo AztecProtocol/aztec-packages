@@ -1,5 +1,5 @@
 // @attribution: lodestar impl for inspiration
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
@@ -50,7 +50,7 @@ export class ReqResp {
   private rateLimiter: RequestResponseRateLimiter;
 
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
-    this.logger = createDebugLogger('aztec:p2p:reqresp');
+    this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;

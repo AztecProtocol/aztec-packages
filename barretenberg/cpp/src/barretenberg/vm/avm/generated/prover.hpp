@@ -5,7 +5,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/avm/generated/flavor.hpp"
+#include "flavor.hpp"
 
 namespace bb {
 
