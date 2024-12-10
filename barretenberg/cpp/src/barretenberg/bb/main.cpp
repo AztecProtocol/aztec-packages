@@ -734,12 +734,12 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
         witness = get_witness(witnessPath);
     }
 
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
-    auto prover = Prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     if constexpr (HasIPAAccumulator<Flavor>) {
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     }
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     return std::move(prover);
 }
 
