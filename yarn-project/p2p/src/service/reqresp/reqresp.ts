@@ -196,7 +196,7 @@ export class ReqResp {
     let stream: Stream | undefined;
     try {
       stream = await this.libp2p.dialProtocol(peerId, subProtocol);
-      this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
+      this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
       const result = await executeTimeoutWithCustomError<Buffer>(
@@ -206,7 +206,7 @@ export class ReqResp {
       );
 
       await stream.close();
-      this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+      this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
 
       return result;
     } catch (e: any) {
@@ -216,7 +216,7 @@ export class ReqResp {
       if (stream) {
         try {
           await stream.close();
-          this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+          this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
