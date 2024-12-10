@@ -212,11 +212,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
 
   private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
     const stats = db.getStats();
-    let branchPages = 0;
-    let leafPages = 0;
-    let overflowPages = 0;
-    let pageSize = 0;
-    let totalSize = 0;
+    let actualSize = 0;
     let numItems = 0;
     // This is the total number of key/value pairs present in the DB
     if ('entryCount' in stats && typeof stats.entryCount === 'number') {
@@ -233,12 +229,12 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
       'pageSize' in stats &&
       typeof stats.pageSize === 'number'
     ) {
-      branchPages = stats.treeBranchPageCount;
-      leafPages = stats.treeLeafPageCount;
-      overflowPages = stats.overflowPages;
-      pageSize = stats.pageSize;
-      totalSize = (branchPages + leafPages + overflowPages) * pageSize;
+      const branchPages = stats.treeBranchPageCount;
+      const leafPages = stats.treeLeafPageCount;
+      const overflowPages = stats.overflowPages;
+      const pageSize = stats.pageSize;
+      actualSize = (branchPages + leafPages + overflowPages) * pageSize;
     }
-    return { actualSize: totalSize, numItems };
+    return { actualSize, numItems };
   }
 }
