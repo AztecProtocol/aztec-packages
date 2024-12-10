@@ -1,5 +1,6 @@
-import { AztecAddress, SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -8,6 +9,8 @@ import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
+  mockGetBytecode,
+  mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
   mockNoteHashExists,
@@ -132,7 +135,7 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockNullifierExists(worldStateDB, leafIndex, utxo);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
@@ -142,6 +145,41 @@ describe('journal', () => {
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
       expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
+    });
+  });
+
+  describe('Getting bytecode', () => {
+    it('Should get bytecode', async () => {
+      const bytecode = Buffer.from('0xdeadbeef');
+      const bytecodeCommitment = computePublicBytecodeCommitment(bytecode);
+      const contractInstance = SerializableContractInstance.default();
+      const contractClass = makeContractClassPublic();
+
+      mockNullifierExists(worldStateDB, leafIndex, utxo);
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockGetContractClass(worldStateDB, contractClass);
+      mockGetBytecode(worldStateDB, bytecode);
+
+      const expectedContractClassPreimage = {
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: bytecodeCommitment,
+      };
+
+      await persistableState.getBytecode(address);
+      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetBytecode).toHaveBeenCalledWith(
+        address,
+        /*exists=*/ true,
+        contractClass.packedBytecode,
+        contractInstance,
+        expectedContractClassPreimage,
+      );
+    });
+    it('Can get undefined contract instance', async () => {
+      await persistableState.getBytecode(address);
+      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);
     });
   });
 

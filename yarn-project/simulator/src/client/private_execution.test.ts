@@ -10,13 +10,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   CallContext,
   CompleteAddress,
   GasFees,
   GasSettings,
   GeneratorIndex,
   type GrumpkinScalar,
-  Header,
   IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -52,9 +52,9 @@ import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
@@ -82,8 +82,8 @@ describe('Private Execution test suite', () => {
 
   let acirSimulator: AcirSimulator;
 
-  let header = Header.empty();
-  let logger: DebugLogger;
+  let header = BlockHeader.empty();
+  let logger: Logger;
 
   const defaultContractAddress = AztecAddress.random();
   const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
@@ -154,7 +154,7 @@ describe('Private Execution test suite', () => {
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      header = new Header(
+      header = new BlockHeader(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(
@@ -170,7 +170,7 @@ describe('Private Execution test suite', () => {
         header.totalManaUsed,
       );
     } else {
-      header = new Header(
+      header = new BlockHeader(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(newSnap, header.state.partial),
@@ -184,7 +184,7 @@ describe('Private Execution test suite', () => {
   };
 
   beforeAll(() => {
-    logger = createDebugLogger('aztec:test:private_execution');
+    logger = createLogger('simulator:test:private_execution');
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
@@ -241,7 +241,7 @@ describe('Private Execution test suite', () => {
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    oracle.getHeader.mockResolvedValue(header);
+    oracle.getBlockHeader.mockResolvedValue(header);
 
     oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
@@ -605,7 +605,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          oracle.getHeader.mockResolvedValue(header);
+          oracle.getBlockHeader.mockResolvedValue(header);
         }
       };
 
@@ -653,7 +653,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -673,7 +673,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -692,7 +692,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -711,7 +711,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -731,7 +731,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -751,7 +751,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getHeader.mockResolvedValue(header);
+        oracle.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -1122,8 +1122,8 @@ describe('Private Execution test suite', () => {
 
       header = makeHeader();
 
-      oracle.getHeader.mockClear();
-      oracle.getHeader.mockResolvedValue(header);
+      oracle.getBlockHeader.mockClear();
+      oracle.getBlockHeader.mockResolvedValue(header);
     });
 
     it('Header is correctly set', async () => {

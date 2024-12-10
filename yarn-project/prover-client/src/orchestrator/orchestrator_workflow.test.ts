@@ -13,7 +13,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
@@ -23,7 +23,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-workflow');
+const logger = createLogger('prover-client:test:orchestrator-workflow');
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {

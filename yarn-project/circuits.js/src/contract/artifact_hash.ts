@@ -1,7 +1,7 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, reduceFn } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 
 import { type MerkleTree } from '../merkle/merkle_tree.js';
@@ -47,7 +47,7 @@ export function computeArtifactHash(
 
   const preimage = computeArtifactHashPreimage(artifact);
   const artifactHash = computeArtifactHash(computeArtifactHashPreimage(artifact));
-  getLogger().debug('Computed artifact hash', { artifactHash, ...preimage });
+  getLogger().trace('Computed artifact hash', { artifactHash, ...preimage });
   return artifactHash;
 }
 
@@ -103,7 +103,7 @@ export function computeFunctionMetadataHash(fn: FunctionArtifact) {
 }
 
 function getLogger() {
-  return createDebugLogger('aztec:circuits:artifact_hash');
+  return createLogger('circuits:artifact_hash');
 }
 
 export function getArtifactMerkleTreeHasher() {

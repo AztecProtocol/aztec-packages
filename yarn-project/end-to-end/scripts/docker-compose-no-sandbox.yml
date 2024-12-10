@@ -11,8 +11,7 @@ services:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: 'true'
-      DEBUG: ${DEBUG:-'aztec:*'}
-      DEBUG_COLORS: 1
+      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50

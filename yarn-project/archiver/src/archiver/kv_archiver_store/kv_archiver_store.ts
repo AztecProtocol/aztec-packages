@@ -9,17 +9,17 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
@@ -46,7 +46,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #contractArtifactStore: ContractArtifactsStore;
   private functionNames = new Map<string, string>();
 
-  #log = createDebugLogger('aztec:archiver:data-store');
+  #log = createLogger('archiver:data-store');
 
   constructor(private db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
@@ -171,7 +171,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlockHeaders(start: number, limit: number): Promise<Header[]> {
+  getBlockHeaders(start: number, limit: number): Promise<BlockHeader[]> {
     try {
       return Promise.resolve(Array.from(this.#blockStore.getBlockHeaders(start, limit)));
     } catch (err) {

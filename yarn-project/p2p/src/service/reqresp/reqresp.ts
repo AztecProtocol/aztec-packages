@@ -1,10 +1,11 @@
 // @attribution: lodestar impl for inspiration
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
+import { compressSync, uncompressSync } from 'snappy';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
@@ -31,6 +32,9 @@ import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
  * This service implements the request response sub protocol, it is heavily inspired from
  * ethereum implementations of the same name.
  *
+ * Note, responses get compressed in streamHandler
+ *       so they get decompressed in readMessage
+ *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp {
@@ -46,7 +50,7 @@ export class ReqResp {
   private rateLimiter: RequestResponseRateLimiter;
 
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
-    this.logger = createDebugLogger('aztec:p2p:reqresp');
+    this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
@@ -232,7 +236,7 @@ export class ReqResp {
       chunks.push(chunk.subarray());
     }
     const messageData = chunks.concat();
-    return Buffer.concat(messageData);
+    return uncompressSync(Buffer.concat(messageData), { asBuffer: true }) as Buffer;
   }
 
   /**
@@ -269,7 +273,8 @@ export class ReqResp {
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
-            yield handler(msg);
+            const response = await handler(msg);
+            yield new Uint8Array(compressSync(response));
           }
         },
         stream,

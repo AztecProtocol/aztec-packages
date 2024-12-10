@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.65.2",
+  "version": "0.66.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -22,7 +22,7 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "run:example:token": "DEBUG='aztec:*' node ./dest/examples/token.js"
+    "run:example:token": "LOG_LEVEL='verbose' node ./dest/examples/token.js"
   },
   "inherits": [
     "../package.common.json"
@@ -55,16 +55,13 @@
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/txe": "workspace:^",
     "@aztec/types": "workspace:^",
-    "@opentelemetry/winston-transport": "^0.7.0",
     "@types/chalk": "^2.2.0",
     "abitype": "^0.8.11",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "viem": "^2.7.15",
-    "winston": "^3.10.0",
-    "winston-daily-rotate-file": "^4.7.1"
+    "viem": "^2.7.15"
   },
   "files": [
     "dest",
@@ -112,7 +109,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "engines": {
     "node": ">=18"

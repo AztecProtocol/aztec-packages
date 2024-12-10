@@ -1,4 +1,4 @@
-import { type DebugLogger, fileURLToPath } from '@aztec/aztec.js';
+import { type Logger, fileURLToPath } from '@aztec/aztec.js';
 import { type BBConfig } from '@aztec/bb-prover';
 
 import fs from 'node:fs/promises';
@@ -14,7 +14,7 @@ const {
 } = process.env;
 
 export const getBBConfig = async (
-  logger: DebugLogger,
+  logger: Logger,
 ): Promise<(BBConfig & { cleanup: () => Promise<void> }) | undefined> => {
   try {
     const bbBinaryPath =

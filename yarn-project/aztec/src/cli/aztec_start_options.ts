@@ -75,6 +75,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'ENABLE_GAS',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--sandbox.noPXE',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
+      ...booleanConfigHelper(),
+    },
   ],
   API: [
     {
@@ -142,6 +148,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',

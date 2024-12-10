@@ -9,13 +9,16 @@ import {
   type ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
+import { Timer } from '@aztec/foundation/timer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
+import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
 
 type InProgressMetadata = {
   id: ProvingJobId;
@@ -58,6 +61,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   // as above, but for results
   private resultsCache = new Map<ProvingJobId, ProvingJobSettledResult>();
 
+  // tracks when each job was enqueued
+  private enqueuedAt = new Map<ProvingJobId, Timer>();
+
   // keeps track of which jobs are currently being processed
   // in the event of a crash this information is lost, but that's ok
   // the next time the broker starts it will recreate jobsCache and still
@@ -75,18 +81,37 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   private jobTimeoutMs: number;
   private maxRetries: number;
 
+  private instrumentation: ProvingBrokerInstrumentation;
+
   public constructor(
     private database: ProvingBrokerDatabase,
-    { jobTimeoutMs = 30, timeoutIntervalMs = 10, maxRetries = 3 }: ProofRequestBrokerConfig = {},
-    private logger = createDebugLogger('aztec:prover-client:proving-broker'),
+    client: TelemetryClient,
+    { jobTimeoutMs = 30_000, timeoutIntervalMs = 10_000, maxRetries = 3 }: ProofRequestBrokerConfig = {},
+    private logger = createLogger('prover-client:proving-broker'),
   ) {
+    this.instrumentation = new ProvingBrokerInstrumentation(client);
     this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalMs);
     this.jobTimeoutMs = jobTimeoutMs;
     this.maxRetries = maxRetries;
   }
 
-  // eslint-disable-next-line require-await
-  public async start(): Promise<void> {
+  private measureQueueDepth: MonitorCallback = (type: ProvingRequestType) => {
+    return this.queues[type].length();
+  };
+
+  private countActiveJobs: MonitorCallback = (type: ProvingRequestType) => {
+    let count = 0;
+    for (const { id } of this.inProgress.values()) {
+      const job = this.jobsCache.get(id);
+      if (job?.type === type) {
+        count++;
+      }
+    }
+
+    return count;
+  };
+
+  public start(): Promise<void> {
     for (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`);
 
@@ -103,6 +128,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
 
     this.timeoutPromise.start();
+
+    this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
+    this.instrumentation.monitorActiveJobs(this.countActiveJobs);
+
+    return Promise.resolve();
   }
 
   public stop(): Promise<void> {
@@ -187,6 +217,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
             startedAt: time,
             lastUpdatedAt: time,
           });
+          const enqueuedAt = this.enqueuedAt.get(job.id);
+          if (enqueuedAt) {
+            this.instrumentation.recordJobWait(job.type, enqueuedAt);
+          }
 
           return { job, time };
         }
@@ -216,6 +250,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       this.logger.info(`Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1}`);
       this.retries.set(id, retries + 1);
       this.enqueueJobInternal(item);
+      this.instrumentation.incRetriedJobs(item.type);
       return;
     }
 
@@ -228,6 +263,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     const result: ProvingJobSettledResult = { status: 'rejected', reason: String(err) };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+    this.instrumentation.incRejectedJobs(item.type);
+    if (info) {
+      const duration = this.timeSource() - info.startedAt;
+      this.instrumentation.recordJobDuration(item.type, duration * 1000);
+    }
   }
 
   reportProvingJobProgress(
@@ -303,6 +343,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+    this.instrumentation.incResolvedJobs(item.type);
   }
 
   private timeoutCheck = () => {
@@ -320,6 +361,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
         this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`);
         this.inProgress.delete(id);
         this.enqueueJobInternal(item);
+        this.instrumentation.incTimedOutJobs(item.type);
       }
     }
   };
@@ -329,6 +371,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       this.promises.set(job.id, promiseWithResolvers());
     }
     this.queues[job.type].put(job);
+    this.enqueuedAt.set(job.id, new Timer());
     this.logger.debug(`Enqueued new proving job id=${job.id}`);
   }
 }
