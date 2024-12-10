@@ -51,9 +51,9 @@ class Execution {
         trace_builder_constructor = std::move(constructor);
     }
 
-    static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
+    static std::tuple<bb::avm::AvmFlavor::VerificationKey, bb::HonkProof> prove(
         AvmPublicInputs const& public_inputs = AvmPublicInputs(), ExecutionHints const& execution_hints = {});
-    static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
+    static bool verify(bb::avm::AvmFlavor::VerificationKey vk, HonkProof const& proof);
 
   private:
     static TraceBuilderConstructor trace_builder_constructor;

@@ -265,6 +265,7 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
 };
 
