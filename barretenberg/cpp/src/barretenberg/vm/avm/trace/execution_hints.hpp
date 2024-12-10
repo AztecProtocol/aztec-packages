@@ -5,7 +5,7 @@
 
 namespace bb::avm_trace {
 
-using FF = AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 using AffinePoint = grumpkin::g1::affine_element;
 
 struct PublicDataTreeLeafPreimage {
