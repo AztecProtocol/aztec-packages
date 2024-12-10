@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733846236008,
+  "lastUpdate": 1733848716840,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b",
-          "message": "feat(avm): new public inputs witgen (#10179)\n\nThis PR does a few things\r\n1) Disconnects the kernel trace constraints (but keeps the file for\r\nfuture reference when we re-constrain public inputs)\r\n2) Replaces the old public inputs with the new ones from\r\n`AvmCircuitPublicInputs`, however unconstrained\r\n3) All merkle checks are now performed in witgen\r\n\r\nIt's still a bit brittle and probably needs a refactor to clean it up\r\nbut will suffice for now as we are getting all the pieces together",
-          "timestamp": "2024-11-26T17:32:01Z",
-          "tree_id": "3b1ba55793a8e448ae76d46da5fc76e23bff9f50",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b"
-        },
-        "date": 1732643826259,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27992.62294100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26233.630974 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5071.872057999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4614.937978 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83867.52895200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83867529000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15158.972065,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15158973000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3078155659,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3078155659 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140013160,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140013160 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2984,6 +2924,66 @@ window.BENCHMARK_DATA = {
             "value": 137365749,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 137365749 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f18d701aa527c68a1adcc4b8acbb9c7bd239468a",
+          "message": "chore(avm): more pilcom compat changes (#10569)\n\nMore changes that I need for compatibility between old and new witgen.\n\nIn particular, I'm using `bb::{{vm_name}}` namespaces versus\n``{{name}}Composer/Verifier`` etc because it makes it easier to work\nwith both of them. Also I had to add a prefix to the macros because\nnamespaces don't work with them.",
+          "timestamp": "2024-12-10T10:49:27-05:00",
+          "tree_id": "d7a835808ec6b418934ca7e53fcde2e4a9d3283f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f18d701aa527c68a1adcc4b8acbb9c7bd239468a"
+        },
+        "date": 1733848709257,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24967.05513500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22686.914858 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4598.240313999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4308.402399 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89083.774755,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89083775000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16620.763439000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16620763000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2835158934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2835158934 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134841990,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134841990 ns\nthreads: 1"
           }
         ]
       }
