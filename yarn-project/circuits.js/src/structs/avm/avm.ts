@@ -683,7 +683,6 @@ export class AvmExecutionHints {
   public readonly enqueuedCalls: Vector<AvmEnqueuedCallHint>;
 
   public readonly contractInstances: Vector<AvmContractInstanceHint>;
-  public readonly contractBytecodeHints: Vector<AvmContractBytecodeHints>;
 
   public readonly publicDataReads: Vector<AvmPublicDataReadTreeHint>;
   public readonly publicDataWrites: Vector<AvmPublicDataWriteTreeHint>;
@@ -696,7 +695,8 @@ export class AvmExecutionHints {
   constructor(
     enqueuedCalls: AvmEnqueuedCallHint[],
     contractInstances: AvmContractInstanceHint[],
-    contractBytecodeHints: AvmContractBytecodeHints[],
+    // string here is the contract class id
+    public contractBytecodeHints: Map<string, AvmContractBytecodeHints>,
     publicDataReads: AvmPublicDataReadTreeHint[],
     publicDataWrites: AvmPublicDataWriteTreeHint[],
     nullifierReads: AvmNullifierReadTreeHint[],
@@ -707,7 +707,6 @@ export class AvmExecutionHints {
   ) {
     this.enqueuedCalls = new Vector(enqueuedCalls);
     this.contractInstances = new Vector(contractInstances);
-    this.contractBytecodeHints = new Vector(contractBytecodeHints);
     this.publicDataReads = new Vector(publicDataReads);
     this.publicDataWrites = new Vector(publicDataWrites);
     this.nullifierReads = new Vector(nullifierReads);
@@ -722,7 +721,7 @@ export class AvmExecutionHints {
    * @returns an empty instance.
    */
   static empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], [], [], [], []);
+    return new AvmExecutionHints([], [], new Map(), [], [], [], [], [], [], []);
   }
 
   /**
@@ -749,7 +748,7 @@ export class AvmExecutionHints {
     return (
       this.enqueuedCalls.items.length == 0 &&
       this.contractInstances.items.length == 0 &&
-      this.contractBytecodeHints.items.length == 0 &&
+      this.contractBytecodeHints.size == 0 &&
       this.publicDataReads.items.length == 0 &&
       this.publicDataWrites.items.length == 0 &&
       this.nullifierReads.items.length == 0 &&
@@ -769,7 +768,7 @@ export class AvmExecutionHints {
     return new AvmExecutionHints(
       fields.enqueuedCalls.items,
       fields.contractInstances.items,
-      fields.contractBytecodeHints.items,
+      fields.contractBytecodeHints,
       fields.publicDataReads.items,
       fields.publicDataWrites.items,
       fields.nullifierReads.items,
@@ -789,7 +788,7 @@ export class AvmExecutionHints {
     return [
       fields.enqueuedCalls,
       fields.contractInstances,
-      fields.contractBytecodeHints,
+      new Vector(Array.from(fields.contractBytecodeHints.values())),
       fields.publicDataReads,
       fields.publicDataWrites,
       fields.nullifierReads,
@@ -807,10 +806,18 @@ export class AvmExecutionHints {
    */
   static fromBuffer(buff: Buffer | BufferReader): AvmExecutionHints {
     const reader = BufferReader.asReader(buff);
+    const readMap = (reader: BufferReader) => {
+      const map = new Map();
+      const values = reader.readVector(AvmContractBytecodeHints);
+      for (const value of values) {
+        map.set(value.contractInstanceHint.address.toString(), value);
+      }
+      return map;
+    };
     return new AvmExecutionHints(
       reader.readVector(AvmEnqueuedCallHint),
       reader.readVector(AvmContractInstanceHint),
-      reader.readVector(AvmContractBytecodeHints),
+      readMap(reader),
       reader.readVector(AvmPublicDataReadTreeHint),
       reader.readVector(AvmPublicDataWriteTreeHint),
       reader.readVector(AvmNullifierReadTreeHint),

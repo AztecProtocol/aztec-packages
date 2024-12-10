@@ -159,6 +159,13 @@ void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
 
 std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
 {
+    // The cache contains all the unique contract class ids we have seen so far
+    if (contract_class_id_cache.size() >= AVM_MAX_UNIQUE_CONTRACT_CALLS) {
+        // Right now we have no way of communicating this to the circuit since we don't currently lay down rows
+        // for these operations
+        // error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        throw std::runtime_error("Max unique contract call limit reached");
+    }
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Find the bytecode based on contract address of the public call request
@@ -196,6 +203,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             // Assert that the hint's exists flag matches. The flag isn't really necessary...
             ASSERT(bytecode_hint.contract_instance.exists);
             bytecode_membership_cache.insert(contract_address);
+            contract_class_id_cache.insert(bytecode_hint.contract_instance.contract_class_id);
         } else {
             // This was a non-membership proof!
             // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
