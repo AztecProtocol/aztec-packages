@@ -121,7 +121,7 @@ These functions are useful for getting contract information in another contract 
 Internal functions are functions that can only be called by the contract itself. These can be used when the contract needs to call one of it's public functions from one of it's private functions.
 
 - [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) - a public function that is called when preparing a private balance increase. This function handles the needed public state updates.
-- [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalized a transfer from public to private state.
+- [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalizes a transfer from public to private state
 
 ### Unconstrained functions
 
@@ -249,6 +249,8 @@ Storage is referenced as `storage.variable`.
 
 #### `transfer_to_private`
 
+Transfers token with `token_id` from public balance of the sender to a private balance of `to`. Calls [`_prepare_private_balance_increase`](#prepare_private_balance_increase) to get the hiding point slot and [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) to finalize the transfer in the public context.
+
 #include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `prepare_private_balance_increase`
@@ -275,11 +277,19 @@ Internal functions are functions that can only be called by this contract. The f
 
 It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
 
+#include_code \_store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
+
 #### `_finalize_transfer_to_private_unsafe`
 
 This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
 
+#include_code \_finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
+
 #### `_finish_transfer_to_public`
+
+Updates the public owner of the `token_id` to the `to` address.
+
+#include_code \_finish_transfer_to_public /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ### View function implementations
 
