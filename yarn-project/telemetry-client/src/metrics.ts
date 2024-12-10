@@ -25,9 +25,9 @@ export const CIRCUIT_SIZE = 'aztec.circuit.size';
 
 export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
-export const MEMPOOL_DB_NUM_ITEMS = 'aztec.mempool.db.num_items';
-export const MEMPOOL_DB_MAP_SIZE = 'aztec.mempool.db.map_size';
-export const MEMPOOL_DB_USED_SIZE = 'aztec.mempool.db.used_size';
+export const DB_NUM_ITEMS = 'aztec.db.num_items';
+export const DB_MAP_SIZE = 'aztec.db.map_size';
+export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
@@ -40,9 +40,6 @@ export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
 export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
-export const ARCHIVER_DB_NUM_ITEMS = 'aztec.archiver.db.num_items';
-export const ARCHIVER_DB_MAP_SIZE = 'aztec.archiver.db.map_size';
-export const ARCHIVER_DB_USED_SIZE = 'aztec.archiver.db.used_size';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
