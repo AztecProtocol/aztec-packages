@@ -30,17 +30,17 @@ contract FPC {
     ///
     /// ## Overview
     /// Uses partial notes to implement a refund flow which works as follows:
-    /// 1. `setup_refund` function subtracts the funded `max_amount` from user's balance of AT, prepares partial notes
+    /// 1. `setup_refund` function subtracts the `max_amount` from user's balance of AT, prepares partial notes
     /// for the FPC recipient (to obtain the payment in AT for the fee) and for the msg_sender (for refund note of
     /// the AT) and sets a public teardown function (in which the partial notes will be finalized),
-    /// 2. then user's private and public functions get executed,
-    /// 3. at this point we know the tx fee so we can compute in the teardown function how much of the accepted asset
-    /// the user needs to pay to the FPC recipient and how much of it will be refunded back. Note that this is computed
-    /// based on an exchange rate between the accepted asset and the fee token (called fee juice in some places).
+    /// 2. then the private and public functions of a tx get executed,
+    /// 3. at this point we know the tx fee so we can compute in the teardown function how much of AT the user needs
+    /// to pay to the FPC recipient and how much of it will be refunded back. Note that this is computed based on
+    /// an exchange rate between the accepted asset and the fee token (called fee juice in some places).
     ///
     /// ***Note:***
-    /// This flow allows us to pay for the tx with msg_sender's private balance and hence msg_sender's identity is not
-    /// revealed. We do, however, reveal the `max_amount`.
+    /// This flow allows us to pay for the tx with msg_sender's private balance of AT and hence msg_sender's identity
+    /// is not revealed. We do, however, reveal the `max_amount`.
     #[private]
     fn fee_entrypoint_private(max_amount: Field, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
