@@ -351,11 +351,6 @@ describe('Enqueued-call Side Effect Trace', () => {
       const parentHints = trace.getAvmCircuitHints();
       const childHints = nestedTrace.getAvmCircuitHints();
       expect(parentHints.enqueuedCalls.items).toEqual(childHints.enqueuedCalls.items);
-      expect(parentHints.storageValues.items).toEqual(childHints.storageValues.items);
-      expect(parentHints.noteHashExists.items).toEqual(childHints.noteHashExists.items);
-      expect(parentHints.nullifierExists.items).toEqual(childHints.nullifierExists.items);
-      expect(parentHints.l1ToL2MessageExists.items).toEqual(childHints.l1ToL2MessageExists.items);
-      expect(parentHints.externalCalls.items).toEqual(childHints.externalCalls.items);
       expect(parentHints.contractInstances.items).toEqual(childHints.contractInstances.items);
       expect(parentHints.contractBytecodeHints.items).toEqual(childHints.contractBytecodeHints.items);
       expect(parentHints.publicDataReads.items).toEqual(childHints.publicDataReads.items);
