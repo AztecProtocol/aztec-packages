@@ -8,7 +8,7 @@
       "esModuleInterop": true,
       "useUnknownInCatchVariables": false,
       "skipLibCheck": true,
-      "types": ["node", "mocha"]
+      "types": ["node"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules"]
