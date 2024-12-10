@@ -1,12 +1,14 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/test.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class ClientIVCRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
+    using ClientCircuit = ClientIVC::ClientCircuit;
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
     using VerifierInput = ClientIVCVerifier::VerifierInput;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
@@ -18,6 +20,8 @@ class ClientIVCRecursionTests : public testing::Test {
     using Flavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = Flavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
+    using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
+    using IVCVerificationKey = ClientIVC::VerificationKey;
 
     static void SetUpTestSuite()
     {
@@ -36,13 +40,14 @@ class ClientIVCRecursionTests : public testing::Test {
      */
     static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
-        using Builder = ClientIVC::ClientCircuit;
 
+        MockCircuitProducer circuit_producer;
+
+        // Construct and accumulate a series of mocked private function execution circuits
         size_t NUM_CIRCUITS = 2;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            Builder circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(circuit);
-            circuit.databus_propagation_data.is_kernel = (idx % 2 == 1); // every second circuit is a kernel
+            ClientCircuit circuit = circuit_producer.create_next_circuit(ivc);
+
             ivc.accumulate(circuit);
         }
 
@@ -61,7 +66,7 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Confirm that the IVC proof can be natively verified
@@ -77,7 +82,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -100,7 +105,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ {}, /*auto_verify_mode=*/true };
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier

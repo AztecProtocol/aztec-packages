@@ -390,36 +390,6 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
     }
 }
 
-TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
-{
-    using Flavor = MegaFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    std::string test_name = GetParam();
-    auto program_stack = get_program_stack_data_from_test_file(
-        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                              // Assumes Flavor is not UltraHonk
-
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
-
-    while (!program_stack.empty()) {
-        auto program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            program.constraints, /*recursive*/ false, 0, program.witness, false, ivc.goblin.op_queue);
-
-        ivc.accumulate(circuit);
-
-        CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
-
-        program_stack.pop_back();
-    }
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-}
-
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationFoldingTest,
                          testing::Values("fold_basic", "fold_basic_nested_call"));
