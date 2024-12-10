@@ -95,32 +95,6 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         auto scaled_q_arith = q_arith_m * scaling_factor;
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-            // auto w_l = View(in.w_l);
-            // auto w_r = View(in.w_r);
-            // auto w_o = View(in.w_o);
-            // auto w_4 = View(in.w_4);
-            // auto w_4_shift = View(in.w_4_shift);
-            // auto q_m = View(in.q_m);
-            // auto q_l = View(in.q_l);
-            // auto q_r = View(in.q_r);
-            // auto q_o = View(in.q_o);
-            // auto q_4 = View(in.q_4);
-            // auto q_c = View(in.q_c);
-            // auto q_arith = View(in.q_arith);
-
-            // static const FF neg_half = FF(-2).invert();
-
-            // auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
-            // tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
-            // tmp += (q_arith - 1) * w_4_shift;
-            // tmp *= q_arith;
-            // tmp *= scaling_factor;
-            // std::get<0>(evals) += tmp;
-
-            using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-            // auto w_l_m = MonomialAccumulator(in.w_l);
-            // auto w_r_m = MonomialAccumulator(in.w_r);
-            // auto q_m_m = MonomialAccumulator(in.q_m);
 
             auto w_4_shift_m = MonomialAccumulator(in.w_4_shift);
             auto w_r_m = MonomialAccumulator(in.w_r);
@@ -133,40 +107,13 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
             static const FF neg_half = FF(-2).invert();
 
-            // auto tmp0 = (q_arith - 3) * q_m * Accumulator(w_r_m * w_l_m);
-            // tmp0 *= neg_half;
-            // tmp0 += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
-            // tmp0 += (q_arith - 1) * w_4_shift;
-            // tmp0 *= q_arith;
-            // tmp0 *= scaling_factor;
-
-            // std::get<0>(evals) += tmp0;
-
             auto tmp0 = Accumulator(w_r_m * w_l_m * neg_half) * Accumulator((q_arith_m - 3) * q_m_m);
             auto tmp1 = (q_l_m * w_l_m) + (q_r_m * w_r_m) + (q_o_m * w_o_m) + (q_4_m * w_4_m) + q_c_m;
             tmp1 += q_arith_sub_1 * w_4_shift_m;
 
             std::get<0>(evals) += (tmp0 + Accumulator(tmp1)) * Accumulator(scaled_q_arith);
-            // auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
-            // tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
-            // tmp += (q_arith - 1) * w_4_shift;
-            // tmp *= q_arith;
-            // tmp *= scaling_factor;
-            // std::get<0>(evals) += tmp;
         }
         {
-            // using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-            // // using View = typename Accumulator::View;
-            // using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-            // auto w_l = MonomialAccumulator(in.w_l);
-            // auto w_4 = MonomialAccumulator(in.w_4);
-            // auto w_l_shift = MonomialAccumulator(in.w_l_shift);
-            // auto q_m = MonomialAccumulator(in.q_m);
-            // auto q_arith = MonomialAccumulator(in.q_arith);
-
-            // auto tmp0 = (w_l + w_4 - w_l_shift + q_m) * (q_arith - 2);
-            // auto tmp1 = (q_arith - 1) * q_arith * scaling_factor;
-            // std::get<1>(evals) += Accumulator(tmp0) * Accumulator(tmp1);
             using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
             auto w_l_shift_m = MonomialAccumulator(in.w_l_shift);

@@ -68,7 +68,10 @@ template <typename FF_> class EccOpQueueRelationImpl {
         PROFILE_THIS_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-
+        // We skip using the MonomialAccumulator type in this relation, as the overall relation degree is low (deg 3).
+        // To do a degree-1 multiplication in the coefficient basis requires 3 Fp muls and 4 Fp adds (karatsuba
+        // multiplication). But a multiplication of a degree-3 Univariate only requires 3 Fp muls.
+        // We still cast to MonomialAccumulator so that the degree is extended to degree-3 from degree-1
         auto w_1 = Accumulator(MonomialAccumulator(in.w_l));
         auto w_2 = Accumulator(MonomialAccumulator(in.w_r));
         auto w_3 = Accumulator(MonomialAccumulator(in.w_o));

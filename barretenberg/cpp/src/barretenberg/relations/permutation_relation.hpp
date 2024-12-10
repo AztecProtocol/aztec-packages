@@ -157,28 +157,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const auto w_3_plus_gamma = w_3_m + gamma_m;
         const auto w_4_plus_gamma = w_4_m + gamma_m;
 
-        // improvements... when multiplying, `(a0 + a1) * (b0 + b1)` can be done without additions
-        // because a0 + a1 is equivalent to `evaluations[1]` of an Accumlulator or View object
-        // would save 32 additions
-
-        // 24 adds
-        // karatsuba = 2 * 8 = 16 adds
-        // converting 14 entities into monomial accs = 14 adds
-        // 54 adds
-        // equiv of 5 degree-11 adds
-        // previously we had 16 degree-11 adds
-
-        // we convert 8 acumulators
-        // each accumulator conversion requires degree * 2 adds which is 22 adds
-        // equivalent to 16 degree-11 adds
-
-        // so in terms of additions we're down by 5 degree-11 adds
-        // previously we had 8 degree-11 muls
-        // new version we have 8 karatsuba muls which is 3 * 8 = 24 muls
-        // 8 * 11 = 88 (actually 80). diff = 56 muls
-
-        // however we no longer need to construct accumulators out of sigmas and ids. 8 polynomials = 8 degree-11
-        // adds however we do these automatically atm? in theory we could remove about 80 additions-
         auto t1 = (id_1_m * beta_m);
         t1 += w_1_plus_gamma;
         t1 *= scaling_factor;

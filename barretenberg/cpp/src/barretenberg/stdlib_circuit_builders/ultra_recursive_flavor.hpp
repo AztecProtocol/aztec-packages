@@ -55,7 +55,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
-    static constexpr bool USE_SHORT_MONOMIALS = true;
+    static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;

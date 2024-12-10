@@ -186,9 +186,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using ParameterMonomialAccumulator =
+            typename GetParameterView<Parameters, typename Accumulator::View>::MonomialAccumulator;
 
         const auto& id = MonomialAccumulator(in.databus_id);
         const auto& value = MonomialAccumulator(BusData<bus_idx, AllEntities>::values(in));
