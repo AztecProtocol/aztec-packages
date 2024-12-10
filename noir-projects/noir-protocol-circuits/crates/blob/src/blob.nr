@@ -197,31 +197,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     }
 
     let z_pow_d = t;
-    let factor = unsafe {
-        // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
-        __compute_factor(z_pow_d)
-    };
-
-    // (z_pow_d - one) * (D_INV) - factor = 0
-    // z_pow_d * D_INV - D_INV - factor = 0
-    BigNum::evaluate_quadratic_expression(
-        [[z_pow_d]],
-        [[false]],
-        [[D_INV]],
-        [[false]],
-        [factor, D_INV],
-        [true, true],
-    );
-
-    // This version doesn't work:
-    // BigNum::evaluate_quadratic_expression(
-    //     [[z_pow_d, one]],
-    //     [[false, true]],
-    //     [[D_INV]],
-    //     [[false]],
-    //     [factor],
-    //     [true]
-    // );
+    let factor = compute_factor(z_pow_d);
 
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
@@ -315,6 +291,36 @@ unconstrained fn __compute_factor(z_pow_d: F) -> F {
     let one: F = BigNum::one();
 
     z_pow_d.__sub(one).__mul(D_INV)
+}
+
+ fn compute_factor(z_pow_d: F) -> F {
+        let factor = unsafe {
+        // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
+        __compute_factor(z_pow_d)
+    };
+
+    // (z_pow_d - one) * (D_INV) - factor = 0
+    // z_pow_d * D_INV - D_INV - factor = 0
+    BigNum::evaluate_quadratic_expression(
+        [[z_pow_d]],
+        [[false]],
+        [[D_INV]],
+        [[false]],
+        [factor, D_INV],
+        [true, true],
+    );
+
+    // This version doesn't work:
+    // BigNum::evaluate_quadratic_expression(
+    //     [[z_pow_d, one]],
+    //     [[false, true]],
+    //     [[D_INV]],
+    //     [[false]],
+    //     [factor],
+    //     [true]
+    // );
+
+    factor
 }
 
 unconstrained fn __compute_fracs(
