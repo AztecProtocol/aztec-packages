@@ -25,9 +25,9 @@ Previously, every event which was emitted included:
 - Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
 - Outgoing Ciphertext (served as a backup, encrypting the summetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
 
-The latter two have been removed from the `.emit()` function, so now only an Incoming Header and Incoming Ciphertext will be emitted.
+The latter two have been removed from the `.emit()` functions, so now only an Incoming Header and Incoming Ciphertext will be emitted.
 
-The interface for emitting a note has therefore changed, slightly. No more ovpk's and ovsk's need to be derived for the `.emit()` function.
+The interface for emitting a note has therefore changed, slightly. No more ovpk's need to be derived and passed into `.emit()` functions.
 
 ```diff
 - nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, from_ovpk_m, to, from));
@@ -35,6 +35,8 @@ The interface for emitting a note has therefore changed, slightly. No more ovpk'
 ```
 
 The `getOutgoingNotes` function is removed from the PXE interface.
+
+Some aztec.nr library methods' arguments are simplified to remove an `outgoing_viewer` parameter. E.g. `ValueNote::increment`, `ValueNote::decrement`, `ValueNote::decrement_by_at_most`, `EasyPrivateUint::add`, `EasyPrivateUint::sub`.
 
 Further changes are planned, so that:
 - Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
