@@ -19,6 +19,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
@@ -165,7 +166,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       inputs,
       'PrivateBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPrivateBaseRollupInputsToWitnessMap,
       convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
     );
@@ -178,7 +179,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       inputs,
       'PublicBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPublicBaseRollupInputsToWitnessMap,
       convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
     );
@@ -196,7 +197,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       input,
       'MergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertMergeRollupInputsToWitnessMap,
       convertMergeRollupOutputsFromWitnessMap,
     );
@@ -214,7 +215,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       input,
       'BlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootRollupInputsToWitnessMap,
       convertBlockRootRollupOutputsFromWitnessMap,
     );
@@ -232,7 +233,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       input,
       'EmptyBlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
       convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
@@ -250,7 +251,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       input,
       'BlockMergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockMergeRollupInputsToWitnessMap,
       convertBlockMergeRollupOutputsFromWitnessMap,
     );
