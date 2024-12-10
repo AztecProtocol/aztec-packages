@@ -69,9 +69,6 @@ export class WorldStateInstrumentation {
     this.oldestBlock.record(Number(treeMeta.oldestHistoricBlock), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
-    this.treeSize.record(Number(treeMeta.size), {
-      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
-    });
 
     this.updateTreeDBStats(treeDbStats.blockIndicesDBStats, 'block_indices', tree);
     this.updateTreeDBStats(treeDbStats.blocksDBStats, 'blocks', tree);
