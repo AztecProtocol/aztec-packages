@@ -38,7 +38,7 @@ Open `cross_chain_messaging.test.ts` and paste the initial description of the te
 
 ```typescript
 import { beforeAll, describe, beforeEach, expect, jest, it} from '@jest/globals'
-import { AccountWallet, AztecAddress, BatchCall, type DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, BatchCall, type Logger, EthAddress, Fr, computeAuthWitMessageHash, createLogger, createPXEClient, waitForPXE, L1ToL2Message, L1Actor, L2Actor, type PXE, type Wallet } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { sha256ToField } from '@aztec/foundation/crypto';
@@ -79,7 +79,7 @@ async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[], 
 describe('e2e_cross_chain_messaging', () => {
   jest.setTimeout(90_000);
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallets: AccountWallet[];
   let user1Wallet: AccountWallet;
   let user2Wallet: AccountWallet;
