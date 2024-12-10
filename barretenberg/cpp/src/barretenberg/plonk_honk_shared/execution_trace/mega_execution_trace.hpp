@@ -281,27 +281,16 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
  * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
  * benchmark.
  */
-// static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-//                                                             .pub_inputs = 1 << 7,
-//                                                             .busread = 1 << 7,
-//                                                             .arithmetic = 198000,
-//                                                             .delta_range = 90000,
-//                                                             .elliptic = 9000,
-//                                                             .aux = 136000,
-//                                                             .poseidon2_external = 2500,
-//                                                             .poseidon2_internal = 14000,
-//                                                             .lookup = 72000,
-//                                                             .overflow = 0 };
-static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 11,
-                                                            .pub_inputs = 1 << 8,
-                                                            .busread = 1 << 8,
-                                                            .arithmetic = 396000,
-                                                            .delta_range = 180000,
-                                                            .elliptic = 18000,
-                                                            .aux = 272000,
-                                                            .poseidon2_external = 5000,
-                                                            .poseidon2_internal = 28000,
-                                                            .lookup = 144000,
+static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
+                                                            .pub_inputs = 1 << 7,
+                                                            .busread = 1 << 7,
+                                                            .arithmetic = 198000,
+                                                            .delta_range = 90000,
+                                                            .elliptic = 9000,
+                                                            .aux = 136000,
+                                                            .poseidon2_external = 2500,
+                                                            .poseidon2_internal = 14000,
+                                                            .lookup = 72000,
                                                             .overflow = 0 };
 
 /**

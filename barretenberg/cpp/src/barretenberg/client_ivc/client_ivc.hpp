@@ -192,7 +192,7 @@ class ClientIVC {
     std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
 
-    VerificationKey get_vk()
+    VerificationKey get_vk() const
     {
         return { honk_vk,
                  std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),

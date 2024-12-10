@@ -34,28 +34,6 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  * circuits total (3 app, 3 kernel) to save time.
  *
  */
-TEST_F(ClientIVCIntegrationTests, BenchmarkCase2)
-{
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
-
-    MockCircuitProducer circuit_producer;
-
-    // Construct and accumulate a series of mocked private function execution circuits
-    size_t NUM_CIRCUITS = 2;
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
-
-        ivc.accumulate(circuit);
-    }
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-/**
- * @brief Prove and verify accumulation of a set of mocked private function execution circuits
- * @details This case is meant to mirror the medium complexity benchmark configuration case but processes only 6
- * circuits total (3 app, 3 kernel) to save time.
- *
- */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
     ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
