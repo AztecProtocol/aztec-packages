@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_merkle_poseidon2_permutation_settings {
   public:
@@ -60,4 +60,4 @@ class perm_merkle_poseidon2_relation
 template <typename FF_>
 using perm_merkle_poseidon2 = GenericPermutation<perm_merkle_poseidon2_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm
