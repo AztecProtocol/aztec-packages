@@ -95,6 +95,13 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

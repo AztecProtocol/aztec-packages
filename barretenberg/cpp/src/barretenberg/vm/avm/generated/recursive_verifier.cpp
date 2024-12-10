@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <memory>
 
-namespace bb {
+namespace bb::avm {
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
@@ -170,4 +170,5 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 }
 
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
-} // namespace bb
+
+} // namespace bb::avm

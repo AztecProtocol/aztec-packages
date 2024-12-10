@@ -587,7 +587,6 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
  * Communication:
  * - Filesystem: The proof and vk are written to the paths output_path/proof and output_path/{vk, vk_fields.json}
  *
- * @param bytecode_path Path to the file containing the serialised bytecode
  * @param public_inputs_path Path to the file containing the serialised avm public inputs
  * @param hints_path Path to the file containing the serialised avm circuit hints
  * @param output_path Path (directory) to write the output proof and verification keys
@@ -597,8 +596,8 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
                const std::filesystem::path& output_path)
 {
 
-    auto const avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
-    auto const avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
+    const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+    const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
 
     // Using [0] is fine now for the top-level call, but we might need to index by address in future
     vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
@@ -660,7 +659,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
  */
 bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
 {
-    using Commitment = AvmFlavorSettings::Commitment;
+    using Commitment = bb::avm::AvmFlavorSettings::Commitment;
     std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
     std::vector<fr> vk_as_fields = many_from_buffer<fr>(vk_bytes);
@@ -684,14 +683,14 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
         return false;
     }
 
-    std::array<Commitment, AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
-    for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
+    std::array<Commitment, bb::avm::AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
+    for (size_t i = 0; i < bb::avm::AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
         // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
         precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(
-            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
+            vk_span.subspan(bb::avm::AvmFlavor::NUM_FRS_COM * i + 2, bb::avm::AvmFlavor::NUM_FRS_COM));
     }
 
-    auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
+    auto vk = bb::avm::AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
 
     const bool verified = AVM_TRACK_TIME_V("verify/all", avm_trace::Execution::verify(vk, proof));
     vinfo("verified: ", verified);

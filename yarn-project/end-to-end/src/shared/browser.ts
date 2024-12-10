@@ -52,7 +52,7 @@ export const browserTestSuite = (
      */
     pxeURL: string;
   }>,
-  pageLogger: AztecJs.DebugLogger,
+  pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
@@ -97,7 +97,7 @@ export const browserTestSuite = (
         pageLogger.info(msg.text());
       });
       page.on('pageerror', err => {
-        pageLogger.error(err.toString());
+        pageLogger.error(`Error on web page`, err);
       });
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {

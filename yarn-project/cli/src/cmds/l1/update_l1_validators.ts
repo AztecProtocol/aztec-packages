@@ -1,7 +1,7 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import { MINIMUM_STAKE, createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
@@ -17,7 +17,7 @@ export interface RollupCommandArgs {
 
 export interface LoggerArgs {
   log: LogFn;
-  debugLogger: DebugLogger;
+  debugLogger: Logger;
 }
 
 export function generateL1Account() {
@@ -198,7 +198,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Proposer NOW: ${proposer.toString()}`);
 }
 
-function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
+function makeDualLog(log: LogFn, debugLogger: Logger) {
   return (msg: string) => {
     log(msg);
     debugLogger.info(msg);

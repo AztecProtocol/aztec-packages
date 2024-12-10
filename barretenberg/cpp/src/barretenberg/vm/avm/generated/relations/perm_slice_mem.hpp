@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_slice_mem_permutation_settings {
   public:
@@ -62,4 +62,4 @@ class perm_slice_mem_relation : public GenericPermutationRelation<perm_slice_mem
 };
 template <typename FF_> using perm_slice_mem = GenericPermutation<perm_slice_mem_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

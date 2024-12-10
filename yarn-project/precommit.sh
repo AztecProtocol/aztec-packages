@@ -8,7 +8,7 @@ staged_files_cmd="git diff-index --diff-filter=d --relative --cached --name-only
 
 parallel ::: \
   'yarn prepare:check' \
-  "$staged_files_cmd | grep -E '\.(json|js|ts)$' | xargs -r ./node_modules/.bin/prettier --loglevel error --write" \
+  "$staged_files_cmd | grep -E '\.(json|js|mjs|cjs|ts)$' | parallel -N10 ./node_modules/.bin/prettier --loglevel error --write" \
   "ls -d ./*/src | xargs dirname | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'"
 
 $staged_files_cmd | xargs -r git add

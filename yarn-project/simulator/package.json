@@ -4,6 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./client": "./dest/client/index.js",
+    "./acvm": "./dest/acvm/index.js",
+    "./errors": "./dest/common/errors.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
@@ -56,6 +59,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

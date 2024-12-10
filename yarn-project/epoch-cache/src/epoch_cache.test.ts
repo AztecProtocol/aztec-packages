@@ -88,18 +88,18 @@ describe('EpochCache', () => {
     // Hence the chosen values for testCommittee below
 
     // Get validator for slot 0
-    let [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
-    expect(currentValidator).toEqual(testCommittee[1]);
+    const { currentProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(currentProposer).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
-    expect(currentValidator).toEqual(testCommittee[1]);
+    const { currentProposer: nextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(nextProposer).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    [currentValidator] = await epochCache.getProposerInCurrentOrNextSlot();
-    expect(currentValidator).toEqual(testCommittee[0]);
+    const { currentProposer: nextNextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
   it('Should request to update the validator set when on the epoch boundary', async () => {

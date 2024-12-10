@@ -1,7 +1,13 @@
-import { type BatchObservableResult, type Meter, type Metrics, type ObservableGauge, ValueType } from './telemetry.js';
+import { DB_MAP_SIZE, DB_NUM_ITEMS, DB_USED_SIZE } from './metrics.js';
+import {
+  type Attributes,
+  type BatchObservableResult,
+  type Meter,
+  type ObservableGauge,
+  ValueType,
+} from './telemetry.js';
 
 export type LmdbMetricDescriptor = {
-  name: Metrics;
   description: string;
 };
 
@@ -17,17 +23,18 @@ export class LmdbMetrics {
     dbMapSizeDescriptor: LmdbMetricDescriptor,
     dbUsedSizeDescriptor: LmdbMetricDescriptor,
     dbNumItemsDescriptor: LmdbMetricDescriptor,
+    private attributes?: Attributes,
     private getStats?: LmdbStatsCallback,
   ) {
-    this.dbMapSize = meter.createObservableGauge(dbMapSizeDescriptor.name, {
+    this.dbMapSize = meter.createObservableGauge(DB_MAP_SIZE, {
       description: dbMapSizeDescriptor.description,
       valueType: ValueType.INT,
     });
-    this.dbUsedSize = meter.createObservableGauge(dbUsedSizeDescriptor.name, {
+    this.dbUsedSize = meter.createObservableGauge(DB_USED_SIZE, {
       description: dbUsedSizeDescriptor.description,
       valueType: ValueType.INT,
     });
-    this.dbNumItems = meter.createObservableGauge(dbNumItemsDescriptor.name, {
+    this.dbNumItems = meter.createObservableGauge(DB_NUM_ITEMS, {
       description: dbNumItemsDescriptor.description,
       valueType: ValueType.INT,
     });
@@ -40,8 +47,8 @@ export class LmdbMetrics {
       return;
     }
     const metrics = this.getStats();
-    observable.observe(this.dbMapSize, metrics.mappingSize);
-    observable.observe(this.dbNumItems, metrics.numItems);
-    observable.observe(this.dbUsedSize, metrics.actualSize);
+    observable.observe(this.dbMapSize, metrics.mappingSize, this.attributes);
+    observable.observe(this.dbNumItems, metrics.numItems, this.attributes);
+    observable.observe(this.dbUsedSize, metrics.actualSize, this.attributes);
   };
 }

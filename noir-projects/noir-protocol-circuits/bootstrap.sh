@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Look at noir-contracts bootstrap.sh for some tips r.e. bash.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
@@ -55,8 +56,9 @@ function compile {
   local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
-  local program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
-  local hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
+  local program_hash hash bytecode_hash vk vk_fields
+  program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
+  hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
   if ! cache_download circuit-$hash.tar.gz &> /dev/null; then
     SECONDS=0
     $NARGO compile --package $name --silence-warnings
@@ -83,14 +85,15 @@ function compile {
 
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
-  local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  local hash=$(echo "$BB_HASH-$bytecode_hash-$proto" | sha256sum | tr -d ' -')
+  bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
+  hash=$(echo "$BB_HASH-$bytecode_hash-$proto" | sha256sum | tr -d ' -')
   if ! cache_download vk-$hash.tar.gz &> /dev/null; then
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
-    local vk=$(jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive 2>/dev/null | base64 -w 0)
-    local vk_fields=$(echo "$vk" | base64 -d | $BB $vk_as_fields_cmd -k - -o - 2>/dev/null)
+    # If the following is failing, remove the 2>/dev/null.
+    vk=$(jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive 2>/dev/null | base64 -w 0)
+    vk_fields=$(echo "$vk" | base64 -d | $BB $vk_as_fields_cmd -k - -o - 2>/dev/null)
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo "Key output at: $key_path (${SECONDS}s)"
     cache_upload vk-$hash.tar.gz $key_path &> /dev/null
@@ -140,6 +143,10 @@ case "$CMD" in
     ;;
   ""|"fast"|"full")
     build
+    ;;
+  "compile")
+    shift
+    compile $1
     ;;
   "test")
     test

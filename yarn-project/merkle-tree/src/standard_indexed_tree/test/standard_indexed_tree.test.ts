@@ -9,7 +9,7 @@ import {
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, type MerkleTree, Pedersen, loadTree, newTree } from '../../index.js';

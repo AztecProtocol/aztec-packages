@@ -65,4 +65,9 @@ describe('CompleteAddress', () => {
 
     expect(completeAddressFromComponents.equals(completeAddressFromString)).toBe(true);
   });
+
+  it('has correct size in bytes', () => {
+    const completeAddress = CompleteAddress.random();
+    expect(completeAddress.toBuffer().length).toBe(CompleteAddress.SIZE_IN_BYTES);
+  });
 });
