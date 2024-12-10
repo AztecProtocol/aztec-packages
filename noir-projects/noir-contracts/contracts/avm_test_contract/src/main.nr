@@ -38,15 +38,13 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, contract_class_id::ContractClassId,
-        storage::map::derive_storage_slot_in_map,
-    };
-    use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
-    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
+    use dep::aztec::protocol_types::{
+        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+    };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -379,11 +377,6 @@ contract AvmTest {
     }
 
     #[public]
-    fn get_function_selector() -> FunctionSelector {
-        context.selector()
-    }
-
-    #[public]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
@@ -432,14 +425,6 @@ contract AvmTest {
     fn assert_timestamp(expected_timestamp: u64) {
         let timestamp = context.timestamp();
         assert(timestamp == expected_timestamp, "timestamp does not match");
-    }
-
-    #[public]
-    fn check_selector() {
-        assert(
-            context.selector() == comptime { FunctionSelector::from_signature("check_selector()") },
-            "Unexpected selector!",
-        );
     }
 
     #[public]
@@ -654,13 +639,11 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance(AztecAddress::from_field(args_field[0]));
+        test_get_contract_instance(AztecAddress::from_field(0x4444));
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
         let _ = get_sender();
-        dep::aztec::oracle::debug_log::debug_log("get_function_selector");
-        let _ = get_function_selector();
         dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
         let _ = get_transaction_fee();
         dep::aztec::oracle::debug_log::debug_log("get_chain_id");
@@ -693,10 +676,10 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

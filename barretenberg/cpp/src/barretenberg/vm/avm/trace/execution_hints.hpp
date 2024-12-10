@@ -166,6 +166,7 @@ struct ContractInstanceHint {
     FF contract_class_id{};
     FF initialisation_hash{};
     PublicKeysHint public_keys;
+    NullifierReadTreeHint membership_hint;
 };
 
 inline void read(uint8_t const*& it, PublicKeysHint& hint)
@@ -189,6 +190,7 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_keys);
+    read(it, hint.membership_hint);
 }
 
 struct AvmContractBytecode {
@@ -201,7 +203,7 @@ struct AvmContractBytecode {
                         ContractInstanceHint contract_instance,
                         ContractClassIdHint contract_class_id_preimage)
         : bytecode(std::move(bytecode))
-        , contract_instance(contract_instance)
+        , contract_instance(std::move(contract_instance))
         , contract_class_id_preimage(contract_class_id_preimage)
     {}
     AvmContractBytecode(std::vector<uint8_t> bytecode)

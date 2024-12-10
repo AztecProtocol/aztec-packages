@@ -6,11 +6,11 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
@@ -38,7 +38,7 @@ import { ValidatorMetrics } from './metrics.js';
 type BlockBuilderCallback = (
   txs: Tx[],
   globalVariables: GlobalVariables,
-  historicalHeader?: Header,
+  historicalHeader?: BlockHeader,
   interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
 ) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
 
@@ -48,7 +48,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
-  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -74,7 +74,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
-    private log = createDebugLogger('aztec:validator'),
+    private log = createLogger('validator'),
   ) {
     // Instantiate tracer
     super(telemetry, 'Validator');
@@ -245,7 +245,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
+  async createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);

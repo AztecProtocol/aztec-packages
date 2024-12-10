@@ -45,8 +45,13 @@ struct ColumnGroups {
 /// Analyzed to cpp
 ///
 /// Converts an analyzed pil AST into a set of cpp files that can be used to generate a proof
-pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, delete_dir: bool) {
-    let mut bb_files = BBFiles::default(&snake_case(&vm_name));
+pub fn analyzed_to_cpp<F: FieldElement>(
+    analyzed: &Analyzed<F>,
+    generated_dir: Option<&str>,
+    vm_name: &str,
+    delete_dir: bool,
+) {
+    let mut bb_files = BBFiles::new(&snake_case(&vm_name), generated_dir, None);
 
     // Remove the generated directory if it exists.
     // Pass `-y` as parameter if you want to skip the confirmation prompt.
@@ -124,6 +129,18 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     );
 
     bb_files.create_flavor_settings_hpp(vm_name);
+    bb_files.create_columns_hpp(
+        vm_name,
+        &lookup_and_permutations_names,
+        &inverses,
+        &fixed,
+        &witness,
+        &witnesses_without_inverses,
+        &all_cols,
+        &to_be_shifted,
+        &shifted,
+        &all_cols_with_shifts,
+    );
 
     // ----------------------- Create the composer files -----------------------
     bb_files.create_composer_cpp(vm_name);

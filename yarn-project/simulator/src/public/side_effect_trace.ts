@@ -46,7 +46,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { assert } from 'console';
 
@@ -68,7 +68,7 @@ const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero()
 const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
 
 export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createDebugLogger('aztec:public_side_effect_trace');
+  public log = createLogger('public_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number; // kept as number until finalized for efficiency
@@ -315,6 +315,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
 
@@ -347,6 +350,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
+    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    _lowLeafIndex: Fr = Fr.zero(),
+    _lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     const instance = new AvmContractInstanceHint(
       contractAddress,

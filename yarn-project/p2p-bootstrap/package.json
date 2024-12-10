@@ -81,7 +81,8 @@
           "summaryThreshold": 9999
         }
       ]
-    ]
+    ],
+    "testTimeout": 30000
   },
   "engines": {
     "node": ">=18"

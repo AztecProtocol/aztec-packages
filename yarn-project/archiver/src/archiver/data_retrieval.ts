@@ -1,9 +1,9 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
@@ -36,7 +36,7 @@ export async function retrieveBlocksFromRollup(
   publicClient: PublicClient,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  logger: DebugLogger = createDebugLogger('aztec:archiver'),
+  logger: Logger = createLogger('archiver'),
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   do {
@@ -78,7 +78,7 @@ export async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
-  logger: DebugLogger,
+  logger: Logger,
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   await asyncPool(10, logs, async log => {
@@ -150,7 +150,7 @@ async function getBlockFromRollupTx(
     Hex,
   ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
