@@ -160,7 +160,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
     const environment = initExecutionEnvironment({
-      functionSelector,
       calldata,
       globals,
       address: contractInstance.address,
@@ -434,7 +433,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe('Environment getters', () => {
     const address = AztecAddress.random();
     const sender = AztecAddress.random();
-    const functionSelector = FunctionSelector.random();
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
@@ -453,7 +451,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const env = initExecutionEnvironment({
       address,
       sender,
-      functionSelector,
       transactionFee,
       globals,
     });
