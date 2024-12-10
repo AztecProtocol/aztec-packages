@@ -239,7 +239,7 @@ export class PeerManager {
   private shouldDialPeer(): boolean {
     const connections = this.libP2PNode.getConnections().length;
     if (connections >= this.config.maxPeerCount) {
-      this.logger.debug(
+      this.logger.trace(
         `Not dialing peer due to max peer count of ${this.config.maxPeerCount} reached (${connections} current connections)`,
       );
       return false;
@@ -256,7 +256,7 @@ export class PeerManager {
     // Remove the oldest peers
     for (const key of this.cachedPeers.keys()) {
       this.cachedPeers.delete(key);
-      this.logger.debug(`Pruning peer ${key} from cache`);
+      this.logger.trace(`Pruning peer ${key} from cache`);
       peersToDelete--;
       if (peersToDelete <= 0) {
         break;
