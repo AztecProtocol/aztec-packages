@@ -4,51 +4,29 @@ import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-/**
- * Address and selector of a function that failed during simulation.
- */
+/** Address and selector of a function that failed during simulation. */
 export interface FailingFunction {
-  /**
-   * The address of the contract that failed.
-   */
+  /** The address of the contract that failed. */
   contractAddress: AztecAddress;
-  /**
-   * The name of the contract that failed.
-   */
+  /** The name of the contract that failed. */
   contractName?: string;
-  /**
-   * The selector of the function that failed.
-   */
+  /** The selector of the function that failed. */
   functionSelector?: FunctionSelector;
-  /**
-   * The name of the function that failed.
-   */
+  /** The name of the function that failed. */
   functionName?: string;
 }
 
-/**
- * A pointer to a failing section of the noir source code.
- */
+/** A pointer to a failing section of the noir source code. */
 export interface SourceCodeLocation {
-  /**
-   * The path to the source file.
-   */
+  /** The path to the source file. */
   filePath: string;
-  /**
-   * The line number of the call.
-   */
+  /** The line number of the call. */
   line: number;
-  /**
-   * The column number of the call.
-   */
+  /** The column number of the call. */
   column: number;
-  /**
-   * The source code of the file.
-   */
-  fileSource: string;
-  /**
-   * The source code text of the failed constraint.
-   */
+  /** The source code of the file. */
+  fileSource?: string;
+  /** The source code text of the failed constraint. */
   locationText: string;
 }
 
@@ -56,27 +34,21 @@ const SourceCodeLocationSchema = z.object({
   filePath: z.string(),
   line: z.number(),
   column: z.number(),
-  fileSource: z.string(),
+  fileSource: z.string().optional(),
   locationText: z.string(),
 });
 
-/**
- * A stack of noir source code locations.
- */
+/** A stack of noir source code locations. */
 export type NoirCallStack = SourceCodeLocation[] | OpcodeLocation[];
 
 const NoirCallStackSchema: z.ZodType<NoirCallStack> = z.union([z.array(SourceCodeLocationSchema), z.array(z.string())]);
 
-/**
- * Checks if a call stack is unresolved.
- */
+/** Checks if a call stack is unresolved. */
 export function isNoirCallStackUnresolved(callStack: NoirCallStack): callStack is OpcodeLocation[] {
   return typeof callStack[0] === 'string';
 }
 
-/**
- * An error during the simulation of a function call.
- */
+/** An error during the simulation of a function call. */
 export class SimulationError extends Error {
   constructor(
     private originalMessage: string,

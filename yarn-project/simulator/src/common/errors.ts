@@ -110,7 +110,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
   return callStack.map(call => {
     const { file: fileId, span } = call;
 
-    const { path, source } = files[fileId];
+    const { path: filePath, source } = files[fileId];
 
     const locationText = source.substring(span.start, span.end);
     const precedingText = source.substring(0, span.start);
@@ -119,13 +119,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
     const line = previousLines.length;
     const column = previousLines[previousLines.length - 1].length + 1;
 
-    return {
-      filePath: path,
-      line,
-      column,
-      fileSource: source,
-      locationText,
-    };
+    return { filePath, line, column, locationText };
   });
 }
 
