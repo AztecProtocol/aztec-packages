@@ -1,7 +1,7 @@
 import { retrieveL2ProofsFromRollup } from '@aztec/archiver/data-retrieval';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Attributes, Metrics, type TelemetryClient, type UpDownCounter, ValueType } from '@aztec/telemetry-client';
 
@@ -22,7 +22,7 @@ export class ProofVerifier {
     private client: PublicClient,
     private verifier: BBCircuitVerifier,
     telemetryClient: TelemetryClient,
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {
     this.runningPromise = new RunningPromise(this.work.bind(this), config.pollIntervalMs);
     this.proofVerified = telemetryClient.getMeter('ProofVerifier').createUpDownCounter(Metrics.PROOF_VERIFIER_COUNT, {
@@ -33,7 +33,7 @@ export class ProofVerifier {
   }
 
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
-    const logger = createDebugLogger('aztec:block-verifier-bot');
+    const logger = createLogger('proof-verifier:block-verifier-bot');
     const verifier = await BBCircuitVerifier.new(config, [], logger);
     const client = createPublicClient({
       chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,

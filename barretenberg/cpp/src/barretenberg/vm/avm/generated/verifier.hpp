@@ -3,7 +3,7 @@
 
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/vm/avm/generated/flavor.hpp"
+#include "flavor.hpp"
 
 namespace bb {
 

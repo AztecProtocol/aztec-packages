@@ -37,7 +37,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import {
   ProtocolCircuitVks,
@@ -65,7 +65,7 @@ jest.setTimeout(50_000);
 
 describe('LightBlockBuilder', () => {
   let simulator: ServerCircuitProver;
-  let logger: DebugLogger;
+  let logger: Logger;
   let globalVariables: GlobalVariables;
   let l1ToL2Messages: Fr[];
   let vkTreeRoot: Fr;
@@ -78,7 +78,7 @@ describe('LightBlockBuilder', () => {
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   beforeAll(async () => {
-    logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
+    logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);

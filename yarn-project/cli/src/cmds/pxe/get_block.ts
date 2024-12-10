@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { inspectBlock } from '../../utils/inspect.js';
 
@@ -7,7 +7,7 @@ export async function getBlock(
   rpcUrl: string,
   maybeBlockNumber: number | undefined,
   follow: boolean,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);

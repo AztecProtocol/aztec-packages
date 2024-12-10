@@ -1,7 +1,7 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type ProverCoordination, type WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createP2PClient } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -26,7 +26,7 @@ export async function createProverCoordination(
   config: ProverNodeConfig & DataStoreConfig,
   deps: ProverCoordinationDeps,
 ): Promise<ProverCoordination> {
-  const log = createDebugLogger('aztec:createProverCoordination');
+  const log = createLogger('prover-node:prover-coordination');
 
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');

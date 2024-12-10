@@ -1,7 +1,7 @@
 import { type Database, type RangeOptions } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncMultiMap, type AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -9,7 +9,7 @@ type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
 /**
  * A map backed by LMDB.
  */
-export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
+export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, AztecAsyncMultiMap<K, V> {
   protected db: Database<[K, V], MapValueSlot<K>>;
   protected name: string;
 
@@ -35,6 +35,10 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     return this.db.get(this.#slot(key))?.[1];
   }
 
+  getAsync(key: K): Promise<V | undefined> {
+    return Promise.resolve(this.get(key));
+  }
+
   *getValues(key: K): IterableIterator<V> {
     const values = this.db.getValues(this.#slot(key));
     for (const value of values) {
@@ -42,8 +46,18 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     }
   }
 
+  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
+    for (const value of this.getValues(key)) {
+      yield value;
+    }
+  }
+
   has(key: K): boolean {
     return this.db.doesExist(this.#slot(key));
+  }
+
+  hasAsync(key: K): Promise<boolean> {
+    return Promise.resolve(this.has(key));
   }
 
   async set(key: K, val: V): Promise<void> {
@@ -109,14 +123,32 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V> {
     }
   }
 
+  async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
+    for (const entry of this.entries(range)) {
+      yield entry;
+    }
+  }
+
   *values(range: Range<K> = {}): IterableIterator<V> {
     for (const [_, value] of this.entries(range)) {
       yield value;
     }
   }
 
+  async *valuesAsync(range: Range<K> = {}): AsyncIterableIterator<V> {
+    for await (const [_, value] of this.entriesAsync(range)) {
+      yield value;
+    }
+  }
+
   *keys(range: Range<K> = {}): IterableIterator<K> {
     for (const [key, _] of this.entries(range)) {
+      yield key;
+    }
+  }
+
+  async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
+    for await (const [key, _] of this.entriesAsync(range)) {
       yield key;
     }
   }
