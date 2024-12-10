@@ -1,7 +1,7 @@
 import {
   AztecNode,
   Fr,
-  createDebugLogger,
+  createLogger,
   deriveMasterIncomingViewingSecretKey,
 } from "@aztec/aztec.js";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
@@ -11,7 +11,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
-import { TestPrivateKernelProver } from "@aztec/pxe/kernel_prover";
+import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
 import { KeyStore } from "@aztec/key-store";
 import { PrivateKernelProver } from "@aztec/circuit-types";
 import { L2TipsStore } from "@aztec/kv-store/stores";
@@ -33,7 +33,7 @@ export class PrivateEnv {
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
     const aztecNode = await createAztecNodeClient(this.nodeURL);
-    const proofCreator = new TestPrivateKernelProver();
+    const proofCreator = new BBWasmPrivateKernelProver();
     this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
     const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
       this.secretKey,
@@ -60,7 +60,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createDebugLogger("aztec:pxe:data:indexeddb"),
+      createLogger("aztec:pxe:data:indexeddb"),
     );
 
     const keyStore = new KeyStore(store);

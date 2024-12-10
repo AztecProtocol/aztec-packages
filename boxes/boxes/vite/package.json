@@ -16,6 +16,7 @@
   "dependencies": {
     "@aztec/accounts": "portal:../../../yarn-project/accounts",
     "@aztec/aztec.js": "portal:../../../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../../../yarn-project/bb-prover",
     "@aztec/circuit-types": "portal:../../../yarn-project/circuit-types",
     "@aztec/key-store": "link:../../../yarn-project/key-store",
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store",

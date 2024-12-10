@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./wasm": "./dest/wasm/index.js",
     "./prover": "./dest/prover/index.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js"
@@ -66,6 +67,7 @@
     "testTimeout": 30000
   },
   "dependencies": {
+    "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",

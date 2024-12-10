@@ -27,6 +27,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/bb-prover@link:../../../yarn-project/bb-prover::locator=vite%40workspace%3Aboxes%2Fvite":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-prover@link:../../../yarn-project/bb-prover::locator=vite%40workspace%3Aboxes%2Fvite"
+  languageName: node
+  linkType: soft
+
 "@aztec/builder@npm:latest":
   version: 0.63.1
   resolution: "@aztec/builder@npm:0.63.1"
@@ -11434,6 +11440,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "portal:../../../yarn-project/accounts"
     "@aztec/aztec.js": "portal:../../../yarn-project/aztec.js"
+    "@aztec/bb-prover": "link:../../../yarn-project/bb-prover"
     "@aztec/circuit-types": "portal:../../../yarn-project/circuit-types"
     "@aztec/key-store": "link:../../../yarn-project/key-store"
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store"

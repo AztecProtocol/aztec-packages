@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "comlink": "^4.4.1",
-    "commander": "^10.0.1",
+    "commander": "^12.1.0",
     "debug": "^4.3.4",
     "fflate": "^0.8.0",
     "pako": "^2.1.0",
