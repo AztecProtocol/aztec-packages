@@ -58,7 +58,7 @@ mod tests {
         },
         address::AztecAddress,
         constants::NOTE_HASH_TREE_HEIGHT,
-        hash::compute_siloed_note_hash,
+        hash::{compute_siloed_note_hash, compute_unique_siloed_note_hash},
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,
@@ -81,13 +81,15 @@ mod tests {
             let note_hashes = [10, 11, 12, 13];
             let siloed_note_hashes =
                 note_hashes.map(|n| compute_siloed_note_hash(contract_address, n));
+            // We don't need to hash it with a real nonce
+            let unique_note_hashes = siloed_note_hashes.map(|note_hash| note_hash + 1000);
 
             // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
             let read_requests = [
-                ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[1], counter: 11 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 13 }.scope(contract_address), // pending
                 ReadRequest { value: note_hashes[2], counter: 39 }.scope(contract_address), // pending
-                ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[0], counter: 46 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 78 }.scope(contract_address), // pending
             ];
 
@@ -113,8 +115,8 @@ mod tests {
             ];
 
             let leaf_preimages = [
-                NoteHashLeafPreimage { value: siloed_note_hashes[0] },
-                NoteHashLeafPreimage { value: siloed_note_hashes[1] },
+                NoteHashLeafPreimage { value: unique_note_hashes[0] },
+                NoteHashLeafPreimage { value: unique_note_hashes[1] },
             ];
 
             TestBuilder {
