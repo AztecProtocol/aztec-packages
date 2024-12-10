@@ -125,12 +125,17 @@ class ClientIVCAPI : public API {
         return folding_stack;
     };
 
-    static void _accumulate(const std::shared_ptr<ClientIVC>& ivc, std::vector<acir_format::AcirProgram>& folding_stack)
+    static std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& folding_stack,
+                                                  bool auto_verify = false)
     {
         using Builder = MegaCircuitBuilder;
         using Program = acir_format::AcirProgram;
-
         using namespace acir_format;
+
+        vinfo("performing accumulation with auto-verify = ", auto_verify);
+
+        TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+        auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
 
         ProgramMetadata metadata{ ivc };
 
@@ -153,6 +158,8 @@ class ClientIVCAPI : public API {
             // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
             ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
         }
+
+        return ivc;
     };
 
   public:
@@ -169,18 +176,15 @@ class ClientIVCAPI : public API {
             throw_or_abort("No input_type or input_type not supported");
         }
 
-        std::vector<acir_format::AcirProgram> folding_stack =
-            _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         init_bn254_crs(1 << 20);
         init_grumpkin_crs(1 << 15);
 
-        TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+        std::vector<acir_format::AcirProgram> folding_stack =
+            _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
+
         bool auto_verify = !flags.no_auto_verify;
-        auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
-        vinfo("performing accumulation with auto-verify = ", auto_verify);
-        _accumulate(ivc, folding_stack);
+        std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack, auto_verify);
         ClientIVC::Proof proof = ivc->prove();
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
@@ -242,11 +246,7 @@ class ClientIVCAPI : public API {
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
-        TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-        bool auto_verify = true;
-        auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
-        vinfo("performing accumulation with auto-verify = ", auto_verify);
-        _accumulate(ivc, folding_stack);
+        std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack, /*auto_verify=*/true);
         const bool verified = ivc->prove_and_verify();
         return verified;
     };
