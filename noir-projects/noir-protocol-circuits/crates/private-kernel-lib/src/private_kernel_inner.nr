@@ -13,10 +13,7 @@ use dep::types::{
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
-    constants::{
-        PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX,
-        PROOF_TYPE_PG,
-    },
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -51,8 +48,8 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         if !std::runtime::is_unconstrained() {
-            std::verify_proof_with_type(self.previous_kernel.vk.key, [], [], 0, PROOF_TYPE_PG);
-            std::verify_proof_with_type(self.private_call.vk.key, [], [], 0, PROOF_TYPE_PG);
+            self.previous_kernel.verify();
+            self.private_call.verify(false);
         }
 
         // Generate output.

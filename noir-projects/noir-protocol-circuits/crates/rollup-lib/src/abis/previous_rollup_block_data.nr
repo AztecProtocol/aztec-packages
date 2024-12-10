@@ -19,11 +19,17 @@ pub struct PreviousRollupBlockData {
 }
 
 impl Verifiable for PreviousRollupBlockData {
-    fn verify(self) {
+    fn verify_with_proof_type(self, proof_type: u32) {
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );
-        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+        std::verify_proof_with_type(
+            self.vk.key,
+            self.proof.fields,
+            inputs,
+            self.vk.hash,
+            proof_type,
+        );
     }
 }
 

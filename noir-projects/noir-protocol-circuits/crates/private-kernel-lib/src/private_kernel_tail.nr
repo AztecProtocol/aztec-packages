@@ -7,10 +7,7 @@ use dep::types::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
-    constants::{
-        PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX,
-        PROOF_TYPE_PG,
-    },
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
 };
 
@@ -37,7 +34,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
         if !std::runtime::is_unconstrained() {
-            std::verify_proof_with_type(self.previous_kernel.vk.key, [], [], 0, PROOF_TYPE_PG);
+            self.previous_kernel.verify();
         }
         // Generate output.
         let output = unsafe { self.generate_output() };

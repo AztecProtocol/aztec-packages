@@ -51,7 +51,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         if !std::runtime::is_unconstrained() {
-            std::verify_proof_with_type(self.private_call.vk.key, [], [], 0, PROOF_TYPE_OINK);
+            self.private_call.verify(true);
         }
 
         // Generate output.
