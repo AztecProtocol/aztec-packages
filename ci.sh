@@ -63,7 +63,7 @@ case "$cmd" in
     ;;
   "ec2-full-test")
     # Spin up ec2 instance and full bootstrap with tests and shell on failure.
-    bootstrap_ec2 "TEST=1 ./bootstrap.sh full || exec bash" ${1:-}
+    bootstrap_ec2 "USE_CACHE=0 ./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance and drop into shell.
