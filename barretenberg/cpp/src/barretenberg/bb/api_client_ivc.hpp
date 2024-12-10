@@ -137,7 +137,7 @@ class ClientIVCAPI : public API {
         TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
         auto ivc = std::make_shared<ClientIVC>(trace_settings, auto_verify);
 
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
         // Accumulate the entire program stack into the IVC
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel

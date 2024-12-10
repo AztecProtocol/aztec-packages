@@ -401,7 +401,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
 
-    acir_format::ProgramMetadata metadata{ ivc };
+    const acir_format::ProgramMetadata metadata{ ivc };
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();

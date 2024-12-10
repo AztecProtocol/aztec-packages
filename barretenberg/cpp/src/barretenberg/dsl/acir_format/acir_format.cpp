@@ -532,11 +532,10 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
     AcirProgram program{ constraint_system, witness };
-    ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    metadata.honk_recursion = honk_recursion;
-    metadata.collect_gates_per_opcode = collect_gates_per_opcode;
-    metadata.size_hint = size_hint;
+    const ProgramMetadata metadata{ .recursive = recursive,
+                                    .honk_recursion = honk_recursion,
+                                    .collect_gates_per_opcode = collect_gates_per_opcode,
+                                    .size_hint = size_hint };
     build_constraints(builder, program, metadata);
 
     vinfo("created circuit");

@@ -143,11 +143,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirProgram program, acir_format:
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        metadata.honk_recursion = true;
-    }
+    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor>;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+
     // Populate the acir constraint system and witness from gzipped data
     acir_format::AcirProgram program;
     program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
@@ -167,11 +165,9 @@ bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, c
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        metadata.honk_recursion = true;
-    }
+    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor>;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+
     auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, metadata.honk_recursion);
 
     while (!program_stack.empty()) {
@@ -328,10 +324,9 @@ void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recurs
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
 
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    metadata.honk_recursion = honk_recursion;
-    metadata.collect_gates_per_opcode = true;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive,
+                                                 .honk_recursion = honk_recursion,
+                                                 .collect_gates_per_opcode = true };
     size_t i = 0;
     for (const auto& constraint_system : constraint_systems) {
         acir_format::AcirProgram program{ constraint_system };
@@ -717,11 +712,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
 
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>) {
-        metadata.honk_recursion = true;
-    }
+    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
     if (!witnessPath.empty()) {
         program.witness = get_witness(witnessPath);
@@ -862,10 +855,9 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
-    ProgramMetadata metadata{};
-    if (!ivc_constraints.empty()) {
-        metadata.ivc = create_mock_ivc_from_constraints(ivc_constraints, trace_settings);
-    }
+    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
+                                               ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Add public inputs corresponding to pairing point accumulator
@@ -907,9 +899,8 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
 
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    metadata.honk_recursion = true;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = true };
+
     acir_format::AcirProgram program;
     program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
     program.witness = get_witness(witnessPath);
@@ -1061,11 +1052,9 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    acir_format::ProgramMetadata metadata;
-    metadata.recursive = recursive;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
-        metadata.honk_recursion = true;
-    }
+    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>;
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
                                       get_witness(witnessPath) };
 

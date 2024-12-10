@@ -116,7 +116,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         auto mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints, trace_settings);
 
         // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
-        ProgramMetadata metadata{ mock_ivc };
+        const ProgramMetadata metadata{ mock_ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note: adding pairing point normally happens in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
@@ -154,7 +154,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
     // Construct kernel consisting only of the kernel completion logic
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
 
-    ProgramMetadata metadata{ ivc };
+    const ProgramMetadata metadata{ ivc };
     Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
 
     EXPECT_TRUE(CircuitChecker::check(kernel));
@@ -176,7 +176,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
     ivc->accumulate(app_circuit_0);
 
-    ProgramMetadata metadata{ ivc };
+    const ProgramMetadata metadata{ ivc };
 
     // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
     AcirProgram program_0 = construct_mock_kernel_program(ivc->verification_queue);
@@ -213,7 +213,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
 
         // Construct and accumulate kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         ivc->accumulate(kernel);
         expected_kernel_vk = ivc->verification_queue.back().honk_verification_key;
@@ -228,7 +228,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
 
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note that this would normally happen in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
@@ -261,7 +261,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 
         // Construct and accumulate kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
 
         ivc->accumulate(kernel);
@@ -298,7 +298,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     {
         auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -351,7 +351,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     {
         auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
-        ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
         { // Construct and accumulate mock app_circuit
             Builder app_circuit = construct_mock_app_circuit(ivc);
