@@ -1,6 +1,5 @@
-use dep::protocol_types::{
-    address::AztecAddress, constants::L1_TO_L2_MSG_TREE_HEIGHT, utils::arr_copy_slice,
-};
+use crate::utils::array;
+use dep::protocol_types::{address::AztecAddress, constants::L1_TO_L2_MSG_TREE_HEIGHT};
 
 /// Returns the leaf index and sibling path of an entry in the L1 to L2 messaging tree, which can then be used to prove
 /// its existence.
@@ -12,7 +11,7 @@ pub unconstrained fn get_l1_to_l2_membership_witness(
     let returned_message =
         get_l1_to_l2_membership_witness_oracle(contract_address, message_hash, secret);
     let leaf_index = returned_message[0];
-    let sibling_path = arr_copy_slice(returned_message, [0; L1_TO_L2_MSG_TREE_HEIGHT], 1);
+    let sibling_path = array::subarray(returned_message, 1);
 
     (leaf_index, sibling_path)
 }

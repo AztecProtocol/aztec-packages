@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -114,7 +114,7 @@ describe('ReqResp', () => {
     expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
   });
 
-  describe('TX REQ PROTOCOL', () => {
+  describe('Tx req protocol', () => {
     it('Can request a Tx from TxHash', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
@@ -181,10 +181,12 @@ describe('ReqResp', () => {
       expect(res).toBeUndefined();
 
       // Make sure the error message is logged
-      const errorMessage = `${
-        new IndiviualReqRespTimeoutError().message
-      } | peerId: ${nodes[1].p2p.peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`;
-      expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
+      const peerId = nodes[1].p2p.peerId.toString();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Error sending request to peer/i),
+        expect.any(Error),
+        { peerId, subProtocol: '/aztec/req/tx/0.1.0' },
+      );
 
       // Expect the peer to be penalized for timing out
       expect(peerManager.penalizePeer).toHaveBeenCalledWith(

@@ -3,9 +3,9 @@
 
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/vm/avm/generated/flavor.hpp"
+#include "flavor.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 class AvmVerifier {
     using Flavor = AvmFlavor;
@@ -19,11 +19,14 @@ class AvmVerifier {
     explicit AvmVerifier(std::shared_ptr<VerificationKey> verifier_key);
     AvmVerifier(AvmVerifier&& other) noexcept;
     AvmVerifier(const AvmVerifier& other) = delete;
+    virtual ~AvmVerifier() = default;
 
     AvmVerifier& operator=(const AvmVerifier& other) = delete;
     AvmVerifier& operator=(AvmVerifier&& other) noexcept;
 
-    bool verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs);
+    // Note: all the following methods are virtual to allow Avm2 to tweak the behaviour.
+    // We can remove this once the transition is done.
+    virtual bool verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
@@ -33,4 +36,4 @@ class AvmVerifier {
     FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges);
 };
 
-} // namespace bb
+} // namespace bb::avm

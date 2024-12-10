@@ -43,7 +43,7 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -101,7 +101,7 @@ import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
-const logger = createDebugLogger('aztec:bb-prover');
+const logger = createLogger('bb-prover');
 
 // All `ServerCircuitArtifact` are recursive.
 const SERVER_CIRCUIT_RECURSIVE = true;

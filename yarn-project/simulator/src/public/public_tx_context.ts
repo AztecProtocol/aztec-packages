@@ -25,16 +25,14 @@ import {
   TreeSnapshots,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { PublicSideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
@@ -42,7 +40,7 @@ import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js'
  * The transaction-level context for public execution.
  */
 export class PublicTxContext {
-  private log: DebugLogger;
+  private log: Logger;
 
   /* Gas used including private, teardown gas _limit_, setup and app logic */
   private gasUsed: Gas;
@@ -74,7 +72,7 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_context`);
+    this.log = createLogger(`simulator:public_tx_context`);
     this.gasUsed = startGasUsed;
   }
 
@@ -87,7 +85,6 @@ export class PublicTxContext {
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const innerCallTrace = new PublicSideEffectTrace();
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
@@ -99,10 +96,9 @@ export class PublicTxContext {
       /*startSideEffectCounter=*/ 0,
       previousAccumulatedDataArrayLengths,
     );
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
+    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, enqueuedCallTrace, doMerkleOperations);
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
@@ -367,12 +363,12 @@ export class PublicTxContext {
  * transaction level one.
  */
 class PhaseStateManager {
-  private log: DebugLogger;
+  private log: Logger;
 
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
   constructor(private readonly txStateManager: AvmPersistableStateManager) {
-    this.log = createDebugLogger(`aztec:public_phase_state_manager`);
+    this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 
   fork() {
