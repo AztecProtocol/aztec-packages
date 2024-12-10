@@ -18,7 +18,7 @@ import { decrypt, encrypt } from './encryption_util.js';
 
 const ENCRYPTED_PAYLOAD_SIZE_IN_BYTES = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
 
-// The incoming header is 48 bytes../shared_secret_derivation.js
+// The incoming header is 48 bytes
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
 
