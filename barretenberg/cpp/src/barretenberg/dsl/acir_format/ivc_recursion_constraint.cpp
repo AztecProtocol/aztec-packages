@@ -29,10 +29,10 @@ using namespace bb;
  * @param trace_settings
  * @return ClientIVC
  */
-std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
-                                                            const TraceSettings& trace_settings)
+ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
+                                           const TraceSettings& trace_settings)
 {
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    ClientIVC ivc{ trace_settings };
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
@@ -47,7 +47,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: RESET or TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        ivc->verifier_accumulator = create_mock_decider_vk();
+        ivc.verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         return ivc;
     }
@@ -55,14 +55,14 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     // Case: INNER kernel; two PG recursive verifications, kernel and app in that order
     if (constraints.size() == 2) {
         ASSERT(constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_type);
-        ivc->verifier_accumulator = create_mock_decider_vk();
+        ivc.verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
     }
 
     ASSERT(false && "WARNING: Invalid set of IVC recursion constraints!");
-    return ivc;
+    return ClientIVC{};
 }
 
 /**
@@ -72,13 +72,13 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
  */
-void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel)
+void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel)
 {
     ClientIVC::VerifierInputs entry =
-        acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
-    ivc->verification_queue.emplace_back(entry);
-    ivc->merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-    ivc->initialized = true;
+        acir_format::create_mock_verification_queue_entry(type, ivc.trace_settings, is_kernel);
+    ivc.verification_queue.emplace_back(entry);
+    ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+    ivc.initialized = true;
 }
 
 /**

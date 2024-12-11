@@ -136,9 +136,9 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
 TEST_F(UltraPlonkRAM, TestBlockConstraint)
 {
     BlockConstraint block;
-    AcirProgram program;
-    size_t num_variables = generate_block_constraint(block, program.witness);
-    program.constraints = {
+    WitnessVector witness_values;
+    size_t num_variables = generate_block_constraint(block, witness_values);
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 7,
         .public_inputs = {},
@@ -169,9 +169,9 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
-    mock_opcode_indices(program.constraints);
+    mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(program);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
@@ -184,11 +184,11 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
 TEST_F(MegaHonk, Databus)
 {
     BlockConstraint block;
-    AcirProgram program;
-    size_t num_variables = generate_block_constraint(block, program.witness);
+    WitnessVector witness_values;
+    size_t num_variables = generate_block_constraint(block, witness_values);
     block.type = BlockType::CallData;
 
-    program.constraints = {
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
@@ -219,10 +219,10 @@ TEST_F(MegaHonk, Databus)
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
-    mock_opcode_indices(program.constraints);
+    mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = create_circuit<Builder>(program);
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, /*recursive*/ false, 0, witness_values);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }
@@ -230,8 +230,8 @@ TEST_F(MegaHonk, Databus)
 TEST_F(MegaHonk, DatabusReturn)
 {
     BlockConstraint block;
-    AcirProgram program;
-    size_t num_variables = generate_block_constraint(block, program.witness);
+    WitnessVector witness_values;
+    size_t num_variables = generate_block_constraint(block, witness_values);
     block.type = BlockType::CallData;
 
     poly_triple rd_index{
@@ -244,7 +244,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .q_o = 0,
         .q_c = 0,
     };
-    program.witness.emplace_back(0);
+    witness_values.emplace_back(0);
     ++num_variables;
     auto fr_five = fr(5);
     poly_triple rd_read{
@@ -257,7 +257,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .q_o = 0,
         .q_c = 0,
     };
-    program.witness.emplace_back(fr_five);
+    witness_values.emplace_back(fr_five);
     poly_triple five{
         .a = 0,
         .b = 0,
@@ -293,7 +293,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .q_c = 0,
     };
 
-    program.constraints = {
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 2,
         .public_inputs = {},
@@ -324,10 +324,10 @@ TEST_F(MegaHonk, DatabusReturn)
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
-    mock_opcode_indices(program.constraints);
+    mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = create_circuit<Builder>(program);
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, /*recursive*/ false, 0, witness_values);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }
