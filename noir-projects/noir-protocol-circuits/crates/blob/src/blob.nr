@@ -1,10 +1,7 @@
 // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    unconstrained_config::{
-        compute_roots_of_unity, D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB,
-        LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-    },
+    unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
 };
 
 use bigint::BigNum;
@@ -190,13 +187,13 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
     let ROOTS = unsafe { compute_roots_of_unity() };
     // z ^ D:
-    let mut t1 = z.__mul(z);
+    let mut t1 = unsafe { z.__mul(z) };
 
     BigNum::evaluate_quadratic_expression([[z]], [[false]], [[z]], [[false]], [t1], [true]);
 
     let mut t2: F = BigNum::new();
     for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-        t2 = t1.__mul(t1);
+        t2 = unsafe { t1.__mul(t1) };
 
         // GRATUITOUS USAGE OF as_witness, LIKE THROWING DARTS AT A DARTBOARD AND HOPING THIS HELPS
         std::as_witness(t2.limbs[0]);
@@ -216,12 +213,12 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // factor:
     let one: F = BigNum::one();
 
-    t1 = z_pow_d.__sub(one);
+    t1 = unsafe { z_pow_d.__sub(one) };
     std::as_witness(t1.limbs[0]);
     std::as_witness(t1.limbs[1]);
     std::as_witness(t1.limbs[2]);
 
-    let factor = t1.__mul(D_INV);
+    let factor = unsafe { t1.__mul(D_INV) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
@@ -271,16 +268,16 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB]; // y_i / (z - omega^i), for all i
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
+        denoms[i] = unsafe { z.__sub(ROOTS[i]) }; // (z - omega^i)
     }
 
     // If you're seeing a `bug` warning for this line, I think it's fine.
     // Ideally, we'd be using `__compute_fracs`, anyway, but we're getting a "stack too deep" error.
-    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
+    let inv_denoms = unsafe { __batch_invert_impl(denoms) }; // 1 / (z - omega^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let num = ys[i];
         let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-        let frac = num.__mul(inv_denom); // y_i * (1 / (z - omega^i))
+        let frac = unsafe { num.__mul(inv_denom) }; // y_i * (1 / (z - omega^i))
         fracs[i] = frac; // y_i / (z - omega^i)
         std::as_witness(fracs[i].limbs[0]);
         std::as_witness(fracs[i].limbs[1]);
@@ -339,10 +336,10 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             std::as_witness(rhs[j].limbs[2]);
 
             // y_k * ( omega^k / (z - omega^k) )
-            let summand = ROOTS[k].__mul(fracs[k]);
+            let summand = unsafe { ROOTS[k].__mul(fracs[k]) };
 
             // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
-            partial_sum = partial_sum.__add(summand);
+            partial_sum = unsafe { partial_sum.__add(summand) };
             std::as_witness(partial_sum.limbs[0]);
             std::as_witness(partial_sum.limbs[1]);
             std::as_witness(partial_sum.limbs[2]);
@@ -367,7 +364,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
         //                          sum                   partial_sum
         //
-        let mut sum_out = sum.__add(partial_sum);
+        let mut sum_out = unsafe { sum.__add(partial_sum) };
 
         std::as_witness(sum_out.limbs[0]);
         std::as_witness(sum_out.limbs[1]);
@@ -391,7 +388,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     }
 
     // y:
-    let y = factor.__mul(sum);
+    let y = unsafe { factor.__mul(sum) };
 
     //    y <- factor * sum
     // => factor * sum - y == 0
@@ -408,10 +405,7 @@ mod tests {
             field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        unconstrained_config::{
-            D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
-            NOIR_FIELDS_PER_BLOB,
-        },
+        unconstrained_config::{D, D_INV, F, LOG_FIELDS_PER_BLOB},
     };
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
     use types::{
@@ -422,10 +416,10 @@ mod tests {
 
     // Helper to return (z^d - 1)/d (unsafe - test only)
     fn z_d_helper(challenge_z: F) -> F {
-        let mut t1 = challenge_z.__mul(challenge_z);
+        let mut t1 = unsafe { challenge_z.__mul(challenge_z) };
         let mut t2: F = BigNum::new();
         for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-            t2 = t1.__mul(t1);
+            t2 = unsafe { t1.__mul(t1) };
             t1 = t2;
         }
 
@@ -433,8 +427,8 @@ mod tests {
 
         let one: F = BigNum::one();
 
-        t1 = z_pow_d.__sub(one);
-        let factor = t1.__mul(D_INV);
+        t1 = unsafe { z_pow_d.__sub(one) };
+        let factor = unsafe { t1.__mul(D_INV) };
         factor
     }
 

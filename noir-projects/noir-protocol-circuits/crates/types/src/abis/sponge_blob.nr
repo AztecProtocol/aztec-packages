@@ -80,7 +80,7 @@ impl Serialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
         fields.push(self.fields as Field);
         fields.push(self.expected_fields as Field);
 
-        fields.storage
+        fields.storage()
     }
 }
 
