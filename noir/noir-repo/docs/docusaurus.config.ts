@@ -129,6 +129,15 @@ export default {
         crossorigin: 'anonymous',
       },
     ],
+    algolia: {
+      // The application ID provided by Algolia
+      appId: '97APAVUL6H',
+
+      // Public API key: it is safe to commit it
+      apiKey: 'b9b94d2f1c58f7d509f0bc1f13b381fb',
+      contextualSearch: true,
+      indexName: 'noir-lang',
+    },
   },
   plugins: [
     () => ({

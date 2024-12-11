@@ -203,7 +203,7 @@ const config = {
               protocol: "https",
             },
           ],
-          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, save to commit
+          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
         },
         contextualSearch: true,
       },
