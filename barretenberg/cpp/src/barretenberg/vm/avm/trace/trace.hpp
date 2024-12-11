@@ -235,6 +235,7 @@ class AvmTraceBuilder {
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
     std::unordered_set<FF> bytecode_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+    void pay_fee();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)

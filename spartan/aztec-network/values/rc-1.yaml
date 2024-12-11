@@ -12,6 +12,7 @@ images:
 
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   storageSize: "100Gi"
@@ -128,7 +129,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 8
+  replicas: 16
   bb:
     hardwareConcurrency: 31
   gke:

@@ -31,6 +31,7 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     slot: Fr, // This is the storage slot not the computed leaf slot
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage?: PublicDataTreeLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
