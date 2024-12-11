@@ -167,7 +167,7 @@ jobs:
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
         env:
-          REF: (true) && 'master' || github.ref_name
+          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
@@ -180,7 +180,7 @@ jobs:
       - name: Create list of bench end-to-end jobs
         id: bench_list
         env:
-          REF: (true) && 'master' || github.ref_name
+          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
@@ -192,21 +192,21 @@ jobs:
 
   bench-test-gate:
     needs: [build, configure]
-    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') }}
+    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full bench tests enabled."
 
   e2e-test-gate:
     needs: [build, configure]
-    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
+    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
     needs: [build, configure]
-    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
+    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full network tests enabled."
