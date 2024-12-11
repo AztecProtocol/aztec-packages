@@ -35,26 +35,6 @@ template <> struct std::hash<bb::fr> {
 
 namespace bb::crypto::merkle_tree {
 
-template <typename LeafType> fr preimage_to_key(const LeafType& leaf)
-{
-    return leaf.get_key();
-}
-
-inline fr preimage_to_key(const fr& leaf)
-{
-    return leaf;
-}
-
-template <typename LeafType> bool requires_preimage_for_key()
-{
-    return true;
-}
-
-template <> inline bool requires_preimage_for_key<fr>()
-{
-    return false;
-}
-
 /**
  * @brief Serves as a key-value node store for merkle trees. Caches all changes in memory before persisting them during
  * a 'commit' operation.
@@ -154,8 +134,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
                                            const RequestContext& requestContext,
-                                           ReadTransaction& tx,
-                                           bool includeUncommitted) const;
+                                           const std::optional<index_t>& maxCommittedIndex,
+                                           ReadTransaction& tx) const;
 
     /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
@@ -163,8 +143,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
                                                 const index_t& start_index,
                                                 const RequestContext& requestContext,
-                                                ReadTransaction& tx,
-                                                bool includeUncommitted) const;
+                                                const std::optional<index_t>& maxCommittedIndex,
+                                                ReadTransaction& tx) const;
 
     /**
      * @brief Commits the uncommitted data to the underlying store
@@ -458,9 +438,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
 
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index(
-    const LeafValueType& leaf, const RequestContext& requestContext, ReadTransaction& tx, bool includeUncommitted) const
+    const LeafValueType& leaf,
+    const RequestContext& requestContext,
+    const std::optional<index_t>& maxCommittedIndex,
+    ReadTransaction& tx) const
 {
-    return find_leaf_index_from(leaf, 0, requestContext, tx, includeUncommitted);
+    return find_leaf_index_from(leaf, 0, requestContext, maxCommittedIndex, tx);
 }
 
 template <typename LeafValueType>
@@ -468,10 +451,10 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     const LeafValueType& leaf,
     const index_t& start_index,
     const RequestContext& requestContext,
-    ReadTransaction& tx,
-    bool includeUncommitted) const
+    const std::optional<index_t>& maxCommittedIndex,
+    ReadTransaction& tx) const
 {
-    if (includeUncommitted) {
+    if (requestContext.includeUncommitted) {
         // Accessing indices_ under a lock
         std::unique_lock lock(mtx_);
         auto it = indices_.find(uint256_t(leaf));
@@ -490,11 +473,10 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     FrKeyType key = leaf;
     bool success = dataStore_->read_leaf_index(key, committed, tx);
     if (success) {
-        index_t sizeLimit = constrain_tree_size(requestContext, tx);
         if (committed < start_index) {
             return std::nullopt;
         }
-        if (committed >= sizeLimit) {
+        if (maxCommittedIndex.has_value() && committed >= maxCommittedIndex.value()) {
             return std::nullopt;
         }
         return std::make_optional(committed);

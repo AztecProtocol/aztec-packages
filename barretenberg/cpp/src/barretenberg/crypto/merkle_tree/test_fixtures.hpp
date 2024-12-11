@@ -3,6 +3,8 @@
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
@@ -78,6 +80,90 @@ void check_leaf_by_hash(LMDBTreeStore::SharedPtr db, IndexedLeaf<LeafType> leaf,
     if (success) {
         EXPECT_EQ(fromStore, leaf);
     }
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index(TypeOfTree& tree,
+                           const LeafValueType& leaf,
+                           index_t expected_index,
+                           bool expected_success,
+                           bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.inner.leaf_indices[0].has_value(), expected_success);
+        if (response.inner.leaf_indices[0].has_value()) {
+            EXPECT_EQ(response.inner.leaf_indices[0].value(), expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices({ leaf }, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index_from(TypeOfTree& tree,
+                                const LeafValueType& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.inner.leaf_indices[0].has_value(), expected_success);
+        if (response.inner.leaf_indices[0].has_value()) {
+            EXPECT_EQ(response.inner.leaf_indices[0].value(), expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices_from({ leaf }, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index(TypeOfTree& tree,
+                                    const LeafValueType& leaf,
+                                    block_number_t blockNumber,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.inner.leaf_indices[0].has_value(), expected_success);
+        if (response.inner.leaf_indices[0].has_value()) {
+            EXPECT_EQ(response.inner.leaf_indices[0].value(), expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices({ leaf }, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index_from(TypeOfTree& tree,
+                                         const LeafValueType& leaf,
+                                         block_number_t blockNumber,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.inner.leaf_indices[0].has_value(), expected_success);
+        if (response.inner.leaf_indices[0].has_value()) {
+            EXPECT_EQ(response.inner.leaf_indices[0].value(), expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices_from({ leaf }, start_index, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
 }
 
 } // namespace bb::crypto::merkle_tree

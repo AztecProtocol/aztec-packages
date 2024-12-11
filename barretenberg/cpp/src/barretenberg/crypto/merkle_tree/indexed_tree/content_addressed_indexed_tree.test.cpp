@@ -196,90 +196,6 @@ GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
 }
 
 template <typename LeafValueType, typename TypeOfTree>
-void check_find_leaf_index(TypeOfTree& tree,
-                           const LeafValueType& leaf,
-                           index_t expected_index,
-                           bool expected_success,
-                           bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index(leaf, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_find_leaf_index_from(TypeOfTree& tree,
-                                const LeafValueType& leaf,
-                                index_t start_index,
-                                index_t expected_index,
-                                bool expected_success,
-                                bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_historic_find_leaf_index(TypeOfTree& tree,
-                                    const LeafValueType& leaf,
-                                    block_number_t blockNumber,
-                                    index_t expected_index,
-                                    bool expected_success,
-                                    bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index(leaf, blockNumber, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_historic_find_leaf_index_from(TypeOfTree& tree,
-                                         const LeafValueType& leaf,
-                                         block_number_t blockNumber,
-                                         index_t start_index,
-                                         index_t expected_index,
-                                         bool expected_success,
-                                         bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index_from(leaf, blockNumber, start_index, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
 void check_historic_leaf(TypeOfTree& tree,
                          const LeafValueType& leaf,
                          index_t expected_index,
@@ -1913,7 +1829,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
     check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
 
-    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
 

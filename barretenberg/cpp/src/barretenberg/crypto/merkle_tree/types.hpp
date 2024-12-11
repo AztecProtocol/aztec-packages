@@ -14,6 +14,36 @@ struct RequestContext {
     bb::fr root;
 };
 
+template <typename LeafType> fr preimage_to_key(const LeafType& leaf)
+{
+    return leaf.get_key();
+}
+
+inline fr preimage_to_key(const fr& leaf)
+{
+    return leaf;
+}
+
+template <typename LeafType> bool is_empty(const LeafType& leaf)
+{
+    return leaf.is_empty();
+}
+
+inline bool is_empty(const fr& leaf)
+{
+    return leaf == fr::zero();
+}
+
+template <typename LeafType> bool requires_preimage_for_key()
+{
+    return true;
+}
+
+template <> inline bool requires_preimage_for_key<fr>()
+{
+    return false;
+}
+
 const std::string BLOCKS_DB = "blocks";
 const std::string NODES_DB = "nodes";
 const std::string LEAF_PREIMAGES_DB = "leaf preimages";
