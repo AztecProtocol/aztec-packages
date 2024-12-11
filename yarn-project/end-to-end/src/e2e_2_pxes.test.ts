@@ -248,21 +248,16 @@ describe('e2e_2_pxes', () => {
     let note: ExtendedNote;
     {
       const owner = walletA.getAddress();
-      const outgoingViewer = owner;
+      const sender = owner;
 
       const receipt = await testContract.methods
-        .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
+        .call_create_note(noteValue, owner, sender, noteStorageSlot)
         .send()
         .wait();
       await testContract.methods.sync_notes().simulate();
       const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
-      const outgoingNotes = await walletA.getOutgoingNotes({ txHash: receipt.txHash });
       expect(incomingNotes).toHaveLength(1);
       note = incomingNotes[0];
-
-      // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
-      expect(outgoingNotes).toHaveLength(1);
-      expect(outgoingNotes[0]).toEqual(note);
     }
 
     // 3. Nullify the note

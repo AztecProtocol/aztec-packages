@@ -43,12 +43,7 @@ describe(`deploys and transfers a private only token`, () => {
 
     const [deployerWallet, recipientWallet] = accounts;
 
-    const token = await EasyPrivateTokenContract.deploy(
-      deployerWallet,
-      initialBalance,
-      deployerWallet.getAddress(),
-      deployerWallet.getAddress(),
-    )
+    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
       .send({
         universalDeploy: true,
         skipPublicDeployment: true,
@@ -61,7 +56,7 @@ describe(`deploys and transfers a private only token`, () => {
     logger.info(`Performing transfer.`);
 
     await token.methods
-      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
+      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress())
       .send()
       .wait({ timeout: 300 });
 

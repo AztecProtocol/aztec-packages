@@ -204,6 +204,7 @@ export class Sequencer {
    */
   public async stop(): Promise<void> {
     this.log.debug(`Stopping sequencer`);
+    await this.validatorClient?.stop();
     await this.runningPromise?.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
@@ -713,7 +714,7 @@ export class Sequencer {
     this.log.debug('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
     if (!proposal) {
-      this.log.verbose(`Failed to create block proposal, skipping`);
+      this.log.verbose(`Failed to create block proposal, skipping collecting attestations`);
       return undefined;
     }
 
