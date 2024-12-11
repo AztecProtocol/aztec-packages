@@ -101,7 +101,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
     ProgramStack program_stack{ constraint_systems, witness_stack };
 
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc, *recursive };
 
@@ -238,9 +238,8 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
         folding_stack.push_back(Program{ constraints, witness });
     }
     // TODO(#7371) dedupe this with the rest of the similar code
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
 
@@ -296,27 +295,17 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
             acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
         folding_stack.push_back(Program{ constraints, witness });
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
 
     // Accumulate the entire program stack into the IVC
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
-    // has been integrated into noir kernel programs
-    bool is_kernel = false;
     auto start = std::chrono::steady_clock::now();
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         vinfo("constructing circuit...");
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-        if (!circuit.databus_propagation_data.is_kernel) {
-            circuit.databus_propagation_data.is_kernel = is_kernel;
-        }
-        is_kernel = !is_kernel;
 
         vinfo("done constructing circuit. calling ivc.accumulate...");
         ivc->accumulate(circuit);
