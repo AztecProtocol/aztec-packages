@@ -72,7 +72,7 @@ EOF
 temp_file=$(mktemp)
 echo "$launch_spec" > "$temp_file"
 
-if [ "$NO_SPOT" -ne 1 ]; then
+if [ "${NO_SPOT:-0}" -ne 1 ]; then
   >&2 echo "Requesting $INSTANCE_TYPE spot instance (name: $NAME) (cpus: $CPUS) (bid: $PRICE)..."
   SIR=$(aws ec2 request-spot-instances \
     --spot-price "$PRICE" \
