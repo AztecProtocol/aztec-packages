@@ -224,7 +224,6 @@ data:
     export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
-{{if not .Values.network.public }}
 ---
 # Headless service for StatefulSet DNS entries
 apiVersion: v1
@@ -234,16 +233,24 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
+  # If this is a public network, we want to expose the boot node as a LoadBalancer
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
   clusterIP: None
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
   ports:
+    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
+    {{- if not .Values.network.public }}
     - port: {{ .Values.bootNode.service.p2pTcpPort }}
       name: p2p-tpc
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    {{- end }}
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
-{{ end }}
