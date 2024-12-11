@@ -1,23 +1,28 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract AvmInitializerTest {
     // Libs
-    use dep::aztec::state_vars::PublicImmutable;
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::{
+        macros::{functions::{initializer, public}, storage::storage},
+        state_vars::PublicImmutable,
+    };
 
-    #[aztec(storage)]
-    struct Storage {
-        immutable: PublicImmutable<Field>,
+    #[storage]
+    struct Storage<Context> {
+        immutable: PublicImmutable<Field, Context>,
     }
 
     /************************************************************************
      * Storage
      ************************************************************************/
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor() {
         storage.immutable.initialize(42);
     }
 
-    #[aztec(public)]
+    #[public]
     fn read_storage_immutable() -> pub Field {
         storage.immutable.read()
     }

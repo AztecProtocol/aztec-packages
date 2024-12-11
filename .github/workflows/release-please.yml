@@ -5,10 +5,13 @@ on:
   push:
     branches:
       - master
+      - "release/*"
 
 permissions:
   contents: write
   pull-requests: write
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
   release-please:
@@ -21,13 +24,23 @@ jobs:
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
+          default-branch: ${{ env.BRANCH_NAME }}
+
+      - name: Dispatch to publish Aztec packages workflow
+        uses: benc-uk/workflow-dispatch@v1
+        if: ${{ steps.release.outputs.tag_name }}
+        with:
+          workflow: publish-aztec-packages.yml
+          ref: ${{ env.BRANCH_NAME }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'
 
       - name: Dispatch to publish BB workflow
         uses: benc-uk/workflow-dispatch@v1
         if: ${{ steps.release.outputs.tag_name }}
         with:
           workflow: publish-bb.yml
-          ref: master
+          ref: ${{ env.BRANCH_NAME }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'
 
@@ -36,6 +49,6 @@ jobs:
         if: ${{ steps.release.outputs.tag_name }}
         with:
           workflow: publish-docs.yml
-          ref: master
+          ref: ${{ env.BRANCH_NAME }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}" }'

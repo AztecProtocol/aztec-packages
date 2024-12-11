@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../claim.hpp"
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
@@ -108,7 +108,6 @@ template <typename Curve_> class KZG {
     static VerifierAccumulator reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
                                                                  const std::shared_ptr<Transcript>& transcript)
     {
-        using Utils = CommitmentSchemesUtils<Curve>;
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
         // The pairing check can be expressed as
@@ -125,7 +124,7 @@ template <typename Curve_> class KZG {
                                           /*max_num_bits=*/0,
                                           /*with_edgecases=*/true);
         } else {
-            P_0 = Utils::batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
+            P_0 = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
         }
         auto P_1 = -quotient_commitment;
 

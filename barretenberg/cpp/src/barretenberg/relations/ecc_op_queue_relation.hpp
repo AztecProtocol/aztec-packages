@@ -57,7 +57,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("EccOp::accumulate");
+        PROFILE_THIS_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 

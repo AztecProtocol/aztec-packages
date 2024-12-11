@@ -80,16 +80,7 @@ describe('buildNullifierReadRequestHints', () => {
   };
 
   const buildHints = async () =>
-    (
-      await buildNullifierReadRequestHints(
-        oracle,
-        nullifierReadRequests,
-        nullifiers,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        futureNullifiers,
-      )
-    ).hints;
+    await buildNullifierReadRequestHints(oracle, nullifierReadRequests, nullifiers, futureNullifiers);
 
   beforeEach(() => {
     nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);

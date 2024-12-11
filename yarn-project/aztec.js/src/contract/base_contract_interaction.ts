@@ -1,10 +1,13 @@
-import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { type Fr, GasSettings } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
+import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { type FeeOptions, type UserFeeOptions } from '../entrypoint/payload.js';
+import { NoFeePaymentMethod } from '../fee/no_fee_payment_method.js';
 import { getGasLimits } from './get_gas_limits.js';
+import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -15,9 +18,7 @@ export type SendMethodOptions = {
   /** Wether to skip the simulation of the public part of the transaction. */
   skipPublicSimulation?: boolean;
   /** The fee options for the transaction. */
-  fee?: FeeOptions;
-  /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
-  estimateGas?: boolean;
+  fee?: UserFeeOptions;
   /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
   nonce?: Fr;
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
@@ -29,14 +30,7 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  /**
-   * The transaction execution result. Set by prove().
-   * Made public for simple mocking.
-   */
-  public tx?: Tx;
-  protected txRequest?: TxExecutionRequest;
-
-  protected log = createDebugLogger('aztec:js:contract_interaction');
+  protected log = createLogger('aztecjs:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 
@@ -48,14 +42,26 @@ export abstract class BaseContractInteraction {
   public abstract create(options?: SendMethodOptions): Promise<TxExecutionRequest>;
 
   /**
+   * Creates a transaction execution request, simulates and proves it. Differs from .prove in
+   * that its result does not include the wallet nor the composed tx object, but only the proving result.
+   * This object can then be used to either create a ProvenTx ready to be sent, or directly send the transaction.
+   * @param options - optional arguments to be used in the creation of the transaction
+   * @returns The proving result.
+   */
+  protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
+    const txRequest = await this.create(options);
+    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
+    return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+  }
+
+  /**
    * Proves a transaction execution request and returns a tx object ready to be sent.
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<Tx> {
-    const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
-    return this.tx;
+  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+    const txProvingResult = await this.proveInternal(options);
+    return new ProvenTx(this.wallet, txProvingResult.toTx());
   }
 
   /**
@@ -67,60 +73,71 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}) {
+  public send(options: SendMethodOptions = {}): SentTx {
     const promise = (async () => {
-      const tx = this.tx ?? (await this.prove(options));
-      return this.wallet.sendTx(tx);
+      const txProvingResult = await this.proveInternal(options);
+      return this.wallet.sendTx(txProvingResult.toTx());
     })();
-
     return new SentTx(this.wallet, promise);
   }
 
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
    * @param opts - Options.
+   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
    * @returns Gas limits.
    */
   public async estimateGas(
     opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    // REFACTOR: both `this.txRequest = undefined` below are horrible, we should not be caching stuff that doesn't need to be.
-    // This also hints at a weird interface for create/request/estimate/send etc.
-
-    // Ensure we don't accidentally use a version of tx request that has estimateGas set to true, leading to an infinite loop.
-    this.txRequest = undefined;
-    const txRequest = await this.create({ ...opts, estimateGas: false });
-    // Ensure we don't accidentally cache a version of tx request that has estimateGas forcefully set to false.
-    this.txRequest = undefined;
-
+    const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
-      (opts?.fee?.gasSettings ?? GasSettings.default()).teardownGasLimits,
+      opts?.fee?.estimatedGasPadding,
     );
     return { gasLimits, teardownGasLimits };
   }
 
   /**
-   * Helper method to return fee options based on the user opts, estimating tx gas if needed.
+   * Returns default fee options based on the user opts without running a simulation for gas estimation.
+   * @param fee - User-provided fee options.
+   */
+  protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
+    const maxFeesPerGas = fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees());
+    const paymentMethod = fee?.paymentMethod ?? new NoFeePaymentMethod();
+    const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
+    return { gasSettings, paymentMethod };
+  }
+
+  /**
+   * Return fee options based on the user opts, estimating tx gas if needed.
    * @param request - Request to execute for this interaction.
+   * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptionsFromEstimatedGas(request: ExecutionRequestInit) {
-    const fee = request.fee;
-    if (fee) {
-      const txRequest = await this.wallet.createTxExecutionRequest(request);
+  protected async getFeeOptions(
+    request: Omit<ExecutionRequestInit, 'fee'> & { /** User-provided fee options */ fee?: UserFeeOptions },
+  ): Promise<FeeOptions> {
+    const defaultFeeOptions = await this.getDefaultFeeOptions(request.fee);
+    const paymentMethod = defaultFeeOptions.paymentMethod;
+    const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
+
+    let gasSettings = defaultFeeOptions.gasSettings;
+    if (request.fee?.estimateGas) {
+      const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
+      const txRequest = await this.wallet.createTxExecutionRequest({ ...request, fee: feeForEstimation });
       const simulationResult = await this.wallet.simulateTx(txRequest, true);
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
-        fee.gasSettings.teardownGasLimits,
+        request.fee?.estimatedGasPadding,
       );
-      this.log.debug(
+      gasSettings = GasSettings.from({ maxFeesPerGas, gasLimits, teardownGasLimits });
+      this.log.verbose(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );
-      const gasSettings = GasSettings.default({ ...fee.gasSettings, gasLimits, teardownGasLimits });
-      return { ...fee, gasSettings };
     }
-    return fee;
+
+    return { gasSettings, paymentMethod };
   }
 }

@@ -7,13 +7,13 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, FeeJuiceContract, TokenContract } from '@aztec/noir-contracts.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, ensureAccountsPubliclyDeployed, setup } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
 
 jest.setTimeout(100_000);
@@ -30,7 +30,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // setup the environment
   beforeAll(async () => {
-    ctx = await setup(3, {}, {}, true);
+    ctx = await setup(3, {}, {});
 
     aliceWallet = ctx.wallets[0];
     bobAddress = ctx.wallets[1].getAddress();
@@ -40,14 +40,14 @@ describe('benchmarks/tx_size_fees', () => {
       feeRecipient: sequencerAddress,
     });
 
-    await publicDeployAccounts(aliceWallet, ctx.wallets);
+    await ensureAccountsPubliclyDeployed(aliceWallet, ctx.wallets);
   });
 
   // deploy the contracts
   beforeAll(async () => {
-    feeJuice = await FeeJuiceContract.at(FeeJuiceAddress, aliceWallet);
+    feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
-    fpc = await FPCContract.deploy(aliceWallet, token.address).send().deployed();
+    fpc = await FPCContract.deploy(aliceWallet, token.address, sequencerAddress).send().deployed();
   });
 
   // mint tokens
@@ -61,23 +61,22 @@ describe('benchmarks/tx_size_fees', () => {
       logger: ctx.logger,
     });
 
-    const { secret: fpcSecret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      100_000_000_000n,
-      100_000_000_000n,
-      fpc.address,
-    );
-    const { secret: aliceSecret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      100_000_000_000n,
-      100_000_000_000n,
-      aliceWallet.getAddress(),
-    );
+    const { claimSecret: fpcSecret, messageLeafIndex: fpcLeafIndex } =
+      await feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, fpc.address);
+
+    const { claimSecret: aliceSecret, messageLeafIndex: aliceLeafIndex } =
+      await feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, aliceWallet.getAddress());
 
     await Promise.all([
-      feeJuice.methods.claim(fpc.address, 100e9, fpcSecret).send().wait(),
-      feeJuice.methods.claim(aliceWallet.getAddress(), 100e9, aliceSecret).send().wait(),
+      feeJuice.methods.claim(fpc.address, FEE_FUNDING_FOR_TESTER_ACCOUNT, fpcSecret, fpcLeafIndex).send().wait(),
+      feeJuice.methods
+        .claim(aliceWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT, aliceSecret, aliceLeafIndex)
+        .send()
+        .wait(),
     ]);
-    await token.methods.privately_mint_private_note(100e9).send().wait();
-    await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
+    const from = aliceWallet.getAddress(); // we are setting from to Alice here because of TODO(#9887)
+    await token.methods.mint_to_private(from, aliceWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT).send().wait();
+    await token.methods.mint_to_public(aliceWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT).send().wait();
   });
 
   it.each<[string, () => FeePaymentMethod | undefined /*bigint*/]>([
@@ -99,7 +98,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet),
+      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet, sequencerAddress),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:
@@ -110,7 +109,7 @@ describe('benchmarks/tx_size_fees', () => {
     'sends a tx with a fee with %s payment method',
     async (_name, createPaymentMethod /*expectedTransactionFee*/) => {
       const paymentMethod = createPaymentMethod();
-      const gasSettings = GasSettings.default();
+      const gasSettings = GasSettings.default({ maxFeesPerGas: await aliceWallet.getCurrentBaseFees() });
       const tx = await token.methods
         .transfer(bobAddress, 1n)
         .send({ fee: paymentMethod ? { gasSettings, paymentMethod } : undefined })

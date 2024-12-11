@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { randomBytes } from '../crypto/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { BufferReader } from './buffer_reader.js';
-import { serializeArrayOfBufferableToVector } from './serialize.js';
+import { serializeArrayOfBufferableToVector, serializeToBuffer } from './serialize.js';
 
 const ARRAY = Array.from(Array(32)).map((_, idx) => (idx % 2 === 0 ? 0 : 1));
 const BUFFER = Buffer.from(ARRAY);
@@ -39,6 +39,19 @@ describe('buffer reader', () => {
     it('should read buffer by slices', () => {
       expect(bufferReader.readBytes(2)).toEqual(Buffer.from(ARRAY.slice(0, 2)));
       expect(bufferReader.readBytes(3)).toEqual(Buffer.from(ARRAY.slice(2, 5)));
+    });
+  });
+
+  describe('readUInt256', () => {
+    it('should read UInt256 from buffer', () => {
+      // mix in some non-UInt256 values
+      const content = [1, BigInt(Number.MAX_SAFE_INTEGER) + 1n, 2, BigInt(Number.MAX_SAFE_INTEGER) + 42n, 3];
+      const myReader = new BufferReader(serializeToBuffer(content));
+      expect(myReader.readNumber()).toEqual(content[0]);
+      expect(myReader.readUInt256()).toEqual(content[1]);
+      expect(myReader.readNumber()).toEqual(content[2]);
+      expect(myReader.readUInt256()).toEqual(content[3]);
+      expect(myReader.readNumber()).toEqual(content[4]);
     });
   });
 

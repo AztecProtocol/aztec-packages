@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "ethers": "^6.8.1",
-    "solc": "^0.8.22"
+    "solc": "^0.8.27"
   }
 }

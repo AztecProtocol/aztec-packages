@@ -1,14 +1,17 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include <utility>
 
 namespace bb::crypto::merkle_tree {
-LMDBDatabase::LMDBDatabase(const LMDBEnvironment& env,
+LMDBDatabase::LMDBDatabase(LMDBEnvironment::SharedPtr env,
                            const LMDBDatabaseCreationTransaction& transaction,
                            const std::string& name,
                            bool integerKeys,
                            bool reverseKeys,
                            MDB_cmp_func* cmp)
-    : _environment(env)
+    : _environment(std::move(env))
 {
     unsigned int flags = MDB_CREATE;
     if (integerKeys) {
@@ -21,12 +24,11 @@ LMDBDatabase::LMDBDatabase(const LMDBEnvironment& env,
     if (cmp != nullptr) {
         call_lmdb_func("mdb_set_compare", mdb_set_compare, transaction.underlying(), _dbi, cmp);
     }
-    transaction.commit();
 }
 
 LMDBDatabase::~LMDBDatabase()
 {
-    call_lmdb_func(mdb_dbi_close, _environment.underlying(), _dbi);
+    call_lmdb_func(mdb_dbi_close, _environment->underlying(), _dbi);
 }
 
 const MDB_dbi& LMDBDatabase::underlying() const

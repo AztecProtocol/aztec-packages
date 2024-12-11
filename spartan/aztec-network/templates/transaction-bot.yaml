@@ -1,0 +1,145 @@
+{{- if .Values.bot.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-bot
+  labels:
+    app: {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.bot.replicas }}
+  selector:
+    matchLabels:
+      app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: bot
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: bot
+    spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
+      initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        - name: wait-for-aztec-node
+          image: "{{ .Values.images.curl.image }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.bot.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
+              {{- else if .Values.network.public }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+              echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+              until curl -s ${AZTEC_NODE_URL}/status; do echo waiting for aztec-node; sleep 2; done
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+      containers:
+        - name: transaction-bot
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.bot.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
+              {{- else if .Values.network.public }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+              echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
+          env:
+            - name: AZTEC_PORT
+              value: "{{ .Values.bot.service.nodePort }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: LOG_LEVEL
+              value: "{{ .Values.bot.logLevel }}"
+            - name: BOT_PRIVATE_KEY
+              value: "{{ .Values.bot.botPrivateKey }}"
+            - name: BOT_TX_INTERVAL_SECONDS
+              value: "{{ .Values.bot.txIntervalSeconds }}"
+            - name: BOT_PRIVATE_TRANSFERS_PER_TX
+              value: "{{ .Values.bot.privateTransfersPerTx }}"
+            - name: BOT_PUBLIC_TRANSFERS_PER_TX
+              value: "{{ .Values.bot.publicTransfersPerTx }}"
+            - name: BOT_FOLLOW_CHAIN
+              value: "{{ .Values.bot.followChain }}"
+            - name: BOT_NO_START
+              value: "{{ .Values.bot.botNoStart }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: BOT_MAX_CONSECUTIVE_ERRORS
+              value: "{{ .Values.bot.maxErrors }}"
+            - name: BOT_STOP_WHEN_UNHEALTHY
+              value: "{{ .Values.bot.stopIfUnhealthy }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.bot.service.nodePort }}
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  curl -s -X POST -H 'content-type: application/json' \
+                  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
+                  127.0.0.1:{{ .Values.bot.service.nodePort }} > /tmp/probe_output.txt && \
+                  cat /tmp/probe_output.txt && \
+                  grep -q '"enr:-' /tmp/probe_output.txt
+            initialDelaySeconds: {{ .Values.bot.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.bot.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.bot.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.bot.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.bot.readinessProbe.failureThreshold }}
+          resources:
+            {{- toYaml .Values.bot.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-bot
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.bot.service.type }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: bot
+  ports:
+    - protocol: TCP
+      port: {{ .Values.bot.service.nodePort }}
+      targetPort: {{ .Values.bot.service.nodePort }}
+      {{- if and (eq .Values.bot.service.type "NodePort") .Values.bot.service.nodePort }}
+      nodePort: {{ .Values.bot.service.nodePort }}
+      {{- end }}
+{{- end }}

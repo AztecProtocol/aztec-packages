@@ -26,31 +26,22 @@ pub enum AvmOpcode {
     OR_16,
     XOR_8,
     XOR_16,
-    NOT,
+    NOT_8,
+    NOT_16,
     SHL_8,
     SHL_16,
     SHR_8,
     SHR_16,
-    CAST,
+    CAST_8,
+    CAST_16,
     // Execution environment
-    ADDRESS,
-    STORAGEADDRESS,
-    SENDER,
-    FUNCTIONSELECTOR,
-    TRANSACTIONFEE,
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    GETENVVAR_16,
     CALLDATACOPY,
-    // Gas
-    L2GASLEFT,
-    DAGASLEFT,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
     // Control flow
-    JUMP_16,
-    JUMPI_16,
+    JUMP_32,
+    JUMPI_32,
     INTERNALCALL,
     INTERNALRETURN,
     // Memory
@@ -62,7 +53,6 @@ pub enum AvmOpcode {
     SET_FF,
     MOV_8,
     MOV_16,
-    CMOV,
     // World state
     SLOAD,
     SSTORE,
@@ -77,24 +67,19 @@ pub enum AvmOpcode {
     // External calls
     CALL,
     STATICCALL,
-    DELEGATECALL,
     RETURN,
-    REVERT,
+    REVERT_8,
+    REVERT_16,
     // Misc
     DEBUGLOG,
     // Gadgets
-    KECCAK,
     POSEIDON2,
-    SHA256,   // temp - may be removed, but alot of contracts rely on it
-    PEDERSEN, // temp - may be removed, but alot of contracts rely on it
-    ECADD,
-    MSM,
-    PEDERSENCOMMITMENT, // temp
-    // Conversions
-    TORADIXLE,
-    // Other
     SHA256COMPRESSION,
     KECCAKF1600,
+    ECADD,
+    MSM,
+    // Conversions
+    TORADIXBE,
 }
 
 impl AvmOpcode {
@@ -126,37 +111,27 @@ impl AvmOpcode {
             AvmOpcode::OR_16 => "OR_16",
             AvmOpcode::XOR_8 => "XOR_8",
             AvmOpcode::XOR_16 => "XOR_16",
-            AvmOpcode::NOT => "NOT",
+            AvmOpcode::NOT_8 => "NOT_8",
+            AvmOpcode::NOT_16 => "NOT_16",
             AvmOpcode::SHL_8 => "SHL_8",
             AvmOpcode::SHL_16 => "SHL_16",
             AvmOpcode::SHR_8 => "SHR_8",
             AvmOpcode::SHR_16 => "SHR_16",
             // Compute - Type Conversions
-            AvmOpcode::CAST => "CAST",
+            AvmOpcode::CAST_8 => "CAST_8",
+            AvmOpcode::CAST_16 => "CAST_16",
 
             // Execution Environment
-            AvmOpcode::ADDRESS => "ADDRESS",
-            AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
-            AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::FUNCTIONSELECTOR => "FUNCTIONSELECTOR",
-            AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
-            // Execution Environment - Globals
-            AvmOpcode::CHAINID => "CHAINID",
-            AvmOpcode::VERSION => "VERSION",
-            AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
-            AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
-            AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
+            AvmOpcode::RETURNDATASIZE => "RETURNDATASIZE",
+            AvmOpcode::RETURNDATACOPY => "RETURNDATACOPY",
 
             // Machine State
-            // Machine State - Gas
-            AvmOpcode::L2GASLEFT => "L2GASLEFT",
-            AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
-            AvmOpcode::JUMP_16 => "JUMP_16",
-            AvmOpcode::JUMPI_16 => "JUMPI_16",
+            AvmOpcode::JUMP_32 => "JUMP_32",
+            AvmOpcode::JUMPI_32 => "JUMPI_32",
             AvmOpcode::INTERNALCALL => "INTERNALCALL",
             AvmOpcode::INTERNALRETURN => "INTERNALRETURN",
             // Machine State - Memory
@@ -168,7 +143,6 @@ impl AvmOpcode {
             AvmOpcode::SET_FF => "SET_FF",
             AvmOpcode::MOV_8 => "MOV_8",
             AvmOpcode::MOV_16 => "MOV_16",
-            AvmOpcode::CMOV => "CMOV",
 
             // World State
             AvmOpcode::SLOAD => "SLOAD",   // Public Storage
@@ -187,26 +161,21 @@ impl AvmOpcode {
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
             AvmOpcode::STATICCALL => "STATICCALL",
-            AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
-            AvmOpcode::REVERT => "REVERT",
+            AvmOpcode::REVERT_8 => "REVERT_8",
+            AvmOpcode::REVERT_16 => "REVERT_16",
 
             // Misc
             AvmOpcode::DEBUGLOG => "DEBUGLOG",
 
             // Gadgets
-            AvmOpcode::KECCAK => "KECCAK",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
-            AvmOpcode::SHA256 => "SHA256 ",
-            AvmOpcode::PEDERSEN => "PEDERSEN",
-            AvmOpcode::ECADD => "ECADD",
-            AvmOpcode::MSM => "MSM",
-            AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
-            // Conversions
-            AvmOpcode::TORADIXLE => "TORADIXLE",
-            // Other
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
             AvmOpcode::KECCAKF1600 => "KECCAKF1600",
+            AvmOpcode::ECADD => "ECADD",
+            AvmOpcode::MSM => "MSM",
+            // Conversions
+            AvmOpcode::TORADIXBE => "TORADIXBE",
         }
     }
 }

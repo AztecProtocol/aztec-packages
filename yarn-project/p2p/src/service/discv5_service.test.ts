@@ -1,12 +1,15 @@
 import { sleep } from '@aztec/foundation/sleep';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type P2PConfig } from '../config.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
-import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
@@ -28,27 +31,30 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void>
 describe('Discv5Service', () => {
   jest.setTimeout(10_000);
 
+  let store: AztecKVStore;
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
-  const baseConfig = {
-    tcpAnnounceAddress: `127.0.0.1:${basePort}`,
-    udpAnnounceAddress: `127.0.0.1:${basePort}`,
-    tcpListenAddress: `0.0.0.0:${basePort}`,
-    udpListenAddress: `0.0.0.0:${basePort}`,
+  const baseConfig: BootnodeConfig = {
+    udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
+    udpListenAddress: `0.0.0.0:${basePort + 100}`,
     minPeerCount: 1,
     maxPeerCount: 100,
-    queryForIp: false,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 0,
   };
 
   beforeEach(async () => {
-    bootNode = new BootstrapNode();
+    const telemetryClient = new NoopTelemetryClient();
+    store = openTmpStore(true);
+    bootNode = new BootstrapNode(store, telemetryClient);
     await bootNode.start(baseConfig);
     bootNodePeerId = bootNode.getPeerId();
   });
 
   afterEach(async () => {
     await bootNode.stop();
+    await store.clear();
   });
 
   it('should initialize with default values', async () => {
@@ -121,13 +127,14 @@ describe('Discv5Service', () => {
 
   const createNode = async (port: number) => {
     const bootnodeAddr = bootNode.getENR().encodeTxt();
-    const peerId = await createLibP2PPeerId();
+    const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
+      ...getP2PDefaultConfig(),
       ...baseConfig,
       tcpListenAddress: `0.0.0.0:${port}`,
-      udpListenAddress: `0.0.0.0:${port}`,
+      udpListenAddress: `0.0.0.0:${port + 100}`,
       tcpAnnounceAddress: `127.0.0.1:${port}`,
-      udpAnnounceAddress: `127.0.0.1:${port}`,
+      udpAnnounceAddress: `127.0.0.1:${port + 100}`,
       bootstrapNodes: [bootnodeAddr],
       blockCheckIntervalMS: 50,
       peerCheckIntervalMS: 50,
@@ -135,7 +142,8 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
+      l1ChainId: 31337,
     };
-    return new DiscV5Service(peerId, config);
+    return new DiscV5Service(peerId, config, new NoopTelemetryClient());
   };
 });

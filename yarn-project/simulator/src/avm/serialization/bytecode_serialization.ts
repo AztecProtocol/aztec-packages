@@ -1,33 +1,26 @@
-import { PedersenCommitment } from '../opcodes/commitment.js';
-import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
-import { EcAdd } from '../opcodes/ec_add.js';
-import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
-import { Instruction } from '../opcodes/index.js';
+import { AvmExecutionError, AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
 import {
   Add,
-  Address,
   And,
-  BlockNumber,
-  CMov,
   Call,
   CalldataCopy,
   Cast,
-  ChainId,
   DebugLog,
   Div,
+  EcAdd,
   EmitNoteHash,
   EmitNullifier,
   EmitUnencryptedLog,
   Eq,
-  FeePerDAGas,
-  FeePerL2Gas,
   FieldDiv,
-  FunctionSelector,
   GetContractInstance,
+  GetEnvVar,
+  Instruction,
   InternalCall,
   InternalReturn,
   Jump,
   JumpI,
+  KeccakF1600,
   L1ToL2MessageExists,
   Lt,
   Lte,
@@ -37,27 +30,26 @@ import {
   NoteHashExists,
   NullifierExists,
   Or,
+  Poseidon2,
   Return,
+  ReturndataCopy,
+  ReturndataSize,
   Revert,
   SLoad,
   SStore,
   SendL2ToL1Message,
-  Sender,
   Set,
+  Sha256Compression,
   Shl,
   Shr,
   StaticCall,
-  StorageAddress,
   Sub,
-  Timestamp,
-  ToRadixLE,
-  TransactionFee,
-  Version,
+  ToRadixBE,
   Xor,
 } from '../opcodes/index.js';
 import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
 import { BufferCursor } from './buffer_cursor.js';
-import { Opcode } from './instruction_serialization.js';
+import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
 export type InstructionDeserializer = (buf: BufferCursor | Buffer) => Instruction;
 
@@ -72,7 +64,7 @@ export interface Deserializable {
 export type InstructionSet = Map<Opcode, InstructionDeserializer>;
 // TODO(4359): This is a function so that Call and StaticCall can be lazily resolved.
 // This is a temporary solution until we solve the dependency cycle.
-const INSTRUCTION_SET = () =>
+export const INSTRUCTION_SET = () =>
   new Map<Opcode, InstructionDeserializer>([
     [Opcode.ADD_8, Add.as(Add.wireFormat8).deserialize],
     [Opcode.ADD_16, Add.as(Add.wireFormat16).deserialize],
@@ -96,31 +88,20 @@ const INSTRUCTION_SET = () =>
     [Opcode.OR_16, Or.as(Or.wireFormat16).deserialize],
     [Opcode.XOR_8, Xor.as(Xor.wireFormat8).deserialize],
     [Opcode.XOR_16, Xor.as(Xor.wireFormat16).deserialize],
-    [Not.opcode, Instruction.deserialize.bind(Not)],
+    [Opcode.NOT_8, Not.as(Not.wireFormat8).deserialize],
+    [Opcode.NOT_16, Not.as(Not.wireFormat16).deserialize],
     [Opcode.SHL_8, Shl.as(Shl.wireFormat8).deserialize],
     [Opcode.SHL_16, Shl.as(Shl.wireFormat16).deserialize],
     [Opcode.SHR_8, Shr.as(Shr.wireFormat8).deserialize],
     [Opcode.SHR_16, Shr.as(Shr.wireFormat16).deserialize],
-    [Cast.opcode, Instruction.deserialize.bind(Cast)],
-    [Address.opcode, Instruction.deserialize.bind(Address)],
-    [StorageAddress.opcode, Instruction.deserialize.bind(StorageAddress)],
-    [Sender.opcode, Instruction.deserialize.bind(Sender)],
-    [FunctionSelector.opcode, Instruction.deserialize.bind(FunctionSelector)],
-    [TransactionFee.opcode, Instruction.deserialize.bind(TransactionFee)],
-    // Execution Environment - Globals
-    [ChainId.opcode, Instruction.deserialize.bind(ChainId)],
-    [Version.opcode, Instruction.deserialize.bind(Version)],
-    [BlockNumber.opcode, Instruction.deserialize.bind(BlockNumber)],
-    [Timestamp.opcode, Instruction.deserialize.bind(Timestamp)],
-    [FeePerL2Gas.opcode, Instruction.deserialize.bind(FeePerL2Gas)],
-    [FeePerDAGas.opcode, Instruction.deserialize.bind(FeePerDAGas)],
-    // Execution Environment - Calldata
+    [Opcode.CAST_8, Cast.as(Cast.wireFormat8).deserialize],
+    [Opcode.CAST_16, Cast.as(Cast.wireFormat16).deserialize],
+    // Execution Environment
+    [Opcode.GETENVVAR_16, GetEnvVar.as(GetEnvVar.wireFormat16).deserialize],
     [CalldataCopy.opcode, Instruction.deserialize.bind(CalldataCopy)],
+    [Opcode.RETURNDATASIZE, Instruction.deserialize.bind(ReturndataSize)],
+    [Opcode.RETURNDATACOPY, Instruction.deserialize.bind(ReturndataCopy)],
 
-    // Machine State
-    // Machine State - Gas
-    [L2GasLeft.opcode, Instruction.deserialize.bind(L2GasLeft)],
-    [DAGasLeft.opcode, Instruction.deserialize.bind(DAGasLeft)],
     // Machine State - Internal Control Flow
     [Jump.opcode, Instruction.deserialize.bind(Jump)],
     [JumpI.opcode, Instruction.deserialize.bind(JumpI)],
@@ -134,7 +115,6 @@ const INSTRUCTION_SET = () =>
     [Opcode.SET_FF, Set.as(Set.wireFormatFF).deserialize],
     [Opcode.MOV_8, Mov.as(Mov.wireFormat8).deserialize],
     [Opcode.MOV_16, Mov.as(Mov.wireFormat16).deserialize],
-    [CMov.opcode, Instruction.deserialize.bind(CMov)],
 
     // World State
     [SLoad.opcode, Instruction.deserialize.bind(SLoad)], // Public Storage
@@ -153,26 +133,22 @@ const INSTRUCTION_SET = () =>
     // Control Flow - Contract Calls
     [Call.opcode, Instruction.deserialize.bind(Call)],
     [StaticCall.opcode, Instruction.deserialize.bind(StaticCall)],
-    //[DelegateCall.opcode, Instruction.deserialize.bind(DelegateCall)],
     [Return.opcode, Instruction.deserialize.bind(Return)],
-    [Revert.opcode, Instruction.deserialize.bind(Revert)],
+    [Opcode.REVERT_8, Revert.as(Revert.wireFormat8).deserialize],
+    [Opcode.REVERT_16, Revert.as(Revert.wireFormat16).deserialize],
 
     // Misc
     [DebugLog.opcode, Instruction.deserialize.bind(DebugLog)],
 
     // Gadgets
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
-    [Keccak.opcode, Instruction.deserialize.bind(Keccak)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
-    [Sha256.opcode, Instruction.deserialize.bind(Sha256)],
-    [Pedersen.opcode, Instruction.deserialize.bind(Pedersen)],
-    [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
-    [PedersenCommitment.opcode, Instruction.deserialize.bind(PedersenCommitment)],
-    // Conversions
-    [ToRadixLE.opcode, Instruction.deserialize.bind(ToRadixLE)],
-    // Future Gadgets -- pending changes in noir
-    // SHA256COMPRESSION,
+    [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
     [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
+    [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
+
+    // Conversions
+    [ToRadixBE.opcode, Instruction.deserialize.bind(ToRadixBE)],
   ]);
 
 /**
@@ -182,30 +158,55 @@ export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
-/**
- * Convert a buffer of bytecode into an array of instructions.
- * @param bytecode Buffer of bytecode.
- * @param instructionSet Optional {@code InstructionSet} to be used for deserialization.
- * @returns Bytecode decoded into an ordered array of Instructions
- */
+// For testing only
 export function decodeFromBytecode(
   bytecode: Buffer,
   instructionSet: InstructionSet = INSTRUCTION_SET(),
 ): Instruction[] {
   const instructions: Instruction[] = [];
-  const cursor = new BufferCursor(bytecode);
+  let pc = 0;
+  while (pc < bytecode.length) {
+    const [instruction, bytesConsumed] = decodeInstructionFromBytecode(bytecode, pc, instructionSet);
+    instructions.push(instruction);
+    pc += bytesConsumed;
+  }
+  return instructions;
+}
 
-  while (!cursor.eof()) {
-    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
+// Returns the instruction and the number of bytes consumed.
+export function decodeInstructionFromBytecode(
+  bytecode: Buffer,
+  pc: number,
+  instructionSet: InstructionSet = INSTRUCTION_SET(),
+): [Instruction, number] {
+  if (pc >= bytecode.length) {
+    throw new InvalidProgramCounterError(pc, bytecode.length);
+  }
+
+  try {
+    const cursor = new BufferCursor(bytecode, pc);
+    const startingPosition = cursor.position();
+    const opcode: number = cursor.bufferAtPosition().readUint8(); // peek.
+
+    if (opcode > MAX_OPCODE_VALUE) {
+      throw new InvalidOpcodeError(
+        `Opcode ${opcode} (0x${opcode.toString(16)}) value is not in the range of valid opcodes.`,
+      );
+    }
+
     const instructionDeserializerOrUndef = instructionSet.get(opcode);
     if (instructionDeserializerOrUndef === undefined) {
-      throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+      throw new InvalidOpcodeError(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) is not implemented`);
     }
 
     const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
-    const i: Instruction = instructionDeserializer(cursor);
-    instructions.push(i);
+    const instruction = instructionDeserializer(cursor);
+    return [instruction, cursor.position() - startingPosition];
+  } catch (error) {
+    if (error instanceof InvalidOpcodeError || error instanceof AvmExecutionError) {
+      throw error;
+    } else {
+      throw new AvmParsingError(`${error}`);
+    }
   }
-
-  return instructions;
 }

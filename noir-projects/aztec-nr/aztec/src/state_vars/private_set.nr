@@ -1,22 +1,32 @@
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest};
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, create_note_hash_from_public, destroy_note_unsafe},
-    note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
-    note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request, note_emission::NoteEmission
+    note_emission::NoteEmission,
+    note_getter::{get_notes, view_notes},
+    note_getter_options::NoteGetterOptions,
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
+    utils::compute_note_hash_for_read_request,
 };
 use crate::state_vars::storage::Storage;
+use dep::protocol_types::{
+    abis::read_request::ReadRequest,
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::{Deserialize, Serialize},
+};
 
 // docs:start:struct
-struct PrivateSet<Note, Context> {
-    context: Context,
-    storage_slot: Field,
+pub struct PrivateSet<Note, Context> {
+    pub context: Context,
+    pub storage_slot: Field,
 }
 // docs:end:struct
 
-impl<T, Context> Storage<T> for PrivateSet<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PrivateSet<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<Note, Context> PrivateSet<Note, Context> {
     // docs:start:new
@@ -27,7 +37,12 @@ impl<Note, Context> PrivateSet<Note, Context> {
     // docs:end:new
 }
 
-impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
+    // TODO: This function is still around because of a stale blacklist token. It should most likely be nuked. If you
+    // need this functionality use partial notes instead.
     // docs:start:insert_from_public
     pub fn insert_from_public(self, note: &mut Note) {
         create_note_hash_from_public(self.context, self.storage_slot, note);
@@ -35,7 +50,10 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PublicContext> where No
     // docs:end:insert_from_public
 }
 
-impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInterface<N, M> + Eq {
+impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote + Eq,
+{
     // docs:start:insert
     pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
         create_note(self.context, self.storage_slot, note)
@@ -44,7 +62,7 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
 
     pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
+        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         let (notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
@@ -67,7 +85,8 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
     /// in significantly less constrains due to avoiding an extra hash and read request check.
     pub fn remove(self, note: Note) {
         let note_hash = compute_note_hash_for_read_request(note);
-        let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
+        let has_been_read =
+            self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note_unsafe(self.context, note, note_hash);
@@ -77,17 +96,20 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
     /// in significantly less constrains due to avoiding 1 read request check.
     pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
+        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         get_notes(self.context, self.storage_slot, options).0
     }
 }
 
-impl<Note, let N: u32, let M: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
     // docs:start:view_notes
-    unconstrained pub fn view_notes(
+    pub unconstrained fn view_notes(
         self,
-        options: NoteViewerOptions<Note, N, M>
+        options: NoteViewerOptions<Note, N>,
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {
         view_notes(self.storage_slot, options)
     }

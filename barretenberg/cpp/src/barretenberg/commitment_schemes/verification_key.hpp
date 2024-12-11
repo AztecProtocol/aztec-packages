@@ -34,6 +34,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     using Commitment = typename Curve::AffineElement;
 
     VerifierCommitmentKey() { srs = srs::get_crs_factory<Curve>()->get_verifier_crs(); };
+    bool operator==(const VerifierCommitmentKey&) const = default;
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 

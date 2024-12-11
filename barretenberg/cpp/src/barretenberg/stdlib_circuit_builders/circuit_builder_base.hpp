@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
@@ -37,11 +37,15 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    bool contains_pairing_point_accumulator = false;
 
-    // We only know from the circuit description whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // Public input indices which contain the output IPA opening claim
+    IPAClaimPubInputIndices ipa_claim_public_input_indices;
+    bool contains_ipa_claim = false;
+
+    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.
     // This field exists to later set the same field in the verification key, and make sure
     // that we are using the correct prover/verifier.
@@ -62,8 +66,9 @@ template <typename FF_> class CircuitBuilderBase {
 
     bool operator==(const CircuitBuilderBase& other) const = default;
 
-    virtual size_t get_num_gates() const;
-    virtual void print_num_gates() const;
+    virtual size_t get_num_finalized_gates() const;
+    virtual size_t get_estimated_num_finalized_gates() const;
+    virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
     // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
     uint32_t zero_idx = 0;
@@ -205,17 +210,9 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
-    /**
-     * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
-     * TODO: using `add_recursive_proof` also means that we will need to remove the cde which is
-     * TODO: adding the public_inputs
-     * @brief Update recursive_proof_public_input_indices with existing public inputs that represent a recursive proof
-     *
-     * @param proof_output_witness_indices
-     */
-    void set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;
@@ -254,6 +251,7 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
                    vars_of_interest,

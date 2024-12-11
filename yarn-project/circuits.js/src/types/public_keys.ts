@@ -1,13 +1,27 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { z } from 'zod';
+
+import {
+  DEFAULT_IVPK_M_X,
+  DEFAULT_IVPK_M_Y,
+  DEFAULT_NPK_M_X,
+  DEFAULT_NPK_M_Y,
+  DEFAULT_OVPK_M_X,
+  DEFAULT_OVPK_M_Y,
+  DEFAULT_TPK_M_X,
+  DEFAULT_TPK_M_Y,
+  GeneratorIndex,
+} from '../constants.gen.js';
 import { type PublicKey } from './public_key.js';
 
 export class PublicKeys {
   public constructor(
-    /** Contract address (typically of an account contract) */
     /** Master nullifier public key */
     public masterNullifierPublicKey: PublicKey,
     /** Master incoming viewing public key */
@@ -17,6 +31,26 @@ export class PublicKeys {
     /** Master tagging viewing public key */
     public masterTaggingPublicKey: PublicKey,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        masterNullifierPublicKey: schemas.Point,
+        masterIncomingViewingPublicKey: schemas.Point,
+        masterOutgoingViewingPublicKey: schemas.Point,
+        masterTaggingPublicKey: schemas.Point,
+      })
+      .transform(PublicKeys.from);
+  }
+
+  static from(fields: FieldsOf<PublicKeys>) {
+    return new PublicKeys(
+      fields.masterNullifierPublicKey,
+      fields.masterIncomingViewingPublicKey,
+      fields.masterOutgoingViewingPublicKey,
+      fields.masterTaggingPublicKey,
+    );
+  }
 
   hash() {
     return this.isEmpty()
@@ -41,8 +75,17 @@ export class PublicKeys {
     );
   }
 
-  static empty(): PublicKeys {
-    return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
+  static default(): PublicKeys {
+    return new PublicKeys(
+      new Point(new Fr(DEFAULT_NPK_M_X), new Fr(DEFAULT_NPK_M_Y), false),
+      new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
+      new Point(new Fr(DEFAULT_OVPK_M_X), new Fr(DEFAULT_OVPK_M_Y), false),
+      new Point(new Fr(DEFAULT_TPK_M_X), new Fr(DEFAULT_TPK_M_Y), false),
+    );
+  }
+
+  static random(): PublicKeys {
+    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
   }
 
   /**
@@ -125,6 +168,12 @@ export class PublicKeys {
     ];
   }
 
+  // TOOD: This is used in foundation/src/abi/encoder. This is probably non-optimal but I did not want
+  // to spend too much time on the encoder now. It probably needs a refactor.
+  encodeToNoir(): Fr[] {
+    return this.toFields();
+  }
+
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
     return new PublicKeys(
@@ -136,7 +185,7 @@ export class PublicKeys {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(keys: string) {

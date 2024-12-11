@@ -1,4 +1,4 @@
-import { type DebugLogger, type EthCheatCodes, createDebugLogger } from '@aztec/aztec.js';
+import { type EthCheatCodes, type Logger, createLogger } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -18,7 +18,7 @@ export class AnvilTestWatcher {
 
   private filledRunningPromise?: RunningPromise;
 
-  private logger: DebugLogger = createDebugLogger(`aztec:utils:watcher`);
+  private logger: Logger = createLogger(`aztecjs:utils:watcher`);
 
   constructor(
     private cheatcodes: EthCheatCodes,
@@ -31,7 +31,7 @@ export class AnvilTestWatcher {
       client: publicClient,
     });
 
-    this.logger.info(`Watcher created for rollup at ${rollupAddress}`);
+    this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }
 
   async start() {
@@ -48,7 +48,7 @@ export class AnvilTestWatcher {
     if (isAutoMining) {
       this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), 1000);
       this.filledRunningPromise.start();
-      this.logger.info(`Watcher started`);
+      this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
       this.logger.info(`Watcher not started because not auto mining`);
     }
@@ -61,10 +61,10 @@ export class AnvilTestWatcher {
   async mineIfSlotFilled() {
     try {
       const currentSlot = await this.rollup.read.getCurrentSlot();
-      const pendingBlockNumber = BigInt(await this.rollup.read.pendingBlockCount()) - 1n;
-      const [, , lastSlotNumber] = await this.rollup.read.blocks([pendingBlockNumber]);
+      const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
+      const blockLog = await this.rollup.read.getBlock([pendingBlockNumber]);
 
-      if (currentSlot === lastSlotNumber) {
+      if (currentSlot === blockLog.slotNumber) {
         // We should jump to the next slot
         const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
         try {

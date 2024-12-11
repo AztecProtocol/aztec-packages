@@ -45,8 +45,13 @@ struct ColumnGroups {
 /// Analyzed to cpp
 ///
 /// Converts an analyzed pil AST into a set of cpp files that can be used to generate a proof
-pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, delete_dir: bool) {
-    let mut bb_files = BBFiles::default(&snake_case(&vm_name));
+pub fn analyzed_to_cpp<F: FieldElement>(
+    analyzed: &Analyzed<F>,
+    generated_dir: Option<&str>,
+    vm_name: &str,
+    delete_dir: bool,
+) {
+    let mut bb_files = BBFiles::new(&snake_case(&vm_name), generated_dir, None);
 
     // Remove the generated directory if it exists.
     // Pass `-y` as parameter if you want to skip the confirmation prompt.
@@ -65,8 +70,8 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     let relations = bb_files.create_relations(vm_name, analyzed);
 
     // ----------------------- Handle Lookup / Permutation Relation Identities -----------------------
-    let permutations = bb_files.create_permutation_files(analyzed);
-    let lookups = bb_files.create_lookup_files(analyzed);
+    let permutations = bb_files.create_permutation_files(analyzed, vm_name);
+    let lookups = bb_files.create_lookup_files(analyzed, vm_name);
     let lookup_and_permutations_names = sort_cols(&flatten(&[
         permutations.iter().map(|p| p.name.clone()).collect_vec(),
         lookups.iter().map(|l| l.name.clone()).collect_vec(),
@@ -90,10 +95,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     // ----------------------- Create the full row files -----------------------
     bb_files.create_full_row_hpp(vm_name, &all_cols);
     bb_files.create_full_row_cpp(vm_name, &all_cols);
-
-    // ----------------------- Create the circuit builder files -----------------------
-    bb_files.create_circuit_builder_hpp(vm_name);
-    bb_files.create_circuit_builder_cpp(vm_name, &all_cols_without_inverses);
 
     // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_hpp(
@@ -124,10 +125,18 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     );
 
     bb_files.create_flavor_settings_hpp(vm_name);
-
-    // ----------------------- Create the composer files -----------------------
-    bb_files.create_composer_cpp(vm_name);
-    bb_files.create_composer_hpp(vm_name);
+    bb_files.create_columns_hpp(
+        vm_name,
+        &lookup_and_permutations_names,
+        &inverses,
+        &fixed,
+        &witness,
+        &witnesses_without_inverses,
+        &all_cols,
+        &to_be_shifted,
+        &shifted,
+        &all_cols_with_shifts,
+    );
 
     // ----------------------- Create the Verifier files -----------------------
     bb_files.create_verifier_cpp(vm_name, &public_inputs);
@@ -136,6 +145,22 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     // ----------------------- Create the Prover files -----------------------
     bb_files.create_prover_cpp(vm_name);
     bb_files.create_prover_hpp(vm_name);
+
+    if vm_name == "Avm2" {
+        println!("Skipping the creation of the composer, circuit builder and recursive verifier for Avm2.");
+        return;
+    }
+
+    // ----------------------- Create the circuit builder files -----------------------
+    bb_files.create_circuit_builder_hpp(vm_name);
+    bb_files.create_circuit_builder_cpp(vm_name, &all_cols_without_inverses);
+
+    // ----------------------- Create the composer files -----------------------
+    bb_files.create_composer_cpp(vm_name);
+    bb_files.create_composer_hpp(vm_name);
+
+    // ----------------------- Create the recursive verifier -----------------------
+    bb_files.create_recursive_verifier_cpp(vm_name, &public_inputs);
 
     println!("Done with generation.");
 }

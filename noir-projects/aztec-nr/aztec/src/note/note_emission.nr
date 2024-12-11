@@ -2,8 +2,8 @@
  * A note emission struct containing the information required for emitting a note.
  * The exact `emit` logic is passed in by the application code
  */
-struct NoteEmission<Note> {
-    note: Note
+pub struct NoteEmission<Note> {
+    pub note: Note,
 }
 
 impl<Note> NoteEmission<Note> {
@@ -23,10 +23,10 @@ impl<Note> NoteEmission<Note> {
  * This is the struct provided to application codes, which can be used to emit
  * only when a note was actually inserted.
  * It is fairly common to have cases where a function conditionally inserts,
- * and this allows us to keep the same API for emission in both cases (e.g. inserting  
+ * and this allows us to keep the same API for emission in both cases (e.g. inserting
  * a change note in a token's transfer function only when there is "change" left).
  */
-struct OuterNoteEmission<Note> {
+pub struct OuterNoteEmission<Note> {
     emission: Option<NoteEmission<Note>>,
 }
 

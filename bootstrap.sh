@@ -20,7 +20,8 @@ RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-source ./build-system/scripts/setup_env '' '' '' > /dev/null
+# setup env
+export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
@@ -70,12 +71,12 @@ function check_toolchains {
   fi
   # Check foundry version.
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep de33b6a > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
-      echo "$tool not in PATH or incorrect version (requires de33b6af53005037b463318d2628b5cfcaf39916)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.75)"
+      echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
+      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -b de33b6af53005037b463318d2628b5cfcaf39916"
+      echo "  foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done
@@ -103,7 +104,7 @@ if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
   echo -n "Continue? [y/n] "
   read user_input
-  if [ "$user_input" != "y" ] && [ "$user_input" != "yes" ] && [ "$user_input" != "Y" ] && [ "$user_input" != "YES" ]; then
+  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
     echo "Exiting without cleaning"
     exit 1
   fi
@@ -121,16 +122,10 @@ if [ "$CMD" = "clean" ]; then
   echo "Cleaning complete"
   exit 0
 elif [ "$CMD" = "full" ]; then
-  if can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  fi
+  echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+  echo
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
-  if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
-    exit 1
-  fi
 elif [ "$CMD" = "check" ]; then
   check_toolchains
   echo "Toolchains look good! 🎉"
@@ -159,12 +154,12 @@ PROJECTS=(
 )
 
 # Build projects locally
-for P in "${PROJECTS[@]}"; do
+for project in "${PROJECTS[@]}"; do
   echo "**************************************"
-  echo -e "\033[1mBootstrapping $P...\033[0m"
+  echo -e "\033[1mBootstrapping $project...\033[0m"
   echo "**************************************"
   echo
-  (cd $P && ./bootstrap.sh)
+  (cd $project && ./bootstrap.sh)
   echo
   echo
 done

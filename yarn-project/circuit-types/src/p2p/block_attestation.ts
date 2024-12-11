@@ -1,12 +1,16 @@
-import { EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
+import { type EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { recoverMessageAddress } from 'viem';
+import { z } from 'zod';
 
+import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { Signature } from './signature.js';
+import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockAttestationHash extends Buffer32 {
@@ -22,27 +26,35 @@ export class BlockAttestationHash extends Buffer32 {
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
-  static override p2pTopic: string;
+  static override p2pTopic = createTopicString(TopicType.block_attestation);
 
   private sender: EthAddress | undefined;
 
   constructor(
-    /** The block header the attestation is made over */
-    public readonly header: Header,
-    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
-    public readonly archive: Fr,
+    /** The payload of the message, and what the signature is over */
+    public readonly payload: ConsensusPayload,
+
     /** The signature of the block attester */
     public readonly signature: Signature,
   ) {
     super();
   }
 
-  static {
-    this.p2pTopic = createTopicString(TopicType.block_attestation);
+  static get schema(): ZodFor<BlockAttestation> {
+    return z
+      .object({
+        payload: ConsensusPayload.schema,
+        signature: Signature.schema,
+      })
+      .transform(obj => new BlockAttestation(obj.payload, obj.signature));
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockAttestationHash.fromField(this.archive);
+    return new BlockAttestationHash(keccak256(this.signature.toBuffer()));
+  }
+
+  get archive(): Fr {
+    return this.payload.archive;
   }
 
   /**Get sender
@@ -50,30 +62,35 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  async getSender() {
+  getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const address = await recoverMessageAddress({
-        message: { raw: this.p2pMessageIdentifier().to0xString() },
-        signature: this.signature.to0xString(),
-      });
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeperator.blockAttestation);
       // Cache the sender for later use
-      this.sender = EthAddress.fromString(address);
+      this.sender = recoverAddress(hashed, this.signature);
     }
 
     return this.sender;
   }
 
+  getPayload(): Buffer {
+    return this.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation);
+  }
+
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive, this.signature]);
+    return serializeToBuffer([this.payload, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readObject(Signature));
+    return new BlockAttestation(reader.readObject(ConsensusPayload), reader.readObject(Signature));
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Header.empty(), Fr.ZERO, Signature.empty());
+    return new BlockAttestation(ConsensusPayload.empty(), Signature.empty());
+  }
+
+  getSize(): number {
+    return this.payload.getSize() + this.signature.getSize();
   }
 }

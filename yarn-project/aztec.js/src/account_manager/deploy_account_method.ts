@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { type PublicKeys } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,
@@ -23,7 +23,7 @@ export class DeployAccountMethod extends DeployMethod {
 
   constructor(
     authWitnessProvider: AuthWitnessProvider,
-    publicKeysHash: Fr,
+    publicKeys: PublicKeys,
     wallet: Wallet,
     artifact: ContractArtifact,
     args: any[] = [],
@@ -31,7 +31,7 @@ export class DeployAccountMethod extends DeployMethod {
     feePaymentNameOrArtifact?: string | FunctionArtifact,
   ) {
     super(
-      publicKeysHash,
+      publicKeys,
       wallet,
       artifact,
       (address, wallet) => Contract.at(address, artifact, wallet),
@@ -46,13 +46,16 @@ export class DeployAccountMethod extends DeployMethod {
         : feePaymentNameOrArtifact;
   }
 
-  protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+  protected override async getInitializeFunctionCalls(
+    options: DeployOptions,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const exec = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = this.getInstance();
       const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
-      const feePayload = await EntrypointPayload.fromFeeOptions(address, options?.fee);
+      const fee = await this.getDefaultFeeOptions(options.fee);
+      const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
 
       exec.calls.push({
         name: this.#feePaymentArtifact.name,

@@ -8,7 +8,7 @@ Precompiled contracts, which borrow their name from Ethereum's, are contracts no
 
 Note that, unlike user-defined contracts, the address of a precompiled [contract instance](../contract-deployment/instances.md) and the [identifier of its class](../contract-deployment/classes.md#class-identifier) both have no known preimage.
 
-The rationale for precompiled contracts is to provide a set of vetted primitives for [note encryption](../private-message-delivery/private-msg-delivery.md#encryption-and-decryption) and [tagging](../private-message-delivery/private-msg-delivery.md#note-tagging) that applications can use safely. These primitives are guaranteed to be always-satisfiable when called with valid arguments. This allows account contracts to choose their preferred method of encryption and tagging from any primitive in this set, and application contracts to call into them without the risk of calling into a untrusted code, which could potentially halt the execution flow via an unsatisfiable constraint. Furthermore, by exposing these primitives in a reserved set of well-known addresses, applications can be forward-compatible and incorporate new encryption and tagging methods as accounts opt into them.
+The rationale for precompiled contracts is to provide a set of vetted primitives for [note encryption](../private-message-delivery/private-msg-delivery.md#encryption-and-decryption) and [tagging](../private-message-delivery/private-msg-delivery.md#note-tagging) that applications can use safely. These primitives are guaranteed to be always-satisfiable when called with valid arguments. This allows account contracts to choose their preferred method of encryption and tagging from any primitive in this set, and application contracts to call into them without the risk of calling into an untrusted code, which could potentially halt the execution flow via an unsatisfiable constraint. Furthermore, by exposing these primitives in a reserved set of well-known addresses, applications can be forward-compatible and incorporate new encryption and tagging methods as accounts opt into them.
 
 ## Constants
 
@@ -70,7 +70,7 @@ Encrypts and tags the given plaintext using the provided public keys, and return
 encrypt_and_broadcast(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_TAGGED_CIPHERTEXT_LENGTH]
 ```
 
-Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery. These functions should be invoked via a [delegate call](../calls/delegate-calls.md), so that the broadcasted event is emitted as if it were from the caller contract.
+Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery.
 
 ```
 encrypt<N>([call_context: CallContext, public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] ][N]): Field[MAX_CIPHERTEXT_LENGTH][N]

@@ -1,36 +1,37 @@
 mod subscription_note;
 mod dapp_payload;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
-    use aztec::{
-        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
-        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
-        utils::comparison::Comparator
-    };
     use authwit::auth::assert_current_call_valid_authwit;
-    use token::Token;
+    use aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        macros::{functions::{initializer, private, public}, storage::storage},
+        prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
+        protocol_types::constants::MAX_FIELD_VALUE,
+        utils::comparison::Comparator,
+    };
     use router::utils::privately_check_block_number;
+    use token::Token;
 
-    #[aztec(storage)]
-    struct Storage {
-        // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
-        // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
-        // have to bother with sharing the note between pixies of users.
-        target_address: SharedImmutable<AztecAddress>,
-        subscription_token_address: SharedImmutable<AztecAddress>,
-        subscription_recipient_address: SharedImmutable<AztecAddress>,
-        subscription_price: SharedImmutable<Field>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
-        fee_juice_limit_per_tx: SharedImmutable<Field>,
+    #[storage]
+    struct Storage<Context> {
+        target_address: PublicImmutable<AztecAddress, Context>,
+        subscription_token_address: PublicImmutable<AztecAddress, Context>,
+        subscription_recipient_address: PublicImmutable<AztecAddress, Context>,
+        subscription_price: PublicImmutable<Field, Context>,
+        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
 
-    global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
-    global SUBSCRIPTION_TXS = 5;
+    global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
+    global SUBSCRIPTION_TXS: Field = 5;
 
-    #[aztec(private)]
+    #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
@@ -41,14 +42,16 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
-        // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
-        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(&mut context, user_address, user_address));
+        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            user_address,
+            user_address,
+        ));
 
         context.set_as_fee_payer();
 
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
-        let _gas_limit = storage.fee_juice_limit_per_tx.read_private();
+        let _gas_limit = storage.fee_juice_limit_per_tx.read();
 
         context.end_setup();
 
@@ -56,17 +59,17 @@ contract AppSubscription {
         // is performing the check.
         privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
-        payload.execute_calls(&mut context, storage.target_address.read_private());
+        payload.execute_calls(&mut context, storage.target_address.read());
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_price: Field,
-        fee_juice_limit_per_tx: Field
+        fee_juice_limit_per_tx: Field,
     ) {
         storage.target_address.initialize(target_address);
         storage.subscription_token_address.initialize(subscription_token_address);
@@ -75,36 +78,36 @@ contract AppSubscription {
         storage.fee_juice_limit_per_tx.initialize(fee_juice_limit_per_tx);
     }
 
-    #[aztec(private)]
-    fn subscribe(subscriber: AztecAddress, nonce: Field, expiry_block_number: Field, tx_count: Field) {
+    #[private]
+    fn subscribe(
+        subscriber: AztecAddress,
+        nonce: Field,
+        expiry_block_number: Field,
+        tx_count: Field,
+    ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read_private()).transfer_from(
-            context.msg_sender(),
-            storage.subscription_recipient_address.read_private(),
-            storage.subscription_price.read_private(),
-            nonce
-        ).call(&mut context);
+        Token::at(storage.subscription_token_address.read())
+            .transfer_in_private(
+                context.msg_sender(),
+                storage.subscription_recipient_address.read(),
+                storage.subscription_price.read(),
+                nonce,
+            )
+            .call(&mut context);
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.
         privately_check_block_number(
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
-            &mut context
+            &mut context,
         );
 
-        let subscriber_keys = get_current_public_keys(&mut context, subscriber);
-        let msg_sender_ovpk_m = get_current_public_keys(&mut context, context.msg_sender()).ovpk_m;
-
-        let mut subscription_note = SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
+        let mut subscription_note =
+            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note_with_keys(
-                &mut context,
-                msg_sender_ovpk_m,
-                subscriber_keys.ivpk_m,
-                subscriber
-            )
+            encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
         );
     }
 

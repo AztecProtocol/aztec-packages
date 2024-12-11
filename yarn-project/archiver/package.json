@@ -4,7 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./data-retrieval": "./dest/archiver/data_retrieval.js"
+    "./data-retrieval": "./dest/archiver/data_retrieval.js",
+    "./epoch": "./dest/archiver/epoch_helpers.js",
+    "./test": "./dest/test/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -20,8 +22,6 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "start": "node ./dest",
-    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
@@ -43,6 +43,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -58,6 +61,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -67,6 +74,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
@@ -79,7 +87,6 @@
     "ws": "^8.13.0"
   },
   "devDependencies": {
-    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/debug": "^4.1.7",
     "@types/jest": "^29.5.0",

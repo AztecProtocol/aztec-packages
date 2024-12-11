@@ -36,6 +36,12 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
+    // Add the IPA proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // The extra calculation is for the IPA proof length.
+        ASSERT(proving_key->proving_key.ipa_proof.size() == 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
+        proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
+    }
     return proof;
 }
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
@@ -50,16 +56,22 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
+    vinfo("created oink prover");
     oink_prover.prove();
+    vinfo("created oink proof");
 
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
-    return decider_prover.construct_proof();
+    vinfo("created decider prover");
+    decider_prover.construct_proof();
+    return export_proof();
 }
 
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
+template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
+template class UltraProver_<MegaZKFlavor>;
 
 } // namespace bb

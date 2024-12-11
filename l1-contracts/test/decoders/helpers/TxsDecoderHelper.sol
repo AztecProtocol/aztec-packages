@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {TxsDecoder} from "../../../src/core/libraries/decoders/TxsDecoder.sol";
-import {MerkleLib} from "../../../src/core/libraries/MerkleLib.sol";
+import {TxsDecoder} from "@aztec/core/libraries/RollupLibs/TxsDecoder.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 
 contract TxsDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory
@@ -16,7 +16,7 @@ contract TxsDecoderHelper {
     pure
     returns (bytes32, uint256, uint256)
   {
-    return TxsDecoder.computeKernelEncryptedLogsHash(0, _kernelLogs);
+    return TxsDecoder.computeKernelUnencryptedLogsHash(0, _kernelLogs, false);
   }
 
   function computeTxOutHash(bytes calldata _kernelMsgs) external pure returns (bytes32) {

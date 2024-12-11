@@ -1,6 +1,8 @@
 #pragma once
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 
 namespace bb {
 
@@ -23,6 +25,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     using DeciderPK = typename DeciderProvingKeys_::DeciderPK;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderProvingKeys = DeciderProvingKeys_;
+    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
@@ -39,15 +42,15 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     UnivariateRelationParameters relation_parameters;
     UnivariateRelationSeparator alphas;
 
+    PGInternal pg_internal;
+
     ProtogalaxyProver_() = default;
-    ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys)
+    ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys,
+                       ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(keys_to_fold[1]->proving_key.commitment_key){};
-
-    // Returns the accumulator, which is the first element in DeciderProvingKeys. The accumulator is assumed to have the
-    // FoldingParameters set and be the result of a previous round of folding.
-    std::shared_ptr<DeciderPK> get_accumulator() { return keys_to_fold[0]; }
+        , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
+        , pg_internal(trace_usage_tracker){};
 
     /**
      * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its

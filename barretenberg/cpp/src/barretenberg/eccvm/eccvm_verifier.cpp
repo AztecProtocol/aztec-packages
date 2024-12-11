@@ -1,6 +1,6 @@
 #include "./eccvm_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -8,14 +8,16 @@ namespace bb {
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
-bool ECCVMVerifier::verify_proof(const HonkProof& proof)
+bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
+    using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
+    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -47,72 +49,89 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
-    // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        return false;
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
     }
 
-    // Reduce the multivariate evaluation claims produced by sumcheck to a single univariate opening claim
-    auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
-                                                                      commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_unshifted(),
-                                                                      claimed_evaluations.get_shifted(),
-                                                                      multivariate_challenge,
-                                                                      key->pcs_verification_key->get_g1_identity(),
-                                                                      transcript);
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    // If Sumcheck did not verify, return false
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        vinfo("eccvm sumcheck failed");
+        return false;
+    }
+    // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
+    // produced by the unified protocol
+    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+        Shplemini::compute_batch_opening_claim(circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               claimed_evaluations.get_unshifted(),
+                                               claimed_evaluations.get_shifted(),
+                                               multivariate_challenge,
+                                               key->pcs_verification_key->get_g1_identity(),
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
 
-    // Execute transcript consistency univariate opening round
-    auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
+    // Reduce the accumulator to a single opening claim
+    const OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
-    FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
-    const size_t NUM_UNIVARIATES = 6;
-    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
-        commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
-        commitments.transcript_z1, commitments.transcript_z2, hack_commitment
-    };
+    const size_t NUM_UNIVARIATES = 5;
+    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = { commitments.transcript_op,
+                                                                       commitments.transcript_Px,
+                                                                       commitments.transcript_Py,
+                                                                       commitments.transcript_z1,
+                                                                       commitments.transcript_z2 };
     std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
         transcript->template receive_from_prover<FF>("Translation:op"),
         transcript->template receive_from_prover<FF>("Translation:Px"),
         transcript->template receive_from_prover<FF>("Translation:Py"),
         transcript->template receive_from_prover<FF>("Translation:z1"),
-        transcript->template receive_from_prover<FF>("Translation:z2"),
-        transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
+        transcript->template receive_from_prover<FF>("Translation:z2")
     };
 
     // Get the batching challenge for commitments and evaluations
-    FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+    const FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
-    auto batched_commitment = transcript_commitments[0];
-    auto batched_transcript_eval = transcript_evaluations[0];
-    auto batching_scalar = ipa_batching_challenge;
-    for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
+    Commitment batched_commitment = transcript_commitments[0];
+    FF batched_transcript_eval = transcript_evaluations[0];
+    FF batching_scalar = ipa_batching_challenge;
+    for (size_t idx = 1; idx < NUM_UNIVARIATES; ++idx) {
         batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
         batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
         batching_scalar *= ipa_batching_challenge;
     }
 
-    std::array<OpeningClaim<Curve>, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                          { { evaluation_challenge_x, batched_transcript_eval },
-                                                            batched_commitment } };
+    const OpeningClaim translation_opening_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                     batched_commitment };
+
+    const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
+                                                         translation_opening_claim };
 
     // Construct and verify the combined opening claim
-    auto batched_opening_claim =
+    const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    bool batched_opening_verified = PCS::reduce_verify(key->pcs_verification_key, batched_opening_claim, transcript);
-
+    const bool batched_opening_verified =
+        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
+    vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
+    vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_verified.value() && batched_opening_verified;
 }
 } // namespace bb

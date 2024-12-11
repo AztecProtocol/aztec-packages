@@ -1,11 +1,12 @@
 ---
 title: Sandbox Reference
 tags: [sandbox]
+sidebar_position: 0
 ---
 
 :::tip
 
-For a quick start, follow the [guide](../../../guides/developer_guides/getting_started/quickstart.md) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/getting_started) to install the sandbox.
 
 :::
 
@@ -13,13 +14,13 @@ For a quick start, follow the [guide](../../../guides/developer_guides/getting_s
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
-To change them, you can open `~/.aztec/docker-compose.yml` and edit them directly.
+To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them directly.
 
 **Sandbox**
 
 ```sh
-DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec where the docker-compose.yml file is stored by default.
+LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
+HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
 ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
@@ -78,7 +79,7 @@ SEQ_MAX_SECONDS_BETWEEN_BLOCKS=0 # Sequencer will produce a block with less than
 SEQ_MIN_SECONDS_BETWEEN_BLOCKS=0 # Minimum seconds to wait between consecutive blocks. (default: 0)
 
 ## Validator variables ##
-VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties 
+VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
 ```
 
 **PXE**
@@ -127,8 +128,6 @@ ContractClassRegistererContractArtifact
 ContractInstanceDeployerContractArtifact
 CounterContractArtifact
 CrowdfundingContractArtifact
-DelegatedOnContractArtifact
-DelegatorContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
@@ -158,4 +157,22 @@ UniswapContractArtifact
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118</a></sub></sup>
 
-You can see all of our example contracts in the monorepo [here (GitHub  link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).
+You can see all of our example contracts in the monorepo [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).
+
+## Running Aztec PXE / Node / P2P-Bootstrap node individually
+
+If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
+
+```bash
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] --p2p-bootstrap [p2pOptions]
+```
+
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../../guides/developer_guides/local_env/run_more_than_one_pxe_sandbox.md).
+
+## Update the sandbox
+
+To update the sandbox, run:
+
+```bash
+aztec-up
+```

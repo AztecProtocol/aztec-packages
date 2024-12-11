@@ -1,9 +1,13 @@
 import {
   type AttributeValue,
+  type BatchObservableCallback,
   type MetricOptions,
+  type Observable,
+  type BatchObservableResult as OtelBatchObservableResult,
   type Gauge as OtelGauge,
   type Histogram as OtelHistogram,
   type ObservableGauge as OtelObservableGauge,
+  type ObservableResult as OtelObservableResult,
   type ObservableUpDownCounter as OtelObservableUpDownCounter,
   type UpDownCounter as OtelUpDownCounter,
   type Span,
@@ -14,7 +18,7 @@ import {
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
 
-export { ValueType, Span } from '@opentelemetry/api';
+export { Span, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
@@ -31,6 +35,8 @@ export type Histogram = OtelHistogram<Attributes>;
 export type UpDownCounter = OtelUpDownCounter<Attributes>;
 export type ObservableGauge = OtelObservableGauge<Attributes>;
 export type ObservableUpDownCounter = OtelObservableUpDownCounter<Attributes>;
+export type ObservableResult = OtelObservableResult<Attributes>;
+export type BatchObservableResult = OtelBatchObservableResult<Attributes>;
 
 export { Tracer };
 
@@ -52,6 +58,16 @@ export interface Meter {
    * @param options - The options for the gauge
    */
   createObservableGauge(name: Metrics, options?: MetricOptions): ObservableGauge;
+
+  addBatchObservableCallback(
+    callback: BatchObservableCallback<Attributes>,
+    observables: Observable<Attributes>[],
+  ): void;
+
+  removeBatchObservableCallback(
+    callback: BatchObservableCallback<Attributes>,
+    observables: Observable<Attributes>[],
+  ): void;
 
   /**
    * Creates a new histogram instrument. A histogram is a metric that samples observations (usually things like request durations or response sizes) and counts them in configurable buckets.
@@ -99,6 +115,11 @@ export interface TelemetryClient {
    * Stops the telemetry client.
    */
   stop(): Promise<void>;
+
+  /**
+   * Flushes the telemetry client.
+   */
+  flush(): Promise<void>;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */

@@ -5,25 +5,28 @@ import {
   NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Gas, GasSettings } from '@aztec/circuits.js';
+import { Gas } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { type TokenContract } from '@aztec/noir-contracts.js';
+import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
-import { getBalances } from './utils.js';
+import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const TRANSFER_AMOUNT = 1;
 
 export class Bot {
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
+
+  private attempts: number = 0;
+  private successes: number = 0;
 
   protected constructor(
     public readonly wallet: Wallet,
-    public readonly token: TokenContract,
+    public readonly token: TokenContract | EasyPrivateTokenContract,
     public readonly recipient: AztecAddress,
     public config: BotConfig,
   ) {}
@@ -39,6 +42,7 @@ export class Bot {
   }
 
   public async run() {
+    this.attempts++;
     const logCtx = { runId: Date.now() * 1000 + Math.floor(Math.random() * 1000) };
     const { privateTransfersPerTx, publicTransfersPerTx, feePaymentMethod, followChain, txMinedWaitSeconds } =
       this.config;
@@ -50,26 +54,31 @@ export class Bot {
       logCtx,
     );
 
-    const calls: FunctionCall[] = [
-      ...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()),
-      ...times(publicTransfersPerTx, () =>
-        token.methods.transfer_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-      ),
-    ];
+    const calls: FunctionCall[] = [];
+    if (isStandardTokenContract(token)) {
+      calls.push(...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()));
+      calls.push(
+        ...times(publicTransfersPerTx, () =>
+          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
+        ),
+      );
+    } else {
+      calls.push(
+        ...times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request()),
+      );
+    }
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
-    this.log.verbose(`Creating batch execution request with ${calls.length} calls`, logCtx);
-    await batch.create(opts);
 
-    this.log.verbose(`Simulating transaction`, logCtx);
+    this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate();
 
     this.log.verbose(`Proving transaction`, logCtx);
-    await batch.prove(opts);
+    const provenTx = await batch.prove(opts);
 
     this.log.verbose(`Sending tx`, logCtx);
-    const tx = batch.send(opts);
+    const tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
 
@@ -78,20 +87,40 @@ export class Bot {
       return;
     }
 
-    this.log.verbose(`Awaiting tx ${txHash} to be on the ${followChain} (timeout ${txMinedWaitSeconds}s)`, logCtx);
+    this.log.verbose(
+      `Awaiting tx ${txHash} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
+      logCtx,
+    );
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
       provenTimeout: txMinedWaitSeconds,
       proven: followChain === 'PROVEN',
     });
-    this.log.info(`Tx ${receipt.txHash} mined in block ${receipt.blockNumber}`, logCtx);
+    this.log.info(
+      `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
+      logCtx,
+    );
+    this.successes++;
   }
 
   public async getBalances() {
-    return {
-      sender: await getBalances(this.token, this.wallet.getAddress()),
-      recipient: await getBalances(this.token, this.recipient),
-    };
+    if (isStandardTokenContract(this.token)) {
+      return {
+        sender: await getBalances(this.token, this.wallet.getAddress()),
+        recipient: await getBalances(this.token, this.recipient),
+      };
+    } else {
+      return {
+        sender: {
+          privateBalance: await getPrivateBalance(this.token, this.wallet.getAddress()),
+          publicBalance: 0n,
+        },
+        recipient: {
+          privateBalance: await getPrivateBalance(this.token, this.recipient),
+          publicBalance: 0n,
+        },
+      };
+    }
   }
 
   private getSendMethodOpts(): SendMethodOptions {
@@ -102,15 +131,14 @@ export class Bot {
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
-      gasSettings = GasSettings.default({ gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) });
+      gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
       estimateGas = false;
       this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
     } else {
-      gasSettings = GasSettings.default();
       estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
     }
     this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { estimateGas, fee: { paymentMethod, gasSettings }, skipPublicSimulation };
+    return { fee: { estimateGas, paymentMethod, gasSettings }, skipPublicSimulation };
   }
 }

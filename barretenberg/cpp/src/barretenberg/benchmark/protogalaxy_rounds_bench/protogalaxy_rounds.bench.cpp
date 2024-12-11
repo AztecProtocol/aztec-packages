@@ -9,7 +9,8 @@ using namespace benchmark;
 
 namespace bb {
 
-template <typename Flavor>
+using Flavor = MegaFlavor;
+
 void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<Flavor, 2>>&))
 {
     using Builder = typename Flavor::CircuitBuilder;
@@ -48,7 +49,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
 
 void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<MegaFlavor, 2>>&))
 {
-    _bench_round<MegaFlavor>(state, F);
+    _bench_round(state, F);
 }
 
 BENCHMARK_CAPTURE(bench_round_mega, oink, [](auto& prover) { prover.run_oink_prover_on_each_incomplete_key(); })

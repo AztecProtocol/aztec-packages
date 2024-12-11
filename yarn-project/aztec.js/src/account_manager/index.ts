@@ -1,7 +1,6 @@
 import { CompleteAddress, type PXE } from '@aztec/circuit-types';
-import { deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type AccountContract } from '../account/contract.js';
 import { type Salt } from '../account/index.js';
@@ -9,7 +8,6 @@ import { type AccountInterface } from '../account/interface.js';
 import { type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
-import { waitForAccountSynch } from '../utils/account.js';
 import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
@@ -19,7 +17,7 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
  */
 export type DeployAccountOptions = Pick<
   DeployOptions,
-  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'estimateGas' | 'skipInitialization'
+  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'skipInitialization'
 >;
 
 /**
@@ -30,21 +28,26 @@ export class AccountManager {
   /** Deployment salt for the account contract. */
   public readonly salt: Fr;
 
-  // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
-  private completeAddress?: CompleteAddress;
-  private instance?: ContractInstanceWithAddress;
-  private publicKeysHash?: Fr;
-  private deployMethod?: DeployAccountMethod;
+  private instance: ContractInstanceWithAddress;
 
   constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
     this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
+
+    const { publicKeys } = deriveKeys(secretKey);
+
+    this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+      constructorArgs: this.accountContract.getDeploymentArgs(),
+      salt: this.salt,
+      publicKeys,
+    });
+  }
+
+  protected getPublicKeys() {
+    return this.instance.publicKeys;
   }
 
   protected getPublicKeysHash() {
-    if (!this.publicKeysHash) {
-      this.publicKeysHash = deriveKeys(this.secretKey).publicKeys.hash();
-    }
-    return this.publicKeysHash;
+    return this.getPublicKeys().hash();
   }
 
   /**
@@ -63,11 +66,7 @@ export class AccountManager {
    * @returns The address, partial address, and encryption public key.
    */
   public getCompleteAddress(): CompleteAddress {
-    if (!this.completeAddress) {
-      const instance = this.getInstance();
-      this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, instance);
-    }
-    return this.completeAddress;
+    return CompleteAddress.fromSecretKeyAndInstance(this.secretKey, this.instance);
   }
 
   /**
@@ -85,13 +84,6 @@ export class AccountManager {
    * @returns ContractInstance instance.
    */
   public getInstance(): ContractInstanceWithAddress {
-    if (!this.instance) {
-      this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-        constructorArgs: this.accountContract.getDeploymentArgs(),
-        salt: this.salt,
-        publicKeysHash: this.getPublicKeysHash(),
-      });
-    }
     return this.instance;
   }
 
@@ -112,7 +104,7 @@ export class AccountManager {
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
-  public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+  public async register(): Promise<AccountWalletWithSecretKey> {
     await this.pxe.registerContract({
       artifact: this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
@@ -120,7 +112,6 @@ export class AccountManager {
 
     await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
 
-    await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
   }
 
@@ -131,33 +122,30 @@ export class AccountManager {
    * @returns A DeployMethod instance that deploys this account contract.
    */
   public async getDeployMethod() {
-    if (!this.deployMethod) {
-      if (!this.isDeployable()) {
-        throw new Error(
-          `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
-        );
-      }
-
-      await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
-
-      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
-      const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
-
-      // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
-      // If we used getWallet, the deployment would get routed via the account contract entrypoint
-      // and it can't be used unless the contract is initialized
-      const args = this.accountContract.getDeploymentArgs() ?? [];
-      this.deployMethod = new DeployAccountMethod(
-        this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
-        this.getPublicKeysHash(),
-        deployWallet,
-        this.accountContract.getContractArtifact(),
-        args,
-        'constructor',
-        'entrypoint',
+    if (!this.isDeployable()) {
+      throw new Error(
+        `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
       );
     }
-    return this.deployMethod;
+
+    await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
+
+    const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
+    const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+
+    // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
+    // If we used getWallet, the deployment would get routed via the account contract entrypoint
+    // and it can't be used unless the contract is initialized
+    const args = this.accountContract.getDeploymentArgs() ?? [];
+    return new DeployAccountMethod(
+      this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
+      this.getPublicKeys(),
+      deployWallet,
+      this.accountContract.getContractArtifact(),
+      args,
+      'constructor',
+      'entrypoint',
+    );
   }
 
   /**
@@ -178,7 +166,6 @@ export class AccountManager {
           skipInitialization: opts?.skipInitialization ?? false,
           universalDeploy: true,
           fee: opts?.fee,
-          estimateGas: opts?.estimateGas,
         }),
       )
       .then(tx => tx.getTxHash());

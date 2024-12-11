@@ -25,15 +25,14 @@ template <typename Builder, typename T> class bigfield {
 
     struct Limb {
         Limb() {}
-        Limb(const field_t<Builder>& input, const uint256_t max = uint256_t(0))
+        Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
             : element(input)
         {
-            if (input.witness_index == IS_CONSTANT) {
-                maximum_value = uint256_t(input.additive_constant) + 1;
-            } else if (max != uint256_t(0)) {
-                maximum_value = max;
+            if (input.is_constant()) {
+                maximum_value = uint256_t(input.additive_constant);
+                ASSERT(maximum_value <= max);
             } else {
-                maximum_value = DEFAULT_MAXIMUM_LIMB;
+                maximum_value = max;
             }
         }
         friend std::ostream& operator<<(std::ostream& os, const Limb& a)
@@ -95,40 +94,104 @@ template <typename Builder, typename T> class bigfield {
         : bigfield(nullptr, uint256_t(value))
     {}
 
-    // we assume the limbs have already been normalized!
-    bigfield(const field_t<Builder>& a,
-             const field_t<Builder>& b,
-             const field_t<Builder>& c,
-             const field_t<Builder>& d,
-             const bool can_overflow = false)
+    /**
+     * @brief Construct a bigfield element from binary limbs that are already reduced
+     *
+     * @details This API should only be used by bigfield and other stdlib members for efficiency and with extreme care.
+     * We need it in cases where we precompute and reduce the elements, for example, and then put them in a table
+     *
+     */
+    static bigfield unsafe_construct_from_limbs(const field_t<Builder>& a,
+                                                const field_t<Builder>& b,
+                                                const field_t<Builder>& c,
+                                                const field_t<Builder>& d,
+                                                const bool can_overflow = false)
     {
-        context = a.context;
-        binary_basis_limbs[0] = Limb(field_t(a));
-        binary_basis_limbs[1] = Limb(field_t(b));
-        binary_basis_limbs[2] = Limb(field_t(c));
-        binary_basis_limbs[3] =
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant());
+        bigfield result;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
             Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
-        prime_basis_limb =
-            (binary_basis_limbs[3].element * shift_3)
-                .add_two(binary_basis_limbs[2].element * shift_2, binary_basis_limbs[1].element * shift_1);
-        prime_basis_limb += (binary_basis_limbs[0].element);
+        result.prime_basis_limb = (result.binary_basis_limbs[3].element * shift_3)
+                                      .add_two(result.binary_basis_limbs[2].element * shift_2,
+                                               result.binary_basis_limbs[1].element * shift_1);
+        result.prime_basis_limb += (result.binary_basis_limbs[0].element);
+        return result;
     };
 
-    // we assume the limbs have already been normalized!
-    bigfield(const field_t<Builder>& a,
-             const field_t<Builder>& b,
-             const field_t<Builder>& c,
-             const field_t<Builder>& d,
-             const field_t<Builder>& prime_limb,
-             const bool can_overflow = false)
+    /**
+     * @brief Construct a bigfield element from binary limbs that are already reduced and ensure they are range
+     * constrained
+     *
+     */
+    static bigfield construct_from_limbs(const field_t<Builder>& a,
+                                         const field_t<Builder>& b,
+                                         const field_t<Builder>& c,
+                                         const field_t<Builder>& d,
+                                         const bool can_overflow = false)
     {
-        context = a.context;
-        binary_basis_limbs[0] = Limb(field_t(a));
-        binary_basis_limbs[1] = Limb(field_t(b));
-        binary_basis_limbs[2] = Limb(field_t(c));
-        binary_basis_limbs[3] =
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant());
+        bigfield result;
+        auto ctx = a.context;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
             Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
-        prime_basis_limb = prime_limb;
+        result.prime_basis_limb = (result.binary_basis_limbs[3].element * shift_3)
+                                      .add_two(result.binary_basis_limbs[2].element * shift_2,
+                                               result.binary_basis_limbs[1].element * shift_1);
+        result.prime_basis_limb += (result.binary_basis_limbs[0].element);
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        if constexpr (HasPlookup<Builder>) {
+            ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                           result.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                           static_cast<size_t>(NUM_LIMB_BITS),
+                                           static_cast<size_t>(NUM_LIMB_BITS));
+            ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                           result.binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                           static_cast<size_t>(NUM_LIMB_BITS),
+                                           static_cast<size_t>(num_last_limb_bits));
+
+        } else {
+            a.create_range_constraint(NUM_LIMB_BITS);
+            b.create_range_constraint(NUM_LIMB_BITS);
+            c.create_range_constraint(NUM_LIMB_BITS);
+            d.create_range_constraint(num_last_limb_bits);
+        }
+        return result;
+    };
+    /**
+     * @brief Construct a bigfield element from binary limbs and a prime basis limb that are already reduced
+     *
+     * @details This API should only be used by bigfield and other stdlib members for efficiency and with extreme care.
+     * We need it in cases where we precompute and reduce the elements, for example, and then put them in a table
+     *
+     */
+    static bigfield unsafe_construct_from_limbs(const field_t<Builder>& a,
+                                                const field_t<Builder>& b,
+                                                const field_t<Builder>& c,
+                                                const field_t<Builder>& d,
+                                                const field_t<Builder>& prime_limb,
+                                                const bool can_overflow = false)
+    {
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant() && d.is_constant() == prime_limb.is_constant());
+        bigfield result;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
+            Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
+        result.prime_basis_limb = prime_limb;
+        return result;
     };
 
     bigfield(const byte_array<Builder>& bytes);
@@ -155,6 +218,9 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint512_t modulus_u512 = uint512_t(modulus);
     static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     static constexpr uint64_t NUM_LAST_LIMB_BITS = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3);
+    // The quotient reduction checks currently only support >=250 bit moduli and moduli >256 have never been tested
+    // (Check zkSecurity audit report issue #12 for explanation)
+    static_assert(modulus_u512.get_msb() + 1 >= 250 && modulus_u512.get_msb() + 1 <= 256);
     static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
@@ -162,6 +228,10 @@ template <typename Builder, typename T> class bigfield {
         (uint256_t(1) << NUM_LAST_LIMB_BITS) - uint256_t(1);
     static constexpr uint64_t LOG2_BINARY_MODULUS = NUM_LIMB_BITS * NUM_LIMBS;
     static constexpr bool is_composite = true; // false only when fr is native
+
+    // This limits the size of all vectors that are being used to 16 (we don't really need more)
+    static constexpr size_t MAXIMUM_SUMMAND_COUNT_LOG = 4;
+    static constexpr size_t MAXIMUM_SUMMAND_COUNT = 1 << MAXIMUM_SUMMAND_COUNT_LOG;
 
     static constexpr uint256_t prime_basis_maximum_limb =
         uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
@@ -191,6 +261,8 @@ template <typename Builder, typename T> class bigfield {
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
+        // Prevents aliases
+        assert_is_in_field();
         field_t<Builder> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
         field_t<Builder> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
         // n.b. this only works if NUM_LIMB_BITS * 2 is divisible by 8
@@ -211,6 +283,7 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
     bigfield operator+(const bigfield& other) const;
+    bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 
@@ -285,6 +358,7 @@ template <typename Builder, typename T> class bigfield {
                                  bool check_for_zero);
 
     static bigfield div_without_denominator_check(const std::vector<bigfield>& numerators, const bigfield& denominator);
+    bigfield div_without_denominator_check(const bigfield& denominator);
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
@@ -375,14 +449,42 @@ template <typename Builder, typename T> class bigfield {
 
     Builder* get_context() const { return context; }
 
-    static constexpr uint512_t get_maximum_unreduced_value(const size_t num_products = 1)
+    void set_origin_tag(const bb::OriginTag& tag) const
     {
-        // return (uint512_t(1) << 256);
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus) /
-                                     uint1024_t(static_cast<uint64_t>(num_products));
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            binary_basis_limbs[i].element.set_origin_tag(tag);
+        }
+        prime_basis_limb.set_origin_tag(tag);
+    }
+
+    bb::OriginTag get_origin_tag() const
+    {
+        return bb::OriginTag(binary_basis_limbs[0].element.tag,
+                             binary_basis_limbs[1].element.tag,
+                             binary_basis_limbs[2].element.tag,
+                             binary_basis_limbs[3].element.tag,
+                             prime_basis_limb.tag);
+    }
+
+    static constexpr uint512_t get_maximum_unreduced_value()
+    {
+        // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
+
+        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
         // TODO: compute square root (the following is a lower bound, so good for the CRT use)
+        // We use -1 to stay safer, because it provides additional space to avoid the overflow, but get_msb() by itself
+        // should be enough
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
-        return (uint512_t(1) << (maximum_product_bits >> 1)) - uint512_t(1);
+        return (uint512_t(1) << (maximum_product_bits >> 1));
+    }
+
+    // If we encounter this maximum value of a bigfield we stop execution
+    static constexpr uint512_t get_prohibited_maximum_value()
+    {
+        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
+        const size_t arbitrary_secure_margin = 20;
+        return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
     }
 
     static constexpr uint1024_t get_maximum_crt_product()
@@ -484,11 +586,24 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
     // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
     // starting with this max limb size
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_SIZE = (bb::fr::modulus.get_msb() + 1) / 2 - MAX_ADDITION_LOG;
 
-    static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_SIZE; }
+    static constexpr uint64_t MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW =
+        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
 
-    static_assert(MAX_UNREDUCED_LIMB_SIZE < (NUM_LIMB_BITS * 2));
+    // If the logarithm of the maximum value of a limb is more than this, we need to reduce
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS =
+        NUM_LIMB_BITS + 10; // We allowa an element to be added to itself 10 times. There is no actual usecase
+
+    static constexpr uint64_t PROHIBITED_LIMB_BITS =
+        MAX_UNREDUCED_LIMB_BITS +
+        5; // Shouldn't be reachable through addition, reduction should happen earlier. If we detect this, we stop
+
+    static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
+
+    // If we encounter this maximum value of a limb we stop execution
+    static constexpr uint256_t get_prohibited_maximum_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
+
+    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
@@ -543,7 +658,9 @@ template <typename Builder, typename T> class bigfield {
                                  const bigfield& right,
                                  const bigfield& quotient,
                                  const bigfield& remainder);
-    void reduction_check(const size_t num_products = 1) const;
+    void reduction_check() const;
+
+    void sanity_check() const;
 
 }; // namespace stdlib
 

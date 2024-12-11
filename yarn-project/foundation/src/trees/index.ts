@@ -1,3 +1,5 @@
+export * from './unbalanced_merkle_root.js';
+
 /**
  * A leaf of an indexed merkle tree.
  */

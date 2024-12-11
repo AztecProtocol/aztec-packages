@@ -6,7 +6,7 @@ fn validate_empty_values_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="start_state must be empty")]
+#[test(should_fail_with = "start_state must be empty")]
 fn validate_empty_values_non_empty_start_state_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -15,11 +15,20 @@ fn validate_empty_values_non_empty_start_state_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="revert_code must be empty")]
+#[test(should_fail_with = "revert_code must be empty")]
 fn validate_empty_values_non_empty_revert_code_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
     builder.output.revert_code = 1;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "unencrypted logs in private must be empty")]
+fn validate_empty_values_non_empty_unencrypted_log_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.output.add_unencrypted_log_hash(1, 2);
 
     builder.validate();
 }

@@ -1,29 +1,35 @@
-use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use crate::{
     note::{
-    note_getter_options::{NoteGetterOptions, SortOrder, PropertySelector},
-    note_getter::constrain_get_notes_internal
-},
-    oracle::execution::get_contract_address
+        note_getter::constrain_get_notes_internal,
+        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
+    },
+    oracle::execution::get_contract_address,
 };
+use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use crate::utils::comparison::Comparator;
 
 global storage_slot: Field = 42;
 
-fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+unconstrained fn setup() -> TestEnvironment {
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
-fn build_valid_note(value: Field) -> MockNote {
+unconstrained fn build_valid_note(value: Field) -> MockNote {
     MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build()
 }
 
-fn assert_equivalent_vec_and_array<T, let N: u32>(
+unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
     vec: BoundedVec<T, N>,
-    arr: [Option<T>; N]
-) where T: Eq {
+    arr: [Option<T>; N],
+)
+where
+    T: Eq,
+{
     let mut count = 0;
 
     for i in 0..N {
@@ -37,7 +43,7 @@ fn assert_equivalent_vec_and_array<T, let N: u32>(
 }
 
 #[test]
-fn processes_single_note() {
+unconstrained fn processes_single_note() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -45,14 +51,15 @@ fn processes_single_note() {
     notes_to_constrain[0] = Option::some(build_valid_note(13));
 
     let options = NoteGetterOptions::new();
-    let (returned, _) = constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
+    let (returned, _) =
+        constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
 
     assert_equivalent_vec_and_array(returned, notes_to_constrain);
     assert_eq(context.note_hash_read_requests.len(), 1);
 }
 
 #[test]
-fn processes_many_notes() {
+unconstrained fn processes_many_notes() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -61,14 +68,15 @@ fn processes_many_notes() {
     notes_to_constrain[1] = Option::some(build_valid_note(19));
 
     let options = NoteGetterOptions::new();
-    let (returned, _) = constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
+    let (returned, _) =
+        constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
 
     assert_equivalent_vec_and_array(returned, notes_to_constrain);
     assert_eq(context.note_hash_read_requests.len(), 2);
 }
 
 #[test]
-fn collapses_notes_at_the_beginning_of_the_array() {
+unconstrained fn collapses_notes_at_the_beginning_of_the_array() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -81,7 +89,8 @@ fn collapses_notes_at_the_beginning_of_the_array() {
     opt_notes[13] = Option::some(build_valid_note(5));
 
     let options = NoteGetterOptions::new();
-    let (returned, _) = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
+    let (returned, _) =
+        constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 
     let mut expected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     expected[0] = Option::some(build_valid_note(0));
@@ -94,23 +103,27 @@ fn collapses_notes_at_the_beginning_of_the_array() {
     assert_equivalent_vec_and_array(returned, expected);
 }
 
-fn can_return_zero_notes() {
+#[test]
+unconstrained fn can_return_zero_notes() {
     let mut env = setup();
     let mut context = env.private();
 
-    let opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+    let opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
+        [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let options = NoteGetterOptions::new();
-    let (returned, _) = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
+    let (returned, _) =
+        constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
     assert_eq(returned.len(), 0);
 }
 
-#[test(should_fail_with="Got more notes than limit.")]
-fn rejects_mote_notes_than_limit() {
+#[test(should_fail_with = "Got more notes than limit.")]
+unconstrained fn rejects_mote_notes_than_limit() {
     let mut env = setup();
     let mut context = env.private();
 
-    let mut opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+    let mut opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
+        [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[1] = Option::some(build_valid_note(0));
     opt_notes[2] = Option::some(build_valid_note(1));
     opt_notes[3] = Option::some(build_valid_note(2));
@@ -121,7 +134,7 @@ fn rejects_mote_notes_than_limit() {
 }
 
 #[test]
-fn applies_filter_before_constraining() {
+unconstrained fn applies_filter_before_constraining() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -143,7 +156,8 @@ fn applies_filter_before_constraining() {
     };
 
     let options = NoteGetterOptions::with_filter(filter_fn, ());
-    let (returned, _) = constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
+    let (returned, _) =
+        constrain_get_notes_internal(&mut context, storage_slot, notes_to_constrain, options);
 
     // Only the note with value 42 should be returned, and moved to the beginning of the array. The other notes were not
     // constrained, and hence validation did not fail.
@@ -154,13 +168,12 @@ fn applies_filter_before_constraining() {
     assert_eq(context.note_hash_read_requests.len(), 1);
 }
 
-#[test(should_fail_with="Mismatch note header contract address.")]
-fn rejects_mismatched_address() {
+#[test(should_fail_with = "Mismatch note header contract address.")]
+unconstrained fn rejects_mismatched_address() {
     let mut env = setup();
     let mut context = env.private();
 
     let note = MockNote::new(1).storage_slot(storage_slot).build(); // We're not setting the right contract address
-
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
@@ -168,13 +181,12 @@ fn rejects_mismatched_address() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Mismatch note header storage slot.")]
-fn rejects_mismatched_storage_slot() {
+#[test(should_fail_with = "Mismatch note header storage slot.")]
+unconstrained fn rejects_mismatched_storage_slot() {
     let mut env = setup();
     let mut context = env.private();
 
     let note = MockNote::new(1).contract_address(get_contract_address()).build(); // We're not setting the right storage slot
-
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
@@ -182,8 +194,8 @@ fn rejects_mismatched_storage_slot() {
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Mismatch return note field.")]
-fn rejects_mismatched_selector() {
+#[test(should_fail_with = "Mismatch return note field.")]
+unconstrained fn rejects_mismatched_selector() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -195,16 +207,16 @@ fn rejects_mismatched_selector() {
 
     let mut options = NoteGetterOptions::new();
     options = options.select(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            value + 1,
-            Option::some(Comparator.EQ)
-        );
+        PropertySelector { index: 0, offset: 0, length: 32 },
+        Comparator.EQ,
+        value + 1,
+    );
 
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Return notes not sorted in descending order.")]
-fn rejects_mismatched_desc_sort_order() {
+#[test(should_fail_with = "Return notes not sorted in descending order.")]
+unconstrained fn rejects_mismatched_desc_sort_order() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -214,15 +226,12 @@ fn rejects_mismatched_desc_sort_order() {
     opt_notes[1] = Option::some(build_valid_note(2));
 
     let mut options = NoteGetterOptions::new();
-    options = options.sort(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            SortOrder.DESC
-        );
+    options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC);
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test(should_fail_with="Return notes not sorted in ascending order.")]
-fn rejects_mismatched_asc_sort_order() {
+#[test(should_fail_with = "Return notes not sorted in ascending order.")]
+unconstrained fn rejects_mismatched_asc_sort_order() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -232,9 +241,6 @@ fn rejects_mismatched_asc_sort_order() {
     opt_notes[1] = Option::some(build_valid_note(1));
 
     let mut options = NoteGetterOptions::new();
-    options = options.sort(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            SortOrder.ASC
-        );
+    options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }

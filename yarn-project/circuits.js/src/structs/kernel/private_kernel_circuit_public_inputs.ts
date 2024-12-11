@@ -1,17 +1,22 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PrivateValidationRequests } from '../private_validation_requests.js';
 import { PublicCallRequest } from '../public_call_request.js';
-import { CombinedConstantData } from './combined_constant_data.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
+import { TxConstantData } from './tx_constant_data.js';
 
 /**
  * Public inputs to the inner private kernel circuit
  */
 export class PrivateKernelCircuitPublicInputs {
   constructor(
+    /**
+     * Data which is not modified by the circuits.
+     */
+    public constants: TxConstantData,
     /**
      * The side effect counter that non-revertible side effects are all beneath.
      */
@@ -25,10 +30,6 @@ export class PrivateKernelCircuitPublicInputs {
      */
     public end: PrivateAccumulatedData,
     /**
-     * Data which is not modified by the circuits.
-     */
-    public constants: CombinedConstantData,
-    /**
      * The call request for the public teardown function
      */
     public publicTeardownCallRequest: PublicCallRequest,
@@ -38,12 +39,20 @@ export class PrivateKernelCircuitPublicInputs {
     public feePayer: AztecAddress,
   ) {}
 
+  static get schema() {
+    return bufferSchemaFor(PrivateKernelCircuitPublicInputs);
+  }
+
+  toJSON() {
+    return this.toBuffer();
+  }
+
   toBuffer() {
     return serializeToBuffer(
+      this.constants,
       this.minRevertibleSideEffectCounter,
       this.validationRequests,
       this.end,
-      this.constants,
       this.publicTeardownCallRequest,
       this.feePayer,
     );
@@ -57,10 +66,10 @@ export class PrivateKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelCircuitPublicInputs(
+      reader.readObject(TxConstantData),
       reader.readObject(Fr),
       reader.readObject(PrivateValidationRequests),
       reader.readObject(PrivateAccumulatedData),
-      reader.readObject(CombinedConstantData),
       reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
     );
@@ -68,10 +77,10 @@ export class PrivateKernelCircuitPublicInputs {
 
   static empty() {
     return new PrivateKernelCircuitPublicInputs(
+      TxConstantData.empty(),
       Fr.zero(),
       PrivateValidationRequests.empty(),
       PrivateAccumulatedData.empty(),
-      CombinedConstantData.empty(),
       PublicCallRequest.empty(),
       AztecAddress.ZERO,
     );

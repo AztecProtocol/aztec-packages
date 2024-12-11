@@ -1,112 +1,84 @@
 import type { AvmContext } from '../avm_context.js';
-import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { Field, type MemoryValue, Uint32, Uint64 } from '../avm_memory_types.js';
-import { Opcode } from '../serialization/instruction_serialization.js';
-import { GetterInstruction } from './instruction_impl.js';
+import { Field, Uint64 } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
+import { Addressing } from './addressing_mode.js';
+import { Instruction } from './instruction.js';
 
-abstract class EnvironmentGetterInstruction extends GetterInstruction {
-  protected getValue(context: AvmContext): MemoryValue {
-    return this.getEnvironmentValue(context.environment);
-  }
-
-  protected abstract getEnvironmentValue(env: AvmExecutionEnvironment): MemoryValue;
+export enum EnvironmentVariable {
+  ADDRESS,
+  SENDER,
+  TRANSACTIONFEE,
+  CHAINID,
+  VERSION,
+  BLOCKNUMBER,
+  TIMESTAMP,
+  FEEPERL2GAS,
+  FEEPERDAGAS,
+  ISSTATICCALL,
+  L2GASLEFT,
+  DAGASLEFT,
 }
 
-export class Address extends EnvironmentGetterInstruction {
-  static type: string = 'ADDRESS';
-  static readonly opcode: Opcode = Opcode.ADDRESS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.address.toField());
-  }
-}
-
-export class StorageAddress extends EnvironmentGetterInstruction {
-  static type: string = 'STORAGEADDRESS';
-  static readonly opcode: Opcode = Opcode.STORAGEADDRESS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.storageAddress.toField());
-  }
-}
-
-export class Sender extends EnvironmentGetterInstruction {
-  static type: string = 'SENDER';
-  static readonly opcode: Opcode = Opcode.SENDER;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.sender.toField());
-  }
-}
-
-export class FunctionSelector extends EnvironmentGetterInstruction {
-  static type: string = 'FUNCTIONSELECTOR';
-  static readonly opcode: Opcode = Opcode.FUNCTIONSELECTOR;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Uint32(env.functionSelector.value);
-  }
-}
-
-export class TransactionFee extends EnvironmentGetterInstruction {
-  static type: string = 'TRANSACTIONFEE';
-  static readonly opcode: Opcode = Opcode.TRANSACTIONFEE;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.transactionFee);
+function getValue(e: EnvironmentVariable, ctx: AvmContext) {
+  switch (e) {
+    case EnvironmentVariable.ADDRESS:
+      return new Field(ctx.environment.address.toField());
+    case EnvironmentVariable.SENDER:
+      return new Field(ctx.environment.sender.toField());
+    case EnvironmentVariable.TRANSACTIONFEE:
+      return new Field(ctx.environment.transactionFee);
+    case EnvironmentVariable.CHAINID:
+      return new Field(ctx.environment.globals.chainId);
+    case EnvironmentVariable.VERSION:
+      return new Field(ctx.environment.globals.version);
+    case EnvironmentVariable.BLOCKNUMBER:
+      return new Field(ctx.environment.globals.blockNumber);
+    case EnvironmentVariable.TIMESTAMP:
+      return new Uint64(ctx.environment.globals.timestamp.toBigInt());
+    case EnvironmentVariable.FEEPERL2GAS:
+      return new Field(ctx.environment.globals.gasFees.feePerL2Gas);
+    case EnvironmentVariable.FEEPERDAGAS:
+      return new Field(ctx.environment.globals.gasFees.feePerDaGas);
+    case EnvironmentVariable.ISSTATICCALL:
+      return new Field(ctx.environment.isStaticCall ? 1 : 0);
+    case EnvironmentVariable.L2GASLEFT:
+      return new Field(ctx.machineState.l2GasLeft);
+    case EnvironmentVariable.DAGASLEFT:
+      return new Field(ctx.machineState.daGasLeft);
+    default:
+      throw new Error(`Unknown environment variable ${e}`);
   }
 }
 
-export class ChainId extends EnvironmentGetterInstruction {
-  static type: string = 'CHAINID';
-  static readonly opcode: Opcode = Opcode.CHAINID;
+export class GetEnvVar extends Instruction {
+  public static readonly type: string = 'GETENVVAR';
+  public static readonly opcode: Opcode = Opcode.GETENVVAR_16;
+  static readonly wireFormat16: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT16, // dstOffset
+    OperandType.UINT8, // variable enum (immediate)
+  ];
 
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.globals.chainId);
+  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
+    super();
   }
-}
 
-export class Version extends EnvironmentGetterInstruction {
-  static type: string = 'VERSION';
-  static readonly opcode: Opcode = Opcode.VERSION;
+  public async execute(context: AvmContext): Promise<void> {
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost());
 
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.globals.version);
-  }
-}
+    if (!(this.varEnum in EnvironmentVariable)) {
+      throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);
+    }
 
-export class BlockNumber extends EnvironmentGetterInstruction {
-  static type: string = 'BLOCKNUMBER';
-  static readonly opcode: Opcode = Opcode.BLOCKNUMBER;
+    const operands = [this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [dstOffset] = addressing.resolve(operands, memory);
 
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.globals.blockNumber);
-  }
-}
+    memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));
 
-export class Timestamp extends EnvironmentGetterInstruction {
-  static type: string = 'TIMESTAMP';
-  static readonly opcode: Opcode = Opcode.TIMESTAMP;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Uint64(env.globals.timestamp.toBigInt());
-  }
-}
-
-export class FeePerL2Gas extends EnvironmentGetterInstruction {
-  static type: string = 'FEEPERL2GAS';
-  static readonly opcode: Opcode = Opcode.FEEPERL2GAS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.globals.gasFees.feePerL2Gas);
-  }
-}
-
-export class FeePerDAGas extends EnvironmentGetterInstruction {
-  static type: string = 'FEEPERDAGAS';
-  static readonly opcode: Opcode = Opcode.FEEPERDAGAS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.globals.gasFees.feePerDaGas);
+    memory.assert({ writes: 1, addressing });
   }
 }

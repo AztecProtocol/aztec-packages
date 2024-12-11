@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
-import {FrontierLib} from "../../src/core/messagebridge/frontier_tree/FrontierLib.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
-// Libraries
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 
 contract InboxHarness is Inbox {
   using FrontierLib for FrontierLib.Tree;
@@ -36,5 +35,11 @@ contract InboxHarness is Inbox {
   function getNumTrees() external view returns (uint256) {
     // -INITIAL_L2_BLOCK_NUM because tree number INITIAL_L2_BLOCK_NUM is not real
     return inProgress - Constants.INITIAL_L2_BLOCK_NUM;
+  }
+
+  function getNextMessageIndex() external view returns (uint256) {
+    FrontierLib.Tree storage currentTree = trees[inProgress];
+    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+    return index;
   }
 }

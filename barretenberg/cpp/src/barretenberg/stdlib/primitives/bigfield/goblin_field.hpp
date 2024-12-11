@@ -2,6 +2,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -53,9 +54,13 @@ template <class Builder> class goblin_field {
 
     // N.B. this method is because AggregationState expects group element coordinates to be split into 4 slices
     // (we could update to only use 2 for Mega but that feels complex)
-    goblin_field(field_ct lolo, field_ct lohi, field_ct hilo, field_ct hihi, [[maybe_unused]] bool can_overflow = false)
-        : limbs{ lolo + lohi * (uint256_t(1) << NUM_LIMB_BITS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) }
-    {}
+    static goblin_field construct_from_limbs(
+        field_ct lolo, field_ct lohi, field_ct hilo, field_ct hihi, [[maybe_unused]] bool can_overflow = false)
+    {
+        goblin_field result;
+        result.limbs = { lolo + lohi * (uint256_t(1) << NUM_LIMB_BITS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) };
+        return result;
+    }
 
     void assert_equal(const goblin_field& other) const
     {
@@ -72,6 +77,16 @@ template <class Builder> class goblin_field {
         field_ct lo = field_ct::from_witness(ctx, lo_v);
         field_ct hi = field_ct::from_witness(ctx, hi_v);
         return goblin_field(lo, hi);
+    }
+
+    /**
+     * Create a witness from a constant. This way the value of the witness is fixed and public.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        for (auto& limb : limbs) {
+            limb.convert_constant_to_fixed_witness(builder);
+        }
     }
 
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
@@ -106,6 +121,14 @@ template <class Builder> class goblin_field {
 
     // done in the translator circuit
     void assert_is_in_field(){};
+
+    OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
+
+    void set_origin_tag(const OriginTag& tag)
+    {
+        limbs[0].set_origin_tag(tag);
+        limbs[1].set_origin_tag(tag);
+    }
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)
 {

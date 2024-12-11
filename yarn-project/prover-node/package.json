@@ -31,6 +31,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -46,14 +49,22 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/p2p": "workspace:^",
     "@aztec/prover-client": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
@@ -61,7 +72,8 @@
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "source-map-support": "^0.5.21",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "viem": "^2.7.15"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

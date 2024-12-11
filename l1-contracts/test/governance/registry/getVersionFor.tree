@@ -1,0 +1,11 @@
+GetVersionForTest
+├── given no additional listed rollups
+│   ├── when _rollup is 0xdead
+│   │   └── it should return 0
+│   └── when _rollup not 0xdead
+│       └── it should revert
+└── given multiple listed rollups
+    ├── when _rollup is listed
+    │   └── it should return the rollup version
+    └── when _rollup is not listed
+        └── it should revert

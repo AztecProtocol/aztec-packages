@@ -49,13 +49,13 @@ describe('e2e_note_getter', () => {
       await contract.methods.insert_note(5, Fr.ZERO).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
-        contract.methods.read_note(5, Comparator.EQ).simulate(),
-        contract.methods.read_note(5, Comparator.NEQ).simulate(),
-        contract.methods.read_note(5, Comparator.LT).simulate(),
-        contract.methods.read_note(5, Comparator.GT).simulate(),
-        contract.methods.read_note(5, Comparator.LTE).simulate(),
+        contract.methods.read_note(Comparator.EQ, 5).simulate(),
+        contract.methods.read_note(Comparator.NEQ, 5).simulate(),
+        contract.methods.read_note(Comparator.LT, 5).simulate(),
+        contract.methods.read_note(Comparator.GT, 5).simulate(),
+        contract.methods.read_note(Comparator.LTE, 5).simulate(),
         // docs:start:state_vars-NoteGetterOptionsComparatorExampleTs
-        contract.methods.read_note(5, Comparator.GTE).simulate(),
+        contract.methods.read_note(Comparator.GTE, 5).simulate(),
         // docs:end:state_vars-NoteGetterOptionsComparatorExampleTs
       ]);
 
@@ -151,13 +151,12 @@ describe('e2e_note_getter', () => {
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
-    let outgoingViewer: AztecAddress;
+    let sender: AztecAddress;
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send().deployed();
       owner = wallet.getCompleteAddress().address;
-      // Setting the outgoing viewer to owner not have to bother with setting up another account.
-      outgoingViewer = owner;
+      sender = owner;
     });
 
     const VALUE = 5;
@@ -190,12 +189,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('does not return nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
@@ -206,12 +205,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
@@ -220,9 +219,9 @@ describe('e2e_note_getter', () => {
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods
-          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
+          .call_create_note(VALUE + 1, owner, sender, storageSlot)
           .send()
           .wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();

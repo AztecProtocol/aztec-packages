@@ -1,9 +1,9 @@
 //! Dead Instruction Elimination (DIE) pass: Removes any instruction without side-effects for
 //! which the results are unused.
-use std::collections::HashSet;
-
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use im::Vector;
 use noirc_errors::Location;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::ssa::{
     ir::{
@@ -23,45 +23,46 @@ impl Ssa {
     /// unused results.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn dead_instruction_elimination(mut self) -> Ssa {
-        for function in self.functions.values_mut() {
-            dead_instruction_elimination(function, true);
-        }
+        self.functions.par_iter_mut().for_each(|(_, func)| func.dead_instruction_elimination(true));
+
         self
     }
 }
 
-/// Removes any unused instructions in the reachable blocks of the given function.
-///
-/// The blocks of the function are iterated in post order, such that any blocks containing
-/// instructions that reference results from an instruction in another block are evaluated first.
-/// If we did not iterate blocks in this order we could not safely say whether or not the results
-/// of its instructions are needed elsewhere.
-fn dead_instruction_elimination(function: &mut Function, insert_out_of_bounds_checks: bool) {
-    let mut context = Context::default();
-    for call_data in &function.dfg.data_bus.call_data {
-        context.mark_used_instruction_results(&function.dfg, call_data.array_id);
+impl Function {
+    /// Removes any unused instructions in the reachable blocks of the given function.
+    ///
+    /// The blocks of the function are iterated in post order, such that any blocks containing
+    /// instructions that reference results from an instruction in another block are evaluated first.
+    /// If we did not iterate blocks in this order we could not safely say whether or not the results
+    /// of its instructions are needed elsewhere.
+    pub(crate) fn dead_instruction_elimination(&mut self, insert_out_of_bounds_checks: bool) {
+        let mut context = Context::default();
+        for call_data in &self.dfg.data_bus.call_data {
+            context.mark_used_instruction_results(&self.dfg, call_data.array_id);
+        }
+
+        let mut inserted_out_of_bounds_checks = false;
+
+        let blocks = PostOrder::with_function(self);
+        for block in blocks.as_slice() {
+            inserted_out_of_bounds_checks |= context.remove_unused_instructions_in_block(
+                self,
+                *block,
+                insert_out_of_bounds_checks,
+            );
+        }
+
+        // If we inserted out of bounds check, let's run the pass again with those new
+        // instructions (we don't want to remove those checks, or instructions that are
+        // dependencies of those checks)
+        if inserted_out_of_bounds_checks {
+            self.dead_instruction_elimination(false);
+            return;
+        }
+
+        context.remove_rc_instructions(&mut self.dfg);
     }
-
-    let mut inserted_out_of_bounds_checks = false;
-
-    let blocks = PostOrder::with_function(function);
-    for block in blocks.as_slice() {
-        inserted_out_of_bounds_checks |= context.remove_unused_instructions_in_block(
-            function,
-            *block,
-            insert_out_of_bounds_checks,
-        );
-    }
-
-    // If we inserted out of bounds check, let's run the pass again with those new
-    // instructions (we don't want to remove those checks, or instructions that are
-    // dependencies of those checks)
-    if inserted_out_of_bounds_checks {
-        dead_instruction_elimination(function, false);
-        return;
-    }
-
-    context.remove_rc_instructions(&mut function.dfg);
 }
 
 /// Per function context for tracking unused values and which instructions to remove.
@@ -122,8 +123,9 @@ impl Context {
                         .push(instructions_len - instruction_index - 1);
                 }
             } else {
-                use Instruction::*;
-                if matches!(instruction, IncrementRc { .. } | DecrementRc { .. }) {
+                // We can't remove rc instructions if they're loaded from a reference
+                // since we'd have no way of knowing whether the reference is still used.
+                if Self::is_inc_dec_instruction_on_known_array(instruction, &function.dfg) {
                     self.rc_instructions.push((*instruction_id, block_id));
                 } else {
                     instruction.for_each_value(|value| {
@@ -162,7 +164,7 @@ impl Context {
     fn is_unused(&self, instruction_id: InstructionId, function: &Function) -> bool {
         let instruction = &function.dfg[instruction_id];
 
-        if instruction.can_eliminate_if_unused(&function.dfg) {
+        if instruction.can_eliminate_if_unused(function) {
             let results = function.dfg.instruction_results(instruction_id);
             results.iter().all(|result| !self.used_values.contains(result))
         } else if let Instruction::Call { func, arguments } = instruction {
@@ -182,42 +184,37 @@ impl Context {
         });
     }
 
-    /// Inspects a value recursively (as it could be an array) and marks all comprised instruction
-    /// results as used.
+    /// Inspects a value and marks all instruction results as used.
     fn mark_used_instruction_results(&mut self, dfg: &DataFlowGraph, value_id: ValueId) {
         let value_id = dfg.resolve(value_id);
-        match &dfg[value_id] {
-            Value::Instruction { .. } => {
-                self.used_values.insert(value_id);
-            }
-            Value::Array { array, .. } => {
-                for elem in array {
-                    self.mark_used_instruction_results(dfg, *elem);
-                }
-            }
-            Value::Param { .. } => {
-                self.used_values.insert(value_id);
-            }
-            _ => {
-                // Does not comprise of any instruction results
-            }
+        if matches!(&dfg[value_id], Value::Instruction { .. } | Value::Param { .. }) {
+            self.used_values.insert(value_id);
         }
     }
 
     fn remove_rc_instructions(self, dfg: &mut DataFlowGraph) {
-        for (rc, block) in self.rc_instructions {
-            let value = match &dfg[rc] {
-                Instruction::IncrementRc { value } => *value,
-                Instruction::DecrementRc { value } => *value,
-                other => {
-                    unreachable!("Expected IncrementRc or DecrementRc instruction, found {other:?}")
-                }
-            };
+        let unused_rc_values_by_block: HashMap<BasicBlockId, HashSet<InstructionId>> =
+            self.rc_instructions.into_iter().fold(HashMap::default(), |mut acc, (rc, block)| {
+                let value = match &dfg[rc] {
+                    Instruction::IncrementRc { value } => *value,
+                    Instruction::DecrementRc { value } => *value,
+                    other => {
+                        unreachable!(
+                            "Expected IncrementRc or DecrementRc instruction, found {other:?}"
+                        )
+                    }
+                };
 
-            // This could be more efficient if we have to remove multiple instructions in a single block
-            if !self.used_values.contains(&value) {
-                dfg[block].instructions_mut().retain(|instruction| *instruction != rc);
-            }
+                if !self.used_values.contains(&value) {
+                    acc.entry(block).or_default().insert(rc);
+                }
+                acc
+            });
+
+        for (block, instructions_to_remove) in unused_rc_values_by_block {
+            dfg[block]
+                .instructions_mut()
+                .retain(|instruction| !instructions_to_remove.contains(instruction));
         }
     }
 
@@ -340,6 +337,28 @@ impl Context {
         }
 
         inserted_check
+    }
+
+    /// True if this is a `Instruction::IncrementRc` or `Instruction::DecrementRc`
+    /// operating on an array directly from a `Instruction::MakeArray` or an
+    /// intrinsic known to return a fresh array.
+    fn is_inc_dec_instruction_on_known_array(
+        instruction: &Instruction,
+        dfg: &DataFlowGraph,
+    ) -> bool {
+        use Instruction::*;
+        if let IncrementRc { value } | DecrementRc { value } = instruction {
+            if let Value::Instruction { instruction, .. } = &dfg[*value] {
+                return match &dfg[*instruction] {
+                    MakeArray { .. } => true,
+                    Call { func, .. } => {
+                        matches!(&dfg[*func], Value::Intrinsic(_) | Value::ForeignFunction(_))
+                    }
+                    _ => false,
+                };
+            }
+        }
+        false
     }
 }
 
@@ -505,137 +524,171 @@ fn apply_side_effects(
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use im::vector;
+
     use crate::ssa::{
         function_builder::FunctionBuilder,
-        ir::{
-            instruction::{BinaryOp, Intrinsic},
-            map::Id,
-            types::Type,
-        },
+        ir::{map::Id, types::Type},
+        opt::assert_normalized_ssa_equals,
+        Ssa,
     };
 
     #[test]
     fn dead_instruction_elimination() {
-        // fn main f0 {
-        //   b0(v0: Field):
-        //     v1 = add v0, Field 1
-        //     v2 = add v0, Field 2
-        //     jmp b1(v2)
-        //   b1(v3: Field):
-        //     v4 = allocate 1 field
-        //     v5 = load v4
-        //     v6 = allocate 1 field
-        //     store Field 1 in v6
-        //     v7 = load v6
-        //     v8 = add v7, Field 1
-        //     v9 = add v7, Field 2
-        //     v10 = add v7, Field 3
-        //     v11 = add v10, v10
-        //     call assert_constant(v8)
-        //     return v9
-        // }
-        let main_id = Id::test_new(0);
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: Field):
+                v3 = add v0, Field 1
+                v5 = add v0, Field 2
+                jmp b1(v5)
+              b1(v1: Field):
+                v6 = allocate -> &mut Field
+                v7 = load v6 -> Field
+                v8 = allocate -> &mut Field
+                store Field 1 at v8
+                v9 = load v8 -> Field
+                v10 = add v9, Field 1
+                v11 = add v9, Field 2
+                v13 = add v9, Field 3
+                v14 = add v13, v13
+                call assert_constant(v10)
+                return v11
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
 
-        // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-        let v0 = builder.add_parameter(Type::field());
-        let b1 = builder.insert_block();
-
-        let one = builder.field_constant(1u128);
-        let two = builder.field_constant(2u128);
-        let three = builder.field_constant(3u128);
-
-        let _v1 = builder.insert_binary(v0, BinaryOp::Add, one);
-        let v2 = builder.insert_binary(v0, BinaryOp::Add, two);
-        builder.terminate_with_jmp(b1, vec![v2]);
-
-        builder.switch_to_block(b1);
-        let _v3 = builder.add_block_parameter(b1, Type::field());
-
-        let v4 = builder.insert_allocate(Type::field());
-        let _v5 = builder.insert_load(v4, Type::field());
-
-        let v6 = builder.insert_allocate(Type::field());
-        builder.insert_store(v6, one);
-        let v7 = builder.insert_load(v6, Type::field());
-        let v8 = builder.insert_binary(v7, BinaryOp::Add, one);
-        let v9 = builder.insert_binary(v7, BinaryOp::Add, two);
-        let v10 = builder.insert_binary(v7, BinaryOp::Add, three);
-        let _v11 = builder.insert_binary(v10, BinaryOp::Add, v10);
-
-        let assert_constant_id = builder.import_intrinsic_id(Intrinsic::AssertConstant);
-        builder.insert_call(assert_constant_id, vec![v8], vec![]);
-        builder.terminate_with_return(vec![v9]);
-
-        let ssa = builder.finish();
-        let main = ssa.main();
-
-        // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 2);
-        assert_eq!(main.dfg[b1].instructions().len(), 10);
-
-        // Expected output:
-        //
-        // fn main f0 {
-        //   b0(v0: Field):
-        //     v2 = add v0, Field 2
-        //     jmp b1(v2)
-        //   b1(v3: Field):
-        //     v6 = allocate 1 field
-        //     store Field 1 in v6
-        //     v7 = load v6
-        //     v8 = add v7, Field 1
-        //     v9 = add v7, Field 2
-        //     call assert_constant(v8)
-        //     return v9
-        // }
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: Field):
+                v3 = add v0, Field 2
+                jmp b1(v3)
+              b1(v1: Field):
+                v4 = allocate -> &mut Field
+                store Field 1 at v4
+                v6 = load v4 -> Field
+                v7 = add v6, Field 1
+                v8 = add v6, Field 2
+                call assert_constant(v7)
+                return v8
+            }
+            ";
         let ssa = ssa.dead_instruction_elimination();
-        let main = ssa.main();
-
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
-        assert_eq!(main.dfg[b1].instructions().len(), 6);
+        assert_normalized_ssa_equals(ssa, expected);
     }
 
     #[test]
     fn as_witness_die() {
-        // fn main f0 {
-        //   b0(v0: Field):
-        //     v1 = add v0, Field 1
-        //     v2 = add v0, Field 2
-        //     call as_witness(v2)
-        //     return v1
-        // }
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: Field):
+                v2 = add v0, Field 1
+                v4 = add v0, Field 2
+                call as_witness(v4)
+                return v2
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
+
+        let expected = "
+            acir(inline) fn main f0 {
+              b0(v0: Field):
+                v2 = add v0, Field 1
+                return v2
+            }
+            ";
+        let ssa = ssa.dead_instruction_elimination();
+        assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn keep_paired_rcs_with_array_set() {
+        let src = "
+            acir(inline) fn main f0 {
+              b0(v0: [Field; 2]):
+                inc_rc v0
+                v2 = array_set v0, index u32 0, value u32 0
+                dec_rc v0
+                return v2
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
+
+        // We expect the output to be unchanged
+        let ssa = ssa.dead_instruction_elimination();
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn keep_inc_rc_on_borrowed_array_store() {
+        // acir(inline) fn main f0 {
+        //     b0():
+        //       v1 = make_array [u32 0, u32 0]
+        //       v2 = allocate
+        //       inc_rc v1
+        //       store v1 at v2
+        //       inc_rc v1
+        //       jmp b1()
+        //     b1():
+        //       v3 = load v2
+        //       v5 = array_set v3, index u32 0, value u32 1
+        //       return v5
+        //   }
         let main_id = Id::test_new(0);
 
         // Compiling main
         let mut builder = FunctionBuilder::new("main".into(), main_id);
-        let v0 = builder.add_parameter(Type::field());
+        let zero = builder.numeric_constant(0u128, Type::unsigned(32));
+        let array_type = Type::Array(Arc::new(vec![Type::unsigned(32)]), 2);
+        let v1 = builder.insert_make_array(vector![zero, zero], array_type.clone());
+        let v2 = builder.insert_allocate(array_type.clone());
+        builder.increment_array_reference_count(v1);
+        builder.insert_store(v2, v1);
+        builder.increment_array_reference_count(v1);
 
-        let one = builder.field_constant(1u128);
-        let two = builder.field_constant(2u128);
+        let b1 = builder.insert_block();
+        builder.terminate_with_jmp(b1, vec![]);
+        builder.switch_to_block(b1);
 
-        let v1 = builder.insert_binary(v0, BinaryOp::Add, one);
-        let v2 = builder.insert_binary(v0, BinaryOp::Add, two);
-        let as_witness = builder.import_intrinsic("as_witness").unwrap();
-        builder.insert_call(as_witness, vec![v2], Vec::new());
-        builder.terminate_with_return(vec![v1]);
+        let v3 = builder.insert_load(v2, array_type);
+        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let v5 = builder.insert_array_set(v3, zero, one);
+        builder.terminate_with_return(vec![v5]);
 
         let ssa = builder.finish();
         let main = ssa.main();
 
         // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 3);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 5);
+        assert_eq!(main.dfg[b1].instructions().len(), 2);
 
-        // Expected output:
-        //
-        // acir(inline) fn main f0 {
-        //    b0(v0: Field):
-        //      v3 = add v0, Field 1
-        //      return v3
-        //  }
+        // We expect the output to be unchanged
         let ssa = ssa.dead_instruction_elimination();
         let main = ssa.main();
 
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 1);
+        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 5);
+        assert_eq!(main.dfg[b1].instructions().len(), 2);
+    }
+
+    #[test]
+    fn does_not_remove_inc_or_dec_rc_of_if_they_are_loaded_from_a_reference() {
+        let src = "
+            brillig(inline) fn borrow_mut f0 {
+              b0(v0: &mut [Field; 3]):
+                v1 = load v0 -> [Field; 3]
+                inc_rc v1 // this one shouldn't be removed
+                v2 = load v0 -> [Field; 3]
+                inc_rc v2 // this one shouldn't be removed
+                v3 = load v0 -> [Field; 3]
+                v6 = array_set v3, index u32 0, value Field 5
+                store v6 at v0
+                dec_rc v6
+                return
+            }
+            ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.dead_instruction_elimination();
+        assert_normalized_ssa_equals(ssa, src);
     }
 }

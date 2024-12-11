@@ -75,7 +75,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         OuterBuilder outer_circuit;
 
         // Mock a previous verifier that would in reality be the ECCVM recursive verifier
-        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&outer_circuit, fake_inital_proof);
+        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(&outer_circuit, fake_inital_proof);
         auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
         transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 

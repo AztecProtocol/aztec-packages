@@ -1,8 +1,11 @@
-mod get_order_hints;
+pub mod get_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
-    utils::arrays::{array_length, assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint}
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
+    utils::arrays::{
+        array_length, assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint,
+    },
 };
 
 // original_array must be valid, i.e. validate_array(original_array) == true
@@ -11,15 +14,20 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
     original_array: [T; N],
     exposed_sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
-    hints: [OrderHint; N]
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+    hints: [OrderHint; N],
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq,
+{
     let num_non_empty_items = array_length(original_array);
     let mut should_be_empty = false;
     for i in 0..N {
         should_be_empty |= i == num_non_empty_items;
         if should_be_empty {
             assert(
-                is_empty(exposed_sorted_transformed_value_array[i]), "array must be padded with empty items"
+                is_empty(exposed_sorted_transformed_value_array[i]),
+                "array must be padded with empty items",
             );
         } else {
             let original = original_array[i];
@@ -29,7 +37,8 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
             assert_eq(original.counter(), hints[sorted_index].counter, "incorrect hinted counter");
             if i != 0 {
                 assert(
-                    hints[i].counter > hints[i - 1].counter, "value array must be sorted by counter in ascending order"
+                    hints[i].counter > hints[i - 1].counter,
+                    "value array must be sorted by counter in ascending order",
                 );
             }
         }
@@ -39,7 +48,9 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
 mod tests {
     use crate::{
         tests::types::{is_combined_from_two_values, TestCombinedValue, TestTwoValues},
-        utils::arrays::{assert_exposed_sorted_transformed_value_array::{assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint}}
+        utils::arrays::assert_exposed_sorted_transformed_value_array::{
+            assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint,
+        },
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -56,7 +67,7 @@ mod tests {
                 TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
                 TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
                 TestTwoValues::empty(),
-                TestTwoValues::empty()
+                TestTwoValues::empty(),
             ];
 
             let exposed_sorted_transformed_value_array = [
@@ -65,7 +76,7 @@ mod tests {
                 TestCombinedValue { value: 48 },
                 TestCombinedValue { value: 15 },
                 TestCombinedValue::empty(),
-                TestCombinedValue::empty()
+                TestCombinedValue::empty(),
             ];
 
             let hints = [
@@ -74,7 +85,7 @@ mod tests {
                 OrderHint { counter: 33, sorted_index: 0 },
                 OrderHint { counter: 44, sorted_index: 2 },
                 OrderHint { counter: 0, sorted_index: 4 },
-                OrderHint { counter: 0, sorted_index: 5 }
+                OrderHint { counter: 0, sorted_index: 5 },
             ];
 
             TestDataBuilder { original_array, exposed_sorted_transformed_value_array, hints }
@@ -85,7 +96,7 @@ mod tests {
                 self.original_array,
                 self.exposed_sorted_transformed_value_array,
                 is_combined_from_two_values,
-                self.hints
+                self.hints,
             );
         }
     }
@@ -96,7 +107,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_exposed_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -106,13 +117,14 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_exposed_sorted_transformed_value_array_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Swap the values at index 1 and 2.
         let tmp = builder.exposed_sorted_transformed_value_array[1];
-        builder.exposed_sorted_transformed_value_array[1] = builder.exposed_sorted_transformed_value_array[2];
+        builder.exposed_sorted_transformed_value_array[1] =
+            builder.exposed_sorted_transformed_value_array[2];
         builder.exposed_sorted_transformed_value_array[2] = tmp;
 
         // Update counters in hints.
@@ -131,13 +143,14 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect hinted counter")]
+    #[test(should_fail_with = "incorrect hinted counter")]
     fn assert_exposed_sorted_transformed_value_array_unordered_values_with_ordered_counters_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Swap the values at index 1 and 2.
         let tmp = builder.exposed_sorted_transformed_value_array[1];
-        builder.exposed_sorted_transformed_value_array[1] = builder.exposed_sorted_transformed_value_array[2];
+        builder.exposed_sorted_transformed_value_array[1] =
+            builder.exposed_sorted_transformed_value_array[2];
         builder.exposed_sorted_transformed_value_array[2] = tmp;
 
         // Update sorted indexes.
@@ -151,29 +164,29 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_exposed_sorted_transformed_value_array_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue { value: 10 };
 
         builder.execute();
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_exposed_sorted_transformed_value_array_hint_to_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue { value: 10 };
         // Change the hint to point to an empty item.
         builder.hints[4].sorted_index = 5;
 
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_exposed_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 

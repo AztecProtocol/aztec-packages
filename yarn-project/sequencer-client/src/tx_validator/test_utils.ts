@@ -7,7 +7,7 @@ export function patchNonRevertibleFn(
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
 ): { address: AztecAddress; selector: FunctionSelector } {
-  return patchFn('endNonRevertibleData', tx, index, overrides);
+  return patchFn('nonRevertibleAccumulatedData', tx, index, overrides);
 }
 
 export function patchRevertibleFn(
@@ -15,30 +15,32 @@ export function patchRevertibleFn(
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
 ): { address: AztecAddress; selector: FunctionSelector } {
-  return patchFn('end', tx, index, overrides);
+  return patchFn('revertibleAccumulatedData', tx, index, overrides);
 }
 
 function patchFn(
-  where: 'end' | 'endNonRevertibleData',
+  where: 'revertibleAccumulatedData' | 'nonRevertibleAccumulatedData',
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
 ): { address: AztecAddress; selector: FunctionSelector } {
   const fn = tx.enqueuedPublicFunctionCalls.at(-1 * index - 1)!;
-  fn.contractAddress = overrides.address ?? fn.contractAddress;
+  fn.callContext.contractAddress = overrides.address ?? fn.callContext.contractAddress;
   fn.callContext.functionSelector = overrides.selector;
   fn.args = overrides.args ?? fn.args;
   fn.callContext.msgSender = overrides.msgSender ?? fn.callContext.msgSender;
   tx.enqueuedPublicFunctionCalls[index] = fn;
 
-  const request = tx.data.forPublic![where].publicCallStack[index];
-  request.item.contractAddress = fn.contractAddress;
-  request.item.callContext = fn.callContext;
-  request.item.argsHash = computeVarArgsHash(fn.args);
-  tx.data.forPublic![where].publicCallStack[index] = request;
+  const request = tx.data.forPublic![where].publicCallRequests[index];
+  request.contractAddress = fn.callContext.contractAddress;
+  request.msgSender = fn.callContext.msgSender;
+  request.functionSelector = fn.callContext.functionSelector;
+  request.isStaticCall = fn.callContext.isStaticCall;
+  request.argsHash = computeVarArgsHash(fn.args);
+  tx.data.forPublic![where].publicCallRequests[index] = request;
 
   return {
-    address: fn.contractAddress,
+    address: fn.callContext.contractAddress,
     selector: fn.callContext.functionSelector,
   };
 }

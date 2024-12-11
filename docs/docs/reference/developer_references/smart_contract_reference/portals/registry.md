@@ -5,13 +5,13 @@ tags: [portals, contracts]
 
 The registry is a contract deployed on L1, that contains addresses for the `Rollup`. It also keeps track of the different versions that have been deployed and let you query prior deployments easily.
 
-**Links**: [Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol), [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Registry.sol).
+**Links**: [Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/interfaces/IRegistry.sol), [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol).
 
 ## `numberOfVersions()`
 
 Retrieves the number of versions that have been deployed.
 
-#include_code registry_number_of_versions l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol solidity
+#include_code registry_number_of_versions l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name           | Description |
 | -------------- | ----------- |
@@ -20,7 +20,7 @@ Retrieves the number of versions that have been deployed.
 ## `getRollup()`
 Retrieves the current rollup contract.
 
-#include_code registry_get_rollup l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol solidity
+#include_code registry_get_rollup l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name           | Description |
 | -------------- | ----------- |
@@ -28,9 +28,9 @@ Retrieves the current rollup contract.
 
 ## `getVersionFor(address _rollup)`
 
-Retrieve the version of a specific rollup contract. 
+Retrieve the version of a specific rollup contract.
 
-#include_code registry_get_version_for l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol solidity
+#include_code registry_get_version_for l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name           | Description |
 | -------------- | ----------- |
@@ -42,10 +42,10 @@ Will revert with `Registry__RollupNotRegistered(_rollup)` if the rollup have not
 
 ## `getSnapshot(uint256 _version)`
 
-Retrieve the snapshot of a specific version. 
+Retrieve the snapshot of a specific version.
 
-#include_code registry_snapshot l1-contracts/src/core/libraries/DataStructures.sol solidity
-#include_code registry_get_snapshot l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol solidity
+#include_code registry_snapshot l1-contracts/src/governance/libraries/DataStructures.sol solidity
+#include_code registry_get_snapshot l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name           | Description |
 | -------------- | ----------- |
@@ -58,7 +58,7 @@ Retrieve the snapshot of a specific version.
 
 Retrieves the snapshot for the current version.
 
-#include_code registry_get_current_snapshot l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol solidity
+#include_code registry_get_current_snapshot l1-contracts/src/governance/interfaces/IRegistry.sol solidity
 
 | Name           | Description |
 | -------------- | ----------- |

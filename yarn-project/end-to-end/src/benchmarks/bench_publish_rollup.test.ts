@@ -5,7 +5,7 @@ import { type BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type EndToEndContext } from '../fixtures/utils.js';
-import { benchmarkSetup, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';
+import { benchmarkSetup, sendTxs, waitNewPXESynced } from './utils.js';
 
 describe('benchmarks/publish_rollup', () => {
   let context: EndToEndContext;
@@ -36,7 +36,7 @@ describe('benchmarks/publish_rollup', () => {
       // and call getPublicStorageAt (which calls #getWorldState, which calls #syncWorldState) to force a sync with
       // world state to ensure the node has caught up
       context.logger.info(`Starting new aztec node`);
-      const node = await AztecNodeService.createAndSync({ ...context.config, disableSequencer: true });
+      const node = await AztecNodeService.createAndSync({ ...context.config, disableValidator: true });
       await node.getPublicStorageAt(AztecAddress.random(), Fr.random(), 'latest');
 
       // Spin up a new pxe and sync it, we'll use it to test sync times of new accounts for the last block
@@ -47,11 +47,11 @@ describe('benchmarks/publish_rollup', () => {
       context.logger.info(`Registering owner account on new pxe`);
       const partialAddress = context.wallet.getCompleteAddress().partialAddress;
       const secretKey = context.wallet.getSecretKey();
-      await waitRegisteredAccountSynced(pxe, secretKey, partialAddress);
+      await pxe.registerAccount(secretKey, partialAddress);
 
       // Repeat for another account that didn't receive any notes for them, so we measure trial-decrypts
       context.logger.info(`Registering fresh account on new pxe`);
-      await waitRegisteredAccountSynced(pxe, Fr.random(), Fr.random());
+      await pxe.registerAccount(Fr.random(), Fr.random());
 
       // Stop the external node and pxe
       await pxe.stop();

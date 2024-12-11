@@ -6,9 +6,7 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 CRS_PATH=~/.bb-crs
 BRANCH=master
-VERBOSE=${VERBOSE:-}
-RECURSIVE=true
-PROOF_NAME="proof_a"
+VERBOSE=${VERBOSE:+-v}
 
 if [ -f $BIN ]; then
     BIN=$(realpath $BIN)
@@ -18,31 +16,22 @@ fi
 
 export BRANCH
 
-./reset_acir_tests.sh --rebuild-nargo --programs assert_statement_recursive
+# the program for which a proof will be recursively verified
+PROGRAM=assert_statement
+# the program containing the recursive verifier
+RECURSIVE_PROGRAM=verify_honk_proof
 
-cd acir_tests/assert_statement_recursive
+./reset_acir_tests.sh --rebuild-nargo --programs "$PROGRAM"
+cd "acir_tests/$PROGRAM"
 
-PROOF_DIR=$PWD/proofs
-PROOF_PATH=$PROOF_DIR/$PROOF_NAME
-VFLAG=${VERBOSE:+-v}
-RFLAG=${RECURSIVE:+-r}
+TOML_DIR=../../../../noir/noir-repo/test_programs/execution_success/"$RECURSIVE_PROGRAM"
+if [ ! -d "$TOML_DIR" ]; then
+    echo "Error: Directory $TOML_DIR does not exist."
+    exit 1
+fi
 
-echo "Write VK to file for assert_statement..."
-$BIN write_vk_ultra_honk $VFLAG -c $CRS_PATH -o ./target/honk_vk
+echo "Generating recursion inputs and writing to directory $TOML_DIR"
+$BIN write_recursion_inputs_honk $VERBOSE -c $CRS_PATH -b ./target/program.json -o "$TOML_DIR"
 
-echo "Write VK as fields for recursion..."
-$BIN vk_as_fields_ultra_honk $VFLAG -c $CRS_PATH -k ./target/honk_vk -o ./target/honk_vk_fields.json
-
-echo "Generate proof to file..."
-[ -d "$PROOF_DIR" ] || mkdir $PWD/proofs
-[ -e "$PROOF_PATH" ] || touch $PROOF_PATH
-$BIN prove_ultra_honk $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/honk_$PROOF_NAME"
-
-echo "Write proof as fields for recursion..."
-$BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/honk_$PROOF_NAME" -o "./proofs/honk_${PROOF_NAME}_fields.json"
-
-# cd back to barretenberg/acir_tests
 cd ../..
-python3 update_verify_honk_proof_inputs.py
-
-./reset_acir_tests.sh --programs verify_honk_proof
+./reset_acir_tests.sh --programs "$RECURSIVE_PROGRAM"

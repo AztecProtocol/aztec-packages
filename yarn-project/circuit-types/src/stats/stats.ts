@@ -16,18 +16,16 @@ export type L2BlockStats = {
   txCount: number;
   /** Number of the L2 block. */
   blockNumber: number;
-  /** Number of encrypted logs. */
-  encryptedLogCount?: number;
   /** Number of unencrypted logs. */
   unencryptedLogCount?: number;
-  /** Serialized size of encrypted logs. */
-  encryptedLogSize?: number;
   /** Serialized size of unencrypted logs. */
   unencryptedLogSize?: number;
 };
 
 /** Stats logged for each L1 publish tx.*/
 export type L1PublishStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Effective gas price of the tx. */
   gasPrice: bigint;
   /** Effective gas used in the tx. */
@@ -74,26 +72,19 @@ export type NodeSyncedChainHistoryStats = {
 export type CircuitName =
   | 'base-parity'
   | 'root-parity'
-  | 'base-rollup'
+  | 'private-base-rollup'
+  | 'public-base-rollup'
   | 'merge-rollup'
   | 'block-root-rollup'
+  | 'empty-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
   | 'private-kernel-init'
   | 'private-kernel-inner'
-  | 'private-kernel-reset-full'
-  | 'private-kernel-reset-full-inner'
-  | 'private-kernel-reset-big'
-  | 'private-kernel-reset-medium'
-  | 'private-kernel-reset-small'
-  | 'private-kernel-reset-tiny'
+  | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
   | 'app-circuit'
-  | 'public-kernel-setup'
-  | 'public-kernel-app-logic'
-  | 'public-kernel-teardown'
-  | 'public-kernel-tail'
   | 'avm-circuit'
   | 'empty-nested'
   | 'private-kernel-empty'
@@ -128,8 +119,6 @@ export type AvmSimulationStats = {
   appCircuitName: string;
   /** Duration in ms. */
   duration: number;
-  /** Uncompressed bytecode size. */
-  bytecodeSize: number;
 };
 
 /** Stats for witness generation. */
@@ -182,6 +171,8 @@ export type CircuitVerificationStats = {
 
 /** Stats for an L2 block built by a sequencer. */
 export type L2BlockBuiltStats = {
+  /** The creator of the block */
+  creator: string;
   /** Name of the event. */
   eventName: 'l2-block-built';
   /** Total duration in ms. */
@@ -198,41 +189,13 @@ export type L2BlockHandledStats = {
   eventName: 'l2-block-handled';
   /** Total duration in ms. */
   duration: number;
-  /** Whether the block was produced by this node. */
-  isBlockOurs: boolean;
+  /** Pending block number. */
+  unfinalisedBlockNumber: bigint;
+  /** Proven block number. */
+  finalisedBlockNumber: bigint;
+  /** Oldest historic block number. */
+  oldestHistoricBlock: bigint;
 } & L2BlockStats;
-
-/** Stats for a note processor that has caught up with the chain. */
-export type NoteProcessorCaughtUpStats = {
-  /** Name of the event. */
-  eventName: 'note-processor-caught-up';
-  /** Account the note processor belongs to. */
-  account: string;
-  /** Total time to catch up with the tip of the chain from scratch in ms. */
-  duration: number;
-  /** Size of the notes db. */
-  dbSize: number;
-} & NoteProcessorStats;
-
-/** Accumulated rolling stats for a note processor.  */
-export type NoteProcessorStats = {
-  /** How many notes have been seen and trial-decrypted. */
-  seen: number;
-  /** How many notes had decryption deferred due to a missing contract */
-  deferredIncoming: number;
-  /** How many notes had decryption deferred due to a missing contract */
-  deferredOutgoing: number;
-  /** How many incoming notes were successfully decrypted. */
-  decryptedIncoming: number;
-  /** How many outgoing notes were successfully decrypted. */
-  decryptedOutgoing: number;
-  /** How many notes failed processing. */
-  failed: number;
-  /** How many blocks were spanned.  */
-  blocks: number;
-  /** How many txs were spanned.  */
-  txs: number;
-};
 
 /** Stats for a tx. */
 export type TxStats = {
@@ -242,24 +205,20 @@ export type TxStats = {
   size: number;
   /** Size of the proof. */
   proofSize: number;
-  /** Number of note encrypted logs. */
-  noteEncryptedLogCount: number;
-  /** Number of encrypted logs. */
-  encryptedLogCount: number;
   /** Number of unencrypted logs. */
   unencryptedLogCount: number;
-  /** Serialized size of note encrypted logs. */
-  noteEncryptedLogSize: number;
-  /** Serialized size of encrypted logs. */
-  encryptedLogSize: number;
   /** Serialized size of unencrypted logs. */
   unencryptedLogSize: number;
-  /** New commitments count */
-  newCommitmentCount: number;
-  /** New nullifier count */
-  newNullifierCount: number;
+  /** Number of note hashes */
+  noteHashCount: number;
+  /** Number of nullifiers */
+  nullifierCount: number;
+  /** Number of private logs */
+  privateLogCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
+  /** Serialized size of contract class logs. */
+  contractClassLogSize: number;
   /** How this tx pays for its fee */
   feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
 };
@@ -304,7 +263,6 @@ export type Stats =
   | L2BlockBuiltStats
   | L2BlockHandledStats
   | NodeSyncedChainHistoryStats
-  | NoteProcessorCaughtUpStats
   | ProofConstructed
   | TreeInsertionStats
   | TxAddedToPoolStats;

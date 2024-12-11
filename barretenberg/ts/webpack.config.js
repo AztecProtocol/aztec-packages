@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
 
+/**
+ * @type {import('webpack').Configuration}
+ */
 export default {
   target: 'web',
   mode: 'production',
@@ -13,7 +16,7 @@ export default {
   module: {
     rules: [
       {
-        test: /\.wasm$/,
+        test: /\.wasm\.gz$/,
         type: 'asset/inline',
       },
       {
@@ -40,6 +43,9 @@ export default {
       type: 'module',
     },
   },
+  optimization: {
+    minimize: false,
+  },
   experiments: {
     outputModule: true,
   },
@@ -52,6 +58,9 @@ export default {
   ],
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],
+    fallback: {
+      os: false,
+    },
   },
   devServer: {
     hot: false,

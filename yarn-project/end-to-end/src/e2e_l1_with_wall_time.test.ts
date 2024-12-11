@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type DebugLogger, Fr, GrumpkinScalar, type PXE, type SentTx, TxStatus } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
+import { Fr, GrumpkinScalar, type Logger, type PXE, TxStatus } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
@@ -8,15 +9,20 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_l1_with_wall_time', () => {
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
   let pxe: PXE;
 
   beforeEach(async () => {
     const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
     const initialValidators = [EthAddress.fromString(account.address)];
+    const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
-    ({ teardown, logger, pxe } = await setup(0, { initialValidators, l1BlockTime: ETHEREUM_SLOT_DURATION, salt: 420 }));
+    ({ teardown, logger, pxe } = await setup(0, {
+      initialValidators,
+      ethereumSlotDuration,
+      salt: 420,
+    }));
   });
 
   afterEach(() => teardown());
@@ -35,32 +41,35 @@ describe('e2e_l1_with_wall_time', () => {
 
   // submits a set of transactions to the provided Private eXecution Environment (PXE)
   const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
-    const txs: SentTx[] = [];
+    const provenTxs = [];
     for (let i = 0; i < numTxs; i++) {
       const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
       const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod.create({
+      const tx = await deployMethod.prove({
         contractAddressSalt: accountManager.salt,
         skipClassRegistration: true,
         skipPublicDeployment: true,
         universalDeploy: true,
       });
-      await deployMethod.prove({});
-      const tx = deployMethod.send();
-
-      const txHash = await tx.getTxHash();
-
-      logger.info(`Tx sent with hash ${txHash}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
-      logger.info(`Receipt received for ${txHash}`);
-      txs.push(tx);
+      provenTxs.push(tx);
     }
-    return txs;
+    const sentTxs = await Promise.all(
+      provenTxs.map(async provenTx => {
+        const tx = provenTx.send();
+        const txHash = await tx.getTxHash();
+
+        logger.info(`Tx sent with hash ${txHash}`);
+        const receipt = await tx.getReceipt();
+        expect(receipt).toEqual(
+          expect.objectContaining({
+            status: TxStatus.PENDING,
+            error: '',
+          }),
+        );
+        logger.info(`Receipt received for ${txHash}`);
+        return tx;
+      }),
+    );
+    return sentTxs;
   };
 });

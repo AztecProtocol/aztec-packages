@@ -6,9 +6,9 @@ tags: [functions, context]
 
 ## What is the context
 
-The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
+The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of its side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
 
-Behind the scenes, Aztec.nr will pass data the kernel needs to and from a circuit, this is abstracted away from the developer. In an developer's eyes; the context is a useful structure that allows access and mutate the state of the `Aztec` blockchain.
+Behind the scenes, Aztec.nr will pass data the kernel needs to and from a circuit, this is abstracted away from the developer. In a developer's eyes; the context is a useful structure that allows access and mutate the state of the `Aztec` blockchain.
 
 On this page, you'll learn
 
@@ -66,13 +66,11 @@ The call context contains information about the current call being made:
      - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
      - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
 
-### Header
+### Block Header
 
-Another structure that is contained within the context is the Header object.
-In the private context this is a header of a block which used to generate proofs against.
-In the public context this header is set by sequencer (sequencer executes public calls) and it is set to 1 block before the block in which the transaction is included.
+Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code header /noir-projects/noir-protocol-circuits/crates/types/src/header.nr rust
+#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
 
 ### Transaction Context
 
@@ -88,10 +86,11 @@ The `args_hash` is the result of pedersen hashing all of a function's inputs.
 
 ### Return Values
 
-The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./inner_workings.md) for more details.
+The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./attributes.md#after-expansion) for more details.
 
-    return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
-
+```rust
+return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
+```
 ## Max Block Number
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:

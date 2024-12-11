@@ -33,12 +33,12 @@ template <typename T> CircuitProps get_standard_ror_circuit(T n, size_t sh)
     bb::StandardCircuitBuilder builder = bb::StandardCircuitBuilder();
     bb::stdlib::uint<bb::StandardCircuitBuilder, T> a = witness_ct(&builder, n);
 
-    size_t start_gate = builder.get_num_gates();
+    size_t start_gate = builder.get_estimated_num_finalized_gates();
     auto b = a.ror(sh);
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
 
-    size_t num_gates = builder.get_num_gates() - start_gate;
+    size_t num_gates = builder.get_estimated_num_finalized_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
     // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
@@ -61,12 +61,12 @@ template <typename T> CircuitProps get_standard_shift_right_circuit(T n, uint32_
     using witness_ct = bb::stdlib::witness_t<bb::StandardCircuitBuilder>;
     bb::StandardCircuitBuilder builder = bb::StandardCircuitBuilder();
     bb::stdlib::uint<bb::StandardCircuitBuilder, T> a = witness_ct(&builder, n);
-    size_t start_gate = builder.get_num_gates();
+    size_t start_gate = builder.get_estimated_num_finalized_gates();
     auto b = a >> sh;
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
 
-    size_t num_gates = builder.get_num_gates() - start_gate;
+    size_t num_gates = builder.get_estimated_num_finalized_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
     // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method
@@ -85,12 +85,12 @@ template <typename T> CircuitProps get_standard_shift_left_circuit(T n, uint32_t
     using witness_ct = bb::stdlib::witness_t<bb::StandardCircuitBuilder>;
     bb::StandardCircuitBuilder builder = bb::StandardCircuitBuilder();
     bb::stdlib::uint<bb::StandardCircuitBuilder, T> a = witness_ct(&builder, n);
-    size_t start_gate = builder.get_num_gates();
+    size_t start_gate = builder.get_estimated_num_finalized_gates();
     auto b = a << sh;
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
 
-    size_t num_gates = builder.get_num_gates() - start_gate;
+    size_t num_gates = builder.get_estimated_num_finalized_gates() - start_gate;
     CircuitSchema exported = unpack_from_buffer(builder.export_circuit());
 
     // relative offsets in the circuit are calculated manually, according to decompose_into_base4_accumulators method

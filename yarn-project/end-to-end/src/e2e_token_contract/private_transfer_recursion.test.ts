@@ -1,5 +1,5 @@
-import { BatchCall, EventType, Fr } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { BatchCall } from '@aztec/aztec.js';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js';
 
 import { TokenContractTest } from './token_contract_test.js';
 
@@ -18,10 +18,13 @@ describe('e2e_token_contract private transfer recursion', () => {
   });
 
   async function mintNotes(noteAmounts: bigint[]): Promise<bigint> {
-    // Mint all notes, 4 at a time
-    for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += 4) {
-      const toMint = noteAmounts.slice(mintedNotes, mintedNotes + 4); // We mint 4 notes at a time
-      const actions = toMint.map(amt => asset.methods.privately_mint_private_note(amt).request());
+    // We mint only 3 notes in 1 transaction as that is the maximum public data writes we can squeeze into a tx.
+    // --> Minting one note requires 19 public data writes (16 for the note encrypted log, 3 for note hiding point).
+    const notesPerIteration = 3;
+    for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
+      const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
+      const from = wallets[0].getAddress(); // we are setting from to sender here because of TODO(#9887)
+      const actions = toMint.map(amt => asset.methods.mint_to_private(from, wallets[0].getAddress(), amt).request());
       await new BatchCall(wallets[0], actions).send().wait();
     }
 
@@ -33,19 +36,21 @@ describe('e2e_token_contract private transfer recursion', () => {
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
     const totalBalance = await mintNotes(Array(totalNotes).fill(10n));
+    // docs:start:debug
     const tx = await asset.methods.transfer(accounts[1].address, totalBalance).send().wait({ debug: true });
+    // docs:end:debug
 
     // We should have nullified all notes, plus an extra nullifier for the transaction
     expect(tx.debugInfo?.nullifiers.length).toBe(totalNotes + 1);
     // We should have created a single new note, for the recipient
     expect(tx.debugInfo?.noteHashes.length).toBe(1);
 
-    const events = await wallets[1].getEvents(EventType.Encrypted, TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getEncryptedEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
     expect(events[0]).toEqual({
       from: accounts[0].address,
       to: accounts[1].address,
-      amount: new Fr(totalBalance),
+      amount: totalBalance,
     });
   });
 
@@ -66,12 +71,12 @@ describe('e2e_token_contract private transfer recursion', () => {
     const senderBalance = await asset.methods.balance_of_private(accounts[0].address).simulate();
     expect(senderBalance).toEqual(expectedChange);
 
-    const events = await wallets[1].getEvents(EventType.Encrypted, TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getEncryptedEvents(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
     expect(events[0]).toEqual({
       from: accounts[0].address,
       to: accounts[1].address,
-      amount: new Fr(toSend),
+      amount: toSend,
     });
   });
 

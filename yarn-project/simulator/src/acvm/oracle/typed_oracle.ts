@@ -5,15 +5,19 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type PublicKey,
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  type BlockHeader,
+  type ContractInstance,
+  type IndexedTaggingSecret,
+  type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 /**
  * Information about a note needed during execution.
@@ -123,8 +127,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getLowNullifierMembershipWitness');
   }
 
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new OracleMethodNotAvailableError('getHeader');
+  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    throw new OracleMethodNotAvailableError('getBlockHeader');
   }
 
   getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
@@ -179,7 +183,7 @@ export abstract class TypedOracle {
   }
 
   storageRead(
-    _contractAddress: Fr,
+    _contractAddress: AztecAddress,
     _startStorageSlot: Fr,
     _blockNumber: number,
     _numberOfElements: number,
@@ -191,48 +195,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    _counter: number,
-  ): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
-  }
-
-  computeEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _eventTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
-  }
-
-  computeEncryptedNoteLog(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: NoteSelector,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitUnencryptedLog');
-  }
-
-  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 
@@ -242,7 +205,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
     throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
@@ -253,8 +215,7 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
@@ -264,8 +225,7 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<void> {
+  ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 
@@ -273,11 +233,19 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
   }
 
-  aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
-    throw new OracleMethodNotAvailableError('encrypt');
-  }
-
   debugLog(_message: string, _fields: Fr[]): void {
     throw new OracleMethodNotAvailableError('debugLog');
+  }
+
+  getAppTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    throw new OracleMethodNotAvailableError('getAppTaggingSecretAsSender');
+  }
+
+  incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    throw new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender');
+  }
+
+  syncNotes(): Promise<void> {
+    throw new OracleMethodNotAvailableError('syncNotes');
   }
 }

@@ -46,7 +46,7 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
  * @param keysToFilter - The keys to filter out
  * @returns The filtered config mappings
  */
-export function filterConfigMappings<T, K extends keyof T>(
+export function omitConfigMappings<T, K extends keyof T>(
   configMappings: ConfigMappingsType<T>,
   keysToFilter: K[],
 ): ConfigMappingsType<Omit<T, K>> {
@@ -63,6 +63,18 @@ export function filterConfigMappings<T, K extends keyof T>(
 export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => safeParseNumber(val, defaultVal),
+    defaultValue: defaultVal,
+  };
+}
+
+/**
+ * Generates parseEnv and default values for a numerical config value.
+ * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
+ * @returns Object with parseEnv and default values for a numerical config value
+ */
+export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string) => BigInt(val),
     defaultValue: defaultVal,
   };
 }

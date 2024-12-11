@@ -1,0 +1,72 @@
+mod types;
+
+use dep::aztec::macros::aztec;
+
+// A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
+#[aztec]
+contract Spam {
+
+    use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
+        macros::{functions::{internal, private, public}, storage::storage},
+        prelude::{AztecAddress, Map, PublicMutable},
+        protocol_types::{
+            constants::{
+                GENERATOR_INDEX__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            },
+            hash::poseidon2_hash_with_separator,
+        },
+    };
+
+    use crate::types::{balance_set::BalanceSet, token_note::TokenNote};
+
+    #[storage]
+    struct Storage<Context> {
+        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        public_balances: Map<Field, PublicMutable<U128, Context>, Context>,
+    }
+
+    #[private]
+    fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
+        let caller = context.msg_sender();
+        let amount = U128::from_integer(1);
+
+        for _ in 0..MAX_NOTE_HASHES_PER_CALL {
+            storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
+                encode_and_encrypt_note_unconstrained(&mut context, caller, caller),
+            );
+        }
+
+        for i in 0..MAX_NULLIFIERS_PER_CALL {
+            if (i < nullifier_count) {
+                context.push_nullifier(poseidon2_hash_with_separator(
+                    [nullifier_seed, i as Field],
+                    GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                ));
+            }
+        }
+
+        if (call_public) {
+            Spam::at(context.this_address())
+                .public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL)
+                .enqueue(&mut context);
+            Spam::at(context.this_address())
+                .public_spam(
+                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                )
+                .enqueue(&mut context);
+        }
+    }
+
+    #[public]
+    #[internal]
+    fn public_spam(start: u32, end: u32) {
+        let one = U128::from_integer(1);
+        for i in start..end {
+            let prev = storage.public_balances.at(i as Field).read();
+            storage.public_balances.at(i as Field).write(prev + one);
+        }
+    }
+}

@@ -1,26 +1,31 @@
-use dep::protocol_types::{address::AztecAddress, traits::{Empty, Eq, Serialize}};
+use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
 
-global NOTE_HEADER_LENGTH: Field = 4;
+global NOTE_HEADER_LENGTH: u32 = 4;
 
-struct NoteHeader {
-    contract_address: AztecAddress,
-    nonce: Field,
-    storage_slot: Field,
-    note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
+pub struct NoteHeader {
+    pub contract_address: AztecAddress,
+    pub nonce: Field,
+    pub storage_slot: Field,
+    pub note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
 }
 
 impl Empty for NoteHeader {
     fn empty() -> Self {
-        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, note_hash_counter: 0 }
+        NoteHeader {
+            contract_address: AztecAddress::zero(),
+            nonce: 0,
+            storage_slot: 0,
+            note_hash_counter: 0,
+        }
     }
 }
 
 impl Eq for NoteHeader {
     fn eq(self, other: Self) -> bool {
-        (self.contract_address == other.contract_address) & 
-        (self.nonce == other.nonce) & 
-        (self.storage_slot == other.storage_slot)& 
-        (self.note_hash_counter == other.note_hash_counter)
+        (self.contract_address == other.contract_address)
+            & (self.nonce == other.nonce)
+            & (self.storage_slot == other.storage_slot)
+            & (self.note_hash_counter == other.note_hash_counter)
     }
 }
 
@@ -38,6 +43,11 @@ impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
         // Note: If you change this function don't forget to update implementations of Serialize trait for notes.
         // (Serialize trait needs to be implemented for a note when it's passed as an argument to a contract function
         // --> then it's used when computing args hash.)
-        [self.contract_address.to_field(), self.nonce, self.storage_slot, self.note_hash_counter as Field]
+        [
+            self.contract_address.to_field(),
+            self.nonce,
+            self.storage_slot,
+            self.note_hash_counter as Field,
+        ]
     }
 }

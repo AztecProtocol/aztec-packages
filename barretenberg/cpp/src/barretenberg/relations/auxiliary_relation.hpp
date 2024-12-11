@@ -110,7 +110,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("Auxiliary::accumulate");
+        PROFILE_THIS_NAME("Auxiliary::accumulate");
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding to RAM consistency sub-relation 1 is the longest
         using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
@@ -176,7 +176,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
         non_native_field_identity *= q_2;
 
-        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
+        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * q_4
         // deg 2
         auto limb_accumulator_1 = w_2_shift * SUBLIMB_SHIFT;
         limb_accumulator_1 += w_1_shift;
@@ -189,7 +189,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         limb_accumulator_1 -= w_4;
         limb_accumulator_1 *= q_4;
 
-        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * qm
+        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * q_m
         // deg 2
         auto limb_accumulator_2 = w_3_shift * SUBLIMB_SHIFT;
         limb_accumulator_2 += w_2_shift;
@@ -239,7 +239,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Partial degree: 1
          * Total degree: 2
          *
-         * A ROM/ROM access gate can be evaluated with the identity:
+         * A ROM/RAM access gate can be evaluated with the identity:
          *
          * qc + w1 \eta + w2 η₂ + w3 η₃ - w4 = 0
          *

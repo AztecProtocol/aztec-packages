@@ -65,7 +65,7 @@ template <typename FF_> class Poseidon2RelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("PoseidonExt::accumulate");
+        PROFILE_THIS_NAME("PoseidonExt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_l = View(in.w_l);

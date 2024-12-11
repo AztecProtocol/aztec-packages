@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Run earthly with our necesary secrets initialized
+# AWS credentials can be blank HOWEVER this will disable S3 caching.
+export EARTHLY_ALLOW_PRIVILEGED=true
+
+set -eu
+
+function start_minio() {
+  if nc -z 127.0.0.1 12000 2>/dev/null >/dev/null ; then
+    # Already started
+    return
+  fi
+  docker run -d -p 12000:9000 -p 12001:12001 -v minio-data:/data \
+    quay.io/minio/minio server /data --console-address ":12001"
+  # make our cache bucket
+  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
+}
+
+S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
+S3_BUILD_CACHE_MINIO_URL="http://$(hostname -I | awk '{print $1}'):12000"
+
+# local file server for a quicker cache layer
+start_minio
+
+if ! git diff-index --quiet HEAD --; then
+  echo "Warning: You have unstaged changes. Disabling S3 caching and local minio caching for earthly to not accidentally pollute cache (which uses git data)." >&2
+  S3_BUILD_CACHE_UPLOAD=false
+  S3_BUILD_CACHE_DOWNLOAD=false
+  S3_BUILD_CACHE_MINIO_URL=""
+elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
+  S3_BUILD_CACHE_DOWNLOAD=true
+elif [ -f ~/.aws/credentials ]; then
+  # make credentials avaialble to earthly
+  AWS_ACCESS_KEY_ID=$(aws configure get default.aws_access_key_id)
+  AWS_SECRET_ACCESS_KEY=$(aws configure get default.aws_secret_access_key)
+  S3_BUILD_CACHE_DOWNLOAD=true
+else
+  S3_BUILD_CACHE_UPLOAD=false
+  S3_BUILD_CACHE_DOWNLOAD=false
+fi
+
+earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+        --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+        --secret S3_BUILD_CACHE_MINIO_URL="$S3_BUILD_CACHE_MINIO_URL" \
+        --secret S3_BUILD_CACHE_UPLOAD="$S3_BUILD_CACHE_UPLOAD" \
+        --secret S3_BUILD_CACHE_DOWNLOAD="$S3_BUILD_CACHE_DOWNLOAD" \
+        --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} $@

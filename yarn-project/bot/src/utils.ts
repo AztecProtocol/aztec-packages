@@ -1,4 +1,5 @@
 import { type AztecAddress } from '@aztec/circuits.js';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 /**
@@ -14,4 +15,13 @@ export async function getBalances(
   const privateBalance = await token.methods.balance_of_private(who).simulate();
   const publicBalance = await token.methods.balance_of_public(who).simulate();
   return { privateBalance, publicBalance };
+}
+
+export async function getPrivateBalance(token: EasyPrivateTokenContract, who: AztecAddress): Promise<bigint> {
+  const privateBalance = await token.methods.get_balance(who).simulate();
+  return privateBalance;
+}
+
+export function isStandardTokenContract(token: TokenContract | EasyPrivateTokenContract): token is TokenContract {
+  return 'mint_to_public' in token.methods;
 }

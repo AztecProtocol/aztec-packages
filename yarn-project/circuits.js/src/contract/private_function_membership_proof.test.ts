@@ -1,10 +1,10 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClass } from '@aztec/types/contracts';
 
 import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { computeVerificationKeyHash, getContractClassFromArtifact } from './contract_class.js';
 import { type ContractClassIdPreimage } from './contract_class_id.js';
+import { type ContractClass } from './interfaces/contract_class.js';
 import {
   createPrivateFunctionMembershipProof,
   isValidPrivateFunctionMembershipProof,
@@ -21,7 +21,7 @@ describe('private_function_membership_proof', () => {
     artifact = getBenchmarkContractArtifact();
     contractClass = getContractClassFromArtifact(artifact);
     privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
-    vkHash = computeVerificationKeyHash(privateFunction.verificationKey!);
+    vkHash = computeVerificationKeyHash(privateFunction);
     selector = FunctionSelector.fromNameAndParameters(privateFunction);
   });
 
@@ -31,8 +31,7 @@ describe('private_function_membership_proof', () => {
     expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
-  // TODO(#5860): Re-enable this test once noir non-determinism is addressed
-  test.skip.each([
+  test.each([
     'artifactTreeSiblingPath',
     'artifactMetadataHash',
     'functionMetadataHash',

@@ -1,8 +1,13 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { inspect } from 'util';
+import { z } from 'zod';
 
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
@@ -29,6 +34,21 @@ export class GlobalVariables {
     /** Global gas prices for this block. */
     public gasFees: GasFees,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        chainId: schemas.Fr,
+        version: schemas.Fr,
+        blockNumber: schemas.Fr,
+        slotNumber: schemas.Fr,
+        timestamp: schemas.Fr,
+        coinbase: schemas.EthAddress,
+        feeRecipient: schemas.AztecAddress,
+        gasFees: GasFees.schema,
+      })
+      .transform(GlobalVariables.from);
+  }
 
   getSize(): number {
     return this.toBuffer().length;
@@ -62,19 +82,6 @@ export class GlobalVariables {
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
-    );
-  }
-
-  static fromJSON(obj: any): GlobalVariables {
-    return new GlobalVariables(
-      Fr.fromString(obj.chainId),
-      Fr.fromString(obj.version),
-      Fr.fromString(obj.blockNumber),
-      Fr.fromString(obj.slotNumber),
-      Fr.fromString(obj.timestamp),
-      EthAddress.fromString(obj.coinbase),
-      AztecAddress.fromString(obj.feeRecipient),
-      GasFees.fromJSON(obj.gasFees),
     );
   }
 
@@ -121,16 +128,17 @@ export class GlobalVariables {
     return fields;
   }
 
-  toJSON() {
+  /**
+   * A trimmed version of the JSON representation of the global variables,
+   * tailored for human consumption.
+   */
+  toFriendlyJSON() {
     return {
-      chainId: this.chainId.toString(),
-      version: this.version.toString(),
-      blockNumber: this.blockNumber.toString(),
-      slotNumber: this.slotNumber.toString(),
+      blockNumber: this.blockNumber.toNumber(),
+      slotNumber: this.slotNumber.toNumber(),
       timestamp: this.timestamp.toString(),
       coinbase: this.coinbase.toString(),
-      feeRecipient: this.feeRecipient.toString(),
-      gasFees: this.gasFees.toJSON(),
+      gasFees: jsonStringify(this.gasFees),
     };
   }
 
@@ -148,6 +156,37 @@ export class GlobalVariables {
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
+    );
+  }
+
+  toInspect() {
+    return {
+      chainId: this.chainId.toNumber(),
+      version: this.version.toNumber(),
+      blockNumber: this.blockNumber.toNumber(),
+      slotNumber: this.slotNumber.toNumber(),
+      timestamp: this.timestamp.toNumber(),
+      coinbase: this.coinbase.toString(),
+      feeRecipient: this.feeRecipient.toString(),
+      feePerDaGas: this.gasFees.feePerDaGas.toNumber(),
+      feePerL2Gas: this.gasFees.feePerL2Gas.toNumber(),
+    };
+  }
+
+  [inspect.custom]() {
+    return `GlobalVariables ${inspect(this.toInspect())}`;
+  }
+
+  public equals(other: this): boolean {
+    return (
+      this.chainId.equals(other.chainId) &&
+      this.version.equals(other.version) &&
+      this.blockNumber.equals(other.blockNumber) &&
+      this.slotNumber.equals(other.slotNumber) &&
+      this.timestamp.equals(other.timestamp) &&
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees)
     );
   }
 }

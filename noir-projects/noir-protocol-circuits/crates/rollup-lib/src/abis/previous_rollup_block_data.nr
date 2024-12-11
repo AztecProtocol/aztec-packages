@@ -1,28 +1,30 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
-    traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
-    utils::arrays::find_index_hint
+    merkle_tree::{membership::assert_check_membership, MembershipWitness},
+    proof::{
+        recursive_proof::NestedRecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+    utils::arrays::find_index_hint,
 };
 
-struct PreviousRollupBlockData {
-    block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
-    proof: NestedRecursiveProof,
-    vk: VerificationKey,
-    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
+pub struct PreviousRollupBlockData {
+    pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub vk: HonkVerificationKey,
+    pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupBlockData {
-  fn verify(self) {
-    let inputs = BlockRootOrBlockMergePublicInputs::serialize(self.block_root_or_block_merge_public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = BlockRootOrBlockMergePublicInputs::serialize(
+            self.block_root_or_block_merge_public_inputs,
+        );
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl Empty for PreviousRollupBlockData {
@@ -37,18 +39,20 @@ impl Empty for PreviousRollupBlockData {
 }
 
 impl PreviousRollupBlockData {
-    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk.check_hash();
+
         let leaf_index = self.vk_witness.leaf_index as u32;
-        let index_hint = unsafe {
-            find_index_hint(allowed_indices, |index: u32| index == leaf_index)
-        };
+        let index_hint =
+            unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
+        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(
             self.vk.hash,
             self.vk_witness.leaf_index,
             self.vk_witness.sibling_path,
-            self.block_root_or_block_merge_public_inputs.vk_tree_root
+            self.block_root_or_block_merge_public_inputs.vk_tree_root,
         );
     }
 }

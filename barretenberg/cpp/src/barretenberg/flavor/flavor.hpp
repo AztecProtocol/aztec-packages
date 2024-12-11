@@ -93,10 +93,10 @@ namespace bb {
  */
 class PrecomputedEntitiesBase {
   public:
+    bool operator==(const PrecomputedEntitiesBase& other) const = default;
     uint64_t circuit_size;
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
-    CircuitType circuit_type; // TODO(#392)
 };
 
 /**
@@ -109,8 +109,8 @@ class PrecomputedEntitiesBase {
 template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
-    bool contains_recursive_proof;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    bool contains_pairing_point_accumulator;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -123,21 +123,18 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
+    // Ranges of the form [start, end) where witnesses have non-zero values (hence the execution trace is "active")
+    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+
     ProvingKey_() = default;
-    ProvingKey_(const size_t circuit_size,
+    ProvingKey_(const size_t dyadic_circuit_size,
                 const size_t num_public_inputs,
                 std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
     {
-        if (commitment_key == nullptr) {
-            ZoneScopedN("init commitment key");
-            this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size);
-        } else {
-            // Don't create another commitment key if we already have one
-            this->commitment_key = commitment_key;
-        }
-        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
-        this->circuit_size = circuit_size;
-        this->log_circuit_size = numeric::get_msb(circuit_size);
+        this->commitment_key = commitment_key;
+        this->evaluation_domain = bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size);
+        this->circuit_size = dyadic_circuit_size;
+        this->log_circuit_size = numeric::get_msb(dyadic_circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
 };
@@ -154,10 +151,11 @@ class VerificationKey_ : public PrecomputedCommitments {
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    bool contains_recursive_proof = false;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices = {};
+    bool contains_pairing_point_accumulator = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
+    bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -171,34 +169,27 @@ class VerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    std::vector<FF> to_field_elements()
+    std::vector<FF> to_field_elements() const
     {
+        using namespace bb::field_conversion;
+
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
+            std::vector<FF> input_fields = convert_to_bn254_frs(input);
+            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+        };
+
         std::vector<FF> elements;
-        std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
-        elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
-        // do the same for the rest of the fields
-        std::vector<FF> num_public_inputs_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
-        elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
-        std::vector<FF> pub_inputs_offset_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
-        elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
 
-        std::vector<FF> contains_recursive_proof_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->contains_recursive_proof);
-        elements.insert(
-            elements.end(), contains_recursive_proof_elements.begin(), contains_recursive_proof_elements.end());
+        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->num_public_inputs, elements);
+        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
+        serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
-        std::vector<FF> recursive_proof_public_input_indices_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->recursive_proof_public_input_indices);
-        elements.insert(elements.end(),
-                        recursive_proof_public_input_indices_elements.begin(),
-                        recursive_proof_public_input_indices_elements.end());
-
-        for (Commitment& comm : this->get_all()) {
-            std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
-            elements.insert(elements.end(), comm_elements.begin(), comm_elements.end());
+        for (const Commitment& commitment : this->get_all()) {
+            serialize_to_field_buffer(commitment, elements);
         }
+
         return elements;
     }
 
@@ -332,13 +323,19 @@ template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 namespace bb {
 class UltraFlavor;
 class UltraFlavorWithZK;
+class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
+class MegaZKFlavor;
 class TranslatorFlavor;
+namespace avm {
 class AvmFlavor;
+}
 template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
+template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
@@ -364,50 +361,61 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
-template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
-template <typename T>
-concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                    MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                    MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+
+template <typename T>
+concept HasDataBus = IsMegaFlavor<T>;
+
+template <typename T>
+concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                       UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-MegaRecursiveFlavor_<CircuitSimulatorBN254>,
-TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
-ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+                                        MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
+                                        ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
+                                        AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraRollupFlavor,
                                                            UltraFlavorWithZK,
                                                            MegaFlavor,
+                                                           MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T>
 concept FlavorHasZK =  T::HasZK;
 

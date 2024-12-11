@@ -10,7 +10,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash
 
 # Set env variables for foundry and venv
 ENV PATH="${PATH}:/root/.foundry/bin:/root/.venv/bin"
-RUN foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916
+RUN foundryup --version nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc
 
 WORKDIR /usr/src/l1-contracts
 COPY . .
@@ -21,8 +21,10 @@ RUN rm -rf terraform scripts
 #RUN git init
 RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
 
-RUN npm install --global solhint
-RUN solhint --config ./.solhint.json --fix "src/**/*.sol"
+# Install husky and solhint, using our own fork of solhint with a few extra rules.
+RUN npm install --global husky
+RUN npm install --global LHerskind/solhint#master
+RUN solhint --config ./.solhint.json "src/**/*.sol"
 
 # RUN git add . && yarn slither && yarn slither-has-diff
 RUN forge build

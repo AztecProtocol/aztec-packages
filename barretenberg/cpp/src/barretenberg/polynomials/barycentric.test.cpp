@@ -36,6 +36,18 @@ TYPED_TEST(BarycentricDataTests, Extend)
     EXPECT_EQ(result, expected_result);
 }
 
+TYPED_TEST(BarycentricDataTests, SelfExtend)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    static constexpr size_t initial_size(2);
+    static constexpr size_t domain_size(10);
+    static constexpr size_t skip_count(0);
+    auto f = Univariate<FF, domain_size, skip_count>({ 1, 2, 0, 0, 0, 0, 0, 0, 0, 0 });
+    auto expected_result = Univariate<FF, domain_size, skip_count>({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+    f.template self_extend_from<initial_size>();
+    EXPECT_EQ(f, expected_result);
+}
+
 TYPED_TEST(BarycentricDataTests, Evaluate)
 {
     BARYCENTIC_DATA_TESTS_TYPE_ALIASES

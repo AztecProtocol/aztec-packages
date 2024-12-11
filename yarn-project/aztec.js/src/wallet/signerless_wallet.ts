@@ -1,5 +1,5 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type CompleteAddress, type Fq, type Fr } from '@aztec/circuits.js';
+import { type CompleteAddress, type Fr } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -43,7 +43,7 @@ export class SignerlessWallet extends BaseWallet {
     throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
   }
 
-  rotateNullifierKeys(_newNskM: Fq): Promise<void> {
-    throw new Error('SignerlessWallet: Method rotateNullifierKeys not implemented.');
+  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
   }
 }

@@ -1,5 +1,23 @@
-struct UnaryOp {
-    op: Field
+pub struct UnaryOp {
+    op: Field,
+}
+
+// Cannot derive Eq or Hash since they internally use paths
+// starting with std:: which is invalid within the same crate.
+// We'd need to use crate:: instead.
+impl crate::cmp::Eq for UnaryOp {
+    fn eq(self, other: Self) -> bool {
+        self.op == other.op
+    }
+}
+
+impl crate::hash::Hash for UnaryOp {
+    fn hash<H>(self, h: &mut H)
+    where
+        H: crate::hash::Hasher,
+    {
+        self.op.hash(h);
+    }
 }
 
 impl UnaryOp {
@@ -45,8 +63,23 @@ impl UnaryOp {
     }
 }
 
-struct BinaryOp {
-    op: Field
+pub struct BinaryOp {
+    op: Field,
+}
+
+impl crate::cmp::Eq for BinaryOp {
+    fn eq(self, other: Self) -> bool {
+        self.op == other.op
+    }
+}
+
+impl crate::hash::Hash for BinaryOp {
+    fn hash<H>(self, h: &mut H)
+    where
+        H: crate::hash::Hasher,
+    {
+        self.op.hash(h);
+    }
 }
 
 impl BinaryOp {

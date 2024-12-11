@@ -22,6 +22,23 @@
       }
     },
     {
+      "name": "default-pic",
+      "displayName": "Build with Clang with Position Independent Code",
+      "description": "Build with globally installed Clang with Position Independent Code",
+      "binaryDir": "build-pic",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+      },
+      "cacheVariables": {
+        "TARGET_ARCH": "skylake",
+        "ENABLE_PIC": "ON"
+      }
+    },
+    {
       "name": "homebrew",
       "displayName": "Homebrew + Clang",
       "description": "Build with Clang installed via Homebrew",
@@ -67,6 +84,16 @@
       }
     },
     {
+      "name": "clang16-pic",
+      "displayName": "Release build with Position Independent Code",
+      "description": "Build with globally installed Clang-16 using Position Independent Code",
+      "inherits": "clang16",
+      "binaryDir": "build-pic",
+      "cacheVariables": {
+        "ENABLE_PIC": "ON"
+      }
+    },
+    {
       "name": "clang16-dbg",
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
@@ -84,11 +111,38 @@
       }
     },
     {
-      "name": "tracy",
-      "displayName": "Release build with tracy, optimized for memory tracking",
-      "description": "Release build with tracy, optimized for memory tracking",
+      "name": "tracy-memory",
+      "displayName": "Release build with tracy with memory tracking",
+      "description": "Release build with tracy with memory tracking",
       "inherits": "clang16",
-      "binaryDir": "build-tracy",
+      "binaryDir": "build-tracy-memory",
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON",
+        "TRACY_PROFILE_MEMORY": "ON"
+      }
+    },
+    {
+      "name": "tracy-time-instrumented",
+      "displayName": "Build for tracy time profiling via instrumentation",
+      "description": "Build for tracy time profiling via instrumentation",
+      "binaryDir": "build-tracy-time-instrumented",
+      "inherits": "clang16",
+      "cacheVariables": {
+        "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
+      }
+    },
+    {
+      "name": "tracy-time-sampled",
+      "displayName": "Build for tracy time profiling via sampling",
+      "description": "Build for tracy time profiling via sampling",
+      "binaryDir": "build-tracy-time-sampled",
+      "inherits": "default",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CFLAGS": "-g -fno-omit-frame-pointer",
+        "CXXFLAGS": "-g -fno-omit-frame-pointer",
+        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
+      },
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
       }
@@ -169,7 +223,8 @@
       "binaryDir": "build-gcc",
       "environment": {
         "CC": "gcc",
-        "CXX": "g++"
+        "CXX": "g++",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -179,7 +234,8 @@
       "inherits": "default",
       "environment": {
         "CC": "gcc-10",
-        "CXX": "g++-10"
+        "CXX": "g++-10",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -189,7 +245,8 @@
       "inherits": "default",
       "environment": {
         "CC": "gcc-13",
-        "CXX": "g++-13"
+        "CXX": "g++-13",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -214,7 +271,7 @@
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
       "inherits": "clang16-dbg",
-      "binaryDir": "build-fuzzing",
+      "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "FUZZING": "ON",
         "ENABLE_ASAN": "ON",
@@ -237,6 +294,9 @@
       "description": "Build with thread sanitizer on clang16 with debugging information",
       "inherits": "clang16-dbg",
       "binaryDir": "build-tsan",
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON"
+      },
       "environment": {
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
@@ -327,6 +387,7 @@
         "WASI_SDK_PREFIX": "/opt/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
+        "CXXFLAGS": "-DBB_VERBOSE",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
@@ -338,16 +399,8 @@
         "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
-        "MULTITHREADING": "OFF"
-      }
-    },
-    {
-      "name": "wasm-dbg",
-      "displayName": "Build for debug WASM",
-      "description": "Build with wasi-sdk to create debug wasm",
-      "inherits": "wasm",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "MULTITHREADING": "OFF",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -361,6 +414,29 @@
       },
       "cacheVariables": {
         "MULTITHREADING": "ON"
+      }
+    },
+    {
+      "name": "wasm-threads-dbg",
+      "displayName": "Build for debug WASM",
+      "binaryDir": "build-wasm-threads-dbg",
+      "description": "Build with wasi-sdk to create debug wasm",
+      "inherits": "wasm",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "cacheVariables": {
+        "MULTITHREADING": "ON"
+      }
+    },
+    {
+      "name": "wasm-threads-assert",
+      "displayName": "Build for WASM with multithreading and  and asserts",
+      "binaryDir": "build-wasm-threads-assert",
+      "description": "Build with wasi-sdk with asserts",
+      "inherits": "wasm-threads",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -442,9 +518,29 @@
       "configurePreset": "clang16-dbg"
     },
     {
-      "name": "tracy",
+      "name": "tracy-memory",
       "inherits": "default",
-      "configurePreset": "tracy"
+      "configurePreset": "tracy-memory"
+    },
+    {
+      "name": "tracy-time-instrumented",
+      "inherits": "default",
+      "configurePreset": "tracy-time-instrumented"
+    },
+    {
+      "name": "tracy-time-sampled",
+      "inherits": "default",
+      "configurePreset": "tracy-time-sampled"
+    },
+    {
+      "name": "clang16-pic",
+      "inherits": "default",
+      "configurePreset": "clang16-pic"
+    },
+    {
+      "name": "default-pic",
+      "inherits": "default",
+      "configurePreset": "default-pic"
     },
     {
       "name": "tracy-gates",
@@ -539,8 +635,15 @@
       "targets": ["barretenberg.wasm", "barretenberg", "wasi", "env"]
     },
     {
-      "name": "wasm-dbg",
-      "configurePreset": "wasm-dbg",
+      "name": "wasm-threads-dbg",
+      "configurePreset": "wasm-threads-dbg",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "wasm-threads-assert",
+      "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]

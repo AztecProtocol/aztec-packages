@@ -12,7 +12,13 @@ variable "API_KEY" {
 }
 
 variable "FORK_ADMIN_API_KEY" {
-  type = string
+  type    = string
+  default = ""
+}
+
+variable "ETHEREUM_HOST" {
+  type    = string
+  default = ""
 }
 
 variable "SEQUENCER_PRIVATE_KEYS" {
@@ -77,6 +83,41 @@ variable "P2P_ENABLED" {
 variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
   type    = number
   default = 64
+}
+
+variable "P2P_GOSSIPSUB_INTERVAL_MS" {
+  type    = number
+  default = 1000
+}
+
+variable "P2P_GOSSIPSUB_D" {
+  type    = number
+  default = 8
+}
+
+variable "P2P_GOSSIPSUB_DLO" {
+  type    = number
+  default = 4
+}
+
+variable "P2P_GOSSIPSUB_DHI" {
+  type    = number
+  default = 12
+}
+
+variable "P2P_GOSSIPSUB_MCACHE_LENGTH" {
+  type    = number
+  default = 5
+}
+
+variable "P2P_GOSSIPSUB_MCACHE_GOSSIP" {
+  type    = number
+  default = 3
+}
+
+variable "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH" {
+  type    = number
+  default = 30
 }
 
 variable "PROVING_ENABLED" {

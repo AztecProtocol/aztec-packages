@@ -1,14 +1,6 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import {
-  Fr,
-  RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import { type ServerCircuitProver, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -40,17 +32,13 @@ describe('ProverAgent', () => {
   it('takes jobs from the queue', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
-    prover.getBaseParityProof.mockResolvedValue(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
-    );
+    const vk = VerificationKeyData.makeFakeHonk();
+    prover.getBaseParityProof.mockResolvedValue(makePublicInputsAndRecursiveProof(publicInputs, proof, vk));
 
     const inputs = makeBaseParityInputs();
 
     const promise = queue.getBaseParityProof(inputs);
-    await expect(promise).resolves.toEqual(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
-    );
+    await expect(promise).resolves.toEqual(makePublicInputsAndRecursiveProof(publicInputs, proof, vk));
 
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);
   });
@@ -69,24 +57,18 @@ describe('ProverAgent', () => {
   it('continues to process jobs', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
-    prover.getBaseParityProof.mockResolvedValue(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
-    );
+    const vk = VerificationKeyData.makeFakeHonk();
+    prover.getBaseParityProof.mockResolvedValue(makePublicInputsAndRecursiveProof(publicInputs, proof, vk));
 
     const inputs = makeBaseParityInputs();
     const promise1 = queue.getBaseParityProof(inputs);
 
-    await expect(promise1).resolves.toEqual(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
-    );
+    await expect(promise1).resolves.toEqual(makePublicInputsAndRecursiveProof(publicInputs, proof, vk));
 
     const inputs2 = makeBaseParityInputs();
     const promise2 = queue.getBaseParityProof(inputs2);
 
-    await expect(promise2).resolves.toEqual(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
-    );
+    await expect(promise2).resolves.toEqual(makePublicInputsAndRecursiveProof(publicInputs, proof, vk));
 
     expect(prover.getBaseParityProof).toHaveBeenCalledTimes(2);
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);

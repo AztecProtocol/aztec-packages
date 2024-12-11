@@ -1,4 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { TX_CONTEXT_LENGTH } from '../constants.gen.js';
@@ -18,6 +19,11 @@ describe('TxContext', () => {
     const res = TxContext.fromBuffer(buffer);
     expect(res).toEqual(context);
     expect(res.isEmpty()).toBe(false);
+  });
+
+  it(`serializes to json and deserializes it back`, () => {
+    const json = jsonStringify(context);
+    expect(TxContext.schema.parse(JSON.parse(json))).toEqual(context);
   });
 
   it('number of fields matches constant', () => {

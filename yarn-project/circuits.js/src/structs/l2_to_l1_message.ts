@@ -76,6 +76,10 @@ export class L2ToL1Message {
   isEmpty(): boolean {
     return this.recipient.isZero() && this.content.isZero() && !this.counter;
   }
+
+  scope(contractAddress: AztecAddress) {
+    return new ScopedL2ToL1Message(this, contractAddress);
+  }
 }
 
 export class ScopedL2ToL1Message {

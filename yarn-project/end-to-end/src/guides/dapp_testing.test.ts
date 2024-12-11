@@ -1,17 +1,6 @@
 // docs:start:imports
 import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  type AccountWallet,
-  CheatCodes,
-  ExtendedNote,
-  Fr,
-  Note,
-  type PXE,
-  TxStatus,
-  computeSecretHash,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
+import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -19,6 +8,7 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -51,22 +41,8 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
 
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          recipientAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
-
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
@@ -91,22 +67,9 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          recipientAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
@@ -131,25 +94,11 @@ describe('guides/dapp/testing', () => {
 
         const ownerAddress = owner.getAddress();
         const mintAmount = 100n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          ownerAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
-
-        await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
+        await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
@@ -157,6 +106,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
+        await token.methods.sync_notes().simulate();
         const notes = await pxe.getIncomingNotes({
           owner: owner.getAddress(),
           contractAddress: token.address,
@@ -171,8 +121,11 @@ describe('guides/dapp/testing', () => {
 
       it('checks public storage', async () => {
         // docs:start:public-storage
-        await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:public-storage
@@ -210,27 +163,30 @@ describe('guides/dapp/testing', () => {
         const call1 = token.methods.transfer(recipient.getAddress(), 80n);
         const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
-        await call1.prove();
-        await call2.prove();
+        const provenCall1 = await call1.prove();
+        const provenCall2 = await call2.prove();
 
-        await call1.send().wait();
-        await expect(call2.send().wait()).rejects.toThrow(/dropped/);
+        await provenCall1.send().wait();
+        await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
         // docs:end:tx-dropped
       });
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       });
 
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:pub-reverted

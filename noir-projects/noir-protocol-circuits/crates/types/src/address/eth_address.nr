@@ -1,20 +1,18 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
+use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}};
 
-struct EthAddress{
-    inner : Field
+pub struct EthAddress {
+    inner: Field,
 }
 
 impl Eq for EthAddress {
-    fn eq(self, other : Self) -> bool {
+    fn eq(self, other: Self) -> bool {
         self.to_field() == other.to_field()
     }
 }
 
 impl Empty for EthAddress {
     fn empty() -> Self {
-        Self {
-            inner : 0
-        }
+        Self { inner: 0 }
     }
 }
 
@@ -42,7 +40,7 @@ impl EthAddress {
     }
 
     pub fn from_field(field: Field) -> Self {
-        field.assert_max_bit_size(160);
+        field.assert_max_bit_size::<160>();
         Self { inner: field }
     }
 
@@ -52,10 +50,5 @@ impl EthAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }

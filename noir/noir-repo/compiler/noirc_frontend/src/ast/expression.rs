@@ -1,20 +1,22 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
+use thiserror::Error;
+
 use crate::ast::{
     Ident, ItemVisibility, Path, Pattern, Recoverable, Statement, StatementKind,
     UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, Visibility,
 };
-use crate::hir::def_collector::errors::DefCollectorErrorKind;
-use crate::macros_api::StructId;
-use crate::node_interner::{ExprId, InternedExpressionKind, QuotedTypeId};
-use crate::token::{Attributes, FunctionAttribute, Token, Tokens};
+use crate::node_interner::{
+    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, StructId,
+};
+use crate::token::{Attributes, FmtStrFragment, FunctionAttribute, Token, Tokens};
 use crate::{Kind, Type};
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
 
-use super::{AsTraitPath, UnaryRhsMemberAccess};
+use super::{AsTraitPath, TypePath, UnaryRhsMemberAccess};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExpressionKind {
@@ -38,6 +40,7 @@ pub enum ExpressionKind {
     Comptime(BlockExpression, Span),
     Unsafe(BlockExpression, Span),
     AsTraitPath(AsTraitPath),
+    TypePath(TypePath),
 
     // This variant is only emitted when inlining the result of comptime
     // code. It is used to translate function values back into the AST while
@@ -47,6 +50,10 @@ pub enum ExpressionKind {
     // This is an interned ExpressionKind during comptime code.
     // The actual ExpressionKind can be retrieved with a NodeInterner.
     Interned(InternedExpressionKind),
+
+    /// Interned statements are allowed to be parsed as expressions in case they resolve
+    /// to an StatementKind::Expression or StatementKind::Semi.
+    InternedStatement(InternedStatementKind),
 
     Error,
 }
@@ -70,6 +77,13 @@ pub enum UnresolvedGeneric {
     Resolved(QuotedTypeId, Span),
 }
 
+#[derive(Error, PartialEq, Eq, Debug, Clone)]
+#[error("The only supported types of numeric generics are integers, fields, and booleans")]
+pub struct UnsupportedNumericGenericType {
+    pub ident: Ident,
+    pub typ: UnresolvedTypeData,
+}
+
 impl UnresolvedGeneric {
     pub fn span(&self) -> Span {
         match self {
@@ -79,12 +93,12 @@ impl UnresolvedGeneric {
         }
     }
 
-    pub fn kind(&self) -> Result<Kind, DefCollectorErrorKind> {
+    pub fn kind(&self) -> Result<Kind, UnsupportedNumericGenericType> {
         match self {
             UnresolvedGeneric::Variable(_) => Ok(Kind::Normal),
             UnresolvedGeneric::Numeric { typ, .. } => {
                 let typ = self.resolve_numeric_kind_type(typ)?;
-                Ok(Kind::Numeric(Box::new(typ)))
+                Ok(Kind::numeric(typ))
             }
             UnresolvedGeneric::Resolved(..) => {
                 panic!("Don't know the kind of a resolved generic here")
@@ -95,14 +109,14 @@ impl UnresolvedGeneric {
     fn resolve_numeric_kind_type(
         &self,
         typ: &UnresolvedType,
-    ) -> Result<Type, DefCollectorErrorKind> {
+    ) -> Result<Type, UnsupportedNumericGenericType> {
         use crate::ast::UnresolvedTypeData::{FieldElement, Integer};
 
         match typ.typ {
             FieldElement => Ok(Type::FieldElement),
             Integer(sign, bits) => Ok(Type::Integer(sign, bits)),
             // Only fields and integers are supported for numeric kinds
-            _ => Err(DefCollectorErrorKind::UnsupportedNumericGenericType {
+            _ => Err(UnsupportedNumericGenericType {
                 ident: self.ident().clone(),
                 typ: typ.typ.clone(),
             }),
@@ -196,13 +210,15 @@ impl ExpressionKind {
         ExpressionKind::Literal(Literal::RawStr(contents, hashes))
     }
 
-    pub fn format_string(contents: String) -> ExpressionKind {
-        ExpressionKind::Literal(Literal::FmtStr(contents))
+    pub fn format_string(fragments: Vec<FmtStrFragment>, length: u32) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::FmtStr(fragments, length))
     }
 
-    pub fn constructor((type_name, fields): (Path, Vec<(Ident, Expression)>)) -> ExpressionKind {
+    pub fn constructor(
+        (typ, fields): (UnresolvedType, Vec<(Ident, Expression)>),
+    ) -> ExpressionKind {
         ExpressionKind::Constructor(Box::new(ConstructorExpression {
-            type_name,
+            typ,
             fields,
             struct_type: None,
         }))
@@ -293,6 +309,7 @@ impl Expression {
 pub type BinaryOp = Spanned<BinaryOpKind>;
 
 #[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Debug, Copy, Clone)]
+#[cfg_attr(test, derive(strum_macros::EnumIter))]
 pub enum BinaryOpKind {
     Add,
     Subtract,
@@ -417,7 +434,7 @@ pub enum Literal {
     Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
     Str(String),
     RawStr(String, u8),
-    FmtStr(String),
+    FmtStr(Vec<FmtStrFragment>, u32 /* length */),
     Unit,
 }
 
@@ -487,7 +504,7 @@ impl FunctionDefinition {
     }
 
     pub fn is_test(&self) -> bool {
-        if let Some(attribute) = &self.attributes.function {
+        if let Some(attribute) = self.attributes.function() {
             matches!(attribute, FunctionAttribute::Test(..))
         } else {
             false
@@ -536,7 +553,7 @@ pub struct MethodCallExpression {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ConstructorExpression {
-    pub type_name: Path,
+    pub typ: UnresolvedType,
     pub fields: Vec<(Ident, Expression)>,
 
     /// This may be filled out during macro expansion
@@ -615,6 +632,8 @@ impl Display for ExpressionKind {
                 write!(f, "quote {{ {} }}", tokens.join(" "))
             }
             AsTraitPath(path) => write!(f, "{path}"),
+            TypePath(path) => write!(f, "{path}"),
+            InternedStatement(_) => write!(f, "?InternedStatement"),
         }
     }
 }
@@ -650,7 +669,13 @@ impl Display for Literal {
                     std::iter::once('#').cycle().take(*num_hashes as usize).collect();
                 write!(f, "r{hashes}\"{string}\"{hashes}")
             }
-            Literal::FmtStr(string) => write!(f, "f\"{string}\""),
+            Literal::FmtStr(fragments, _length) => {
+                write!(f, "f\"")?;
+                for fragment in fragments {
+                    fragment.fmt(f)?;
+                }
+                write!(f, "\"")
+            }
             Literal::Unit => write!(f, "()"),
         }
     }
@@ -717,7 +742,7 @@ impl Display for ConstructorExpression {
         let fields =
             self.fields.iter().map(|(ident, expr)| format!("{ident}: {expr}")).collect::<Vec<_>>();
 
-        write!(f, "({} {{ {} }})", self.type_name, fields.join(", "))
+        write!(f, "({} {{ {} }})", self.typ, fields.join(", "))
     }
 }
 
@@ -780,9 +805,20 @@ impl Display for AsTraitPath {
     }
 }
 
+impl Display for TypePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}::{}", self.typ, self.item)?;
+        if let Some(turbofish) = &self.turbofish {
+            write!(f, "::{}", turbofish)?;
+        }
+        Ok(())
+    }
+}
+
 impl FunctionDefinition {
     pub fn normal(
         name: &Ident,
+        is_unconstrained: bool,
         generics: &UnresolvedGenerics,
         parameters: &[(Ident, UnresolvedType)],
         body: &BlockExpression,
@@ -802,7 +838,7 @@ impl FunctionDefinition {
         FunctionDefinition {
             name: name.clone(),
             attributes: Attributes::empty(),
-            is_unconstrained: false,
+            is_unconstrained,
             is_comptime: false,
             visibility: ItemVisibility::Private,
             generics: generics.clone(),
@@ -844,7 +880,7 @@ impl FunctionDefinition {
 impl Display for FunctionDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{:?}", self.attributes)?;
-        write!(f, "fn {} {}", self.signature(), self.body)
+        write!(f, "{} {}", self.signature(), self.body)
     }
 }
 

@@ -11,7 +11,6 @@ license = "MIT OR Apache-2.0"
 # local
 acvm = { path = "../noir/noir-repo/acvm-repo/acvm", features = ["bn254"] }
 noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
-fxhash = "0.2.1"
 
 # external
 base64 = "0.21"
@@ -19,4 +18,3 @@ env_logger = "0.11"
 log = "0.4"
 serde_json = "1.0"
 serde = { version = "1.0.136", features = ["derive"] }
-flate2 = "1.0"

@@ -6,7 +6,7 @@
 namespace bb {
 /**
  * @brief The DeciderVerificationKey encapsulates all the necessary information for a Mega Honk Verifier to verify a
- * proof (sumcheck + Zeromorph). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
+ * proof (sumcheck + Shplemini). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
  * target sum and gate challenges.
  *
  * @details This is ϕ in the paper.
@@ -35,7 +35,7 @@ template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
 
     DeciderVerificationKey_() = default;
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
-        : verification_key(std::move(vk))
+        : verification_key(vk)
     {}
 
     MSGPACK_FIELDS(verification_key,

@@ -1,13 +1,25 @@
-import { type Tx, type TxExecutionRequest, type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
+import {
+  type Tx,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxProvingResult,
+  type TxReceipt,
+  type TxSimulationResult,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  EthAddress,
+  GasFees,
+  type NodeInfo,
+} from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type ContractArtifact, type DecodedReturn, FunctionType } from '@aztec/foundation/abi';
-import { type NodeInfo } from '@aztec/types/interfaces';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type ContractInstanceWithAddress } from '../index.js';
-import { type Wallet } from '../wallet/index.js';
+import { type Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -17,18 +29,24 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
+  const mockTxProvingResult = { type: 'TxProvingResult', toTx: () => mockTx } as any as TxProvingResult;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
+  const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
   const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
-    availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
@@ -40,7 +58,6 @@ describe('Contract Class', () => {
       classRegisterer: AztecAddress.random(),
       feeJuice: AztecAddress.random(),
       instanceDeployer: AztecAddress.random(),
-      keyRegistry: AztecAddress.random(),
       multiCallEntrypoint: AztecAddress.random(),
     },
   };
@@ -72,6 +89,7 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
       },
       {
@@ -82,6 +100,7 @@ describe('Contract Class', () => {
         isInternal: false,
         parameters: [],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -109,6 +128,7 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
     outputs: {
@@ -126,14 +146,16 @@ describe('Contract Class', () => {
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as DecodedReturn);
+    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.proveTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {

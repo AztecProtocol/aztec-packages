@@ -8,6 +8,11 @@
 
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1130): This class is largely superceded by the newer
+// BatchedAffineAddition which contains improved batched affine addition logic (but not the sorting logic). The
+// sort-then-add-then-mul strategy of this class does not have an obvious use case in our current protocols. This class
+// could be updated to use the BatchedAffineAddition class to remove duplication or it could be removed altogether.
+
 /**
  * @brief Reduce MSM inputs such that the set of scalars contains no duplicates by summing points which share a scalar.
  *

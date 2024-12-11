@@ -1,0 +1,75 @@
+name: CI (Mac)
+on:
+  push:
+    branches:
+      - master
+      - '*/*mac-build'
+
+jobs:
+  build-mac-intel:
+    name: Build on Mac x86_64-apple-darwin
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.tag || env.GITHUB_REF }}
+
+      - name: Create Mac Build Environment
+        run: brew install cmake ninja llvm@16
+
+      - name: Compile Barretenberg
+        working-directory: barretenberg/cpp
+        run: |
+          export PATH="/usr/local/opt/llvm@16/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/llvm@16/lib"
+          export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
+          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default
+          cmake --build --preset default --target bb
+
+  build-mac-m1:
+    name: Build on Mac aarch64-apple-darwin
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.tag || env.GITHUB_REF }}
+
+      - name: Create Mac Build Environment
+        run: brew install cmake ninja
+
+      - name: Compile Barretenberg
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
+          cmake --build --preset default --target bb
+
+  build-check:
+    name: Check builds are successful
+    needs: [build-mac-intel, build-mac-m1]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report overall success
+        env:
+          FAIL: ${{ contains(needs.*.result, 'failure') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "At least one job failed, release is unsuccessful."
+              exit 1
+          else
+              echo "All jobs succeeded, uploading artifacts to release."
+              exit 0
+          fi
+
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        if: ${{ failure() }}
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}

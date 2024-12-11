@@ -1,17 +1,42 @@
 VERSION 0.8
 
-build:
+src:
     FROM ../build-images+from-registry
     WORKDIR /usr/src/l1-contracts
     COPY --dir lib src terraform test *.json *.toml *.sh .
-    #RUN git init && git add . && yarn lint && yarn slither && yarn slither-has-diff
-    # "slither": "forge clean && forge build --build-info --skip '*/test/**' --force && slither . --checklist --ignore-compile --show-ignored-findings --config-file ./slither.config.json | tee slither_output.md",
-    # "slither-has-diff": "./slither_has_diff.sh"
-    RUN solhint --config ./.solhint.json --fix "src/**/*.sol"
+    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns"
+
+lint:
+    FROM +src
+    RUN solhint --config ./.solhint.json "src/**/*.sol"
     RUN forge clean && forge fmt --check
-    RUN forge build
+
+build:
+    FROM +lint
+    WORKDIR /usr/src/l1-contracts
+
+    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
+        --prefix="l1-contracts" \
+        --rebuild_patterns=".rebuild_patterns" \
+        --command="forge build" \
+        --build_artifacts="out"
+
     SAVE ARTIFACT /usr/src/l1-contracts /usr/src/l1-contracts
 
 test:
     FROM +build
     RUN forge test --no-match-contract UniswapPortalTest
+
+publish-npm:
+    FROM +build
+    ARG VERSION
+    ARG DIST_TAG
+    ARG DRY_RUN=0
+    WORKDIR /usr/src/l1-contracts
+    RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+    RUN jq --arg v $VERSION '.version = $v' package.json > _tmp.json && mv  _tmp.json package.json
+    RUN if [ "$DRY_RUN" = "1" ]; then \
+        npm publish --tag $DIST_TAG --access public --dry-run; \
+    else \
+        npm publish --tag $DIST_TAG --access public; \
+    fi

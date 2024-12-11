@@ -1,6 +1,6 @@
 #include "poseidon2_permutation.hpp"
 
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -50,7 +50,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last external gate
     // from above otherwise expects to read into the first internal gate which is sorted out of sequence
-    builder->create_dummy_gate(builder->blocks.poseidon_external,
+    builder->create_dummy_gate(builder->blocks.poseidon2_external,
                                current_state[0].witness_index,
                                current_state[1].witness_index,
                                current_state[2].witness_index,
@@ -75,7 +75,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last internal gate
     // otherwise expects to read into the next external gate which is sorted out of sequence
-    builder->create_dummy_gate(builder->blocks.poseidon_internal,
+    builder->create_dummy_gate(builder->blocks.poseidon2_internal,
                                current_state[0].witness_index,
                                current_state[1].witness_index,
                                current_state[2].witness_index,
@@ -101,7 +101,7 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     // applying a round of Poseidon2 is stored in the next row (the shifted row). As a result, we need this end row to
     // compare with the result from the 64th round of Poseidon2. Note that it does not activate any selectors since it
     // only serves as a comparison through the shifted wires.
-    builder->create_dummy_gate(builder->blocks.poseidon_external,
+    builder->create_dummy_gate(builder->blocks.poseidon2_external,
                                current_state[0].witness_index,
                                current_state[1].witness_index,
                                current_state[2].witness_index,

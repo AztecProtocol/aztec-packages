@@ -18,6 +18,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   futureNoteHashReads: ScopedReadRequest[],
   futureNullifierReads: ScopedReadRequest[],
   noteHashNullifierCounterMap: Map<number, number>,
+  validationRequestsSplitCounter: number,
   noteHashesLength: NOTE_HASHES_LEN = noteHashes.length as NOTE_HASHES_LEN,
   nullifiersLength: NULLIFIERS_LEN = nullifiers.length as NULLIFIERS_LEN,
 ): { numTransientData: number; hints: Tuple<TransientDataIndexHint, NULLIFIERS_LEN> } {
@@ -47,6 +48,11 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
     }
 
     const nullifier = nullifiers[nullifierIndex];
+    // Cannot nullify a non-revertible note hash with a revertible nullifier.
+    if (noteHash.counter < validationRequestsSplitCounter && nullifier.counter >= validationRequestsSplitCounter) {
+      continue;
+    }
+
     // If the following errors show up, something's wrong with how we build the noteHashNullifierCounterMap in client_execution_context.ts.
     if (nullifier.counter < noteHash.counter) {
       throw new Error('Hinted nullifier has smaller counter than note hash.');

@@ -1,4 +1,3 @@
-use crate::interest_math::compute_multiplier;
 use dep::aztec::hash::pedersen_hash;
 
 // Utility used to easily get a "id" for a private user that sits in the same
@@ -19,7 +18,7 @@ pub fn covered_by_collateral(
     loan_to_value: U128,
     collateral: U128,
     increase: U128,
-    decrease: U128
+    decrease: U128,
 ) -> U128 {
     let price_precision = U128::from_integer(1000000000);
     let ltv_precision = U128::from_integer(10000);
@@ -32,7 +31,7 @@ pub fn covered_by_collateral(
     debt_covered
 }
 
-struct DebtReturn {
+pub struct DebtReturn {
     debt_value: U128,
     static_debt: U128,
 }
@@ -50,7 +49,7 @@ pub fn debt_updates(
     interest_accumulator: U128,
     static_debt: U128,
     increase: U128,
-    decrease: U128
+    decrease: U128,
 ) -> DebtReturn {
     assert(interest_accumulator > U128::from_integer(0));
     let accumulator_precision = U128::from_integer(1000000000);

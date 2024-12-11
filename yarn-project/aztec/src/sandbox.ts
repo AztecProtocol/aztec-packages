@@ -1,36 +1,19 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
+import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
+  getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-} from '@aztec/l1-artifacts';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -44,7 +27,7 @@ import { foundry } from 'viem/chains';
 
 export const defaultMnemonic = 'test test test test test test test test test test test junk';
 
-const logger = createDebugLogger('aztec:sandbox');
+const logger = createLogger('sandbox');
 
 const localAnvil = foundry;
 
@@ -90,49 +73,20 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
-  opts: { assumeProvenUntilBlockNumber?: number; salt?: number } = {},
+  opts: { assumeProvenThroughBlockNumber?: number; salt?: number } = {},
 ) {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-
   const chain = aztecNodeConfig.l1RpcUrl
     ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
     : { chainInfo: localAnvil };
 
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, l1Artifacts, {
-      l2FeeJuiceAddress: FeeJuiceAddress,
+    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, {
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
       vkTreeRoot: getVKTreeRoot(),
-      assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
+      protocolContractTreeRoot,
+      assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
+      ...getL1ContractsConfigEnvVars(),
     }),
   );
 
@@ -168,7 +122,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
+      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+    });
 
     const chain = aztecNodeConfig.l1RpcUrl
       ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
@@ -191,17 +147,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
-  await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
-  await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
-
   if (config.enableGas) {
-    await deployCanonicalL2FeeJuice(
+    await setupCanonicalL2FeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
       aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
+      undefined,
+      logger.info,
     );
   }
 
@@ -220,7 +171,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  */
 export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry: telemetryClient });
   return node;
 }
 

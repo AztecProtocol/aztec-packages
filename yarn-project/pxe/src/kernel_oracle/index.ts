@@ -1,4 +1,4 @@
-import { type AztecNode } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   type Fr,
@@ -12,7 +12,7 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
@@ -30,7 +30,8 @@ export class KernelOracle implements ProvingDataOracle {
     private contractDataOracle: ContractDataOracle,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+    private blockNumber: L2BlockNumber = 'latest',
+    private log = createLogger('pxe:kernel_oracle'),
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
@@ -56,7 +57,7 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const path = await this.node.getNoteHashSiblingPath('latest', leafIndex);
+    const path = await this.node.getNoteHashSiblingPath(this.blockNumber, leafIndex);
     return new MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>(
       path.pathSize,
       leafIndex,
@@ -65,11 +66,11 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   getNullifierMembershipWitness(nullifier: Fr) {
-    return this.node.getNullifierMembershipWitness('latest', nullifier);
+    return this.node.getNullifierMembershipWitness(this.blockNumber, nullifier);
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {
-    const header = await this.node.getHeader();
+    const header = await this.node.getBlockHeader(this.blockNumber);
     return header.state.partial.noteHashTree.root;
   }
 

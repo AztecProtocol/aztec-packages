@@ -58,6 +58,7 @@ locals {
   node_p2p_private_keys = var.NODE_P2P_PRIVATE_KEYS
   node_count            = length(local.prover_private_keys)
   data_dir              = "/usr/src/yarn-project/aztec"
+  eth_host              = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.API_KEY}"
 }
 
 output "node_count" {
@@ -234,14 +235,12 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "NODE_ENV", value = "production" },
         { name = "LOG_LEVEL", value = "verbose" },
         { name = "LOG_JSON", value = "1" },
-        { name = "DEBUG", value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*" },
         { name = "DEPLOY_TAG", value = var.DEPLOY_TAG },
         { name = "NETWORK_NAME", value = "${var.DEPLOY_TAG}" },
-        { name = "ETHEREUM_HOST", value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}" },
+        { name = "ETHEREUM_HOST", value = "${local.eth_host}" },
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "DATA_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/data" },
         { name = "DEPLOY_AZTEC_CONTRACTS", value = "false" },
-        { name = "IS_DEV_NET", value = "true" },
 
         // API
         { name = "AZTEC_PORT", value = "80" },
@@ -249,8 +248,9 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "API_PREFIX", value = "/${var.DEPLOY_TAG}/aztec-prover-node-${count.index + 1}/${var.API_KEY}" },
 
         // Archiver
-        { name = "ARCHIVER_POLLING_INTERVAL", value = "10000" },
-        { name = "ARCHIVER_L1_START_BLOCK", value = "15918000" },
+        { name = "ARCHIVER_POLLING_INTERVAL_MS", value = "10000" },
+        { name = "ARCHIVER_VIEM_POLLING_INTERVAL_MS", value = "10000" },
+        { name = "PROVER_VIEM_POLLING_INTERVAL_MS", value = "10000" },
 
         // Aztec node to pull clientivc proofs from (to be replaced with a p2p connection)
         { name = "TX_PROVIDER_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },
@@ -273,8 +273,8 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "INBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address },
         { name = "OUTBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address },
         { name = "REGISTRY_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address },
-        { name = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address },
         { name = "FEE_JUICE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address },
+        { name = "STAKING_ASSET_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.staking_asset_contract_address },
         { name = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS },
 
         // P2P (disabled)

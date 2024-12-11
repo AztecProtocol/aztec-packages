@@ -1,0 +1,1 @@
+This README ensures this folder exists in git. Ethereum state is written out here.

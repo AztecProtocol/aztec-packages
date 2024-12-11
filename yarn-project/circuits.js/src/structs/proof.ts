@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { AGGREGATION_OBJECT_LENGTH } from '../constants.gen.js';
 
@@ -61,7 +62,7 @@ export class Proof {
    * @returns The hex string representation of the proof data.
    */
   public toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   public withoutPublicInputs(): Buffer {
@@ -89,7 +90,14 @@ export class Proof {
    * @returns - A new Proof instance.
    */
   static fromString(str: string) {
-    return Proof.fromBuffer(Buffer.from(str, 'hex'));
+    return Proof.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns whether this proof is actually empty. */
+  public isEmpty() {
+    return (
+      this.buffer.length === EMPTY_PROOF_SIZE && this.buffer.every(byte => byte === 0) && this.numPublicInputs === 0
+    );
   }
 }
 

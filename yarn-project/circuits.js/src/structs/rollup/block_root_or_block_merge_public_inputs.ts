@@ -1,9 +1,12 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { EthAddress } from '../index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
@@ -43,11 +46,15 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
-    public fees: Tuple<FeeRecipient, 32>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
      * Root of the verification key tree.
      */
     public vkTreeRoot: Fr,
+    /**
+     * Root of the protocol contract tree.
+     */
+    public protocolContractTreeRoot: Fr,
     /**
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
@@ -69,7 +76,8 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
-      reader.readArray(32, FeeRecipient),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -90,6 +98,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.outHash,
       this.fees,
       this.vkTreeRoot,
+      this.protocolContractTreeRoot,
       this.proverId,
     );
   }
@@ -99,7 +108,7 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -108,7 +117,17 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootOrBlockMergePublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootOrBlockMergePublicInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BlockRootOrBlockMergePublicInputs);
   }
 }
 
@@ -130,5 +149,16 @@ export class FeeRecipient {
 
   toFields() {
     return serializeToFields(...FeeRecipient.getFields(this));
+  }
+
+  isEmpty() {
+    return this.value.isZero() && this.recipient.isZero();
+  }
+
+  toFriendlyJSON() {
+    if (this.isEmpty()) {
+      return {};
+    }
+    return { recipient: this.recipient.toString(), value: this.value.toString() };
   }
 }

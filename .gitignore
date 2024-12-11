@@ -8,6 +8,7 @@ build/
 .idea
 cmake-build-debug
 .terraform*
+terraform.tfstate*
 .bootstrapped
 .tsbuildinfo
 
@@ -24,5 +25,7 @@ cmake-build-debug
 .secret
 .bb_tmp
 
-# Terraform
-*.tfvars
+
+# tmux
+tmux-client-*.log
+.supermavenignore

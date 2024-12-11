@@ -1,10 +1,10 @@
-use dep::types::{hash::accumulate_sha256};
+use dep::types::hash::accumulate_sha256;
 
 // Note: Once we'll truncate sha256 to 1 Field we can nuke this and generalize the standard MerkleTree over different
 // hash functions.
 // TODO(Miranda): This is an interim version with 1 field sha256 - ideally we remove this and use accumulate_sha256 inside
 // the general MT
-struct Sha256MerkleTree<let N: u32> {
+pub struct Sha256MerkleTree<let N: u32> {
     leaves: [Field; N],
     nodes: [Field; N],
 }
@@ -19,28 +19,18 @@ impl<let N: u32> Sha256MerkleTree<N> {
 
         // hash base layer
         for i in 0..half_size {
-            nodes[i] = accumulate_sha256(
-                [
-                    leaves[2*i],
-                    leaves[2*i+1]
-                ]
-            );
+            nodes[i] = accumulate_sha256([leaves[2 * i], leaves[2 * i + 1]]);
         }
 
         // hash the other layers
         for i in 0..(total_nodes - half_size) {
-            nodes[half_size+i] = accumulate_sha256(
-                [
-                    nodes[2*i],
-                    nodes[2*i+1]
-                ]
-            );
+            nodes[half_size + i] = accumulate_sha256([nodes[2 * i], nodes[2 * i + 1]]);
         }
 
         Sha256MerkleTree { leaves, nodes }
     }
 
-    fn get_root(self) -> Field {
+    pub fn get_root(self) -> Field {
         self.nodes[N - 2]
     }
 }

@@ -1,16 +1,13 @@
-use crate::{traits::Empty, hash::merkle_hash};
+use crate::{hash::merkle_hash, traits::Empty};
 
-struct MerkleTree<let N: u32> {
-    leaves: [Field; N],
-    nodes: [Field; N],
+pub struct MerkleTree<let N: u32> {
+    pub leaves: [Field; N],
+    pub nodes: [Field; N],
 }
 
 impl<let N: u32> Empty for MerkleTree<N> {
     fn empty() -> Self {
-        MerkleTree {
-            leaves: [0; N],
-            nodes: [0; N]
-        }
+        MerkleTree { leaves: [0; N], nodes: [0; N] }
     }
 }
 
@@ -24,26 +21,30 @@ impl<let N: u32> MerkleTree<N> {
 
         // hash base layer
         for i in 0..half_size {
-            nodes[i] = merkle_hash(leaves[2*i],  leaves[2*i+1]);
+            nodes[i] = merkle_hash(leaves[2 * i], leaves[2 * i + 1]);
         }
 
         // hash the other layers
         for i in 0..(total_nodes - half_size) {
-            nodes[half_size+i] = merkle_hash(nodes[2*i],  nodes[2*i+1]);
+            nodes[half_size + i] = merkle_hash(nodes[2 * i], nodes[2 * i + 1]);
         }
 
         MerkleTree { leaves, nodes }
     }
 
-    fn get_root(self) -> Field {
+    pub fn get_root(self) -> Field {
         self.nodes[N - 2]
     }
 
     pub fn sibling_index(index: u32) -> u32 {
-        if index % 2 == 0 { index + 1 } else { index - 1 }
+        if index % 2 == 0 {
+            index + 1
+        } else {
+            index - 1
+        }
     }
 
-    fn get_sibling_path<let K: u32>(self, leaf_index: u32) -> [Field; K] {
+    pub fn get_sibling_path<let K: u32>(self, leaf_index: u32) -> [Field; K] {
         assert_eq(2.pow_32(K as Field), N as Field, "Invalid path length");
 
         let mut path = [0; K];
@@ -72,6 +73,9 @@ impl<let N: u32> MerkleTree<N> {
 }
 
 pub fn sibling_index(index: u32) -> u32 {
-    if index % 2 == 0 { index + 1 } else { index - 1 }
+    if index % 2 == 0 {
+        index + 1
+    } else {
+        index - 1
+    }
 }
-

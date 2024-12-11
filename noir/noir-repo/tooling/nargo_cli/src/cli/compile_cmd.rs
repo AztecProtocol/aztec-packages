@@ -5,15 +5,13 @@ use std::time::Duration;
 use acvm::acir::circuit::ExpressionWidth;
 use fm::FileManager;
 use nargo::ops::{collect_errors, compile_contract, compile_program, report_errors};
-use nargo::package::Package;
+use nargo::package::{CrateName, Package};
 use nargo::workspace::Workspace;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::DEFAULT_EXPRESSION_WIDTH;
 use noirc_driver::NOIR_ARTIFACT_VERSION_STRING;
 use noirc_driver::{CompilationResult, CompileOptions, CompiledContract};
-
-use noirc_frontend::graph::CrateName;
 
 use clap::Args;
 use noirc_frontend::hir::ParsedFiles;
@@ -67,6 +65,7 @@ pub(crate) fn run(args: CompileCommand, config: NargoConfig) -> Result<(), CliEr
     Ok(())
 }
 
+/// Continuously recompile the workspace on any Noir file change event.
 fn watch_workspace(workspace: &Workspace, compile_options: &CompileOptions) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -110,6 +109,8 @@ fn watch_workspace(workspace: &Workspace, compile_options: &CompileOptions) -> n
     Ok(())
 }
 
+/// Parse and compile the entire workspace, then report errors.
+/// This is the main entry point used by all other commands that need compilation.
 pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
@@ -131,6 +132,8 @@ pub(super) fn compile_workspace_full(
     Ok(())
 }
 
+/// Compile binary and contract packages.
+/// Returns the merged warnings or errors.
 fn compile_workspace(
     file_manager: &FileManager,
     parsed_files: &ParsedFiles,
@@ -146,6 +149,7 @@ fn compile_workspace(
     // Compile all of the packages in parallel.
     let program_warnings_or_errors: CompilationResult<()> =
         compile_programs(file_manager, parsed_files, workspace, &binary_packages, compile_options);
+
     let contract_warnings_or_errors: CompilationResult<()> = compiled_contracts(
         file_manager,
         parsed_files,
@@ -166,6 +170,7 @@ fn compile_workspace(
     }
 }
 
+/// Compile the given binary packages in the workspace.
 fn compile_programs(
     file_manager: &FileManager,
     parsed_files: &ParsedFiles,
@@ -173,6 +178,8 @@ fn compile_programs(
     binary_packages: &[Package],
     compile_options: &CompileOptions,
 ) -> CompilationResult<()> {
+    // Load any existing artifact for a given package, _iff_ it was compiled with the same nargo version.
+    // The loaded circuit includes backend specific transformations, which might be different from the current target.
     let load_cached_program = |package| {
         let program_artifact_path = workspace.package_build_path(package);
         read_program_from_file(program_artifact_path)
@@ -182,19 +189,45 @@ fn compile_programs(
     };
 
     let compile_package = |package| {
+        let cached_program = load_cached_program(package);
+
+        // Hash over the entire compiled program, including any post-compile transformations.
+        // This is used to detect whether `cached_program` is returned by `compile_program`.
+        let cached_hash = cached_program.as_ref().map(fxhash::hash64);
+
+        // Compile the program, or use the cached artifacts if it matches.
         let (program, warnings) = compile_program(
             file_manager,
             parsed_files,
             workspace,
             package,
             compile_options,
-            load_cached_program(package),
+            cached_program,
         )?;
 
+        // Choose the target width for the final, backend specific transformation.
         let target_width =
             get_target_width(package.expression_width, compile_options.expression_width);
-        let program = nargo::ops::transform_program(program, target_width);
 
+        // If the compiled program is the same as the cached one, we don't apply transformations again, unless the target width has changed.
+        // The transformations might not be idempotent, which would risk creating witnesses that don't work with earlier versions,
+        // based on which we might have generated a verifier already.
+        if cached_hash == Some(fxhash::hash64(&program)) {
+            let width_matches = program
+                .program
+                .functions
+                .iter()
+                .all(|circuit| circuit.expression_width == target_width);
+
+            if width_matches {
+                return Ok(((), warnings));
+            }
+        }
+        // Run ACVM optimizations and set the target width.
+        let program = nargo::ops::transform_program(program, target_width);
+        // Check solvability.
+        nargo::ops::check_program(&program)?;
+        // Overwrite the build artifacts with the final circuit, which includes the backend specific transformations.
         save_program_to_file(&program.into(), &package.name, workspace.target_directory_path());
 
         Ok(((), warnings))
@@ -210,6 +243,7 @@ fn compile_programs(
     collect_errors(program_results).map(|(_, warnings)| ((), warnings))
 }
 
+/// Compile the given contracts in the workspace.
 fn compiled_contracts(
     file_manager: &FileManager,
     parsed_files: &ParsedFiles,

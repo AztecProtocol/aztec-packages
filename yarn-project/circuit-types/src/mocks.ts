@@ -2,52 +2,92 @@ import {
   AztecAddress,
   CallContext,
   ClientIvcProof,
+  type ContractInstanceWithAddress,
+  EthAddress,
+  GasFees,
   GasSettings,
-  LogHash,
-  MAX_ENCRYPTED_LOGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
+  PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
-  PublicAccumulatedDataBuilder,
-  ScopedLogHash,
+  PrivateToPublicAccumulatedDataBuilder,
+  SerializableContractInstance,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import {
-  makeCombinedAccumulatedData,
-  makeCombinedConstantData,
-  makePublicCallRequest,
-} from '@aztec/circuits.js/testing';
+import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { times } from '@aztec/foundation/collection';
+import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
+import { ContractClassTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
+import { CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
+import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
+import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
-import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
+import { TxEffect } from './tx_effect.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
+
+export const mockPrivateExecutionResult = (
+  seed = 1,
+  numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+  numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+  hasPublicTeardownCallRequest = false,
+) => {
+  const totalPublicCallRequests =
+    numberOfNonRevertiblePublicCallRequests +
+    numberOfRevertiblePublicCallRequests +
+    (hasPublicTeardownCallRequest ? 1 : 0);
+  const isForPublic = totalPublicCallRequests > 0;
+  let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
+  let publicTeardownFunctionCall = PublicExecutionRequest.empty();
+  if (isForPublic) {
+    const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
+    const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
+    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+
+    if (hasPublicTeardownCallRequest) {
+      const request = publicCallRequests.shift()!;
+      const args = publicFunctionArgs.shift()!;
+      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
+    }
+
+    enqueuedPublicFunctionCalls = publicCallRequests.map(
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
+    );
+  }
+  return new PrivateExecutionResult(
+    Buffer.from(''),
+    Buffer.from(''),
+    new Map(),
+    PrivateCircuitPublicInputs.empty(),
+    new Map(),
+    [],
+    new Map(),
+    [],
+    [],
+    enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
+    publicTeardownFunctionCall,
+    [],
+  );
+};
 
 export const mockTx = (
   seed = 1,
   {
-    hasLogs = false,
-    numberOfNonRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
-    numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
+    numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+    numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     hasPublicTeardownCallRequest = false,
     feePayer = AztecAddress.ZERO,
   }: {
-    hasLogs?: boolean;
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     hasPublicTeardownCallRequest?: boolean;
@@ -61,143 +101,50 @@ export const mockTx = (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
-  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
-  const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
-  data.constants.txContext.gasSettings = GasSettings.default();
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
   data.feePayer = feePayer;
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
   let publicTeardownFunctionCall = PublicExecutionRequest.empty();
-  if (isForPublic) {
+  if (!isForPublic) {
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
+  } else {
     data.forRollup = undefined;
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
-    const revertibleBuilder = new PublicAccumulatedDataBuilder();
-    const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
+    const revertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
+    const nonRevertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.item.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
       data.forPublic.publicTeardownCallRequest = request;
       const args = publicFunctionArgs.shift()!;
-      publicTeardownFunctionCall = new PublicExecutionRequest(
-        request.item.contractAddress,
-        CallContext.fromFields(request.item.callContext.toFields()),
-        args,
-      );
+      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) =>
-        new PublicExecutionRequest(
-          r.item.contractAddress,
-          CallContext.fromFields(r.item.callContext.toFields()),
-          publicFunctionArgs[i],
-        ),
+      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
     );
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
-    nonRevertibleNullifiers[0] = firstNullifier;
-
-    data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNullifiers(nonRevertibleNullifiers)
-      .withPublicCallStack(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
+    data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
+      .pushNullifier(firstNullifier.value)
+      .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
-    data.forPublic.end = revertibleBuilder
-      .withPublicCallStack(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
+    data.forPublic.revertibleAccumulatedData = revertibleBuilder
+      .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
-
-    if (hasLogs) {
-      let i = 1; // 0 used in first nullifier
-      let nonRevertibleIndex = 0;
-      let revertibleIndex = 0;
-      let functionCount = 0;
-      encryptedLogs.functionLogs.forEach(functionLog => {
-        functionLog.logs.forEach(log => {
-          // ts complains if we dont check .forPublic here, even though it is defined ^
-          if (data.forPublic) {
-            const hash = new ScopedLogHash(
-              new LogHash(
-                Fr.fromBuffer(log.hash()),
-                i++,
-                // +4 for encoding the length of the buffer
-                new Fr(log.length + 4),
-              ),
-              log.maskedContractAddress,
-            );
-            // make the first log non-revertible
-            if (functionCount === 0) {
-              data.forPublic.endNonRevertibleData.encryptedLogsHashes[nonRevertibleIndex++] = hash;
-            } else {
-              data.forPublic.end.encryptedLogsHashes[revertibleIndex++] = hash;
-            }
-          }
-        });
-        functionCount++;
-      });
-      nonRevertibleIndex = 0;
-      revertibleIndex = 0;
-      functionCount = 0;
-      unencryptedLogs.functionLogs.forEach(functionLog => {
-        functionLog.logs.forEach(log => {
-          if (data.forPublic) {
-            const hash = new ScopedLogHash(
-              new LogHash(
-                Fr.fromBuffer(log.hash()),
-                i++,
-                // +4 for encoding the length of the buffer
-                new Fr(log.length + 4),
-              ),
-              log.contractAddress,
-            );
-            // make the first log non-revertible
-            if (functionCount === 0) {
-              data.forPublic.endNonRevertibleData.unencryptedLogsHashes[nonRevertibleIndex++] = hash;
-            } else {
-              data.forPublic.end.unencryptedLogsHashes[revertibleIndex++] = hash;
-            }
-          }
-        });
-        functionCount++;
-      });
-    }
-  } else {
-    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.noteEncryptedLogsHashes = padArrayEnd(
-      noteEncryptedLogs.unrollLogs().map(log => new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length))),
-      LogHash.empty(),
-      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    );
-    data.forRollup!.end.encryptedLogsHashes = padArrayEnd(
-      encryptedLogs
-        .unrollLogs()
-        .map(
-          log =>
-            new ScopedLogHash(new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)), log.maskedContractAddress),
-        ),
-      ScopedLogHash.empty(),
-      MAX_ENCRYPTED_LOGS_PER_TX,
-    );
-    data.forRollup!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty);
-    unencryptedLogs.unrollLogs().forEach((log, i) => {
-      data.forRollup!.end.unencryptedLogsHashes[i] = new ScopedLogHash(
-        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
-        log.contractAddress,
-      );
-    });
   }
 
   const tx = new Tx(
     data,
     ClientIvcProof.empty(),
-    noteEncryptedLogs,
-    encryptedLogs,
-    unencryptedLogs,
+    UnencryptedTxL2Logs.empty(),
+    ContractClassTxL2Logs.empty(),
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
   );
@@ -205,22 +152,41 @@ export const mockTx = (
   return tx;
 };
 
-export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boolean } = {}) =>
-  mockTx(seed, { hasLogs, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+export const mockTxForRollup = (seed = 1) =>
+  mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
-export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
-  const tx = mockTx(seed, { hasLogs });
-  const dec = new NestedProcessReturnValues([new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)]);
+export const mockSimulatedTx = (seed = 1) => {
+  const privateExecutionResult = mockPrivateExecutionResult(seed);
+  const tx = mockTx(seed);
   const output = new PublicSimulationOutput(
-    tx.encryptedLogs,
-    tx.unencryptedLogs,
     undefined,
     makeCombinedConstantData(),
-    makeCombinedAccumulatedData(),
-    [dec],
-    {},
+    TxEffect.random(),
+    [accumulatePrivateReturnValues(privateExecutionResult)],
+    {
+      totalGas: makeGas(),
+      teardownGas: makeGas(),
+    },
   );
-  return new SimulatedTx(tx, dec, output);
+  return new TxSimulationResult(privateExecutionResult, tx.data, output);
+};
+
+export const mockEpochProofQuote = (
+  epochToProve: bigint,
+  validUntilSlot?: bigint,
+  bondAmount?: bigint,
+  proverAddress?: EthAddress,
+  basisPointFee?: number,
+) => {
+  const quotePayload: EpochProofQuotePayload = new EpochProofQuotePayload(
+    epochToProve,
+    validUntilSlot ?? randomBigInt(10000n),
+    bondAmount ?? randomBigInt(10000n) + 1000n,
+    proverAddress ?? EthAddress.random(),
+    basisPointFee ?? randomInt(100),
+  );
+  const sig: Signature = Signature.empty();
+  return new EpochProofQuote(quotePayload, sig);
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({

@@ -1,23 +1,26 @@
 use crate::{
-    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees, constants::GLOBAL_VARIABLES_LENGTH,
-    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
+    abis::gas_fees::GasFees,
+    address::{AztecAddress, EthAddress},
+    constants::GLOBAL_VARIABLES_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:global-variables
-struct GlobalVariables {
-    chain_id : Field,
-    version : Field,
-    block_number : Field,
-    slot_number : Field,
-    timestamp : u64,
-    coinbase : EthAddress,
-    fee_recipient : AztecAddress,
-    gas_fees : GasFees
+pub struct GlobalVariables {
+    pub chain_id: Field,
+    pub version: Field,
+    pub block_number: Field,
+    pub slot_number: Field,
+    pub timestamp: u64,
+    pub coinbase: EthAddress,
+    pub fee_recipient: AztecAddress,
+    pub gas_fees: GasFees,
 }
 // docs:end:global-variables
 
 impl GlobalVariables {
-    fn is_empty(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.chain_id == 0)
             & (self.version == 0)
             & (self.block_number == 0)
@@ -42,7 +45,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         serialized.push(self.fee_recipient.to_field());
         serialized.extend_from_array(self.gas_fees.serialize());
 
-        serialized.storage
+        serialized.storage()
     }
 }
 
@@ -57,21 +60,21 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
             timestamp: reader.read() as u64,
             coinbase: EthAddress::from_field(reader.read()),
             fee_recipient: AztecAddress::from_field(reader.read()),
-            gas_fees: reader.read_struct(GasFees::deserialize)
+            gas_fees: reader.read_struct(GasFees::deserialize),
         }
     }
 }
 
 impl Eq for GlobalVariables {
-    fn eq(self, other : GlobalVariables) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.block_number == other.block_number) &
-        (self.slot_number == other.slot_number) &
-        (self.timestamp == other.timestamp) &
-        (self.coinbase == other.coinbase) &
-        (self.fee_recipient == other.fee_recipient) &
-        (self.gas_fees == other.gas_fees)
+    fn eq(self, other: GlobalVariables) -> bool {
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.block_number == other.block_number)
+            & (self.slot_number == other.slot_number)
+            & (self.timestamp == other.timestamp)
+            & (self.coinbase == other.coinbase)
+            & (self.fee_recipient == other.fee_recipient)
+            & (self.gas_fees == other.gas_fees)
     }
 }
 
@@ -85,7 +88,7 @@ impl Empty for GlobalVariables {
             timestamp: 0,
             coinbase: EthAddress::empty(),
             fee_recipient: AztecAddress::empty(),
-            gas_fees: GasFees::empty()
+            gas_fees: GasFees::empty(),
         }
     }
 }

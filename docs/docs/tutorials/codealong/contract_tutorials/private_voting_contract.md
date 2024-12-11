@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../guides/developer_guides/getting_started/quickstart.md) to install `aztec-nargo` and `aztec`.
+- You have followed the [quickstart](../../../guides/getting_started) to install `aztec-nargo` and `aztec`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -48,7 +48,7 @@ We will need the Aztec library to create this contract. In your `Nargo.toml` you
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ## Initiate the contract and define imports
@@ -74,7 +74,7 @@ We are using various utils within the Aztec `prelude` library:
 - `PrivateContext` - exposes things such as the contract address, msg_sender, etc
 - `Map` - A data storage type for storing candidates with the number of votes they have
 - `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `SharedImmutable` - an immutable storage value that is accessible in private and public execution.
+- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
 
 ## Set up storage
 
@@ -128,17 +128,13 @@ The first thing we do here is assert that the vote has not ended.
 
 The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the `candidate`, add 1 to it, and write this new number to the `candidate`. The `Field` element allows us to use `+` to add to an integer.
 
-:::warning
-Refer to [common patterns (Guides section)](../../../guides/developer_guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md) for more information about key rotation and considerations.
-:::
-
 ## Getting the number of votes
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
 #include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state. 
+We set it as `unconstrained` and do not annotate it because it is only reading from state.
 
 ## Allowing an admin to end a voting period
 
@@ -176,7 +172,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Unconstrained functions](../../../aztec/smart_contracts/functions/index.md).
- - [Oracles](../../../aztec/smart_contracts/oracles/index.md)
- - [Nullifier secrets](../../../aztec/concepts/accounts/keys.md#nullifier-secrets).
- - [How to deploy a contract to the sandbox](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md)
+- [Unconstrained functions](../../../aztec/smart_contracts/functions/index.md).
+- [Oracles](../../../aztec/smart_contracts/oracles/index.md)
+- [Nullifier secrets](../../../aztec/concepts/accounts/keys.md#nullifier-secrets).
+- [How to deploy a contract to the sandbox](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md)

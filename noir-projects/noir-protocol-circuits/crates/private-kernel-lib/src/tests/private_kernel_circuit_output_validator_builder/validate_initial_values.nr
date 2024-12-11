@@ -10,8 +10,7 @@ fn validate_initial_values_empty_data_succeeds() {
 /**
  * constants
  */
-
-#[test(should_fail_with="mismatch tx_context")]
+#[test(should_fail_with = "mismatch tx_context")]
 fn validate_initial_values_constants_mismatch_chain_id_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -20,7 +19,7 @@ fn validate_initial_values_constants_mismatch_chain_id_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="mismatch historical_header")]
+#[test(should_fail_with = "mismatch historical_header")]
 fn validate_initial_values_constants_mismatch_txs_effects_hash_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -29,29 +28,21 @@ fn validate_initial_values_constants_mismatch_txs_effects_hash_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="constants.global_variables must be empty")]
-fn validate_initial_values_constants_non_empty_global_variables_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.global_variables.block_number += 1;
-
-    builder.validate_as_first_call();
-}
-
 /**
  * First nullifier.
  */
-
-#[test(should_fail_with="first nullifier must be the tx request nullifier")]
+#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
 fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.nullifiers.storage[0].nullifier.value += 1;
+    let mut nullifier = builder.output.nullifiers.get(0);
+    nullifier.nullifier.value += 1;
+    builder.output.nullifiers.set(0, nullifier);
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="first nullifier must be the tx request nullifier")]
+#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
 fn validate_initial_values_constants_empty_first_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -63,7 +54,6 @@ fn validate_initial_values_constants_empty_first_nullifier_fails() {
 /**
  * min_revertible_side_effect_counter
  */
-
 #[test]
 fn validate_initial_values_min_revertible_side_effect_counter_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -74,7 +64,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_succeeds() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial min_revertible_side_effect_counter")]
+#[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
 fn validate_initial_values_min_revertible_side_effect_counter_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -84,7 +74,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_mismatch_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial min_revertible_side_effect_counter")]
+#[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
 fn validate_initial_values_min_revertible_side_effect_counter_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -93,7 +83,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_empty_output_fails
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial min_revertible_side_effect_counter")]
+#[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
 fn validate_initial_values_min_revertible_side_effect_counter_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -105,7 +95,6 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 /**
  * max_block_number
  */
-
 #[test]
 fn validate_initial_values_max_block_number_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -116,7 +105,7 @@ fn validate_initial_values_max_block_number_succeeds() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial max_block_number")]
+#[test(should_fail_with = "incorrect initial max_block_number")]
 fn validate_initial_values_max_block_number_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -126,7 +115,7 @@ fn validate_initial_values_max_block_number_mismatch_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial max_block_number")]
+#[test(should_fail_with = "incorrect initial max_block_number")]
 fn validate_initial_values_max_block_number_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -135,7 +124,7 @@ fn validate_initial_values_max_block_number_empty_output_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial max_block_number")]
+#[test(should_fail_with = "incorrect initial max_block_number")]
 fn validate_initial_values_max_block_number_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -147,43 +136,42 @@ fn validate_initial_values_max_block_number_random_output_fails() {
 /**
  * public_teardown_call_request
  */
-
 #[test]
 fn validate_initial_values_public_teardown_call_request_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial public_teardown_call_request")]
+#[test(should_fail_with = "incorrect initial public_teardown_call_request")]
 fn validate_initial_values_public_teardown_call_request_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_stack.storage[0].item.args_hash += 1;
+    builder.output.public_teardown_call_request.args_hash += 1;
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial public_teardown_call_request")]
+#[test(should_fail_with = "incorrect initial public_teardown_call_request")]
 fn validate_initial_values_public_teardown_call_request_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial public_teardown_call_request")]
+#[test(should_fail_with = "incorrect initial public_teardown_call_request")]
 fn validate_initial_values_public_teardown_call_request_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.append_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_first_call();
 }
@@ -191,7 +179,6 @@ fn validate_initial_values_public_teardown_call_request_random_output_fails() {
 /**
  * fee_payer
  */
-
 #[test]
 fn validate_initial_values_fee_payer_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
@@ -202,7 +189,7 @@ fn validate_initial_values_fee_payer_succeeds() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial fee_payer")]
+#[test(should_fail_with = "incorrect initial fee_payer")]
 fn validate_initial_values_fee_payer_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -214,7 +201,7 @@ fn validate_initial_values_fee_payer_mismatch_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial fee_payer")]
+#[test(should_fail_with = "incorrect initial fee_payer")]
 fn validate_initial_values_fee_payer_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -223,7 +210,7 @@ fn validate_initial_values_fee_payer_empty_output_fails() {
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="incorrect initial fee_payer")]
+#[test(should_fail_with = "incorrect initial fee_payer")]
 fn validate_initial_values_fee_payer_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

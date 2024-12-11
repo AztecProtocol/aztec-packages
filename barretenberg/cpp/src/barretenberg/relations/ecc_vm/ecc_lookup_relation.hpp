@@ -31,6 +31,9 @@ polynomials,
         LENGTH - 1  // left-shiftable polynomial sub-relation
     };
 
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 17;
+
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)

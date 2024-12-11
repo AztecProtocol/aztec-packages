@@ -3,20 +3,19 @@ import {
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
 } from '@aztec/circuit-types';
-import type { CircuitName, CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import type { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
-  type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { siloNoteHash } from '@aztec/circuits.js/hash';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type ProtocolArtifact,
@@ -26,6 +25,8 @@ import {
   executeReset,
   executeTail,
   executeTailForPublic,
+  getPrivateKernelResetArtifactName,
+  maxPrivateKernelResetDimensions,
 } from '@aztec/noir-protocol-circuits-types';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -34,16 +35,10 @@ import { type WitnessMap } from '@noir-lang/types';
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestPrivateKernelProver implements PrivateKernelProver {
-  constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
+  constructor(private log = createLogger('pxe:test_proof_creator')) {}
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
-  }
-
-  public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
-    const contractAddress = publicInputs.callContext.storageContractAddress;
-
-    return Promise.resolve(publicInputs.noteHashes.map(commitment => siloNoteHash(contractAddress, commitment.value)));
   }
 
   public async simulateProofInit(
@@ -75,19 +70,20 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
   }
 
   public async simulateProofReset(
-    privateInputs: PrivateKernelResetCircuitPrivateInputsVariants,
+    privateInputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    const [duration, result] = await elapsed(() => executeReset(privateInputs));
+    const variantPrivateInputs = privateInputs.trimToSizes();
+    const [duration, result] = await elapsed(() => executeReset(variantPrivateInputs, privateInputs.dimensions));
     this.log.debug(`Simulated private kernel reset`, {
       eventName: 'circuit-simulation',
-      circuitName: ('private-kernel-reset-' + privateInputs.sizeTag) as CircuitName,
+      circuitName: 'private-kernel-reset',
       duration,
-      inputSize: privateInputs.toBuffer().length,
+      inputSize: variantPrivateInputs.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
     return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
       result,
-      'PrivateKernelResetFullArtifact',
+      getPrivateKernelResetArtifactName(maxPrivateKernelResetDimensions),
     );
   }
 
@@ -111,24 +107,29 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    // No gates in test prover
+    return Promise.resolve(0);
+  }
+
   computeAppCircuitVerificationKey(
     _bytecode: Buffer,
     _appCircuitName?: string | undefined,
   ): Promise<AppCircuitSimulateOutput> {
     const appCircuitProofOutput: AppCircuitSimulateOutput = {
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
     return Promise.resolve(appCircuitProofOutput);
   }
 
-  private makeEmptyKernelSimulateOutput<PublicInputsType>(
-    publicInputs: PublicInputsType,
-    circuitType: ProtocolArtifact,
-  ) {
+  private makeEmptyKernelSimulateOutput<
+    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
+  >(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
       outputWitness: new Map(),
+      bytecode: Buffer.from([]),
     };
     return kernelProofOutput;
   }

@@ -1,7 +1,11 @@
-global MAX_COMMITMENTS_PER_CALL = 2;
-global MAX_COMMITMENTS_PER_TX = 4;
-global MAX_COMMITMENT_READ_REQUESTS_PER_CALL = 2;
-global MAX_COMMITMENT_READ_REQUESTS_PER_TX = 4;
+global MAX_COMMITMENTS_PER_CALL: u32 = 2;
+global MAX_COMMITMENTS_PER_TX: u32 = 4;
+global MAX_COMMITMENT_READ_REQUESTS_PER_CALL: u32 = 2;
+global MAX_COMMITMENT_READ_REQUESTS_PER_TX: u32 = 4;
+
+pub use protocol_types::constants::{
+    CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, PROOF_TYPE_OINK, PROOF_TYPE_PG,
+};
 
 struct TxRequest {
     number_of_calls: u32,
@@ -45,14 +49,18 @@ struct PrivateKernelPublicInputsBuilder {
 
 impl PrivateKernelPublicInputsBuilder {
     fn from_tx(tx: TxRequest) -> Self {
-        Self { remaining_calls: tx.number_of_calls, commitments: BoundedVec::new(), read_requests: BoundedVec::new() }
+        Self {
+            remaining_calls: tx.number_of_calls,
+            commitments: BoundedVec::new(),
+            read_requests: BoundedVec::new(),
+        }
     }
 
     fn from_previous_kernel(prev_kernel_public_inputs: PrivateKernelPublicInputs) -> Self {
         let mut builder = PrivateKernelPublicInputsBuilder {
             remaining_calls: prev_kernel_public_inputs.remaining_calls,
             commitments: BoundedVec::new(),
-            read_requests: BoundedVec::new()
+            read_requests: BoundedVec::new(),
         };
         for i in 0..MAX_COMMITMENTS_PER_TX {
             if prev_kernel_public_inputs.commitments[i] != 0 {
@@ -86,8 +94,8 @@ impl PrivateKernelPublicInputsBuilder {
     fn finish(self) -> PrivateKernelPublicInputs {
         PrivateKernelPublicInputs {
             remaining_calls: self.remaining_calls,
-            commitments: self.commitments.storage,
-            read_requests: self.read_requests.storage
+            commitments: self.commitments.storage(),
+            read_requests: self.read_requests.storage(),
         }
     }
 }
@@ -98,9 +106,7 @@ struct KernelPublicInputs {
 
 impl Default for KernelPublicInputs {
     fn default() -> Self {
-        Self {
-            commitments: [0; MAX_COMMITMENTS_PER_TX],
-        }
+        Self { commitments: [0; MAX_COMMITMENTS_PER_TX] }
     }
 }
 

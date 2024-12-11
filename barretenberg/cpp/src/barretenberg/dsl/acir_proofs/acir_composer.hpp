@@ -17,9 +17,10 @@ class AcirComposer {
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     template <typename Builder = bb::UltraCircuitBuilder>
-    void create_circuit(acir_format::AcirFormat& constraint_system,
-                        WitnessVector const& witness = {},
-                        bool collect_gates_per_opcode = false);
+    void create_finalized_circuit(acir_format::AcirFormat& constraint_system,
+                                  bool recursive,
+                                  WitnessVector const& witness = {},
+                                  bool collect_gates_per_opcode = false);
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 
@@ -32,12 +33,18 @@ class AcirComposer {
     bool verify_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
-    size_t get_total_circuit_size() { return builder_.get_total_circuit_size(); };
-    size_t get_dyadic_circuit_size() { return builder_.get_circuit_subgroup_size(builder_.get_total_circuit_size()); };
+    size_t get_finalized_total_circuit_size() { return builder_.get_finalized_total_circuit_size(); };
+    size_t get_finalized_dyadic_circuit_size()
+    {
+        return builder_.get_circuit_subgroup_size(builder_.get_finalized_total_circuit_size());
+    };
+    size_t get_estimated_total_circuit_size() { return builder_.get_estimated_total_circuit_size(); };
 
     std::vector<bb::fr> serialize_proof_into_fields(std::vector<uint8_t> const& proof, size_t num_inner_public_inputs);
 
     std::vector<bb::fr> serialize_verification_key_into_fields();
+
+    void finalize_circuit() { builder_.finalize_circuit(/*ensure_nonzero=*/false); }
 
   private:
     acir_format::Builder builder_;

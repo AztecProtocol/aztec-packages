@@ -1,7 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { STRING_ENCODING, type UInt32 } from '../shared.js';
+import { inspect } from 'util';
+import { z } from 'zod';
+
+import { type UInt32 } from '../shared.js';
 
 /**
  * Snapshot of an append only tree.
@@ -26,6 +31,15 @@ export class AppendOnlyTreeSnapshot {
     public nextAvailableLeafIndex: UInt32,
   ) {}
 
+  static get schema() {
+    return z
+      .object({
+        root: schemas.Fr,
+        nextAvailableLeafIndex: schemas.UInt32,
+      })
+      .transform(({ root, nextAvailableLeafIndex }) => new AppendOnlyTreeSnapshot(root, nextAvailableLeafIndex));
+  }
+
   getSize() {
     return this.root.size + 4;
   }
@@ -39,7 +53,7 @@ export class AppendOnlyTreeSnapshot {
   }
 
   toString(): string {
-    return this.toBuffer().toString(STRING_ENCODING);
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): AppendOnlyTreeSnapshot {
@@ -48,7 +62,7 @@ export class AppendOnlyTreeSnapshot {
   }
 
   static fromString(str: string): AppendOnlyTreeSnapshot {
-    return AppendOnlyTreeSnapshot.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return AppendOnlyTreeSnapshot.fromBuffer(hexToBuffer(str));
   }
 
   static fromFields(fields: Fr[] | FieldReader): AppendOnlyTreeSnapshot {
@@ -63,5 +77,15 @@ export class AppendOnlyTreeSnapshot {
 
   isZero(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
+  }
+
+  [inspect.custom]() {
+    return `AppendOnlyTreeSnapshot { root: ${this.root.toString()}, nextAvailableLeafIndex: ${
+      this.nextAvailableLeafIndex
+    } }`;
+  }
+
+  public equals(other: this) {
+    return this.root.equals(other.root) && this.nextAvailableLeafIndex === other.nextAvailableLeafIndex;
   }
 }

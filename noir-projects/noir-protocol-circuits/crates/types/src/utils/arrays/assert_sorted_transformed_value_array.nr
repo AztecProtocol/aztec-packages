@@ -4,14 +4,18 @@ pub fn assert_sorted_transformed_value_array<T, S, let N: u32, Env>(
     original_array: [T; N],
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
-    sorted_indexes: [u32; N]
-) where T: Eq + Empty, S: Ordered + Eq + Empty {
+    sorted_indexes: [u32; N],
+)
+where
+    T: Eq + Empty,
+    S: Ordered + Eq + Empty,
+{
     assert_sorted_transformed_value_array_capped_size(
         original_array,
         sorted_transformed_value_array,
         is_transformed,
         sorted_indexes,
-        N
+        N,
     );
 }
 
@@ -22,8 +26,12 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
     sorted_indexes: [u32; N],
-    capped_size: u32
-) where T: Eq + Empty, S: Ordered + Eq + Empty {
+    capped_size: u32,
+)
+where
+    T: Eq + Empty,
+    S: Ordered + Eq + Empty,
+{
     let num_non_empty_items = array_length(original_array);
     let mut should_be_empty = false;
     for i in 0..N {
@@ -42,7 +50,8 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
                 assert(is_mapped_item_empty, "unexpected non-empty item");
             } else if i != 0 {
                 assert(
-                    mapped_item.counter() > sorted_transformed_value_array[i - 1].counter(), "value array must be sorted by counter in ascending order"
+                    mapped_item.counter() > sorted_transformed_value_array[i - 1].counter(),
+                    "value array must be sorted by counter in ascending order",
                 );
             }
         } else {
@@ -54,7 +63,10 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
 mod tests {
     use crate::{
         tests::types::{is_summed_from_two_values, TestTwoValues, TestValue},
-        utils::arrays::{assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}}
+        utils::arrays::assert_sorted_transformed_value_array::{
+            assert_sorted_transformed_value_array,
+            assert_sorted_transformed_value_array_capped_size,
+        },
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -71,7 +83,7 @@ mod tests {
                 TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
                 TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
                 TestTwoValues::empty(),
-                TestTwoValues::empty()
+                TestTwoValues::empty(),
             ];
 
             let sorted_transformed_value_array = [
@@ -80,7 +92,7 @@ mod tests {
                 TestValue { value: 48, counter: 33 },
                 TestValue { value: 15, counter: 44 },
                 TestValue::empty(),
-                TestValue::empty()
+                TestValue::empty(),
             ];
 
             let sorted_indexes = [3, 1, 0, 2, 4, 5];
@@ -93,7 +105,7 @@ mod tests {
                 self.original_array,
                 self.sorted_transformed_value_array,
                 is_summed_from_two_values,
-                self.sorted_indexes
+                self.sorted_indexes,
             );
         }
 
@@ -103,7 +115,7 @@ mod tests {
                 self.sorted_transformed_value_array,
                 is_summed_from_two_values,
                 self.sorted_indexes,
-                capped_size
+                capped_size,
             );
         }
     }
@@ -114,7 +126,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -124,7 +136,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    #[test(should_fail_with = "value array must be sorted by counter in ascending order")]
     fn assert_sorted_transformed_value_array_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -144,29 +156,29 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
 
         builder.execute();
     }
 
-    #[test(should_fail_with="unexpected non-empty item")]
+    #[test(should_fail_with = "unexpected non-empty item")]
     fn assert_sorted_transformed_value_array_hint_to_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
         // Change the hint to point to an empty item.
         builder.sorted_indexes[4] = 5;
 
         builder.execute();
     }
 
-    #[test(should_fail_with="incorrect transformed value")]
+    #[test(should_fail_with = "incorrect transformed value")]
     fn assert_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -182,18 +194,18 @@ mod tests {
         builder.execute_capped(5);
     }
 
-    #[test(should_fail_with="capped_size does not cover all non-empty items")]
+    #[test(should_fail_with = "capped_size does not cover all non-empty items")]
     fn assert_sorted_transformed_value_array_capped_size_not_fully_covered_fails() {
         let builder = TestDataBuilder::new();
         builder.execute_capped(3);
     }
 
-    #[test(should_fail_with="array must be padded with empty items")]
+    #[test(should_fail_with = "array must be padded with empty items")]
     fn assert_sorted_transformed_value_array_capped_size_extra_non_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item outside of capped_size.
-        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue { value: 10, counter: 55 };
 
         builder.execute_capped(4);
     }

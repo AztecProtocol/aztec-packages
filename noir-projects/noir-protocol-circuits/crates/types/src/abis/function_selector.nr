@@ -1,11 +1,8 @@
-use crate::utils::field::field_from_bytes;
-use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
+use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 
-global SELECTOR_SIZE = 4;
-
-struct FunctionSelector {
+pub struct FunctionSelector {
     // 1st 4-bytes of abi-encoding of function.
-    inner: u32,
+    pub inner: u32,
 }
 
 impl Eq for FunctionSelector {
@@ -22,9 +19,7 @@ impl Serialize<1> for FunctionSelector {
 
 impl Deserialize<1> for FunctionSelector {
     fn deserialize(fields: [Field; 1]) -> Self {
-        Self {
-            inner: fields[0] as u32
-        }
+        Self { inner: fields[0] as u32 }
     }
 }
 
@@ -53,17 +48,26 @@ impl FunctionSelector {
 
     pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
         let bytes = signature.as_bytes();
-        let hash = std::hash::keccak256(bytes, bytes.len() as u32);
+        let hash = crate::hash::poseidon2_hash_bytes(bytes);
 
-        let mut selector_be_bytes = [0; SELECTOR_SIZE];
-        for i in 0..SELECTOR_SIZE {
-            selector_be_bytes[i] = hash[i];
-        }
-
-        FunctionSelector::from_field(field_from_bytes(selector_be_bytes, true))
+        // `hash` is automatically truncated to fit within 32 bits.
+        FunctionSelector::from_field(hash)
     }
 
     pub fn zero() -> Self {
         Self { inner: 0 }
     }
+}
+
+#[test]
+fn test_is_valid_selector() {
+    let selector = FunctionSelector::from_signature("IS_VALID()");
+    assert_eq(selector.to_field(), 0x73cdda47);
+}
+
+#[test]
+fn test_long_selector() {
+    let selector =
+        FunctionSelector::from_signature("foo_and_bar_and_baz_and_foo_bar_baz_and_bar_foo");
+    assert_eq(selector.to_field(), 0x7590a997);
 }

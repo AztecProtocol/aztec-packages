@@ -1,13 +1,15 @@
 use crate::{
-    constants::TX_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
-    abis::gas_settings::GasSettings
+    abis::gas_settings::GasSettings,
+    constants::TX_CONTEXT_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:tx-context
-struct TxContext {
-    chain_id : Field,
-    version : Field,
-    gas_settings: GasSettings,
+pub struct TxContext {
+    pub chain_id: Field,
+    pub version: Field,
+    pub gas_settings: GasSettings,
 }
 // docs:end:tx-context
 
@@ -19,19 +21,15 @@ impl TxContext {
 
 impl Eq for TxContext {
     fn eq(self, other: Self) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.gas_settings.eq(other.gas_settings))
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.gas_settings.eq(other.gas_settings))
     }
 }
 
 impl Empty for TxContext {
     fn empty() -> Self {
-        TxContext {
-            chain_id: 0,
-            version: 0,
-            gas_settings: GasSettings::empty(),
-        }
+        TxContext { chain_id: 0, version: 0, gas_settings: GasSettings::empty() }
     }
 }
 
@@ -45,7 +43,7 @@ impl Serialize<TX_CONTEXT_LENGTH> for TxContext {
 
         assert_eq(fields.len(), TX_CONTEXT_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

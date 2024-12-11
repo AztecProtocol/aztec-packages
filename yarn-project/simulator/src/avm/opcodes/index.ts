@@ -11,3 +11,5 @@ export * from './storage.js';
 export * from './external_calls.js';
 export * from './environment_getters.js';
 export * from './accrued_substate.js';
+export * from './hashing.js';
+export * from './ec_add.js';

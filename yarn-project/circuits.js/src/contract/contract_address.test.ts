@@ -40,6 +40,7 @@ describe('ContractAddress', () => {
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: 'private' }],
       returnTypes: [],
+      errorTypes: {},
     };
     const mockArgs: any[] = [true];
     const result = computeInitializationHash(mockInitFn, mockArgs);
@@ -57,10 +58,10 @@ describe('ContractAddress', () => {
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
-    const publicKeysHash = deriveKeys(secretKey).publicKeys.hash();
+    const publicKeys = deriveKeys(secretKey).publicKeys;
 
     const address = computeContractAddressFromInstance({
-      publicKeysHash,
+      publicKeys,
       salt,
       contractClassId,
       initializationHash,

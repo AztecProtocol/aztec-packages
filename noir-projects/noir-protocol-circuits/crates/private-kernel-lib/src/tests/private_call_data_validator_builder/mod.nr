@@ -13,13 +13,14 @@ mod validate_private_call_requests;
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::{
-    note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
-    private_kernel::private_call_data::PrivateCallData
-},
-    tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
+        note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+        private_kernel::private_call_data::PrivateCallData,
+    },
+    tests::fixture_builder::FixtureBuilder,
+    transaction::tx_request::TxRequest,
 };
 
-struct PrivateCallDataValidatorBuilder {
+pub struct PrivateCallDataValidatorBuilder {
     private_call: FixtureBuilder,
     previous_note_hashes: BoundedVec<ScopedNoteHash, 4>,
 }
@@ -34,11 +35,6 @@ impl PrivateCallDataValidatorBuilder {
         let private_call = FixtureBuilder::new_from_counter(counter);
         let previous_note_hashes = BoundedVec::new();
         PrivateCallDataValidatorBuilder { private_call, previous_note_hashes }
-    }
-
-    pub fn is_delegate_call(&mut self) -> Self {
-        let _ = self.private_call.is_delegate_call();
-        *self
     }
 
     pub fn is_static_call(&mut self) -> Self {
@@ -59,7 +55,10 @@ impl PrivateCallDataValidatorBuilder {
         let private_call = self.private_call.to_private_call_data();
         let mut accumulated_note_hashes = self.previous_note_hashes;
         accumulated_note_hashes.extend_from_bounded_vec(self.private_call.note_hashes);
-        PrivateCallDataValidator::new(private_call).validate(accumulated_note_hashes.storage);
+        PrivateCallDataValidator::new(private_call).validate(
+            accumulated_note_hashes.storage(),
+            self.private_call.protocol_contract_tree_root,
+        );
     }
 
     pub fn validate_as_first_call(self) {
@@ -79,6 +78,9 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn validate_with_private_call_data(self, data: PrivateCallData) {
         let accumulated_note_hashes = self.previous_note_hashes;
-        PrivateCallDataValidator::new(data).validate(accumulated_note_hashes.storage);
+        PrivateCallDataValidator::new(data).validate(
+            accumulated_note_hashes.storage(),
+            self.private_call.protocol_contract_tree_root,
+        );
     }
 }

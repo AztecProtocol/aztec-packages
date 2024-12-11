@@ -6,6 +6,7 @@ import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
+import getPort from 'get-port';
 import { type Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
@@ -51,7 +52,7 @@ export const browserTestSuite = (
      */
     pxeURL: string;
   }>,
-  pageLogger: AztecJs.DebugLogger,
+  pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
@@ -77,16 +78,18 @@ export const browserTestSuite = (
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
 
+      const debuggingPort = await getPort({ port: 9222 });
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
         headless: true,
+        debuggingPort,
         args: [
           '--no-sandbox',
           '--headless',
           '--disable-gpu',
           '--disable-dev-shm-usage',
           '--disable-software-rasterizer',
-          '--remote-debugging-port=9222',
+          `--remote-debugging-port=${debuggingPort}`,
         ],
       });
       page = await browser.newPage();
@@ -94,7 +97,7 @@ export const browserTestSuite = (
         pageLogger.info(msg.text());
       });
       page.on('pageerror', err => {
-        pageLogger.error(err.toString());
+        pageLogger.error(`Error on web page`, err);
       });
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
@@ -145,14 +148,14 @@ export const browserTestSuite = (
     it('Can access CompleteAddress class in browser', async () => {
       const result: string = await page.evaluate(() => {
         const completeAddress = window.AztecJs.CompleteAddress.fromString(
-          '0x05eb10b0bda78b5d8dc91de3d62bed7b55d73b5509521a9f8ef7269133e58a8c2c93b9572b35f9c9e07e9003ae1ca444442a165f927bce00e347dab57cc19391148730d0deec722eb6c54747df7345bc2ab3bd8e81f438b17b81ccabd9e6a3ac0708920251ccaf6664d769cbc47c8d767f64912639e13d9f9e441b225066161900c48a65eea83f1dbf217c43daf1be6ba9cefd2754f07e3cc13e81e5432e47f30dfb47c8b1e11368bec638fd9d22c696bf9c323a0fd09050745f4b7cf150bfa529a9f3062ee5f9d0a099ac53b4e1130653fb797ed2b59914a8915951d13ad8252521211957a854707af85ad40e9ab4d474a4fcbdcbe7a47866cae0db4fd86ed2261669d85a9cfbd09365a6db5d7acfe5560104a0cb893a375d6c08ffb9cbb8270be446a16361f271ac11899ee19f990c68035da18703ba00c8e9773dfe6a784a',
+          '0x2401bfdad7ac9282bd612e8a6bb0f6ce125b08e317e24dc04ddbba24694ac2e7261249d8b3ad8ad9ed075257eede1dcd8356bfd55e1518f07717c47609194b6500c926582f07fda6a53e3600251f2aa1401c0cd377cef064f3f59045222194541acc5f62d8907a6dc98b85e32f8097a152c3c795bb3981c64e576b014f23005e0891d109aa087560cf8720ae94098827aa009a0bcee09f98fd2a05a7cbc6185402a53516a379d7856d26e3bb5542f1fe57f1ee5a0e4c60f7a463205aa19e2f8e00bce110b9a89857b79e3f70777e38a262b04cf80c56bd833a3c4b58dde7dbdc25c807c4012229e08651fd0d48cf9d966d9ab18826692f48a4cf934bef78614023e9cb95711f532786c7c78e72c3752f03f2a4cafc1846ad9df47324e2b7683f0faaa2e6fe44f3ff68646ce7d8538cb6935ce25472c4c75a244ab0c5d2e3b74d',
         );
         // NOTE: browser does not know how to serialize CompleteAddress for return, so return a string
         // otherwise returning a CompleteAddress makes result undefined.
         return completeAddress.toString();
       });
       expect(result).toBe(
-        '0x05eb10b0bda78b5d8dc91de3d62bed7b55d73b5509521a9f8ef7269133e58a8c2c93b9572b35f9c9e07e9003ae1ca444442a165f927bce00e347dab57cc19391148730d0deec722eb6c54747df7345bc2ab3bd8e81f438b17b81ccabd9e6a3ac0708920251ccaf6664d769cbc47c8d767f64912639e13d9f9e441b225066161900c48a65eea83f1dbf217c43daf1be6ba9cefd2754f07e3cc13e81e5432e47f30dfb47c8b1e11368bec638fd9d22c696bf9c323a0fd09050745f4b7cf150bfa529a9f3062ee5f9d0a099ac53b4e1130653fb797ed2b59914a8915951d13ad8252521211957a854707af85ad40e9ab4d474a4fcbdcbe7a47866cae0db4fd86ed2261669d85a9cfbd09365a6db5d7acfe5560104a0cb893a375d6c08ffb9cbb8270be446a16361f271ac11899ee19f990c68035da18703ba00c8e9773dfe6a784a',
+        '0x2401bfdad7ac9282bd612e8a6bb0f6ce125b08e317e24dc04ddbba24694ac2e7261249d8b3ad8ad9ed075257eede1dcd8356bfd55e1518f07717c47609194b6500c926582f07fda6a53e3600251f2aa1401c0cd377cef064f3f59045222194541acc5f62d8907a6dc98b85e32f8097a152c3c795bb3981c64e576b014f23005e0891d109aa087560cf8720ae94098827aa009a0bcee09f98fd2a05a7cbc6185402a53516a379d7856d26e3bb5542f1fe57f1ee5a0e4c60f7a463205aa19e2f8e00bce110b9a89857b79e3f70777e38a262b04cf80c56bd833a3c4b58dde7dbdc25c807c4012229e08651fd0d48cf9d966d9ab18826692f48a4cf934bef78614023e9cb95711f532786c7c78e72c3752f03f2a4cafc1846ad9df47324e2b7683f0faaa2e6fe44f3ff68646ce7d8538cb6935ce25472c4c75a244ab0c5d2e3b74d',
       );
     });
 
@@ -215,10 +218,6 @@ export const browserTestSuite = (
             createPXEClient,
             getSchnorrAccount,
             Contract,
-            Fr,
-            ExtendedNote,
-            Note,
-            computeSecretHash,
             getDeployedTestAccountsWallets,
             INITIAL_TEST_SECRET_KEYS,
             INITIAL_TEST_SIGNING_KEYS,
@@ -244,9 +243,8 @@ export const browserTestSuite = (
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];
-          const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
-            owner.getCompleteAddress().publicKeys.hash(),
+            owner.getCompleteAddress().publicKeys,
             owner,
             TokenContractArtifact,
             (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
@@ -255,25 +253,10 @@ export const browserTestSuite = (
           const { contract: token, txHash } = await tx.wait();
 
           console.log(`Contract Deployed: ${token.address}`);
-          const secret = Fr.random();
-          const secretHash = computeSecretHash(secret);
-          const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-          const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
-
-          const noteTypeId = token.artifact.notes['TransparentNote'].id;
-          const note = new Note([new Fr(initialBalance), secretHash]);
-          const extendedNote = new ExtendedNote(
-            note,
-            ownerAddress,
-            token.address,
-            storageSlot,
-            noteTypeId,
-            mintPrivateReceipt.txHash,
-          );
-          await owner.addNote(extendedNote);
-
-          await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
+          // We mint tokens to the owner
+          const from = owner.getAddress(); // we are setting from to owner here because of TODO(#9887)
+          await token.methods.mint_to_private(from, owner.getAddress(), initialBalance).send().wait();
 
           return [txHash.toString(), token.address.toString()];
         },

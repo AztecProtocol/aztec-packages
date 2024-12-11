@@ -2,8 +2,7 @@ import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type Wallet } from '../account/index.js';
-import { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/index.js';
-import { waitForAccountSynch } from '../utils/account.js';
+import { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
 
 /** Extends a transaction receipt with a wallet instance for the newly deployed contract. */
 export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
@@ -37,7 +36,6 @@ export class DeployAccountSentTx extends SentTx {
   public override async wait(opts: WaitOpts = DefaultWaitOpts): Promise<DeployAccountTxReceipt> {
     const receipt = await super.wait(opts);
     const wallet = await this.getWalletPromise;
-    await waitForAccountSynch(this.pxe, wallet.getCompleteAddress(), opts);
     return { ...receipt, wallet };
   }
 }

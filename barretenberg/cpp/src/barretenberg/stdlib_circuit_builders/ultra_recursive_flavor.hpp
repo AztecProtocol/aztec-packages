@@ -69,6 +69,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
 
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
 
@@ -123,35 +125,14 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
-            this->contains_recursive_proof = native_key->contains_recursive_proof;
-            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
-            this->q_m = Commitment::from_witness(builder, native_key->q_m);
-            this->q_l = Commitment::from_witness(builder, native_key->q_l);
-            this->q_r = Commitment::from_witness(builder, native_key->q_r);
-            this->q_o = Commitment::from_witness(builder, native_key->q_o);
-            this->q_4 = Commitment::from_witness(builder, native_key->q_4);
-            this->q_c = Commitment::from_witness(builder, native_key->q_c);
-            this->q_arith = Commitment::from_witness(builder, native_key->q_arith);
-            this->q_delta_range = Commitment::from_witness(builder, native_key->q_delta_range);
-            this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
-            this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
-            this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
-            this->q_poseidon2_external = Commitment::from_witness(builder, native_key->q_poseidon2_external);
-            this->q_poseidon2_internal = Commitment::from_witness(builder, native_key->q_poseidon2_internal);
-            this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
-            this->sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
-            this->sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
-            this->sigma_4 = Commitment::from_witness(builder, native_key->sigma_4);
-            this->id_1 = Commitment::from_witness(builder, native_key->id_1);
-            this->id_2 = Commitment::from_witness(builder, native_key->id_2);
-            this->id_3 = Commitment::from_witness(builder, native_key->id_3);
-            this->id_4 = Commitment::from_witness(builder, native_key->id_4);
-            this->table_1 = Commitment::from_witness(builder, native_key->table_1);
-            this->table_2 = Commitment::from_witness(builder, native_key->table_2);
-            this->table_3 = Commitment::from_witness(builder, native_key->table_3);
-            this->table_4 = Commitment::from_witness(builder, native_key->table_4);
-            this->lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
-            this->lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
+            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                native_key->pairing_point_accumulator_public_input_indices;
+
+            // Generate stdlib commitments (biggroup) from the native counterparts
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
+                commitment = Commitment::from_witness(builder, native_commitment);
+            }
         };
 
         /**
@@ -162,43 +143,41 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
-            // deserialize circuit size
+            using namespace bb::stdlib::field_conversion;
+
             size_t num_frs_read = 0;
-            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
+            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->contains_pairing_point_accumulator =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
-
-            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                      .get_value());
-            num_frs_read += num_frs_FF;
-
-            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                this->recursive_proof_public_input_indices[i] =
-                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                 builder, elements.subspan(num_frs_read, num_frs_FF))
-                                 .get_value());
-                num_frs_read += num_frs_FF;
+            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            for (Commitment& comm : this->get_all()) {
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+            for (Commitment& commitment : this->get_all()) {
+                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
+        }
+
+        /**
+         * @brief Construct a VerificationKey from a set of corresponding witness indices
+         *
+         * @param builder
+         * @param witness_indices
+         * @return VerificationKey
+         */
+        static VerificationKey from_witness_indices(CircuitBuilder& builder,
+                                                    const std::span<const uint32_t>& witness_indices)
+        {
+            std::vector<FF> vkey_fields;
+            vkey_fields.reserve(witness_indices.size());
+            for (const auto& idx : witness_indices) {
+                vkey_fields.emplace_back(FF::from_witness_index(&builder, idx));
+            }
+            return VerificationKey(builder, vkey_fields);
         }
     };
 

@@ -13,6 +13,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  yarn-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Errors if installation would result in modifications to yarn.lock
+      - name: Install
+        run: yarn --immutable
+        shell: bash
+
   build-nargo:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -73,11 +86,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: noirc_abi_wasm
-          path: | 
+          path: |
             ./tooling/noirc_abi_wasm/nodejs
             ./tooling/noirc_abi_wasm/web
           retention-days: 10
-
 
   build-noir-wasm:
     runs-on: ubuntu-latest
@@ -183,7 +195,7 @@ jobs:
         with:
           name: acvm-js
           path: ./acvm-repo/acvm_js
-      
+
       - name: Set up test environment
         uses: ./.github/actions/setup
 
@@ -230,13 +242,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Download nargo binary
         uses: actions/download-artifact@v4
         with:
           name: nargo
           path: ./nargo
-      
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -248,7 +260,7 @@ jobs:
         with:
           name: noirc_abi_wasm
           path: ./tooling/noirc_abi_wasm
-      
+
       - name: Set nargo on PATH
         run: |
           nargo_binary="${{ github.workspace }}/nargo/nargo"
@@ -262,9 +274,6 @@ jobs:
 
       - name: Build noir_js_types
         run: yarn workspace @noir-lang/types build
-
-      - name: Build barretenberg wrapper
-        run: yarn workspace @noir-lang/backend_barretenberg build
 
       - name: Run noir_js tests
         run: |
@@ -336,13 +345,13 @@ jobs:
         with:
           name: acvm-js
           path: ./acvm-repo/acvm_js
-      
+
       - name: Download noirc_abi package artifact
         uses: actions/download-artifact@v4
         with:
           name: noirc_abi_wasm
           path: ./tooling/noirc_abi_wasm
-      
+
       - name: Set nargo on PATH
         run: |
           nargo_binary="${{ github.workspace }}/nargo/nargo"
@@ -416,7 +425,7 @@ jobs:
       - name: Setup `integration-tests`
         run: |
           # Note the lack of spaces between package names.
-          PACKAGES_TO_BUILD="@noir-lang/types,@noir-lang/backend_barretenberg,@noir-lang/noir_js"
+          PACKAGES_TO_BUILD="@noir-lang/types,@noir-lang/noir_js"
           yarn workspaces foreach -vtp --from "{$PACKAGES_TO_BUILD}" run build
 
       - name: Run `integration-tests`
@@ -461,14 +470,14 @@ jobs:
       - name: Setup `integration-tests`
         run: |
           # Note the lack of spaces between package names.
-          PACKAGES_TO_BUILD="@noir-lang/types,@noir-lang/backend_barretenberg,@noir-lang/noir_js"
+          PACKAGES_TO_BUILD="@noir-lang/types,@noir-lang/noir_js"
           yarn workspaces foreach -vtp --from "{$PACKAGES_TO_BUILD}" run build
 
       - name: Run `integration-tests`
         working-directory: ./compiler/integration-tests
         run: |
           yarn test:browser
-  
+
   test-examples:
     name: Example scripts
     runs-on: ubuntu-latest
@@ -481,6 +490,9 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.2.0
+        with:
+          version: nightly-8660e5b941fe7f4d67e246cfd3dafea330fb53b1
+          
 
       - name: Install `bb`
         run: |
@@ -509,6 +521,80 @@ jobs:
         working-directory: ./examples/codegen_verifier
         run: ./test.sh
 
+  critical-library-list:
+    name: Load critical library list
+    runs-on: ubuntu-latest
+    outputs:
+      libraries: ${{ steps.get_critical_libraries.outputs.libraries }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+   
+      - name: Build list of libraries
+        id: get_critical_libraries
+        run: |         
+          LIBRARIES=$(grep -Po "^https://github.com/\K.+"  ./CRITICAL_NOIR_LIBRARIES | jq -R -s -c 'split("\n") | map(select(. != "")) | map({ repo: ., path: "./"})')
+          echo "libraries=$LIBRARIES"
+          echo "libraries=$LIBRARIES" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  external-repo-checks:
+    needs: [build-nargo, critical-library-list]
+    runs-on: ubuntu-latest
+    # Only run when 'run-external-checks' label is present
+    if: contains(github.event.pull_request.labels.*.name, 'run-external-checks')
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson( needs.critical-library-list.outputs.libraries )}}
+        include:
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/aztec-nr }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-contracts }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-protocol-circuits/crates/parity-lib }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-protocol-circuits/crates/private-kernel-lib }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-protocol-circuits/crates/reset-kernel-lib }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-protocol-circuits/crates/rollup-lib }
+          - project: { repo: AztecProtocol/aztec-packages, path: ./noir-projects/noir-protocol-circuits/crates/types }
+
+    name: Check external repo - ${{ matrix.project.repo }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.project.repo }}
+          path: test-repo
+          ref: ${{ matrix.project.ref }}
+
+      - name: Download nargo binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nargo
+          path: ./nargo
+
+      - name: Set nargo on PATH
+        run: |
+          nargo_binary="${{ github.workspace }}/nargo/nargo"
+          chmod +x $nargo_binary
+          echo "$(dirname $nargo_binary)" >> $GITHUB_PATH
+          export PATH="$PATH:$(dirname $nargo_binary)"
+          nargo -V
+
+      - name: Remove requirements on compiler version
+        working-directory: ./test-repo
+        run: |
+          # Github actions seems to not expand "**" in globs by default.
+          shopt -s globstar
+          sed -i '/^compiler_version/d' ./**/Nargo.toml
+      
+      - name: Run nargo test
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        run: nargo test --silence-warnings
+        env:
+          NARGO_IGNORE_TEST_FAILURES_FROM_FOREIGN_CALLS: true
+
   # This is a job which depends on all test jobs and reports the overall status.
   # This allows us to add/remove test jobs without having to update the required workflows.
   tests-end:
@@ -516,7 +602,8 @@ jobs:
     runs-on: ubuntu-latest
     # We want this job to always run (even if the dependant jobs fail) as we want this job to fail rather than skipping.
     if: ${{ always() }}
-    needs: 
+    needs:
+      - yarn-lock
       - test-acvm_js-node
       - test-acvm_js-browser
       - test-noirc-abi
@@ -526,7 +613,7 @@ jobs:
       - test-integration-node
       - test-integration-browser
       - test-examples
-    
+
     steps:
         - name: Report overall success
           run: |

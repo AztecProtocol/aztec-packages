@@ -1,4 +1,4 @@
-import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo } from '@aztec/circuit-types';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -46,9 +46,11 @@ export interface P2PService {
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
-  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation>): void;
+  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
   getEnr(): ENR | undefined;
+
+  getPeers(includePending?: boolean): PeerInfo[];
 }
 
 /**

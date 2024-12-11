@@ -5,7 +5,7 @@
 
 namespace bb {
 
-template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
+template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>()
 {
     return UltraFlavor::AllValues{};
 }
@@ -19,7 +19,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 {
     // Create a copy of the input circuit and finalize it
     Builder builder{ builder_in };
-    builder.finalize_circuit();
+    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;
@@ -47,12 +47,24 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
         block_idx++;
     }
 
+#ifdef ULTRA_FUZZ
+    result = result & relaxed_check_delta_range_relation(builder);
+    if (!result) {
+        return false;
+    }
+    result = result & relaxed_check_aux_relation(builder);
+    if (!result) {
+        return false;
+    }
+#endif
+#ifndef ULTRA_FUZZ
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
     if (!result) {
         info("Failed tag check.");
         return false;
     }
+#endif
 
     return result;
 };
@@ -93,6 +105,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
+#ifndef ULTRA_FUZZ
         result = result && check_relation<Auxiliary>(values, params);
         if (!result) {
             return report_fail("Failed Auxiliary relation at row idx = ", idx);
@@ -101,6 +114,19 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
+#else
+        // Bigfield related auxiliary gates
+        if (values.q_aux == 1) {
+            bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
+            bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
+            if (f0 && f1) {
+                result = result && check_relation<Auxiliary>(values, params);
+                if (!result) {
+                    return report_fail("Failed Non Native Auxiliary relation at row idx = ", idx);
+                }
+            }
+        }
+#endif
         result = result && check_lookup(values, lookup_hash_table);
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
@@ -293,8 +319,153 @@ void UltraCircuitChecker::populate_values(
     }
 }
 
+#ifdef ULTRA_FUZZ
+
+/**
+ * @brief Check that delta range relation is satisfied
+ * @details For fuzzing purposes, we skip delta range finalization step
+ * because of its complexity. Instead, we simply check all the range constraints
+ * in the old-fashioned way.
+ * In case there're any processed sort constraints, we also check them using ranges.
+ *
+ * @tparam Builder
+ * @param builder Circuit Builder
+ * @return all the variables are properly range constrained
+ */
+template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_relation(Builder& builder)
+{
+    std::unordered_map<uint32_t, uint64_t> range_tags;
+    for (const auto& list : builder.range_lists) {
+        range_tags[list.second.range_tag] = list.first;
+    }
+
+    // Unprocessed blocks check
+    for (uint32_t i = 0; i < builder.real_variable_tags.size(); i++) {
+        uint32_t tag = builder.real_variable_tags[i];
+        if (tag != 0 && range_tags.contains(tag)) {
+            uint256_t range = static_cast<uint256_t>(range_tags[tag]);
+            uint256_t value = static_cast<uint256_t>(builder.get_variable(i));
+            if (value > range) {
+                info("Failed range constraint on variable with index = ", i, ": ", value, " > ", range);
+                return false;
+            }
+        }
+    }
+
+    // Processed blocks check
+    auto block = builder.blocks.delta_range;
+    for (size_t idx = 0; idx < block.size(); idx++) {
+        if (block.q_delta_range()[idx] == 0) {
+            continue;
+        }
+        bb::fr w1 = builder.get_variable(block.w_l()[idx]);
+        bb::fr w2 = builder.get_variable(block.w_r()[idx]);
+        bb::fr w3 = builder.get_variable(block.w_o()[idx]);
+        bb::fr w4 = builder.get_variable(block.w_4()[idx]);
+        bb::fr w5 = idx == block.size() - 1 ? builder.get_variable(0) : builder.get_variable(block.w_l()[idx + 1]);
+
+        uint256_t delta = static_cast<uint256_t>(w2 - w1);
+        if (delta > 3) {
+            info("Failed sort constraint relation at row idx = ", idx, " with delta1 = ", delta);
+            info(w1 - w2);
+            return false;
+        }
+        delta = static_cast<uint256_t>(w3 - w2);
+        if (delta > 3) {
+            info("Failed sort constraint relation at row idx = ", idx, " with delta2 = ", delta);
+            return false;
+        }
+        delta = static_cast<uint256_t>(w4 - w3);
+        if (delta > 3) {
+            info("Failed sort constraint at row idx = ", idx, " with delta3 = ", delta);
+            return false;
+        }
+        delta = static_cast<uint256_t>(w5 - w4);
+        if (delta > 3) {
+            info("Failed sort constraint at row idx = ", idx, " with delta4 = ", delta);
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief Check that aux relation is satisfied
+ * @details For fuzzing purposes, we skip RAM/ROM finalization step
+ * because of its complexity.
+ * Instead
+ * - For ROM gates we simply check that the state is consistent with read calls
+ * - For RAM gates we simulate the call trace for the state and compare the final
+ * result with the state in builder, hence checking it's overall consistency
+ *
+ * @tparam Builder
+ * @param builder Circuit Builder
+ * @return all the memory calls are valid
+ */
+template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation(Builder& builder)
+{
+    for (size_t i = 0; i < builder.rom_arrays.size(); i++) {
+        auto rom_array = builder.rom_arrays[i];
+
+        // check set and read ROM records
+        for (auto& rr : rom_array.records) {
+            uint32_t value_witness_1 = rr.value_column1_witness;
+            uint32_t value_witness_2 = rr.value_column2_witness;
+            uint32_t index = static_cast<uint32_t>(builder.get_variable(rr.index_witness));
+
+            uint32_t table_witness_1 = rom_array.state[index][0];
+            uint32_t table_witness_2 = rom_array.state[index][1];
+
+            if (builder.get_variable(value_witness_1) != builder.get_variable(table_witness_1)) {
+                info("Failed SET/Read ROM[0] in table = ", i, " at idx = ", index);
+                return false;
+            }
+            if (builder.get_variable(value_witness_2) != builder.get_variable(table_witness_2)) {
+                info("Failed SET/Read ROM[1] in table = ", i, " at idx = ", index);
+                return false;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < builder.ram_arrays.size(); i++) {
+        auto ram_array = builder.ram_arrays[i];
+
+        std::vector<uint32_t> tmp_state(ram_array.state.size());
+
+        // Simulate the memory call trace
+        for (auto& rr : ram_array.records) {
+            uint32_t index = static_cast<uint32_t>(builder.get_variable(rr.index_witness));
+            uint32_t value_witness = rr.value_witness;
+            auto access_type = rr.access_type;
+
+            uint32_t table_witness = tmp_state[index];
+
+            switch (access_type) {
+            case Builder::RamRecord::AccessType::READ:
+                if (builder.get_variable(value_witness) != builder.get_variable(table_witness)) {
+                    info("Failed RAM read in table = ", i, " at idx = ", index);
+                    return false;
+                }
+                break;
+            case Builder::RamRecord::AccessType::WRITE:
+                tmp_state[index] = value_witness;
+                break;
+            default:
+                return false;
+            }
+        }
+
+        if (tmp_state != ram_array.state) {
+            info("Failed RAM final state check at table = ", i);
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 // Template method instantiations for each check method
-template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
-    const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
+template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(
+    const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in);
 template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
 } // namespace bb

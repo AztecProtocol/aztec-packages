@@ -75,6 +75,9 @@ TEST_F(PermutationHelperTests, ComputeHonkStyleSigmaLagrangePolynomialsFromMappi
     // TODO(#425) Flesh out these tests
     auto mapping =
         compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get(), {});
+    for (auto& sigma : proving_key->polynomials.get_sigmas()) {
+        sigma = typename Flavor::Polynomial(proving_key->circuit_size);
+    }
     compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
         proving_key->polynomials.get_sigmas(), mapping.sigmas, proving_key.get());
 }

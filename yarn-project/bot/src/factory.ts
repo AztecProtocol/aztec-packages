@@ -1,11 +1,20 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, BatchCall, createDebugLogger, createPXEClient } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  BatchCall,
+  type DeployMethod,
+  type DeployOptions,
+  createLogger,
+  createPXEClient,
+  retryUntil,
+} from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { type BotConfig } from './config.js';
-import { getBalances } from './utils.js';
+import { type BotConfig, SupportedTokenContracts } from './config.js';
+import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
@@ -13,7 +22,7 @@ const MIN_BALANCE = 1e3;
 export class BotFactory {
   private pxe: PXE;
   private node?: AztecNode;
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   constructor(private readonly config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}) {
     if (config.flushSetupTransactions && !dependencies.node) {
@@ -57,12 +66,23 @@ export class BotFactory {
     const isInit = await this.pxe.isContractInitialized(account.getAddress());
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
-      return account.register();
+      const wallet = await account.register();
+      const blockNumber = await this.pxe.getBlockNumber();
+      await retryUntil(
+        async () => {
+          const status = await this.pxe.getSyncStatus();
+          return blockNumber <= status.blocks;
+        },
+        'pxe synch',
+        3600,
+        1,
+      );
+      return wallet;
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
       const sentTx = account.deploy();
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+      this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
         await this.node!.flushTxs();
@@ -86,9 +106,21 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(wallet: AccountWallet): Promise<TokenContract> {
-    const deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
-    const deployOpts = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+  private async setupToken(wallet: AccountWallet): Promise<TokenContract | EasyPrivateTokenContract> {
+    let deploy: DeployMethod<TokenContract | EasyPrivateTokenContract>;
+    const deployOpts: DeployOptions = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+    if (this.config.contract === SupportedTokenContracts.TokenContract) {
+      deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
+    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
+      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
+      deployOpts.skipPublicDeployment = true;
+      deployOpts.skipClassRegistration = true;
+      deployOpts.skipInitialization = false;
+      deployOpts.skipPublicSimulation = true;
+    } else {
+      throw new Error(`Unsupported token contract type: ${this.config.contract}`);
+    }
+
     const address = deploy.getInstance(deployOpts).address;
     if (await this.pxe.isContractPubliclyDeployed(address)) {
       this.log.info(`Token at ${address.toString()} already deployed`);
@@ -97,7 +129,7 @@ export class BotFactory {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+      this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
         await this.node!.flushTxs();
@@ -111,17 +143,32 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
-  private async mintTokens(token: TokenContract) {
+  private async mintTokens(token: TokenContract | EasyPrivateTokenContract) {
     const sender = token.wallet.getAddress();
-    const { privateBalance, publicBalance } = await getBalances(token, sender);
+    const isStandardToken = isStandardTokenContract(token);
+    let privateBalance = 0n;
+    let publicBalance = 0n;
+
+    if (isStandardToken) {
+      ({ privateBalance, publicBalance } = await getBalances(token, sender));
+    } else {
+      privateBalance = await getPrivateBalance(token, sender);
+    }
+
     const calls: FunctionCall[] = [];
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
-      calls.push(token.methods.privately_mint_private_note(MINT_BALANCE).request());
+
+      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      calls.push(
+        isStandardToken
+          ? token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
+          : token.methods.mint(MINT_BALANCE, sender).request(),
+      );
     }
-    if (publicBalance < MIN_BALANCE) {
+    if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_public(sender, MINT_BALANCE).request());
+      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE).request());
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
@@ -129,7 +176,7 @@ export class BotFactory {
     }
     const sentTx = new BatchCall(token.wallet, calls).send();
     const txHash = await sentTx.getTxHash();
-    this.log.info(`Sent tx with hash ${txHash.to0xString()}`);
+    this.log.info(`Sent tx with hash ${txHash.toString()}`);
     if (this.config.flushSetupTransactions) {
       this.log.verbose('Flushing transactions');
       await this.node!.flushTxs();

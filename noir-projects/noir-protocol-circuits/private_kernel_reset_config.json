@@ -1,0 +1,55 @@
+{
+  "dimensions": {
+    "NOTE_HASH_PENDING_AMOUNT": {
+      "variants": [32],
+      "standalone": [64],
+      "cost": 100
+    },
+    "NOTE_HASH_SETTLED_AMOUNT": {
+      "variants": [4, 16],
+      "standalone": [64],
+      "cost": 3000
+    },
+    "NULLIFIER_PENDING_AMOUNT": {
+      "variants": [32],
+      "standalone": [64],
+      "cost": 100
+    },
+    "NULLIFIER_SETTLED_AMOUNT": {
+      "variants": [4, 16],
+      "standalone": [64],
+      "cost": 3000
+    },
+    "NULLIFIER_KEYS": {
+      "variants": [4],
+      "standalone": [64],
+      "cost": 2500
+    },
+    "TRANSIENT_DATA_AMOUNT": {
+      "variants": [4],
+      "standalone": [64],
+      "cost": 100
+    },
+    "NOTE_HASH_SILOING_AMOUNT": {
+      "variants": [4, 64],
+      "standalone": [],
+      "cost": 250
+    },
+    "NULLIFIER_SILOING_AMOUNT": {
+      "variants": [4, 64],
+      "standalone": [],
+      "cost": 150
+    },
+    "PRIVATE_LOG_SILOING_AMOUNT": {
+      "variants": [4, 32],
+      "standalone": [],
+      "cost": 150
+    }
+  },
+  "specialCases": [
+    [4, 4, 4, 4, 4, 4, 4, 4, 4],
+    [16, 16, 16, 16, 16, 16, 16, 16, 16],
+    [32, 32, 32, 32, 32, 32, 32, 32, 32],
+    [64, 64, 64, 64, 64, 64, 64, 64, 32]
+  ]
+}

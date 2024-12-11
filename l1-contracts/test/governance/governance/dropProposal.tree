@@ -1,0 +1,25 @@
+DropProposalTest
+├── given proposal is stable
+│   ├── given proposal is Dropped
+│   │   └── it revert
+│   └── given proposal is Executed
+│       └── it revert
+└── given proposal is unstable
+    ├── when getProposalState is not Dropped
+    │   ├── when getProposalState is Pending
+    │   │   └── it revert
+    │   ├── when getProposalState is Active
+    │   │   └── it revert
+    │   ├── when getProposalState is Queued
+    │   │   └── it revert
+    │   ├── when getProposalState is Executable
+    │   │   └── it revert
+    │   ├── when getProposalState is Rejected
+    │   │   └── it revert
+    │   ├── when getProposalState is Executed
+    │   │   └── it revert
+    │   └── when getProposalState is Expired
+    │       └── it revert
+    └── when getProposalState is Dropped
+        ├── it updates state to Dropped
+        └── it return true

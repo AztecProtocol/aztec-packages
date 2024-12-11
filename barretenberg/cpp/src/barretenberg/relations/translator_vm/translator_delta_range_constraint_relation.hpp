@@ -24,7 +24,7 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
 
     };
     /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+     * @brief Upper bound on the degrees of subrelations considered as polynomials only in witness
 polynomials,
      * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
@@ -42,6 +42,10 @@ polynomials,
         2  // ordered_range_constraints_4 ends with defined maximum value subrelation
 
     };
+
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 11;
+
     /**
      * @brief Expression for the generalized permutation sort relation
      *

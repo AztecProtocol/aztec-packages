@@ -1,15 +1,15 @@
 use dep::aztec::{
     context::PrivateContext,
+    hash::poseidon2_hash_with_separator,
     protocol_types::constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
-    hash::poseidon2_hash_with_separator
 };
 
+use crate::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
-use crate::auth::{IS_VALID_SELECTOR, compute_authwit_message_hash};
 
-struct AccountActions<Context> {
-  context: Context,
-  is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
+pub struct AccountActions<Context> {
+    context: Context,
+    is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
 }
 
 impl<Context> AccountActions<Context> {
@@ -40,7 +40,7 @@ impl AccountActions<&mut PrivateContext> {
 
         let combined_payload_hash = poseidon2_hash_with_separator(
             [app_payload.hash(), fee_payload.hash()],
-            GENERATOR_INDEX__COMBINED_PAYLOAD
+            GENERATOR_INDEX__COMBINED_PAYLOAD,
         );
         assert(valid_fn(self.context, combined_payload_hash));
 
@@ -48,7 +48,8 @@ impl AccountActions<&mut PrivateContext> {
         self.context.end_setup();
         app_payload.execute_calls(self.context);
         if cancellable {
-            let tx_nullifier = poseidon2_hash_with_separator([app_payload.nonce], GENERATOR_INDEX__TX_NULLIFIER);
+            let tx_nullifier =
+                poseidon2_hash_with_separator([app_payload.nonce], GENERATOR_INDEX__TX_NULLIFIER);
             self.context.push_nullifier(tx_nullifier);
         }
     }
@@ -73,7 +74,7 @@ impl AccountActions<&mut PrivateContext> {
             self.context.msg_sender(),
             self.context.chain_id(),
             self.context.version(),
-            inner_hash
+            inner_hash,
         );
         let valid_fn = self.is_valid_impl;
         assert(valid_fn(self.context, message_hash) == true, "Message not authorized by account");

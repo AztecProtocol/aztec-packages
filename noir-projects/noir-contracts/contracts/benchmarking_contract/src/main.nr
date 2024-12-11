@@ -3,23 +3,26 @@
 // would alter the metrics we're capturing in the benchmarks, and we want to keep the
 // subject being tested as unmodified as possible so we can detect metric changes that
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Benchmarking {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, Map, PublicMutable, PrivateSet};
-    use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
+    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
+    use dep::value_note::{utils::increment, value_note::ValueNote};
 
-    use dep::aztec::context::gas::GasOpts;
+    use dep::aztec::macros::{functions::{private, public}, storage::storage};
 
-    #[aztec(storage)]
-    struct Storage {
-        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
-        balances: Map<AztecAddress, PublicMutable<Field>>,
+    #[storage]
+    struct Storage<Context> {
+        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
-    #[aztec(private)]
-    fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+    #[private]
+    fn create_note(owner: AztecAddress, sender: AztecAddress, value: Field) {
         // docs:start:increment_valuenote
-        increment(storage.notes.at(owner), value, owner, outgoing_viewer);
+        increment(storage.notes.at(owner), value, owner, sender);
         // docs:end:increment_valuenote
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
@@ -27,17 +30,17 @@ contract Benchmarking {
     // multiple txs that will land on the same block.
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
-    #[aztec(private)]
-    fn recreate_note(owner: AztecAddress, outgoing_viewer: AztecAddress, index: u32) {
+    #[private]
+    fn recreate_note(owner: AztecAddress, sender: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value, owner, outgoing_viewer);
+        increment(owner_notes, note.value, owner, sender);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
-    #[aztec(public)]
+    #[public]
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
@@ -45,7 +48,7 @@ contract Benchmarking {
     }
 
     // Emits a public log.
-    #[aztec(public)]
+    #[public]
     fn broadcast(owner: AztecAddress) {
         context.emit_unencrypted_log(storage.balances.at(owner).read());
     }

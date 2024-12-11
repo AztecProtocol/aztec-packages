@@ -1,9 +1,9 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
-
+#include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include <algorithm>
 #include <cassert>
-
-#include "barretenberg/vm/avm/trace/mem_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -72,35 +72,104 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
     return (ind_value & (1 << operand_idx)) != 0;
 }
 
-std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& public_inputs,
-                                                        std::vector<FF> const& calldata,
-                                                        std::vector<FF> const& returndata)
+std::string to_hex(AvmMemoryTag tag)
 {
-    // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
-    // For each of the public input vectors
-    std::vector<FF> public_inputs_kernel_inputs(std::get<KERNEL_INPUTS>(public_inputs).begin(),
-                                                std::get<KERNEL_INPUTS>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_value_outputs(std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).begin(),
-                                                       std::get<KERNEL_OUTPUTS_VALUE>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_side_effect_outputs(
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).begin(),
-        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs).end());
-    std::vector<FF> public_inputs_kernel_metadata_outputs(std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).begin(),
-                                                          std::get<KERNEL_OUTPUTS_METADATA>(public_inputs).end());
+    return to_hex(static_cast<uint8_t>(tag));
+}
 
-    assert(public_inputs_kernel_inputs.size() == KERNEL_INPUTS_LENGTH);
-    assert(public_inputs_kernel_value_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_side_effect_outputs.size() == KERNEL_OUTPUTS_LENGTH);
-    assert(public_inputs_kernel_metadata_outputs.size() == KERNEL_OUTPUTS_LENGTH);
+std::string to_name(AvmMemoryTag tag)
+{
+    switch (tag) {
+    case AvmMemoryTag::FF:
+        return "Field";
+    case AvmMemoryTag::U1:
+        return "Uint1";
+    case AvmMemoryTag::U8:
+        return "Uint8";
+    case AvmMemoryTag::U16:
+        return "Uint16";
+    case AvmMemoryTag::U32:
+        return "Uint32";
+    case AvmMemoryTag::U64:
+        return "Uint64";
+    case AvmMemoryTag::U128:
+        return "Uint128";
+    default:
+        throw std::runtime_error("Invalid memory tag");
+        break;
+    }
+}
 
-    return {
-        std::move(public_inputs_kernel_inputs),
-        std::move(public_inputs_kernel_value_outputs),
-        std::move(public_inputs_kernel_side_effect_outputs),
-        std::move(public_inputs_kernel_metadata_outputs),
-        calldata,
-        returndata,
-    };
+std::string to_name(AvmError error)
+{
+    switch (error) {
+    case AvmError::NO_ERROR:
+        return "NO ERROR";
+    case AvmError::REVERT_OPCODE:
+        return "REVERT OPCODE";
+    case AvmError::INVALID_PROGRAM_COUNTER:
+        return "INVALID PROGRAM COUNTER";
+    case AvmError::INVALID_OPCODE:
+        return "INVALIE OPCODE";
+    case AvmError::INVALID_TAG_VALUE:
+        return "INVALID TAG VALUE";
+    case AvmError::CHECK_TAG_ERROR:
+        return "TAG CHECKING ERROR";
+    case AvmError::ADDR_RES_TAG_ERROR:
+        return "ADDRESS RESOLUTION TAG ERROR";
+    case AvmError::REL_ADDR_OUT_OF_RANGE:
+        return "RELATIVE ADDRESS IS OUT OF RANGE";
+    case AvmError::DIV_ZERO:
+        return "DIVISION BY ZERO";
+    case AvmError::PARSING_ERROR:
+        return "PARSING ERROR";
+    case AvmError::ENV_VAR_UNKNOWN:
+        return "ENVIRONMENT VARIABLE UNKNOWN";
+    case AvmError::CONTRACT_INST_MEM_UNKNOWN:
+        return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    case AvmError::RADIX_OUT_OF_BOUNDS:
+        return "RADIX OUT OF BOUNDS";
+    case AvmError::DUPLICATE_NULLIFIER:
+        return "DUPLICATE NULLIFIER";
+    case AvmError::SIDE_EFFECT_LIMIT_REACHED:
+        return "SIDE EFFECT LIMIT REACHED";
+    default:
+        throw std::runtime_error("Invalid error type");
+        break;
+    }
+}
+
+bool is_ok(AvmError error)
+{
+    return error == AvmError::NO_ERROR;
+}
+
+bool exceptionally_halted(AvmError error)
+{
+    return error != AvmError::NO_ERROR && error != AvmError::REVERT_OPCODE;
+}
+
+/**
+ *
+ *  ONLY FOR TESTS - Required by dsl module and therefore cannot be moved to test/helpers.test.cpp
+ *
+ * @brief Helper routine which injects the end gas values in public inputs and in the public column
+ *        of kernel inputs in the trace.
+ *
+ * @param public_inputs Public inputs structure
+ * @param trace The execution trace
+ */
+void inject_end_gas_values([[maybe_unused]] AvmPublicInputs& public_inputs, std::vector<Row>& trace)
+{
+    auto execution_end_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_execution_end == FF(1); });
+    ASSERT(execution_end_row != trace.end());
+
+    // trace.at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_l2_gas_remaining;
+    // trace.at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET).main_kernel_inputs = execution_end_row->main_da_gas_remaining;
+
+    // public_inputs.end_gas_used.l2_gas = static_cast<uint32_t>(execution_end_row->main_l2_gas_remaining);
+    // public_inputs.end_gas_used.da_gas = static_cast<uint32_t>(execution_end_row->main_da_gas_remaining);
 }
 
 } // namespace bb::avm_trace

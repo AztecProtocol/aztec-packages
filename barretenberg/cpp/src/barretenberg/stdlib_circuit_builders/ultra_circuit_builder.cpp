@@ -8,12 +8,14 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
+#include <execution>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace bb {
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::finalize_circuit()
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_nonzero)
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
@@ -41,10 +43,15 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
      * our circuit is finalized, and we must not to execute these functions again.
      */
     if (!circuit_finalized) {
+        if (ensure_nonzero) {
+            add_gates_to_ensure_all_polys_are_non_zero();
+        }
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+#endif
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -60,8 +67,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 // TODO(#423): This function adds valid (but arbitrary) gates to ensure that the circuit which includes
 // them will not result in any zero-polynomials. It also ensures that the first coefficient of the wire
 // polynomials is zero, which is required for them to be shiftable.
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_non_zero()
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non_zero()
 {
     // q_m, q_1, q_2, q_3, q_4
     blocks.arithmetic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -78,7 +85,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -100,7 +107,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.delta_range.q_poseidon2_external().emplace_back(0);
     blocks.delta_range.q_poseidon2_internal().emplace_back(0);
 
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.delta_range.pad_additional();
     }
     check_selector_length_consistency();
@@ -122,7 +129,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.elliptic.q_aux().emplace_back(0);
     blocks.elliptic.q_poseidon2_external().emplace_back(0);
     blocks.elliptic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.elliptic.pad_additional();
     }
     check_selector_length_consistency();
@@ -144,7 +151,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.aux.q_aux().emplace_back(1);
     blocks.aux.q_poseidon2_external().emplace_back(0);
     blocks.aux.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.aux.pad_additional();
     }
     check_selector_length_consistency();
@@ -176,52 +183,52 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
         plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
 
     // mock a poseidon external gate, with all zeros as input
-    blocks.poseidon_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.poseidon_external.q_m().emplace_back(0);
-    blocks.poseidon_external.q_1().emplace_back(0);
-    blocks.poseidon_external.q_2().emplace_back(0);
-    blocks.poseidon_external.q_3().emplace_back(0);
-    blocks.poseidon_external.q_c().emplace_back(0);
-    blocks.poseidon_external.q_arith().emplace_back(0);
-    blocks.poseidon_external.q_4().emplace_back(0);
-    blocks.poseidon_external.q_delta_range().emplace_back(0);
-    blocks.poseidon_external.q_lookup_type().emplace_back(0);
-    blocks.poseidon_external.q_elliptic().emplace_back(0);
-    blocks.poseidon_external.q_aux().emplace_back(0);
-    blocks.poseidon_external.q_poseidon2_external().emplace_back(1);
-    blocks.poseidon_external.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.poseidon_external.pad_additional();
+    blocks.poseidon2_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.poseidon2_external.q_m().emplace_back(0);
+    blocks.poseidon2_external.q_1().emplace_back(0);
+    blocks.poseidon2_external.q_2().emplace_back(0);
+    blocks.poseidon2_external.q_3().emplace_back(0);
+    blocks.poseidon2_external.q_c().emplace_back(0);
+    blocks.poseidon2_external.q_arith().emplace_back(0);
+    blocks.poseidon2_external.q_4().emplace_back(0);
+    blocks.poseidon2_external.q_delta_range().emplace_back(0);
+    blocks.poseidon2_external.q_lookup_type().emplace_back(0);
+    blocks.poseidon2_external.q_elliptic().emplace_back(0);
+    blocks.poseidon2_external.q_aux().emplace_back(0);
+    blocks.poseidon2_external.q_poseidon2_external().emplace_back(1);
+    blocks.poseidon2_external.q_poseidon2_internal().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+        blocks.poseidon2_external.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 
     // dummy gate to be read into by previous poseidon external gate via shifts
-    this->create_dummy_gate(blocks.poseidon_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    this->create_dummy_gate(blocks.poseidon2_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.poseidon_internal.q_m().emplace_back(0);
-    blocks.poseidon_internal.q_1().emplace_back(0);
-    blocks.poseidon_internal.q_2().emplace_back(0);
-    blocks.poseidon_internal.q_3().emplace_back(0);
-    blocks.poseidon_internal.q_c().emplace_back(0);
-    blocks.poseidon_internal.q_arith().emplace_back(0);
-    blocks.poseidon_internal.q_4().emplace_back(0);
-    blocks.poseidon_internal.q_delta_range().emplace_back(0);
-    blocks.poseidon_internal.q_lookup_type().emplace_back(0);
-    blocks.poseidon_internal.q_elliptic().emplace_back(0);
-    blocks.poseidon_internal.q_aux().emplace_back(0);
-    blocks.poseidon_internal.q_poseidon2_external().emplace_back(0);
-    blocks.poseidon_internal.q_poseidon2_internal().emplace_back(1);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.poseidon_internal.pad_additional();
+    blocks.poseidon2_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.poseidon2_internal.q_m().emplace_back(0);
+    blocks.poseidon2_internal.q_1().emplace_back(0);
+    blocks.poseidon2_internal.q_2().emplace_back(0);
+    blocks.poseidon2_internal.q_3().emplace_back(0);
+    blocks.poseidon2_internal.q_c().emplace_back(0);
+    blocks.poseidon2_internal.q_arith().emplace_back(0);
+    blocks.poseidon2_internal.q_4().emplace_back(0);
+    blocks.poseidon2_internal.q_delta_range().emplace_back(0);
+    blocks.poseidon2_internal.q_lookup_type().emplace_back(0);
+    blocks.poseidon2_internal.q_elliptic().emplace_back(0);
+    blocks.poseidon2_internal.q_aux().emplace_back(0);
+    blocks.poseidon2_internal.q_poseidon2_external().emplace_back(0);
+    blocks.poseidon2_internal.q_poseidon2_internal().emplace_back(1);
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+        blocks.poseidon2_internal.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 
     // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_dummy_gate(blocks.poseidon_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.poseidon2_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -232,8 +239,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
  *
  * @param in A structure with variable indexes and selector values for the gate.
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_add_gate(const add_triple_<FF>& in)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_add_gate(const add_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
@@ -251,7 +257,41 @@ void UltraCircuitBuilder_<Arithmetization>::create_add_gate(const add_triple_<FF
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+        blocks.arithmetic.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+}
+
+/**
+ * @brief Create a big multiplication-addition gate, where in.a * in.b * in.mul_scaling + in.a * in.a_scaling + in.b *
+ * in.b_scaling + in.c * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled,
+ * then this sum also adds the value of the 4-th witness at the next index.
+ *
+ * @param in Structure with variable indexes and wire selector values
+ * @param include_next_gate_w_4 Switches on/off the addition of w_4 at the next index
+ */
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_quad_<FF>& in,
+                                                                   const bool include_next_gate_w_4)
+{
+    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.arithmetic.q_m().emplace_back(include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling);
+    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_delta_range().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
+    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -266,9 +306,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_add_gate(const add_triple_<FF
  * @param in Structure with variable indexes and wire selector values
  * @param include_next_gate_w_4 Switches on/off the addition of w_4 at the next index
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<FF>& in,
-                                                                const bool include_next_gate_w_4)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<FF>& in,
+                                                               const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
@@ -285,7 +325,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -298,8 +338,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<
  *
  * @param in Structure with variables and witness selector values
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in)
 {
     // This method is an artifact of a turbo plonk feature that implicitly extracts
     // a high or low bit from a base-4 quad and adds it into the arithmetic gate relationship.
@@ -362,8 +402,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extract
  *
  * @param in Structure containing variables and witness selectors
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
@@ -381,7 +421,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -390,8 +430,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<
 
 // Creates a width-4 addition gate, where the fourth witness must be a boolean.
 // Can be used to normalize a 32-bit addition
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_balanced_add_gate(const add_quad_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_quad_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
@@ -409,7 +449,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_balanced_add_gate(const add_q
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -434,8 +474,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_balanced_add_gate(const add_q
  *
  * @param in Structure containing variables and witness selectors
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_mul_gate(const mul_triple_<FF>& in)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_mul_gate(const mul_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
@@ -453,7 +492,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_mul_gate(const mul_triple_<FF
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -464,8 +503,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_mul_gate(const mul_triple_<FF
  *
  * @param variable_index the variable which needs to be constrained
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t variable_index)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t variable_index)
 {
     this->assert_valid_variables({ variable_index });
 
@@ -484,7 +523,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t vari
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -497,8 +536,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t vari
  *
  * @param in Structure containing variables and witness selectors
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
@@ -517,7 +556,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
@@ -532,8 +571,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<
  * @param in Elliptic curve point addition gate parameters, including the affine coordinates of the two points being
  * added, the resulting point coordinates and the selector values that describe whether the second point is negated.
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
 {
     /**
      * gate structure:
@@ -578,7 +617,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -592,8 +631,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
  *
  * @param in Elliptic curve point doubling gate parameters
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
     auto& block = blocks.elliptic;
 
@@ -633,7 +672,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -648,8 +687,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
  * @param witness_index The index of the witness we are fixing
  * @param witness_value The value we are fixing it to
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::fix_witness(const uint32_t witness_index, const FF& witness_value)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_index, const FF& witness_value)
 {
     this->assert_valid_variables({ witness_index });
 
@@ -667,15 +706,15 @@ void UltraCircuitBuilder_<Arithmetization>::fix_witness(const uint32_t witness_i
     blocks.arithmetic.q_aux().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 }
 
-template <typename Arithmetization>
-uint32_t UltraCircuitBuilder_<Arithmetization>::put_constant_variable(const FF& variable)
+template <typename ExecutionTrace>
+uint32_t UltraCircuitBuilder_<ExecutionTrace>::put_constant_variable(const FF& variable)
 {
     if (constant_variable_indices.contains(variable)) {
         return constant_variable_indices.at(variable);
@@ -691,12 +730,12 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::put_constant_variable(const FF& 
  * @brief Get the basic table with provided ID from the set of tables for the present circuit; create it if it doesnt
  * yet exist
  *
- * @tparam Arithmetization
+ * @tparam ExecutionTrace
  * @param id
  * @return plookup::BasicTable&
  */
-template <typename Arithmetization>
-plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const plookup::BasicTableId id)
+template <typename ExecutionTrace>
+plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plookup::BasicTableId id)
 {
     for (plookup::BasicTable& table : lookup_tables) {
         if (table.id == id) {
@@ -712,8 +751,8 @@ plookup::BasicTable& UltraCircuitBuilder_<Arithmetization>::get_table(const ploo
  * @brief Perform a series of lookups, one for each 'row' in read_values.
  */
 
-template <typename Arithmetization>
-plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_from_plookup_accumulators(
+template <typename ExecutionTrace>
+plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_from_plookup_accumulators(
     const plookup::MultiTableId& id,
     const plookup::ReadData<FF>& read_values,
     const uint32_t key_a_index,
@@ -753,7 +792,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
         blocks.lookup.q_aux().emplace_back(0);
         blocks.lookup.q_poseidon2_external().emplace_back(0);
         blocks.lookup.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             blocks.lookup.pad_additional();
         }
         check_selector_length_consistency();
@@ -765,8 +804,8 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
 /**
  * Generalized Permutation Methods
  **/
-template <typename Arithmetization>
-typename UltraCircuitBuilder_<Arithmetization>::RangeList UltraCircuitBuilder_<Arithmetization>::create_range_list(
+template <typename ExecutionTrace>
+typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<ExecutionTrace>::create_range_list(
     const uint64_t target_range)
 {
     RangeList result;
@@ -799,8 +838,8 @@ typename UltraCircuitBuilder_<Arithmetization>::RangeList UltraCircuitBuilder_<A
 
 // range constraint a value by decomposing it into limbs whose size should be the default range constraint size
 
-template <typename Arithmetization>
-std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_default_range(
+template <typename ExecutionTrace>
+std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_default_range(
     const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string const& msg)
 {
     this->assert_valid_variables({ variable_index });
@@ -912,10 +951,10 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
  * @param variable_index
  * @param target_range
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_new_range_constraint(const uint32_t variable_index,
-                                                                        const uint64_t target_range,
-                                                                        std::string const msg)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uint32_t variable_index,
+                                                                       const uint64_t target_range,
+                                                                       std::string const msg)
 {
     if (uint256_t(this->get_variable(variable_index)).data[0] > target_range) {
         if (!this->failed()) {
@@ -966,7 +1005,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_new_range_constraint(const ui
     }
 }
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_range_list(RangeList& list)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
 {
     this->assert_valid_variables(list.variable_indices);
 
@@ -994,7 +1033,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         sorted_list.emplace_back(shrinked_value);
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(sorted_list.begin(), sorted_list.end());
 #else
     std::sort(std::execution::par_unseq, sorted_list.begin(), sorted_list.end());
@@ -1020,7 +1059,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     create_sort_constraint_with_edges(indices, 0, list.target_range);
 }
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_range_lists()
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_lists()
 {
     for (auto& i : range_lists) {
         process_range_list(i.second);
@@ -1040,8 +1079,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
   * std::map<uint64_t, RangeList> range_lists;
 */
 // Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checkj)
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
 {
     constexpr size_t gate_width = NUM_WIRES;
     ASSERT(variable_index.size() % gate_width == 0);
@@ -1065,7 +1104,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         blocks.delta_range.q_aux().emplace_back(0);
         blocks.delta_range.q_poseidon2_external().emplace_back(0);
         blocks.delta_range.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             blocks.delta_range.pad_additional();
         }
         check_selector_length_consistency();
@@ -1080,11 +1119,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
  * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it. The
  * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
  *
- * @tparam Arithmetization
+ * @tparam ExecutionTrace
  * @param block Execution trace block into which the dummy gate is to be placed
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_dummy_gate(
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_gate(
     auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
 {
     block.populate_wires(idx_1, idx_2, idx_3, idx_4);
@@ -1102,7 +1141,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_gate(
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
 
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         block.pad_additional();
     }
     check_selector_length_consistency();
@@ -1111,8 +1150,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_gate(
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
 // multiples of three
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::vector<uint32_t>& variable_index)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_constraints(const std::vector<uint32_t>& variable_index)
 {
     std::vector<uint32_t> padded_list = variable_index;
     constexpr size_t gate_width = NUM_WIRES;
@@ -1130,8 +1169,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
 }
 
 // Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checks)
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     const std::vector<uint32_t>& variable_index, const FF& start, const FF& end)
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
@@ -1162,7 +1201,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1187,7 +1226,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1204,8 +1243,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
 // range constraint a value by decomposing it into limbs whose size should be the default range constraint size
 
-template <typename Arithmetization>
-std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_default_range_better_for_oddlimbnum(
+template <typename ExecutionTrace>
+std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_default_range_better_for_oddlimbnum(
     const uint32_t variable_index, const size_t num_bits, std::string const& msg)
 {
     std::vector<uint32_t> sums;
@@ -1299,8 +1338,8 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
  *
  * @param type
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECTORS type)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTORS type)
 {
     auto& block = blocks.aux;
     block.q_aux().emplace_back(type == AUX_SELECTORS::NONE ? 0 : 1);
@@ -1319,7 +1358,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1333,7 +1372,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1347,7 +1386,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1361,7 +1400,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1375,7 +1414,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1393,7 +1432,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1412,7 +1451,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(1);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1428,7 +1467,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1445,7 +1484,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1462,7 +1501,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1479,7 +1518,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1493,7 +1532,7 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
         check_selector_length_consistency();
@@ -1512,11 +1551,11 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
  * Applies range constraints to two 70-bit limbs, splititng each into 5 14-bit sublimbs.
  * We can efficiently chain together two 70-bit limb checks in 3 gates, using auxiliary gates
  **/
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint32_t lo_idx,
-                                                                      const uint32_t hi_idx,
-                                                                      const size_t lo_limb_bits,
-                                                                      const size_t hi_limb_bits)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint32_t lo_idx,
+                                                                     const uint32_t hi_idx,
+                                                                     const size_t lo_limb_bits,
+                                                                     const size_t hi_limb_bits)
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
@@ -1591,8 +1630,8 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
  * @param num_limb_bits The range we want to constrain the original limb to
  * @return std::array<uint32_t, 2> The indices of new limbs.
  */
-template <typename Arithmetization>
-std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_native_field_double_width_limb(
+template <typename ExecutionTrace>
+std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
     ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
@@ -1629,9 +1668,9 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_nat
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
-template <typename Arithmetization>
-std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder)
+template <typename ExecutionTrace>
+std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
+    const non_native_field_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
@@ -1659,8 +1698,6 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         this->get_variable(input.r[3]),
     };
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    constexpr FF LIMB_SHIFT_2 = uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
-    constexpr FF LIMB_SHIFT_3 = uint256_t(1) << (3 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
 
@@ -1684,74 +1721,22 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     const uint32_t hi_2_idx = this->add_variable(hi_2);
     const uint32_t hi_3_idx = this->add_variable(hi_3);
 
-    // Sometimes we have already applied range constraints on the quotient and remainder
-    if (range_constrain_quotient_and_remainder) {
-        // /**
-        //  * r_prime - r_0 - r_1 * 2^b - r_2 * 2^2b - r_3 * 2^3b = 0
-        //  *
-        //  * w_4_omega - w_4 + w_1(2^b) + w_2(2^2b) + w_3(2^3b)  = 0
-        //  *
-        //  **/
-        create_big_add_gate(
-            { input.r[1], input.r[2], input.r[3], input.r[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
-        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.r[0]);
-        range_constrain_two_limbs(input.r[0], input.r[1]);
-        range_constrain_two_limbs(input.r[2], input.r[3]);
-
-        // /**
-        //  * q_prime - q_0 - q_1 * 2^b - q_2 * 2^2b - q_3 * 2^3b = 0
-        //  *
-        //  * w_4_omega - w_4 + w_1(2^b) + w_2(2^2b) + w_3(2^3b)  = 0
-        //  *
-        //  **/
-        create_big_add_gate(
-            { input.q[1], input.q[2], input.q[3], input.q[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
-        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.q[0]);
-        range_constrain_two_limbs(input.q[0], input.q[1]);
-        range_constrain_two_limbs(input.q[2], input.q[3]);
-    }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/913): Remove this arithmetic gate from the aux block
-    // and replace with the big_add + dummy below.
-    this->assert_valid_variables({ input.q[0], input.q[1], input.r[1], lo_1_idx });
-    blocks.aux.populate_wires(input.q[0], input.q[1], input.r[1], lo_1_idx);
-    blocks.aux.q_m().emplace_back(0);
-    blocks.aux.q_1().emplace_back(input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT);
-    blocks.aux.q_2().emplace_back(input.neg_modulus[0] * LIMB_SHIFT);
-    blocks.aux.q_3().emplace_back(-LIMB_SHIFT);
-    blocks.aux.q_c().emplace_back(0);
-    blocks.aux.q_arith().emplace_back(2);
-    blocks.aux.q_4().emplace_back(-LIMB_SHIFT.sqr());
-    blocks.aux.q_delta_range().emplace_back(0);
-    blocks.aux.q_lookup_type().emplace_back(0);
-    blocks.aux.q_elliptic().emplace_back(0);
-    blocks.aux.q_aux().emplace_back(0);
-    blocks.aux.q_poseidon2_external().emplace_back(0);
-    blocks.aux.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.aux.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
     // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an aux gate that
-    // has been sorted out of sequence. (Note: temporarily disabled in favor of manual arith gate in aux block above).
+    // has been sorted out of sequence.
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
-    // create_big_add_gate({ input.q[0],
-    //                       input.q[1],
-    //                       input.r[1],
-    //                       lo_1_idx,
-    //                       input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
-    //                       input.neg_modulus[0] * LIMB_SHIFT,
-    //                       -LIMB_SHIFT,
-    //                       -LIMB_SHIFT.sqr(),
-    //                       0 },
-    //                     true);
-    // create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
+    create_big_add_gate({ input.q[0],
+                          input.q[1],
+                          input.r[1],
+                          lo_1_idx,
+                          input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
+                          input.neg_modulus[0] * LIMB_SHIFT,
+                          -LIMB_SHIFT,
+                          -LIMB_SHIFT.sqr(),
+                          0 },
+                        true);
+    create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
@@ -1814,17 +1799,16 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplications()
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_non_native_field_multiplications()
 {
     for (size_t i = 0; i < cached_partial_non_native_field_multiplications.size(); ++i) {
         auto& c = cached_partial_non_native_field_multiplications[i];
-        for (size_t j = 0; j < 5; ++j) {
+        for (size_t j = 0; j < c.a.size(); ++j) {
             c.a[j] = this->real_variable_index[c.a[j]];
             c.b[j] = this->real_variable_index[c.b[j]];
         }
     }
-    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications);
+    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications, this);
 
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
@@ -1855,8 +1839,8 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
  *
  **/
 
-template <typename Arithmetization>
-std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::queue_partial_non_native_field_multiplication(
+template <typename ExecutionTrace>
+std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
     const non_native_field_witnesses<FF>& input)
 {
 
@@ -1902,8 +1886,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::queue_partial_non
  * field elements in 4 gates (would normally take 5)
  **/
 
-template <typename Arithmetization>
-std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_addition(
+template <typename ExecutionTrace>
+std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_addition(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
     const auto& x_0 = std::get<0>(limb0).first;
@@ -2016,7 +2000,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
     }
@@ -2028,8 +2012,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     };
 }
 
-template <typename Arithmetization>
-std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_subtraction(
+template <typename ExecutionTrace>
+std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_subtraction(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
     const auto& x_0 = std::get<0>(limb0).first;
@@ -2138,7 +2122,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         block.q_aux().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
     }
@@ -2157,7 +2141,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::create_ROM_gate(RomRecord& record)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_ROM_gate(RomRecord& record)
 {
     // Record wire value can't yet be computed
     record.record_witness = this->add_variable(0);
@@ -2177,8 +2161,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& record)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
@@ -2199,8 +2182,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
  * @param array_size The size of region in elements
  * @return size_t The index of the element
  */
-template <typename Arithmetization>
-size_t UltraCircuitBuilder_<Arithmetization>::create_ROM_array(const size_t array_size)
+template <typename ExecutionTrace>
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_ROM_array(const size_t array_size)
 {
     RomTranscript new_transcript;
     for (size_t i = 0; i < array_size; ++i) {
@@ -2217,7 +2200,7 @@ size_t UltraCircuitBuilder_<Arithmetization>::create_ROM_array(const size_t arra
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::create_RAM_gate(RamRecord& record)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_RAM_gate(RamRecord& record)
 {
     // Record wire value can't yet be computed (uses randomnes generated during proof construction).
     // However it needs a distinct witness index,
@@ -2242,8 +2225,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& record)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_RAM_gate(RamRecord& record)
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::RAM_CONSISTENCY_CHECK);
@@ -2261,8 +2243,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
  *
  * @param record Stores details of this read operation. Mutated by this fn!
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
 {
     record.record_witness = this->add_variable(0);
     // Note: record the index into the block that contains the RAM/ROM gates
@@ -2302,8 +2284,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
  * @param array_size The size of region in elements
  * @return size_t The index of the element
  */
-template <typename Arithmetization>
-size_t UltraCircuitBuilder_<Arithmetization>::create_RAM_array(const size_t array_size)
+template <typename ExecutionTrace>
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_RAM_array(const size_t array_size)
 {
     RamTranscript new_transcript;
     for (size_t i = 0; i < array_size; ++i) {
@@ -2320,10 +2302,10 @@ size_t UltraCircuitBuilder_<Arithmetization>::create_RAM_array(const size_t arra
  * @param index_value The index of the cell within the array (an actual index, not a witness index)
  * @param value_witness The index of the witness with the value that should be in the
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::init_RAM_element(const size_t ram_id,
-                                                             const size_t index_value,
-                                                             const uint32_t value_witness)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::init_RAM_element(const size_t ram_id,
+                                                            const size_t index_value,
+                                                            const uint32_t value_witness)
 {
     ASSERT(ram_arrays.size() > ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
@@ -2344,8 +2326,8 @@ void UltraCircuitBuilder_<Arithmetization>::init_RAM_element(const size_t ram_id
     ram_array.records.emplace_back(new_record);
 }
 
-template <typename Arithmetization>
-uint32_t UltraCircuitBuilder_<Arithmetization>::read_RAM_array(const size_t ram_id, const uint32_t index_witness)
+template <typename ExecutionTrace>
+uint32_t UltraCircuitBuilder_<ExecutionTrace>::read_RAM_array(const size_t ram_id, const uint32_t index_witness)
 {
     ASSERT(ram_arrays.size() > ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
@@ -2373,10 +2355,10 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::read_RAM_array(const size_t ram_
     return value_witness;
 }
 
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::write_RAM_array(const size_t ram_id,
-                                                            const uint32_t index_witness,
-                                                            const uint32_t value_witness)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::write_RAM_array(const size_t ram_id,
+                                                           const uint32_t index_witness,
+                                                           const uint32_t value_witness)
 {
     ASSERT(ram_arrays.size() > ram_id);
     RamTranscript& ram_array = ram_arrays[ram_id];
@@ -2416,10 +2398,10 @@ void UltraCircuitBuilder_<Arithmetization>::write_RAM_array(const size_t ram_id,
  * @param index_value The index of the cell within the array (an actual index, not a witness index)
  * @param value_witness The index of the witness with the value that should be in the
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::set_ROM_element(const size_t rom_id,
-                                                            const size_t index_value,
-                                                            const uint32_t value_witness)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::set_ROM_element(const size_t rom_id,
+                                                           const size_t index_value,
+                                                           const uint32_t value_witness)
 {
     ASSERT(rom_arrays.size() > rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
@@ -2459,10 +2441,10 @@ void UltraCircuitBuilder_<Arithmetization>::set_ROM_element(const size_t rom_id,
  * @param index_value Index in the array
  * @param value_witnesses The witnesses to put in the slot
  */
-template <typename Arithmetization>
-void UltraCircuitBuilder_<Arithmetization>::set_ROM_element_pair(const size_t rom_id,
-                                                                 const size_t index_value,
-                                                                 const std::array<uint32_t, 2>& value_witnesses)
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::set_ROM_element_pair(const size_t rom_id,
+                                                                const size_t index_value,
+                                                                const std::array<uint32_t, 2>& value_witnesses)
 {
     ASSERT(rom_arrays.size() > rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
@@ -2490,8 +2472,8 @@ void UltraCircuitBuilder_<Arithmetization>::set_ROM_element_pair(const size_t ro
  * @param index_witness The witness with the index inside the array
  * @return uint32_t Cell value witness index
  */
-template <typename Arithmetization>
-uint32_t UltraCircuitBuilder_<Arithmetization>::read_ROM_array(const size_t rom_id, const uint32_t index_witness)
+template <typename ExecutionTrace>
+uint32_t UltraCircuitBuilder_<ExecutionTrace>::read_ROM_array(const size_t rom_id, const uint32_t index_witness)
 {
     ASSERT(rom_arrays.size() > rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
@@ -2523,9 +2505,9 @@ uint32_t UltraCircuitBuilder_<Arithmetization>::read_ROM_array(const size_t rom_
  * @return std::array<uint32_t, 2> A pair of indexes of witness variables of cell values
  */
 
-template <typename Arithmetization>
-std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::read_ROM_array_pair(const size_t rom_id,
-                                                                                   const uint32_t index_witness)
+template <typename ExecutionTrace>
+std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::read_ROM_array_pair(const size_t rom_id,
+                                                                                  const uint32_t index_witness)
 {
     std::array<uint32_t, 2> value_witnesses;
 
@@ -2560,7 +2542,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::read_ROM_array_pa
  * @param rom_id The id of the ROM table
  * @param gate_offset_from_public_inputs Required to track the gate position of where we're adding extra gates
  */
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_ROM_array(const size_t rom_id)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_ROM_array(const size_t rom_id)
 {
 
     auto& rom_array = rom_arrays[rom_id];
@@ -2576,7 +2558,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         }
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(rom_array.records.begin(), rom_array.records.end());
 #else
     std::sort(std::execution::par_unseq, rom_array.records.begin(), rom_array.records.end());
@@ -2650,7 +2632,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
  * @param ram_id The id of the RAM table
  * @param gate_offset_from_public_inputs Required to track the gate position of where we're adding extra gates
  */
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_RAM_array(const size_t ram_id)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_RAM_array(const size_t ram_id)
 {
     RamTranscript& ram_array = ram_arrays[ram_id];
     const auto access_tag = get_new_tag();      // current_tag + 1;
@@ -2668,7 +2650,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         }
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(ram_array.records.begin(), ram_array.records.end());
 #else
     std::sort(std::execution::par_unseq, ram_array.records.begin(), ram_array.records.end());
@@ -2780,13 +2762,13 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     }
 }
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_ROM_arrays()
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_ROM_arrays()
 {
     for (size_t i = 0; i < rom_arrays.size(); ++i) {
         process_ROM_array(i);
     }
 }
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_RAM_arrays()
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_RAM_arrays()
 {
     for (size_t i = 0; i < ram_arrays.size(); ++i) {
         process_RAM_array(i);
@@ -2799,7 +2781,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon_external;
+    auto& block = this->blocks.poseidon2_external;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
@@ -2814,7 +2796,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_aux().emplace_back(0);
     block.q_poseidon2_external().emplace_back(1);
     block.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         block.pad_additional();
     }
     this->check_selector_length_consistency();
@@ -2827,7 +2809,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon_internal;
+    auto& block = this->blocks.poseidon2_internal;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
@@ -2842,25 +2824,25 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     block.q_aux().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(1);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
         block.pad_additional();
     }
     this->check_selector_length_consistency();
     ++this->num_gates;
 }
 
-template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::hash_circuit()
+template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
 {
-    finalize_circuit();
+    finalize_circuit(/*ensure_nonzero=*/false);
 
     size_t sum_of_block_sizes(0);
     for (auto& block : blocks.get()) {
         sum_of_block_sizes += block.size();
     }
 
-    size_t num_bytes_in_selectors = sizeof(FF) * Arithmetization::NUM_SELECTORS * sum_of_block_sizes;
+    size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
     size_t num_bytes_in_wires_and_copy_constraints =
-        sizeof(uint32_t) * (Arithmetization::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
+        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
     size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
 
     std::vector<uint8_t> to_hash(num_bytes_to_hash);
@@ -2885,8 +2867,9 @@ template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetizati
  *
  * @return msgpack compatible buffer
  */
-template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithmetization>::export_circuit()
+template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
+    this->set_variable_name(this->zero_idx, "zero");
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 
@@ -2975,13 +2958,15 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
         cir.range_tags[list.second.range_tag] = list.first;
     }
 
+    cir.circuit_finalized = this->circuit_finalized;
+
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);
     return buffer;
 }
 
-template class UltraCircuitBuilder_<UltraArith<bb::fr>>;
-template class UltraCircuitBuilder_<MegaArith<bb::fr>>;
+template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
+template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
 // To enable this we need to template plookup
 // template class UltraCircuitBuilder_<grumpkin::fr>;
 

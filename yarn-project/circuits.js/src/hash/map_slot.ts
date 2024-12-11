@@ -1,4 +1,4 @@
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 /**
@@ -14,5 +14,5 @@ export function deriveStorageSlotInMap(
     toField: () => Fr;
   },
 ): Fr {
-  return pedersenHash([mapSlot, key.toField()]);
+  return poseidon2Hash([mapSlot, key.toField()]);
 }

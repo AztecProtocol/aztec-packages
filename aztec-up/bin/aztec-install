@@ -27,8 +27,8 @@ function title() {
   print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
   echo -e "${r}"
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
-  echo -e "We presently leverage docker to simplify releases of our complex project."
-  echo -e "Please ensure it's installed for your platform: https://docs.docker.com/engine/install"
+  echo -e "We provide a docker image that works on any modern system (specifically: x64 or ARM64)."
+  echo -e "Please ensure docker is installed for your platform: https://docs.docker.com/engine/install"
   echo
   if [ "$(uname -s)" == "Darwin" ]; then
     echo -e "${y}WARNING: For best performance we recommend adjusting your default docker settings:"
@@ -110,12 +110,29 @@ if [ -z "${SKIP_PULL:-}" ]; then
 fi
 
 # Download the Docker Compose file. Used by aztec.
-curl -fsSL http://$INSTALL_HOST/docker-compose.sandbox.yml -o $AZTEC_PATH/docker-compose.sandbox.yml
-curl -fsSL http://$INSTALL_HOST/docker-compose.test.yml -o $AZTEC_PATH/docker-compose.test.yml
+function download_docker_compose {
+  local install_url
+  if [ "$VERSION" != "latest" ]; then
+    install_url="http://$INSTALL_HOST/$VERSION/docker-compose.${1}.yml"
+  else
+    install_url="http://$INSTALL_HOST/docker-compose.${1}.yml"
+  fi
+  curl -fsSL "$install_url" -o $AZTEC_PATH/docker-compose.${1}.yml
+  echo "Installed docker-compose.${1}.yml"
+}
+
+download_docker_compose "sandbox"
+download_docker_compose "test"
 
 function install_bin {
-  curl -fsSL http://$INSTALL_HOST/$1 -o $BIN_PATH/$1
-  chmod +x $BIN_PATH/$1
+  local install_url
+  if [ "$VERSION" != "latest" ]; then
+    install_url="http://$INSTALL_HOST/$VERSION/$1"
+  else
+    install_url="http://$INSTALL_HOST/$1"
+  fi
+  curl -fsSL "$install_url" -o "$BIN_PATH/$1"
+  chmod +x "$BIN_PATH/$1"
   echo "Installed: $BIN_PATH/$1"
 }
 

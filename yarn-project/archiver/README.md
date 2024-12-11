@@ -13,4 +13,4 @@ The interfaces defining how the data can be consumed from the archiver are `L2Bl
 To install dependencies and build the package run `yarn install` followed by `yarn build`.
 To run test execute `yarn test`.
 
-To start the service export `ETHEREUM_HOST` (defaults to `http://127.0.0.1:8545/`), `ARCHIVER_POLLING_INTERVAL` (defaults to `1000 ms`), `ROLLUP_CONTRACT_ADDRESS`, `INBOX_CONTRACT_ADDRESS` environmental variables and start the service with `yarn start`.
+To start the service export `ETHEREUM_HOST` (defaults to `http://127.0.0.1:8545/`), `ARCHIVER_POLLING_INTERVAL_MS` (defaults to `1000 ms`), `ROLLUP_CONTRACT_ADDRESS`, `INBOX_CONTRACT_ADDRESS` environmental variables and start the service with `yarn start`.

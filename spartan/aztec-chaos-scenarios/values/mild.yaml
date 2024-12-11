@@ -1,0 +1,25 @@
+
+# Moderate latency, very high bandwidth
+global:
+  namespace: "smoke"
+
+networkShaping:
+  enabled: true
+  conditions:
+    latency:
+      enabled: true
+      delay:
+        # Typical datacenter-to-datacenter latency
+        latency: 50ms
+        jitter: 10ms
+        correlation: "75"
+    bandwidth:
+      enabled: true
+      # 100Mbps
+      rate: 100mbps
+      limit: 50000000 # 50 MB
+      buffer: 8000
+    packetLoss:
+      enabled: true
+      loss: "0.1"
+      correlation: "50"

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
+import {TestBase} from "../base/Base.sol";
 
 // Many of the structs in here match what you see in `header` but with very important exceptions!
 // The order of variables is sorted alphabetically in the structs in here to work with the
 // JSON cheatcodes.
 
-contract DecoderBase is Test {
+contract DecoderBase is TestBase {
   struct AppendOnlyTreeSnapshot {
     uint32 nextAvailableLeafIndex;
     bytes32 root;
@@ -34,6 +35,7 @@ contract DecoderBase is Test {
 
   struct Data {
     bytes32 archive;
+    bytes32 blockHash;
     bytes body;
     DecodedHeader decodedHeader;
     bytes header;
@@ -49,6 +51,8 @@ contract DecoderBase is Test {
     GlobalVariables globalVariables;
     AppendOnlyTreeSnapshot lastArchive;
     StateReference stateReference;
+    uint256 totalFees;
+    uint256 totalManaUsed;
   }
 
   struct GasFees {

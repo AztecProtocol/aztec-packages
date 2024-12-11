@@ -41,7 +41,6 @@ class AvmMemTraceBuilder {
         FF m_one_min_inv{};
         bool m_sel_mov_ia_to_ic = false;
         bool m_sel_mov_ib_to_ic = false;
-        bool m_sel_cmov = false;
         bool m_tag_err_count_relevant = false;
         bool m_sel_op_slice = false;
 
@@ -57,7 +56,7 @@ class AvmMemTraceBuilder {
     // Structure representing an entry for the memory used in the simulation (not the trace).
     struct MemEntry {
         FF val{};
-        AvmMemoryTag tag = AvmMemoryTag::U0;
+        AvmMemoryTag tag = AvmMemoryTag::FF;
     };
 
     // Structure to return value and tag matching boolean after a memory read.
@@ -80,8 +79,6 @@ class AvmMemTraceBuilder {
     std::vector<MemoryTraceEntry> finalize();
 
     MemEntry read_and_load_mov_opcode(uint8_t space_id, uint32_t clk, uint32_t addr);
-    std::array<MemEntry, 3> read_and_load_cmov_opcode(
-        uint8_t space_id, uint32_t clk, uint32_t a_addr, uint32_t b_addr, uint32_t cond_addr);
     MemEntry read_and_load_jumpi_opcode(uint8_t space_id, uint32_t clk, uint32_t cond_addr);
     MemEntry read_and_load_cast_opcode(uint8_t space_id, uint32_t clk, uint32_t addr, AvmMemoryTag w_in_tag);
     MemRead read_and_load_from_memory(uint8_t space_id,
@@ -110,12 +107,20 @@ class AvmMemTraceBuilder {
 
     // DO NOT USE FOR REAL OPERATIONS
     FF unconstrained_read(uint8_t space_id, uint32_t addr) { return memory[space_id][addr].val; }
+    AvmMemoryTag unconstrained_get_memory_tag(uint8_t space_id, uint32_t addr) { return memory[space_id][addr].tag; }
+
+    // Counters for memory diff range checks
+    std::unordered_map<uint16_t, uint32_t> mem_rng_chk_u16_0_counts;
+    std::unordered_map<uint16_t, uint32_t> mem_rng_chk_u16_1_counts;
+    std::unordered_map<uint8_t, uint32_t> mem_rng_chk_u8_counts;
 
   private:
     std::vector<MemoryTraceEntry> mem_trace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
 
     // Global Memory table (used for simulation): (space_id, (address, mem_entry))
     std::array<std::unordered_map<uint32_t, MemEntry>, NUM_MEM_SPACES> memory;
+
+    static void debug_mem_trace_entry(MemoryTraceEntry entry);
 
     void insert_in_mem_trace(uint8_t space_id,
                              uint32_t m_clk,

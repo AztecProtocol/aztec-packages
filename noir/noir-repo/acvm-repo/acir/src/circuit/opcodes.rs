@@ -1,7 +1,4 @@
-use super::{
-    brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
-    directives::Directive,
-};
+use super::brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs};
 
 pub mod function_id;
 pub use function_id::AcirFunctionId;
@@ -13,10 +10,12 @@ use serde::{Deserialize, Serialize};
 mod black_box_function_call;
 mod memory_operation;
 
-pub use black_box_function_call::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput};
+pub use black_box_function_call::{
+    BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput, InvalidInputBitSize,
+};
 pub use memory_operation::{BlockId, MemOp};
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum BlockType {
     Memory,
     CallData(u32),
@@ -30,7 +29,7 @@ impl BlockType {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Opcode<F> {
     /// An `AssertZero` opcode adds the constraint that `P(w) = 0`, where
     /// `w=(w_1,..w_n)` is a tuple of `n` witnesses, and `P` is a multi-variate
@@ -40,7 +39,7 @@ pub enum Opcode<F> {
     /// values which define the opcode.
     ///
     /// A general expression of assert-zero opcode is the following:
-    /// ```
+    /// ```text
     /// \sum_{i,j} {q_M}_{i,j}w_iw_j + \sum_i q_iw_i +q_c = 0
     /// ```
     ///
@@ -58,7 +57,7 @@ pub enum Opcode<F> {
     /// specialized constraints.
     ///
     /// Often used for exposing more efficient implementations of
-    /// SNARK-unfriendly computations.  
+    /// SNARK-unfriendly computations.
     ///
     /// All black box functions take as input a tuple `(witness, num_bits)`,
     /// where `num_bits` is a constant representing the bit size of the input
@@ -72,16 +71,6 @@ pub enum Opcode<F> {
     /// Aztec's Barretenberg uses BN254 as the main curve and Grumpkin as the
     /// embedded curve.
     BlackBoxFuncCall(BlackBoxFuncCall<F>),
-
-    /// This opcode is a specialization of a Brillig opcode. Instead of having
-    /// some generic assembly code like Brillig, a directive has a hardcoded
-    /// name which tells the solver which computation to do: with Brillig, the
-    /// computation refers to the compiled bytecode of an unconstrained Noir
-    /// function, but with a directive, the computation is hardcoded inside the
-    /// compiler.
-    ///
-    /// Directives will be replaced by Brillig opcodes in the future.
-    Directive(Directive<F>),
 
     /// Atomic operation on a block of memory
     ///
@@ -156,18 +145,6 @@ impl<F: AcirField> std::fmt::Display for Opcode<F> {
             }
 
             Opcode::BlackBoxFuncCall(g) => write!(f, "{g}"),
-            Opcode::Directive(Directive::ToLeRadix { a, b, radix: _ }) => {
-                write!(f, "DIR::TORADIX ")?;
-                write!(
-                    f,
-                    // TODO (Note): this assumes that the decomposed bits have contiguous witness indices
-                    // This should be the case, however, we can also have a function which checks this
-                    "(_{}, [_{}..._{}] )",
-                    a,
-                    b.first().unwrap().witness_index(),
-                    b.last().unwrap().witness_index(),
-                )
-            }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
                 if let Some(pred) = predicate {

@@ -57,7 +57,7 @@ template <typename FF_> class EllipticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("Elliptic::accumulate");
+        PROFILE_THIS_NAME("Elliptic::accumulate");
         // TODO(@zac - williamson #2608 when Pedersen refactor is completed,
         // replace old addition relations with these ones and
         // remove endomorphism coefficient in ecc add gate(not used))

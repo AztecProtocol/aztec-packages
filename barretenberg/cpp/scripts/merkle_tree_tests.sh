@@ -5,7 +5,7 @@ set -e
 # run commands relative to parent directory
 cd $(dirname $0)/..
 
-DEFAULT_TESTS=PersistedIndexedTreeTest.*:PersistedAppendOnlyTreeTest.*:LMDBStoreTest.*
+DEFAULT_TESTS=PersistedIndexedTreeTest.*:PersistedAppendOnlyTreeTest.*:LMDBTreeStoreTest.*:PersistedContentAddressedIndexedTreeTest.*:PersistedContentAddressedAppendOnlyTreeTest.*
 TEST=${1:-$DEFAULT_TESTS}
 PRESET=${PRESET:-clang16}
 

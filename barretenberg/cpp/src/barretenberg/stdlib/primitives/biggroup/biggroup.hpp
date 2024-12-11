@@ -75,6 +75,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    /**
+     * @brief Creates fixed witnesses from a constant element.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        this->x.convert_constant_to_fixed_witness(builder);
+        this->y.convert_constant_to_fixed_witness(builder);
+    }
+
     static element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);
@@ -280,6 +289,18 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
     element get_standard_form() const;
+
+    void set_origin_tag(OriginTag tag) const
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
 
     Fq x;
     Fq y;

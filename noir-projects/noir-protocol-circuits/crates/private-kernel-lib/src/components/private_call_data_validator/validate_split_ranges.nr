@@ -4,19 +4,24 @@ pub fn validate_split_ranges<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
     first_revertible_item_index: u32,
     items: [T; N],
-    num_items: u32
-) where T: RangeOrdered {
+    num_items: u32,
+)
+where
+    T: RangeOrdered,
+{
     if first_revertible_item_index != 0 {
         let last_non_revertible_item_index = first_revertible_item_index - 1;
         let item = items[last_non_revertible_item_index];
         assert(
-            min_revertible_side_effect_counter > item.counter_end(), "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item"
+            min_revertible_side_effect_counter > item.counter_end(),
+            "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item",
         );
     }
     if first_revertible_item_index != num_items {
         let item = items[first_revertible_item_index];
         assert(
-            min_revertible_side_effect_counter <= item.counter_start(), "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item"
+            min_revertible_side_effect_counter <= item.counter_start(),
+            "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item",
         );
     }
 }
@@ -38,14 +43,17 @@ mod tests {
 
         pub fn split_calls(&mut self, counter: u32) {
             self.private_call.min_revertible_side_effect_counter = counter;
-            self.first_revertible_private_call_request_index = self.private_call.private_call_requests.len();
+            self.first_revertible_private_call_request_index =
+                self.private_call.private_call_requests.len();
         }
 
         pub fn add_private_call_request(&mut self, counter_start: u32, counter_end: u32) {
             let index = self.private_call.private_call_requests.len();
             self.private_call.append_private_call_requests(1);
-            self.private_call.private_call_requests.storage[index].start_side_effect_counter = counter_start;
-            self.private_call.private_call_requests.storage[index].end_side_effect_counter = counter_end;
+            let mut call_request = self.private_call.private_call_requests.get(index);
+            call_request.start_side_effect_counter = counter_start;
+            call_request.end_side_effect_counter = counter_end;
+            self.private_call.private_call_requests.set(index, call_request);
             self.private_call.counter = counter_end + 1;
         }
 
@@ -53,8 +61,8 @@ mod tests {
             validate_split_ranges(
                 self.private_call.min_revertible_side_effect_counter,
                 self.first_revertible_private_call_request_index,
-                self.private_call.private_call_requests.storage,
-                self.private_call.private_call_requests.len()
+                self.private_call.private_call_requests.storage(),
+                self.private_call.private_call_requests.len(),
             );
         }
     }
@@ -106,7 +114,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_less_than_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -119,7 +127,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_equal_last_non_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -131,7 +139,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
     fn validate_split_ranges_greater_than_first_revertible_fails() {
         let mut builder = TestBuilder::new();
 
@@ -156,7 +164,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
     fn validate_split_ranges_0_wrong_hint_fails() {
         let mut builder = TestBuilder::new();
 
@@ -169,7 +177,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
+    #[test(should_fail_with = "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item")]
     fn validate_split_ranges_index_hint_greater_than_len_fails() {
         let mut builder = TestBuilder::new();
 

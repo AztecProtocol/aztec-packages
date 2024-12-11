@@ -1,23 +1,28 @@
 mod asset;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract PriceFeed {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, Map, PublicMutable};
     use crate::asset::Asset;
+    use dep::aztec::prelude::{Map, PublicMutable};
+
+    use dep::aztec::macros::{functions::{public, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
-    #[aztec(storage)]
-    struct Storage {
-        assets: Map<Field, PublicMutable<Asset>>,
+    #[storage]
+    struct Storage<Context> {
+        assets: Map<Field, PublicMutable<Asset, Context>, Context>,
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price: U128::from_integer(price) });
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn get_price(asset_id: Field) -> Asset {
         storage.assets.at(asset_id).read()
     }

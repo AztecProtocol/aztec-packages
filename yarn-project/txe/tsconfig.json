@@ -10,9 +10,6 @@
       "path": "../accounts"
     },
     {
-      "path": "../archiver"
-    },
-    {
       "path": "../aztec.js"
     },
     {
@@ -29,6 +26,9 @@
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../pxe"

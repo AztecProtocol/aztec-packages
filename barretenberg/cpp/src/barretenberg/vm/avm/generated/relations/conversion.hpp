@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class conversionImpl {
   public:
@@ -21,7 +21,7 @@ template <typename FF_> class conversionImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.conversion_sel_to_radix_le * (FF(1) - new_term.conversion_sel_to_radix_le));
+            auto tmp = (new_term.conversion_sel_to_radix_be * (FF(1) - new_term.conversion_sel_to_radix_be));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
@@ -39,4 +39,4 @@ template <typename FF> class conversion : public Relation<conversionImpl<FF>> {
     }
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

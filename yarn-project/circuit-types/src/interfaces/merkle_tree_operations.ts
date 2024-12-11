@@ -1,8 +1,13 @@
-import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  type BlockHeader,
+  type Fr,
+  type NullifierLeaf,
+  type PublicDataTreeLeaf,
+  type StateReference,
+} from '@aztec/circuits.js';
+import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { type L2Block } from '../l2_block.js';
 import { type MerkleTreeId } from '../merkle_tree_id.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 
@@ -11,20 +16,22 @@ import { type SiblingPath } from '../sibling_path/sibling_path.js';
  */
 export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE;
 
+export type FrTreeId = Exclude<MerkleTreeId, IndexedTreeId>;
+
 /**
- * All of the data to be return during batch insertion.
+ * Witness data for a leaf update.
  */
-export interface LowLeafWitnessData<N extends number> {
+export interface LeafUpdateWitnessData<N extends number> {
   /**
-   * Preimage of the low nullifier that proves non membership.
+   * Preimage of the leaf before updating.
    */
   leafPreimage: IndexedTreeLeafPreimage;
   /**
-   * Sibling path to prove membership of low nullifier.
+   * Sibling path to prove membership of the leaf.
    */
   siblingPath: SiblingPath<N>;
   /**
-   * The index of low nullifier.
+   * The index of the leaf.
    */
   index: bigint;
 }
@@ -36,7 +43,7 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
   /**
    * Data for the leaves to be updated when inserting the new ones.
    */
-  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight>[];
+  lowLeavesWitnessData?: LeafUpdateWitnessData<TreeHeight>[];
   /**
    * Sibling path "pointing to" where the new subtree should be inserted into the tree.
    */
@@ -49,6 +56,20 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
    * The indexes of the sorted new leaves to the original ones.
    */
   sortedNewLeavesIndexes: number[];
+}
+
+/**
+ * The result of a sequential insertion in an indexed merkle tree.
+ */
+export interface SequentialInsertionResult<TreeHeight extends number> {
+  /**
+   * Data for the leaves to be updated when inserting the new ones.
+   */
+  lowLeavesWitnessData: LeafUpdateWitnessData<TreeHeight>[];
+  /**
+   * Data for the inserted leaves
+   */
+  insertionWitnessData: LeafUpdateWitnessData<TreeHeight>[];
 }
 
 /**
@@ -82,17 +103,22 @@ type LeafTypes = {
   [MerkleTreeId.ARCHIVE]: Fr;
 };
 
+type LeafValueTypes = {
+  [MerkleTreeId.NULLIFIER_TREE]: NullifierLeaf;
+  [MerkleTreeId.NOTE_HASH_TREE]: Fr;
+  [MerkleTreeId.PUBLIC_DATA_TREE]: PublicDataTreeLeaf;
+  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
+  [MerkleTreeId.ARCHIVE]: Fr;
+};
+
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];
 
-/** Defines the interface for operations on a set of Merkle Trees. */
-export interface MerkleTreeOperations {
-  /**
-   * Appends leaves to a given tree.
-   * @param treeId - The tree to be updated.
-   * @param leaves - The set of leaves to be appended.
-   */
-  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
+export type MerkleTreeLeafValue<ID extends MerkleTreeId> = LeafValueTypes[ID];
 
+/**
+ * Defines the interface for operations on a set of Merkle Trees.
+ */
+export interface MerkleTreeReadOperations {
   /**
    * Returns information about the given tree.
    * @param treeId - The tree to be queried.
@@ -107,7 +133,7 @@ export interface MerkleTreeOperations {
   /**
    * Gets the initial header.
    */
-  getInitialHeader(): Header;
+  getInitialHeader(): BlockHeader;
 
   /**
    * Gets sibling path for a leaf.
@@ -146,14 +172,6 @@ export interface MerkleTreeOperations {
   getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
 
   /**
-   * Update the leaf data at the given index.
-   * @param treeId - The tree for which leaf data should be edited.
-   * @param leaf - The updated leaf value.
-   * @param index - The index of the leaf to be updated.
-   */
-  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
-
-  /**
    * Returns the index containing a leaf value.
    * @param treeId - The tree for which the index should be returned.
    * @param value - The value to search for in the tree.
@@ -183,11 +201,30 @@ export interface MerkleTreeOperations {
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined>;
 
   /**
+   * Get the block numbers for a set of leaf indices
+   * @param treeId - The tree for which the block numbers should be returned.
+   * @param leafIndices - The indices to be queried.
+   */
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]>;
+}
+
+export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
+  /**
+   * Appends leaves to a given tree.
+   * @param treeId - The tree to be updated.
+   * @param leaves - The set of leaves to be appended.
+   */
+  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void>;
+
+  /**
    * Inserts the block hash into the archive.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param header - The header to insert into the archive.
    */
-  updateArchive(header: Header): Promise<void>;
+  updateArchive(header: BlockHeader): Promise<void>;
 
   /**
    * Batch insert multiple leaves into the tree.
@@ -201,43 +238,32 @@ export interface MerkleTreeOperations {
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+
+  /**
+   * Inserts multiple leaves into the tree, getting witnesses at every step.
+   * Note: This method doesn't support inserting empty leaves.
+   * @param treeId - The tree on which to insert.
+   * @param leaves - The leaves to insert.
+   * @returns The witnesses for the low leaf updates and the insertions.
+   */
+  sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>>;
+
+  /**
+   * Closes the database, discarding any uncommitted changes.
+   */
+  close(): Promise<void>;
 }
-
-/** Operations on merkle trees world state that can modify the underlying store. */
-export interface MerkleTreeAdminOperations extends MerkleTreeOperations {
-  /**
-   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
-   * @param block - The L2 block to handle.
-   * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
-
-  /**
-   * Commits pending changes to the underlying store.
-   */
-  commit(): Promise<void>;
-
-  /**
-   * Rolls back pending changes.
-   */
-  rollback(): Promise<void>;
-
-  /** Deletes this database. Useful for cleaning up forks. */
-  delete(): Promise<void>;
-}
-
-/** Return type for handleL2BlockAndMessages */
-export type HandleL2BlockAndMessagesResult = {
-  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
-};
 
 /**
  * Outputs a tree leaves using for debugging purposes.
  */
 export async function inspectTree(
-  db: MerkleTreeOperations,
+  db: MerkleTreeReadOperations,
   treeId: MerkleTreeId,
-  log = createDebugLogger('aztec:inspect-tree'),
+  log = createLogger('types:inspect-tree'),
 ) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];

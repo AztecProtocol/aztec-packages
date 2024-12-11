@@ -1,5 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
@@ -47,7 +49,6 @@ export class BlockRootRollupInputs {
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     /**
      * The hash of the block preceding this one.
-     * TODO(#7346): Integrate batch rollup circuits and inject below
      */
     public previousBlockHash: Fr,
     /**
@@ -69,7 +70,7 @@ export class BlockRootRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -126,6 +127,16 @@ export class BlockRootRollupInputs {
    * @returns A new RootRollupInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootRollupInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BlockRootRollupInputs);
   }
 }

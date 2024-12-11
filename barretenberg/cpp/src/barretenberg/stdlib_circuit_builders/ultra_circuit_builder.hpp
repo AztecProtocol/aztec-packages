@@ -1,13 +1,13 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
@@ -21,29 +21,27 @@ namespace bb {
 
 template <typename FF> struct non_native_field_witnesses {
     // first 4 array elements = limbs
-    // 5th element = prime basis limb
-    std::array<uint32_t, 5> a;
-    std::array<uint32_t, 5> b;
-    std::array<uint32_t, 5> q;
-    std::array<uint32_t, 5> r;
-    std::array<FF, 5> neg_modulus;
+    std::array<uint32_t, 4> a;
+    std::array<uint32_t, 4> b;
+    std::array<uint32_t, 4> q;
+    std::array<uint32_t, 4> r;
+    std::array<FF, 4> neg_modulus;
     FF modulus;
 };
 
-template <typename Arithmetization_>
-class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_::FF> {
+template <typename ExecutionTrace_>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
   public:
-    using Arithmetization = Arithmetization_;
-    using GateBlocks = typename Arithmetization::TraceBlocks;
+    using ExecutionTrace = ExecutionTrace_;
 
-    using FF = typename Arithmetization::FF;
-    static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
+    using FF = typename ExecutionTrace::FF;
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
-    static constexpr size_t program_width = Arithmetization::NUM_WIRES;
-    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
-    std::vector<std::string> selector_names = Arithmetization::selector_names;
+    static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
+    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
+    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
-    static constexpr std::string_view NAME_STRING = "UltraArithmetization";
+    static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
@@ -196,31 +194,48 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * repeatedly.
      */
     struct cached_partial_non_native_field_multiplication {
-        std::array<uint32_t, 5> a;
-        std::array<uint32_t, 5> b;
-        FF lo_0;
-        FF hi_0;
-        FF hi_1;
+        std::array<uint32_t, 4> a;
+        std::array<uint32_t, 4> b;
+        uint32_t lo_0;
+        uint32_t hi_0;
+        uint32_t hi_1;
 
         bool operator==(const cached_partial_non_native_field_multiplication& other) const
         {
             bool valid = true;
-            for (size_t i = 0; i < 5; ++i) {
+            for (size_t i = 0; i < 4; ++i) {
                 valid = valid && (a[i] == other.a[i]);
                 valid = valid && (b[i] == other.b[i]);
             }
             return valid;
         }
 
-        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec)
+        /**
+         * @brief Dedupilcate cache entries which represent multiplication of the same witnesses
+         *
+         * @details While a and b witness vectors are the same, lo_0, hi_0 and hi_1 can vary, so we have to connect them
+         * or there is a vulnerability
+         *
+         * @param vec
+         * @param circuit_builder
+         */
+        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
+                                UltraCircuitBuilder_<ExecutionTrace>* circuit_builder)
         {
             std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
 
             std::vector<cached_partial_non_native_field_multiplication> uniqueVec;
 
             for (const auto& item : vec) {
-                if (seen.insert(item).second) {
+                auto [existing_element, not_in_set] = seen.insert(item);
+                // Memorize if not in set yet
+                if (not_in_set) {
                     uniqueVec.push_back(item);
+                } else {
+                    // If we already have a representative, we need to connect the outputs together
+                    circuit_builder->assert_equal(item.lo_0, (*existing_element).lo_0);
+                    circuit_builder->assert_equal(item.hi_0, (*existing_element).hi_0);
+                    circuit_builder->assert_equal(item.hi_1, (*existing_element).hi_1);
                 }
             }
 
@@ -277,7 +292,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     };
 
     // Storage for wires and selectors for all gate types
-    GateBlocks blocks;
+    ExecutionTrace blocks;
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -314,6 +329,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
+
+    std::vector<fr> ipa_proof;
 
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
@@ -364,23 +381,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
+    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) noexcept
         : CircuitBuilderBase<FF>(std::move(other))
-    {
-        blocks = other.blocks;
-        constant_variable_indices = other.constant_variable_indices;
-
-        lookup_tables = other.lookup_tables;
-        range_lists = other.range_lists;
-        ram_arrays = other.ram_arrays;
-        rom_arrays = other.rom_arrays;
-        memory_read_records = other.memory_read_records;
-        memory_write_records = other.memory_write_records;
-        cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalized = other.circuit_finalized;
-    };
+        , blocks(other.blocks)
+        , constant_variable_indices(other.constant_variable_indices)
+        , lookup_tables(other.lookup_tables)
+        , range_lists(other.range_lists)
+        , ram_arrays(other.ram_arrays)
+        , rom_arrays(other.rom_arrays)
+        , memory_read_records(other.memory_read_records)
+        , memory_write_records(other.memory_write_records)
+        , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
+        , circuit_finalized(other.circuit_finalized)
+        , ipa_proof(other.ipa_proof){};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
+    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
         blocks = other.blocks;
@@ -394,6 +409,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
         circuit_finalized = other.circuit_finalized;
+        ipa_proof = other.ipa_proof;
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;
@@ -421,12 +437,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #endif // NDEBUG
     }
 
-    void finalize_circuit();
+    void finalize_circuit(const bool ensure_nonzero);
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
     void create_add_gate(const add_triple_<FF>& in) override;
-
+    void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in);
     void create_big_mul_gate(const mul_quad_<FF>& in);
@@ -487,7 +503,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     uint32_t put_constant_variable(const FF& variable);
 
-  public:
     size_t get_num_constant_gates() const override { return 0; }
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
@@ -504,7 +519,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @param ramcount return argument, extra gates due to ram read/writes
      * @param nnfcount return argument, extra gates due to queued non native field gates
      */
-    void get_num_gates_split_into_components(
+    void get_num_estimated_gates_split_into_components(
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
@@ -540,8 +555,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             // We record `ram_timestamps` to detect and correct for this error when we process range lists.
             ram_timestamps.push_back(max_timestamp);
             size_t padding = (NUM_WIRES - (max_timestamp % NUM_WIRES)) % NUM_WIRES;
-            if (max_timestamp == NUM_WIRES)
+            if (max_timestamp == NUM_WIRES) {
                 padding += NUM_WIRES;
+            }
             const size_t ram_range_check_list_size = max_timestamp + padding;
 
             size_t ram_range_check_gate_count = (ram_range_check_list_size / NUM_WIRES);
@@ -553,8 +569,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         for (const auto& list : range_lists) {
             auto list_size = list.second.variable_indices.size();
             size_t padding = (NUM_WIRES - (list.second.variable_indices.size() % NUM_WIRES)) % NUM_WIRES;
-            if (list.second.variable_indices.size() == NUM_WIRES)
+            if (list.second.variable_indices.size() == NUM_WIRES) {
                 padding += NUM_WIRES;
+            }
             list_size += padding;
 
             for (size_t i = 0; i < ram_timestamps.size(); ++i) {
@@ -582,6 +599,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
+     * @brief Get the number of gates in a finalized circuit.
+     * @return size_t
+     */
+    size_t get_num_finalized_gates() const override
+    {
+        ASSERT(circuit_finalized);
+        return this->num_gates;
+    }
+
+    /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
      * 2) Number of public inputs, as we'll need to add a gate for each of them
@@ -596,7 +623,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * the circuit is finalized due to a failure to account for "de-duplication" when computing how many
      * non-native-field gates will be present.
      */
-    size_t get_num_gates() const override
+    size_t get_estimated_num_finalized_gates() const override
     {
         // if circuit finalized already added extra gates
         if (circuit_finalized) {
@@ -607,7 +634,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
     }
 
@@ -618,11 +645,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      */
     size_t get_num_gates_added_to_ensure_nonzero_polynomials()
     {
-        UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
+        UltraCircuitBuilder_<ExecutionTrace> builder; // instantiate new builder
 
-        size_t num_gates_prior = builder.get_num_gates();
+        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
         builder.add_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
 
         return num_gates_post - num_gates_prior;
     }
@@ -654,7 +681,26 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     /**
-     * @brief Get the size of the circuit if it was finalized now
+     * @brief Get the actual finalized size of a Plonk circuit. Assumes the circuit is finalized already.
+     *
+     * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
+     * account the possibility that the tables will dominate the size and checks both the plookup argument
+     * size and the general circuit size
+     *
+     * @return size_t
+     */
+    size_t get_finalized_total_circuit_size() const
+    {
+        ASSERT(circuit_finalized);
+        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
+        info("minimum_circuit_size: ", minimum_circuit_size);
+        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        info("num_filled_gates: ", num_filled_gates);
+        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+    }
+
+    /**
+     * @brief Get the estimated size of the circuit if it was finalized now
      *
      * @details This method estimates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the estimated plookup argument
@@ -662,10 +708,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      *
      * @return size_t
      */
-    size_t get_total_circuit_size() const
+    size_t get_estimated_total_circuit_size() const
     {
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        auto num_filled_gates = get_num_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 
@@ -673,14 +719,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
+        get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
@@ -772,11 +818,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
-    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder = true);
+    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
-    typedef std::pair<uint32_t, FF> scaled_witness;
-    typedef std::tuple<scaled_witness, scaled_witness, FF> add_simple;
+    using scaled_witness = std::pair<uint32_t, FF>;
+    using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
                                                                   add_simple limb1,
                                                                   add_simple limb2,
@@ -824,5 +869,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     msgpack::sbuffer export_circuit() override;
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 } // namespace bb

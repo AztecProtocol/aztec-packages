@@ -1,4 +1,5 @@
 #include "../field/field.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
@@ -6,6 +7,7 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
 
 template <typename Builder>
@@ -240,7 +242,10 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
     auto x3 = lambda_squared - x1 - x1;
     auto y3 = lambda * (x1 - x3) - y1;
     if (is_constant()) {
-        return cycle_group(x3, y3, is_point_at_infinity().get_value());
+        auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
+        // We need to manually propagate the origin tag
+        result.set_origin_tag(get_origin_tag());
+        return result;
     }
     cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
@@ -249,6 +254,10 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     });
+
+    // We need to manually propagate the origin tag
+    result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+    result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     return result;
 }
 
@@ -297,10 +306,14 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     const bool rhs_constant = other.is_constant();
     if (lhs_constant && !rhs_constant) {
         auto lhs = cycle_group::from_constant_witness(context, get_value());
+        // We need to manually propagate the origin tag
+        lhs.set_origin_tag(get_origin_tag());
         return lhs.unconditional_add(other);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
+        // We need to manually propagate the origin tag
+        rhs.set_origin_tag(other.get_origin_tag());
         return unconditional_add(rhs);
     }
 
@@ -308,7 +321,10 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     const auto p2 = other.get_value();
     AffineElement p3(Element(p1) + Element(p2));
     if (lhs_constant && rhs_constant) {
-        return cycle_group(p3);
+        auto result = cycle_group(p3);
+        // We need to manually propagate the origin tag
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
     field_t r_x(witness_t(context, p3.x));
     field_t r_y(witness_t(context, p3.y));
@@ -325,6 +341,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     };
     context->create_ecc_add_gate(add_gate);
 
+    // We need to manually propagate the origin tag (merging the tag of two inputs)
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
@@ -350,17 +368,24 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 
         if (lhs_constant && !rhs_constant) {
             auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
+            // We need to manually propagate the origin tag
+            lhs.set_origin_tag(get_origin_tag());
             return lhs.unconditional_subtract(other);
         }
         if (!lhs_constant && rhs_constant) {
             auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
+            // We need to manually propagate the origin tag
+            rhs.set_origin_tag(other.get_origin_tag());
             return unconditional_subtract(rhs);
         }
         auto p1 = get_value();
         auto p2 = other.get_value();
         AffineElement p3(Element(p1) - Element(p2));
         if (lhs_constant && rhs_constant) {
-            return cycle_group(p3);
+            auto result = cycle_group(p3);
+            // We need to manually propagate the origin tag
+            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+            return result;
         }
         field_t r_x(witness_t(context, p3.x));
         field_t r_y(witness_t(context, p3.y));
@@ -377,6 +402,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
         };
         context->create_ecc_add_gate(add_gate);
 
+        // We need to manually propagate the origin tag (merging the tag of two inputs)
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
     }
 }
@@ -593,6 +620,9 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(con
         // bb::fq modulus otherwise we could have two representations for in
         validate_scalar_is_in_field();
     }
+    // We need to manually propagate the origin tag
+    lo.set_origin_tag(in.get_origin_tag());
+    hi.set_origin_tag(in.get_origin_tag());
 }
 
 template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const ScalarField& in)
@@ -663,6 +693,11 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     field_t lo = witness_t(in.get_context(), lo_v);
     field_t hi = witness_t(in.get_context(), hi_v);
     lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
+
+    // We need to manually propagate the origin tag
+    lo.set_origin_tag(in.get_origin_tag());
+    hi.set_origin_tag(in.get_origin_tag());
+
     cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }
@@ -678,24 +713,114 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
 template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(BigScalarField& scalar)
 {
     auto* ctx = get_context() ? get_context() : scalar.get_context();
-    const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
-    const uint256_t value_lo = value.slice(0, LO_BITS);
-    const uint256_t value_hi = value.slice(LO_BITS, HI_BITS);
+
     if (scalar.is_constant()) {
+        const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
+        const uint256_t value_lo = value.slice(0, LO_BITS);
+        const uint256_t value_hi = value.slice(LO_BITS, HI_BITS);
+
         lo = value_lo;
         hi = value_hi;
         // N.B. to be able to call assert equal, these cannot be constants
     } else {
-        lo = witness_t(ctx, value_lo);
-        hi = witness_t(ctx, value_hi);
-        field_t zero = field_t(0);
-        zero.convert_constant_to_fixed_witness(ctx);
-        BigScalarField lo_big(lo, zero);
-        BigScalarField hi_big(hi, zero);
-        BigScalarField res = lo_big + hi_big * BigScalarField((uint256_t(1) << LO_BITS));
-        scalar.assert_equal(res);
-        validate_scalar_is_in_field();
+        // To efficiently convert a bigfield into a cycle scalar,
+        // we are going to explicitly rely on the fact that `scalar.lo` and `scalar.hi`
+        // are implicitly range-constrained to be 128 bits when they are converted into 4-bit lookup window slices
+
+        // First check: can the scalar actually fit into LO_BITS + HI_BITS?
+        // If it can, we can tolerate the scalar being > ScalarField::modulus, because performing a scalar mul
+        // implicilty performs a modular reduction
+        // If not, call `self_reduce` to cut enougn modulus multiples until the above condition is met
+        if (scalar.get_maximum_value() >= (uint512_t(1) << (LO_BITS + HI_BITS))) {
+            scalar.self_reduce();
+        }
+
+        field_t limb0 = scalar.binary_basis_limbs[0].element;
+        field_t limb1 = scalar.binary_basis_limbs[1].element;
+        field_t limb2 = scalar.binary_basis_limbs[2].element;
+        field_t limb3 = scalar.binary_basis_limbs[3].element;
+
+        // The general plan is as follows:
+        // 1. ensure limb0 contains no more than BigScalarField::NUM_LIMB_BITS
+        // 2. define limb1_lo = limb1.slice(0, LO_BITS - BigScalarField::NUM_LIMB_BITS)
+        // 3. define limb1_hi = limb1.slice(LO_BITS - BigScalarField::NUM_LIMB_BITS, <whatever maximum bound of limb1
+        // is>)
+        // 4. construct *this.lo out of limb0 and limb1_lo
+        // 5. construct *this.hi out of limb1_hi, limb2 and limb3
+        // This is a lot of logic, but very cheap on constraints.
+        // For fresh bignums that have come out of a MUL operation,
+        // the only "expensive" part is a size (LO_BITS - BigScalarField::NUM_LIMB_BITS) range check
+
+        // to convert into a cycle_scalar, we need to convert 4*68 bit limbs into 2*128 bit limbs
+        // we also need to ensure that the number of bits in cycle_scalar is < LO_BITS + HI_BITS
+        // note: we do not need to validate that the scalar is within the field modulus
+        // because performing a scalar multiplication implicitly performs a modular reduction (ecc group is
+        // multiplicative modulo BigField::modulus)
+
+        uint256_t limb1_max = scalar.binary_basis_limbs[1].maximum_value;
+
+        // Ensure that limb0 only contains at most NUM_LIMB_BITS. If it exceeds this value, slice of the excess and add
+        // it into limb1
+        if (scalar.binary_basis_limbs[0].maximum_value > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
+            const uint256_t limb = limb0.get_value();
+            const uint256_t lo_v = limb.slice(0, BigScalarField::NUM_LIMB_BITS);
+            const uint256_t hi_v = limb >> BigScalarField::NUM_LIMB_BITS;
+            field_t lo = field_t::from_witness(ctx, lo_v);
+            field_t hi = field_t::from_witness(ctx, hi_v);
+
+            uint256_t hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
+            const uint64_t hi_bits = hi_max.get_msb() + 1;
+            lo.create_range_constraint(BigScalarField::NUM_LIMB_BITS);
+            hi.create_range_constraint(static_cast<size_t>(hi_bits));
+            limb0.assert_equal(lo + hi * BigScalarField::shift_1);
+
+            limb1 += hi;
+            limb1_max += hi_max;
+            limb0 = lo;
+        }
+
+        // sanity check that limb[1] is the limb that contributs both to *this.lo and *this.hi
+        ASSERT((BigScalarField::NUM_LIMB_BITS * 2 > LO_BITS) && (BigScalarField::NUM_LIMB_BITS < LO_BITS));
+
+        // limb1 is the tricky one as it contributs to both *this.lo and *this.hi
+        // By this point, we know that limb1 fits in the range `1 << BigScalarField::NUM_LIMB_BITS to  (1 <<
+        // BigScalarField::NUM_LIMB_BITS) + limb1_max.get_maximum_value() we need to slice this limb into 2. The first
+        // is LO_BITS - BigScalarField::NUM_LIMB_BITS (which reprsents its contribution to *this.lo) and the second
+        // represents the limbs contribution to *this.hi Step 1: compute the max bit sizes of both slices
+        const size_t lo_bits_in_limb_1 = LO_BITS - BigScalarField::NUM_LIMB_BITS;
+        const size_t hi_bits_in_limb_1 = (static_cast<size_t>(limb1_max.get_msb()) + 1) - lo_bits_in_limb_1;
+
+        // Step 2: compute the witness values of both slices
+        const uint256_t limb_1 = limb1.get_value();
+        const uint256_t limb_1_hi_multiplicand = (uint256_t(1) << lo_bits_in_limb_1);
+        const uint256_t limb_1_hi_v = limb_1 >> lo_bits_in_limb_1;
+        const uint256_t limb_1_lo_v = limb_1 - (limb_1_hi_v << lo_bits_in_limb_1);
+
+        // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
+        field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_v);
+        field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_v);
+        limb1.assert_equal(limb_1_hi * limb_1_hi_multiplicand + limb_1_lo);
+
+        // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and
+        // *this,hi
+        limb_1_lo.create_range_constraint(lo_bits_in_limb_1);
+        limb_1_hi.create_range_constraint(hi_bits_in_limb_1);
+
+        // construct *this.lo out of:
+        // a. `limb0` (the first NUM_LIMB_BITS bits of scalar)
+        // b. `limb_1_lo` (the first LO_BITS - NUM_LIMB_BITS) of limb1
+        lo = limb0 + (limb_1_lo * BigScalarField::shift_1);
+
+        const uint256_t limb_2_shift = uint256_t(1) << (BigScalarField::NUM_LIMB_BITS - lo_bits_in_limb_1);
+        const uint256_t limb_3_shift =
+            uint256_t(1) << ((BigScalarField::NUM_LIMB_BITS - lo_bits_in_limb_1) + BigScalarField::NUM_LIMB_BITS);
+
+        // construct *this.hi out of limb2, limb3 and the remaining term from limb1 not contributing to `lo`
+        hi = limb_1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
     }
+    // We need to manually propagate the origin tag
+    lo.set_origin_tag(scalar.get_origin_tag());
+    hi.set_origin_tag(scalar.get_origin_tag());
 };
 
 template <typename Builder> bool cycle_group<Builder>::cycle_scalar::is_constant() const
@@ -789,6 +914,7 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
                 result.push_back(field_t(slice_v));
                 raw_value = raw_value >> table_bits;
             }
+
             return result;
         }
         if constexpr (IS_ULTRA) {
@@ -832,6 +958,11 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
 
     std::copy(lo_slices.begin(), lo_slices.end(), std::back_inserter(slices));
     std::copy(hi_slices.begin(), hi_slices.end(), std::back_inserter(slices));
+    const auto tag = scalar.get_origin_tag();
+    for (auto& element : slices) {
+        // All slices need to have the same origin tag
+        element.set_origin_tag(tag);
+    }
 }
 
 /**
@@ -873,6 +1004,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                                                                size_t table_bits)
     : _table_bits(table_bits)
     , _context(context)
+    , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
     const size_t table_size = 1UL << table_bits;
     point_table.resize(table_size);
@@ -933,10 +1065,17 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
         auto output_indices = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
         field_t x = field_t::from_witness_index(_context, output_indices[0]);
         field_t y = field_t::from_witness_index(_context, output_indices[1]);
+        // Merge tag of table with tag of index
+        x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
+        y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
         return cycle_group(x, y, false);
     }
     field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
     field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
+
+    // Merge tag of table with tag of index
+    x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
+    y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     return cycle_group(x, y, false);
 }
 
@@ -999,7 +1138,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     std::vector<straus_scalar_slice> scalar_slices;
     std::vector<straus_lookup_table> point_tables;
+    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        // Merge tags
+        tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
         scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
     }
@@ -1053,6 +1195,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         auto x_diff = x2 - x1;
         x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
+
+    // Set the final accumulator's tag to the union of all points' and scalars' tags
+    accumulator.set_origin_tag(tag);
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
@@ -1090,7 +1235,11 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<AffineElement> plookup_base_points;
     std::vector<field_t> plookup_scalars;
 
+    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        // Merge all tags of scalars (we don't have to account for CircuitSimulator in cycle_group yet, because it
+        // breaks)
+        tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
         ASSERT(table_id.has_value());
@@ -1131,6 +1280,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
      * in `batch_mul` before performing the subtraction.
      */
+    // Set accumulator's origin tag to the union of all scalars' tags
+    accumulator.set_origin_tag(tag);
     return { accumulator, offset_generator_accumulator };
 }
 
@@ -1267,6 +1418,11 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     std::vector<cycle_scalar> fixed_base_scalars;
     std::vector<AffineElement> fixed_base_points;
 
+    // Merge all tags
+    OriginTag result_tag;
+    for (auto [point, scalar] : zip_view(base_points, scalars)) {
+        result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
+    }
     size_t num_bits = 0;
     for (auto& s : scalars) {
         num_bits = std::max(num_bits, s.num_bits());
@@ -1322,7 +1478,9 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 
     // If all inputs are constant, return the computed constant component and call it a day.
     if (!has_non_constant_component) {
-        return cycle_group(constant_acc);
+        auto result = cycle_group(constant_acc);
+        result.set_origin_tag(result_tag);
+        return result;
     }
 
     // add the constant component into our offset accumulator
@@ -1388,6 +1546,8 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         // This would be slightly cheaper than operator- as we do not have to evaluate the double edge case.
         result = result - AffineElement(offset_accumulator);
     }
+    // Ensure the tag of the result is a union of all inputs
+    result.set_origin_tag(result_tag);
     return result;
 }
 
@@ -1446,6 +1606,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
 template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
-template struct cycle_group<bb::CircuitSimulatorBN254>::cycle_scalar;
+template class cycle_group<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

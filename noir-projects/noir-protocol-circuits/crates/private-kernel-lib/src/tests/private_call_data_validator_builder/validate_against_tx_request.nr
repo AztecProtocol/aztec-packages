@@ -9,7 +9,7 @@ fn validate_against_tx_request_succeeds() {
     builder.validate_against_tx_request(request);
 }
 
-#[test(should_fail_with="origin address does not match call stack items contract address")]
+#[test(should_fail_with = "contract address does not match origin")]
 fn validate_against_tx_request_mismatch_contract_address_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -20,7 +20,7 @@ fn validate_against_tx_request_mismatch_contract_address_fails() {
     builder.validate_against_tx_request(request);
 }
 
-#[test(should_fail_with="tx_request function_data must match call_stack_item function_data")]
+#[test(should_fail_with = "function_selector in call_context does not match the value in tx_request")]
 fn validate_against_tx_request_mismatch_function_data_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -31,7 +31,18 @@ fn validate_against_tx_request_mismatch_function_data_fails() {
     builder.validate_against_tx_request(request);
 }
 
-#[test(should_fail_with="noir function args passed to tx_request must match args in the call_stack_item")]
+#[test(should_fail_with = "tx_request does not indicate the first function is private")]
+fn validate_against_tx_request_public_function_data_fails() {
+    let builder = PrivateCallDataValidatorBuilder::new();
+
+    let mut request = builder.private_call.build_tx_request();
+    // Tweak the function to be public.
+    request.function_data.is_private = false;
+
+    builder.validate_against_tx_request(request);
+}
+
+#[test(should_fail_with = "args_hash in private call does not match the value in tx_request")]
 fn validate_against_tx_request_mismatch_args_hash_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -42,7 +53,7 @@ fn validate_against_tx_request_mismatch_args_hash_fails() {
     builder.validate_against_tx_request(request);
 }
 
-#[test(should_fail_with="tx_context in tx_request must match tx_context in call_stack_item")]
+#[test(should_fail_with = "tx_context in private call does not match the value in tx_request")]
 fn validate_against_tx_request_mismatch_chain_id_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -53,7 +64,7 @@ fn validate_against_tx_request_mismatch_chain_id_fails() {
     builder.validate_against_tx_request(request);
 }
 
-#[test(should_fail_with="tx_context in tx_request must match tx_context in call_stack_item")]
+#[test(should_fail_with = "tx_context in private call does not match the value in tx_request")]
 fn validate_against_tx_request_mismatch_version_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 

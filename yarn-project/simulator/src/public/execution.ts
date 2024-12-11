@@ -13,20 +13,74 @@ import {
   type LogHash,
   type NoteHash,
   type Nullifier,
-  PublicCallRequest,
   PublicCallStackItemCompressed,
+  type PublicDataUpdateRequest,
+  PublicInnerCallRequest,
   type ReadRequest,
   RevertCode,
+  type ScopedL2ToL1Message,
+  type ScopedLogHash,
+  type ScopedNoteHash,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
-import { type Gas as AvmGas } from '../avm/avm_gas.js';
+export interface PublicSideEffects {
+  /** The contract storage update requests performed. */
+  publicDataWrites: PublicDataUpdateRequest[];
+  /** The new note hashes to be inserted into the note hashes tree. */
+  noteHashes: ScopedNoteHash[];
+  /** The new nullifiers to be inserted into the nullifier tree. */
+  nullifiers: Nullifier[];
+  /** The new l2 to l1 messages generated to be inserted into the messages tree. */
+  l2ToL1Messages: ScopedL2ToL1Message[];
+  /**
+   * The hashed logs with side effect counter.
+   * Note: required as we don't track the counter anywhere else.
+   */
+  unencryptedLogsHashes: ScopedLogHash[];
+  /**
+   * Unencrypted logs emitted during execution.
+   * Note: These are preimages to `unencryptedLogsHashes`.
+   */
+  unencryptedLogs: UnencryptedFunctionL2Logs;
+}
+
+export interface EnqueuedPublicCallExecutionResult {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+}
+
+export interface EnqueuedPublicCallExecutionResultWithSideEffects {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+
+  /** The public side effects of the function. */
+  sideEffects: PublicSideEffects;
+}
 
 /**
  * The public function execution result.
  */
-export interface PublicExecutionResult {
+export interface PublicFunctionCallResult {
   /** The execution request that triggered this result. */
   executionRequest: PublicExecutionRequest;
 
@@ -35,9 +89,9 @@ export interface PublicExecutionResult {
   /** The side effect counter after executing this function call */
   endSideEffectCounter: Fr;
   /** How much gas was available for this public execution. */
-  startGasLeft: AvmGas;
+  startGasLeft: Gas;
   /** How much gas was left after this public execution. */
-  endGasLeft: AvmGas;
+  endGasLeft: Gas;
   /** Transaction fee set for this tx. */
   transactionFee: Fr;
 
@@ -86,10 +140,8 @@ export interface PublicExecutionResult {
    */
   allUnencryptedLogs: UnencryptedFunctionL2Logs;
 
-  // TODO(dbanks12): add contract instance read requests
-
   /** The requests to call public functions made by this call. */
-  publicCallRequests: PublicCallRequest[];
+  publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
   nestedExecutions: this[];
 
@@ -100,44 +152,10 @@ export interface PublicExecutionResult {
   functionName: string;
 }
 
-/**
- * Returns if the input is a public execution result and not just a public execution.
- * @param input - Public execution or public execution result.
- * @returns Whether the input is a public execution result and not just a public execution.
- */
-export function isPublicExecutionResult(
-  input: PublicExecutionRequest | PublicExecutionResult,
-): input is PublicExecutionResult {
-  return 'executionRequest' in input && input.executionRequest !== undefined;
-}
-
-/**
- * Checks whether the child execution result is valid for a static call (no state modifications).
- * @param executionResult - The execution result of a public function
- */
-
-export function checkValidStaticCall(
-  noteHashes: NoteHash[],
-  nullifiers: Nullifier[],
-  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
-  l2ToL1Messages: L2ToL1Message[],
-  unencryptedLogs: UnencryptedFunctionL2Logs,
-) {
-  if (
-    contractStorageUpdateRequests.length > 0 ||
-    noteHashes.length > 0 ||
-    nullifiers.length > 0 ||
-    l2ToL1Messages.length > 0 ||
-    unencryptedLogs.logs.length > 0
-  ) {
-    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
-  }
-}
-
-export function resultToPublicCallRequest(result: PublicExecutionResult) {
+export function resultToPublicCallRequest(result: PublicFunctionCallResult) {
   const request = result.executionRequest;
   const item = new PublicCallStackItemCompressed(
-    request.contractAddress,
+    request.callContext.contractAddress,
     request.callContext,
     computeVarArgsHash(request.args),
     computeVarArgsHash(result.returnValues),
@@ -146,5 +164,5 @@ export function resultToPublicCallRequest(result: PublicExecutionResult) {
     Gas.from(result.startGasLeft),
     Gas.from(result.endGasLeft),
   );
-  return new PublicCallRequest(item, result.startSideEffectCounter.toNumber());
+  return new PublicInnerCallRequest(item, result.startSideEffectCounter.toNumber());
 }

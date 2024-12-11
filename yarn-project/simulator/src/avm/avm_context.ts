@@ -1,4 +1,4 @@
-import { type AztecAddress, FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -30,7 +30,7 @@ export class AvmContext {
    * - Derive a machine state from the current state
    *   - E.g., gas metering is preserved but pc is reset
    * - Derive an execution environment from the caller/parent
-   *   - Alter both address and storageAddress
+   *   - Alter address
    *
    * @param address - The contract instance to initialize a context for
    * @param calldata - Data/arguments for nested call
@@ -43,13 +43,12 @@ export class AvmContext {
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-    functionSelector: FunctionSelector = FunctionSelector.empty(),
   ): AvmContext {
     const deriveFn =
       callType === 'CALL'
         ? this.environment.deriveEnvironmentForNestedCall
         : this.environment.deriveEnvironmentForNestedStaticCall;
-    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata, functionSelector);
+    const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
     const forkedWorldState = this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);

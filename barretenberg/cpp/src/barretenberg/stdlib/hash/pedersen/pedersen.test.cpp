@@ -46,7 +46,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         fr_ct out = pedersen_hash::hash({ left, right });
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -77,7 +77,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         fr_ct out_with_zero = pedersen_hash::hash({ out_1_with_zero, out_2 });
         fr_ct out_with_r = pedersen_hash::hash({ out_1_with_r, out_2 });
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -120,7 +120,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         builder.set_public_input(left.witness_index);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -145,7 +145,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -196,7 +196,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             EXPECT_EQ(result.get_value(), expected);
         }
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);

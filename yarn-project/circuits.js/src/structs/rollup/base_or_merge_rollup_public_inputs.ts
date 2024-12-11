@@ -1,9 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { PartialStateReference } from '../partial_state_reference.js';
-import { type RollupTypes } from '../shared.js';
-import { ConstantRollupData } from './base_rollup.js';
+import { RollupTypes } from '../shared.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Output of the base and merge rollup circuits.
@@ -45,7 +47,26 @@ export class BaseOrMergeRollupPublicInputs {
      * The summed `transaction_fee` of the constituent transactions.
      */
     public accumulatedFees: Fr,
+    /**
+     * The summed `mana_used` of the constituent transactions.
+     */
+    public accumulatedManaUsed: Fr,
   ) {}
+
+  /** Returns an empty instance. */
+  static empty() {
+    return new BaseOrMergeRollupPublicInputs(
+      RollupTypes.Base,
+      0,
+      ConstantRollupData.empty(),
+      PartialStateReference.empty(),
+      PartialStateReference.empty(),
+      Fr.zero(),
+      Fr.zero(),
+      Fr.zero(),
+      Fr.zero(),
+    );
+  }
 
   /**
    * Deserializes from a buffer or reader.
@@ -62,6 +83,7 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
       //TODO check
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -85,6 +107,7 @@ export class BaseOrMergeRollupPublicInputs {
       this.outHash,
 
       this.accumulatedFees,
+      this.accumulatedManaUsed,
     );
   }
 
@@ -93,7 +116,7 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -102,6 +125,16 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BaseOrMergeRollupPublicInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BaseOrMergeRollupPublicInputs);
   }
 }

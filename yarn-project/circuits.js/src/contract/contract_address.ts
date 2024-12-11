@@ -2,11 +2,11 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foun
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
+import { type ContractInstance } from './interfaces/contract_instance.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -15,18 +15,17 @@ import { computeAddress } from '../keys/index.js';
  * ```
  * salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
- * address = poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1])
+ * address = ((poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1]) * G) + ivpk_m).x <- the x-coordinate of the address point
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
 export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
+    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
-  const publicKeysHash = instance.publicKeysHash;
-  return computeAddress(publicKeysHash, partialAddress);
+  return computeAddress(instance.publicKeys, partialAddress);
 }
 
 /**

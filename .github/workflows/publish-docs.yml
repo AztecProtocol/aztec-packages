@@ -29,7 +29,7 @@ jobs:
         with:
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
 
-      - timeout-minutes: 25
+      - timeout-minutes: 60 # in case of full build
         run: |
           earthly-ci --no-output ./docs/+deploy-prod \
           --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
@@ -38,7 +38,7 @@ jobs:
 
   pdf:
     needs: setup
-    runs-on: master-x86
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -54,6 +54,7 @@ jobs:
       - name: Serve docs
         run: |
           cd aztec-packages/docs
+          yarn install
           yarn build
           yarn serve &
       - name: Checkout PDF repo

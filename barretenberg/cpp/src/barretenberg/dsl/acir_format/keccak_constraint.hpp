@@ -25,17 +25,6 @@ struct Keccakf1600 {
     friend bool operator==(Keccakf1600 const& lhs, Keccakf1600 const& rhs) = default;
 };
 
-struct KeccakConstraint {
-    std::vector<HashInput> inputs;
-    std::array<uint32_t, 32> result;
-    uint32_t var_message_size;
-
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(inputs, result, var_message_size);
-    friend bool operator==(KeccakConstraint const& lhs, KeccakConstraint const& rhs) = default;
-};
-
-template <typename Builder> void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint);
 template <typename Builder> void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint);
 
 } // namespace acir_format

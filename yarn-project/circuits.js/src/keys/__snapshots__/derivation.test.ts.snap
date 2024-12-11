@@ -1,3 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`🔑 Address from partial matches Noir 1`] = `"0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075"`;
+exports[`🔑 Address matches Noir 1`] = `"0x24e4646f58b9fbe7d38e317db8d5636c423fbbdfbe119fc190fe9c64747e0c62"`;
+
+exports[`🔑 Pre address from partial matches Noir 1`] = `"0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075"`;

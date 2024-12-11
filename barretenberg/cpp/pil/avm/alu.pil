@@ -1,3 +1,4 @@
+include "constants_gen.pil";
 include "gadgets/range_check.pil";
 include "gadgets/cmp.pil";
 namespace alu(256);
@@ -12,16 +13,17 @@ namespace alu(256);
     pol commit ic;
     pol commit sel_alu; // Predicate to activate the copy of intermediate registers to ALU table.
 
-    // Instruction tag (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field) copied from Main table
+    // Instruction tag copied from Main table (MEM_TAG enum defined in constants)
     pol commit in_tag;
 
     // Flattened boolean instruction tags
-    pol commit ff_tag;
+    pol commit u1_tag;
     pol commit u8_tag;
     pol commit u16_tag;
     pol commit u32_tag;
     pol commit u64_tag;
     pol commit u128_tag;
+    pol commit ff_tag;
 
     // Compute predicate telling whether there is a row entry in the ALU table.
     sel_alu = op_add + op_sub + op_mul + op_not + op_eq + op_cast + op_lt + op_lte + op_shr + op_shl + op_div;
@@ -30,18 +32,25 @@ namespace alu(256);
     // Remark: Operation selectors are constrained in the main trace.
 
     // Boolean flattened instructions tags
-    ff_tag * (1 - ff_tag) = 0;
+    u1_tag * (1 - u1_tag) = 0;
     u8_tag * (1 - u8_tag) = 0;
     u16_tag * (1 - u16_tag) = 0;
     u32_tag * (1 - u32_tag) = 0;
     u64_tag * (1 - u64_tag) = 0;
     u128_tag * (1 - u128_tag) = 0;
+    ff_tag * (1 - ff_tag) = 0;
 
     // Mutual exclusion of the flattened instruction tag.
-    sel_alu * (ff_tag + u8_tag + u16_tag + u32_tag + u64_tag + u128_tag - 1) = 0;
+    sel_alu * (u1_tag + u8_tag + u16_tag + u32_tag + u64_tag + u128_tag + ff_tag - 1) = 0;
 
     // Correct flattening of the instruction tag.
-    in_tag = u8_tag + 2 * u16_tag + 3 * u32_tag + 4 * u64_tag + 5 * u128_tag + 6 * ff_tag;
+    in_tag = (constants.MEM_TAG_U1 * u1_tag)
+           + (constants.MEM_TAG_U8 * u8_tag)
+           + (constants.MEM_TAG_U16 * u16_tag)
+           + (constants.MEM_TAG_U32 * u32_tag)
+           + (constants.MEM_TAG_U64 * u64_tag)
+           + (constants.MEM_TAG_U128 * u128_tag)
+           + (constants.MEM_TAG_FF * ff_tag);
 
     // Operation selectors are copied from main table and do not need to be constrained here.
     // Mutual exclusion of op_add and op_sub are derived from their mutual exclusion in the
@@ -59,7 +68,7 @@ namespace alu(256);
     range_check_input_value = (op_add + op_sub + op_mul + op_cast + op_div) * ic + (op_shr * a_hi * NON_TRIVIAL_SHIFT) + (op_shl * a_lo * NON_TRIVIAL_SHIFT);
     // The allowed bit range is defined by the instr tag, unless in shifts where it's different
     range_check_num_bits = 
-        (op_add + op_sub + op_mul + op_cast + op_div) * (u8_tag * 8 + u16_tag * 16 + u32_tag * 32 + u64_tag * 64 + u128_tag * 128) + 
+        (op_add + op_sub + op_mul + op_cast + op_div) * (u1_tag * 1 + u8_tag * 8 + u16_tag * 16 + u32_tag * 32 + u64_tag * 64 + u128_tag * 128) + 
         (op_shl + op_shr) * (MAX_BITS - ib) * NON_TRIVIAL_SHIFT;
 
     // Permutation to the Range Check Gadget
@@ -75,32 +84,37 @@ namespace alu(256);
     pol commit cmp_gadget_input_b;
     pol commit cmp_gadget_result;
     pol commit cmp_gadget_gt;
+    pol commit cmp_gadget_non_ff_gt;
 
     // We use the comparison gadget to test GT for the following operations
-    cmp_gadget_gt = op_lt + op_lte + op_div + op_shr + op_shl;
+    pol CMP_GADGET_GT = op_lt + op_lte + op_div + op_shr + op_shl;
+    cmp_gadget_gt = CMP_GADGET_GT * ff_tag;
+    cmp_gadget_non_ff_gt = CMP_GADGET_GT * (1 - ff_tag);
+
     // The cmp gadget is on when we are either testing GT or EQ
-    cmp_gadget_sel - (cmp_gadget_gt + op_eq) = 0;
+    cmp_gadget_sel - (cmp_gadget_gt + op_eq + cmp_gadget_non_ff_gt) = 0;
 
     // Permutation to the Comparison Gadget
     #[PERM_CMP_ALU]
-    cmp.sel_cmp {cmp.clk, cmp.input_a, cmp.input_b, cmp.result, cmp.op_eq, cmp.op_gt}
+    cmp.sel_cmp {cmp.clk, cmp.input_a, cmp.input_b, cmp.result, cmp.op_eq, cmp.op_gt, cmp.op_non_ff_gt}
     is
-    cmp_gadget_sel {clk, cmp_gadget_input_a, cmp_gadget_input_b, cmp_gadget_result, op_eq, cmp_gadget_gt };
+    cmp_gadget_sel {clk, cmp_gadget_input_a, cmp_gadget_input_b, cmp_gadget_result, op_eq, cmp_gadget_gt, cmp_gadget_non_ff_gt };
 
 
     // =============== HELPER POLYNOMIAL RELATIONS ================================================= 
     // These are useful and commonly used relations / columns used through the file 
 
     // The maximum number of bits as defined by the instr tag
-    pol MAX_BITS = u8_tag * 8 + u16_tag * 16 + u32_tag * 32 + u64_tag * 64 + u128_tag * 128;
+    pol MAX_BITS = u1_tag * 1 + u8_tag * 8 + u16_tag * 16 + u32_tag * 32 + u64_tag * 64 + u128_tag * 128;
     // 2^MAX_BITS
-    pol MAX_BITS_POW = u8_tag * 2**8 + u16_tag * 2**16 + u32_tag * 2**32 + u64_tag * 2**64 + u128_tag * 2**128;
+    pol MAX_BITS_POW = u1_tag * 2 + u8_tag * 2**8 + u16_tag * 2**16 + u32_tag * 2**32 + u64_tag * 2**64 + u128_tag * 2**128;
     pol UINT_MAX = MAX_BITS_POW - 1;
 
     // Value of p - 1
     pol MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
 
     // Used when we split inputs into lo and hi limbs each of (MAX_BITS / 2)
+    // omitted: u1_tag * 0 (no need for limbs...)
     pol LIMB_BITS_POW = u8_tag * 2**4 + u16_tag * 2**8 + u32_tag * 2**16 + u64_tag * 2**32 + u128_tag * 2**64;
     // Lo and Hi Limbs for ia, ib and ic resp. Useful when performing operations over integers
     pol commit a_lo;
@@ -132,7 +146,9 @@ namespace alu(256);
     a_lo * b_hi + b_lo * a_hi = partial_prod_lo + LIMB_BITS_POW * partial_prod_hi;
 
     // This holds the product over the integers
-    pol PRODUCT = a_lo * b_lo + LIMB_BITS_POW * partial_prod_lo + MAX_BITS_POW * (partial_prod_hi + a_hi * b_hi);
+    // (u1 multiplication only cares about a_lo and b_lo)
+    // TODO(9937): The following is not well constrained as this expression overflows the field.
+    pol PRODUCT = a_lo * b_lo + (1 - u1_tag) * (LIMB_BITS_POW * partial_prod_lo + MAX_BITS_POW * (partial_prod_hi + a_hi * b_hi));
 
     // =============== ADDITION/SUBTRACTION Operation Constraints ================================================= 
     pol commit op_add;
@@ -243,6 +259,7 @@ namespace alu(256);
 
     // =============== Trivial Shift Operation ================================================= 
     // We use the comparison gadget to test ib > (MAX_BITS - 1)
+    // (always true for u1 - all u1 shifts are trivial)
     (op_shl + op_shr) * (cmp_gadget_input_a - ib) = 0;
     (op_shl + op_shr) * (cmp_gadget_input_b - (MAX_BITS - 1) ) = 0;
 

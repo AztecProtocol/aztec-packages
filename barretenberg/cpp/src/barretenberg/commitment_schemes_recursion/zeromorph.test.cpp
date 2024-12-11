@@ -95,7 +95,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
                            prover_transcript);
 
     Builder builder;
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
     auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
     [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
@@ -134,8 +134,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
                                                                     RefVector(stdlib_w_evaluations), // shifted
                                                                     u_challenge_in_circuit,
                                                                     Commitment::one(&builder),
-                                                                    stdlib_verifier_transcript,
-                                                                    {},
-                                                                    {});
+                                                                    stdlib_verifier_transcript);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

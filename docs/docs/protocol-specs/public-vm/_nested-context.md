@@ -6,24 +6,21 @@ The following shorthand syntax is used to refer to nested context derivation in 
 // instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
 
 isStaticCall = instr.opcode == STATICCALL
-isDelegateCall = instr.opcode == DELEGATECALL
 
-nestedContext = deriveContext(context, instr.args, isStaticCall, isDelegateCall)
+nestedContext = deriveContext(context, instr.args, isStaticCall)
 ```
 
 Nested context derivation is defined as follows:
 ```jsx
 nestedExecutionEnvironment = ExecutionEnvironment {
     address: M[addrOffset],
-    storageAddress: isDelegateCall ? context.storageAddress : M[addrOffset],
-    sender: isDelegateCall ? context.sender : context.address,
+    sender: context.address,
     functionSelector: context.environment.functionSelector,
     transactionFee: context.environment.transactionFee,
     contractCallDepth: context.contractCallDepth + 1,
     contractCallPointer: context.worldStateAccessTrace.contractCalls.length + 1,
     globals: context.globals,
     isStaticCall: isStaticCall,
-    isDelegateCall: isDelegateCall,
     calldata: context.memory[M[argsOffset]:M[argsOffset]+argsSize],
 }
 

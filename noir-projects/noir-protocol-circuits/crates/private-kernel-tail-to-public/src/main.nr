@@ -1,7 +1,16 @@
 use dep::private_kernel_lib::PrivateKernelTailToPublicCircuitPrivateInputs;
-use dep::types::PublicKernelCircuitPublicInputs;
+use types::abis::kernel_circuit_public_inputs::{
+    PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+};
+use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 
-#[recursive]
-fn main(input: PrivateKernelTailToPublicCircuitPrivateInputs) -> pub PublicKernelCircuitPublicInputs {
-    input.execute()
+fn main(
+    previous_kernel: PrivateKernelDataWithoutPublicInputs,
+    previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
+) -> pub PrivateToPublicKernelCircuitPublicInputs {
+    let private_inputs = PrivateKernelTailToPublicCircuitPrivateInputs::new(
+        previous_kernel,
+        previous_kernel_public_inputs,
+    );
+    private_inputs.execute()
 }

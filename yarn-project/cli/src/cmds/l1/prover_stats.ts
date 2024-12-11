@@ -1,13 +1,14 @@
-import { getL2BlockProposedLogs, retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
+import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
-import { type LogFn, type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { type PublicClient, createPublicClient, http } from 'viem';
+import { type PublicClient, createPublicClient, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrl: string;
@@ -21,7 +22,7 @@ export async function proverStats(opts: {
   provingTimeout: bigint | undefined;
   rawLogs: boolean;
 }) {
-  const debugLog = createDebugLogger('aztec:cli:prover_stats');
+  const debugLog = createLogger('cli:prover_stats');
   const { startBlock, chainId, l1RpcUrl, l1RollupAddress, batchSize, nodeUrl, provingTimeout, endBlock, rawLogs, log } =
     opts;
   if (!l1RollupAddress && !nodeUrl) {
@@ -43,7 +44,7 @@ export async function proverStats(opts: {
   const events = await getL2ProofVerifiedEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
 
   // If we only care for raw logs, output them
-  if (rawLogs) {
+  if (rawLogs && !provingTimeout) {
     log(`l1_block_number, l2_block_number, prover_id, tx_hash`);
     for (const event of events) {
       const { l1BlockNumber, l2BlockNumber, proverId, txHash } = event;
@@ -85,10 +86,26 @@ export async function proverStats(opts: {
   // Map from l2 block number to the l1 block in which it was submitted
   const l2BlockSubmissions: Record<string, bigint> = {};
   for (const blockEvent of blockEvents) {
-    l2BlockSubmissions[blockEvent.args.blockNumber.toString()] = blockEvent.blockNumber;
+    l2BlockSubmissions[blockEvent.args.blockNumber!.toString()] = blockEvent.blockNumber;
   }
 
-  // Now calculate stats
+  // If we want raw logs, output them
+  if (rawLogs) {
+    log(`l1_block_number, l2_block_number, l2_block_submission_timestamp, proof_timestamp, prover_id, tx_hash`);
+    for (const event of events) {
+      const { l1BlockNumber, l2BlockNumber, proverId, txHash } = event;
+      const uploadedBlockNumber = l2BlockSubmissions[l2BlockNumber.toString()];
+      if (!uploadedBlockNumber) {
+        continue;
+      }
+      const uploadedTimestamp = l1BlockTimestamps[uploadedBlockNumber.toString()];
+      const provenTimestamp = l1BlockTimestamps[l1BlockNumber.toString()];
+      log(`${l1BlockNumber}, ${l2BlockNumber}, ${uploadedTimestamp}, ${provenTimestamp}, ${proverId}, ${txHash}`);
+    }
+    return;
+  }
+
+  // Or calculate stats per prover
   const stats = mapValues(groupBy(events, 'proverId'), (blocks, proverId) =>
     compactArray(
       blocks.map(e => {
@@ -156,7 +173,17 @@ async function getL2BlockEvents(
   const events = [];
   while (blockNum <= lastBlockNum) {
     const end = blockNum + batchSize > lastBlockNum + 1n ? lastBlockNum + 1n : blockNum + batchSize;
-    const newEvents = await getL2BlockProposedLogs(publicClient, rollup, blockNum, end);
+
+    const newEvents = await publicClient.getLogs({
+      address: getAddress(rollup.toString()),
+      event: getAbiItem({
+        abi: RollupAbi,
+        name: 'L2BlockProposed',
+      }),
+      fromBlock: blockNum,
+      toBlock: end + 1n, // the toBlock argument in getLogs is exclusive
+    });
+
     events.push(...newEvents);
     debugLog.verbose(`Got ${newEvents.length} events querying l2 block submitted from block ${blockNum} to ${end}`);
     blockNum += batchSize;

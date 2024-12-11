@@ -1,4 +1,5 @@
-import { type DebugLogger, fileURLToPath } from '@aztec/aztec.js';
+import { type Logger, fileURLToPath } from '@aztec/aztec.js';
+import { type BBConfig } from '@aztec/bb-prover';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,13 +8,14 @@ import path from 'path';
 const {
   BB_RELEASE_DIR = 'barretenberg/cpp/build/bin',
   BB_BINARY_PATH,
+  BB_SKIP_CLEANUP = '',
   TEMP_DIR = tmpdir(),
   BB_WORKING_DIRECTORY = '',
 } = process.env;
 
 export const getBBConfig = async (
-  logger: DebugLogger,
-): Promise<{ bbBinaryPath: string; bbWorkingDirectory: string; cleanup: () => Promise<void> } | undefined> => {
+  logger: Logger,
+): Promise<(BBConfig & { cleanup: () => Promise<void> }) | undefined> => {
   try {
     const bbBinaryPath =
       BB_BINARY_PATH ??
@@ -32,13 +34,15 @@ export const getBBConfig = async (
 
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
+    const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
+
     const cleanup = async () => {
-      if (directoryToCleanup) {
+      if (directoryToCleanup && !bbSkipCleanup) {
         await fs.rm(directoryToCleanup, { recursive: true, force: true });
       }
     };
 
-    return { bbBinaryPath, bbWorkingDirectory, cleanup };
+    return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);
     return undefined;

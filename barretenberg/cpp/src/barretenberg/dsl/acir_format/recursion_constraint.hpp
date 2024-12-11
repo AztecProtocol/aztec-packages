@@ -8,7 +8,9 @@ namespace acir_format {
 
 // Used to specify the type of recursive verifier via the proof_type specified by the RecursiveAggregation opcode from
 // ACIR
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM };
+// Keep this enum values in sync with their noir counterpart constants defined in
+// noir-protocol-circuits/crates/types/src/constants.nr
+enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROLLUP_ROOT_HONK };
 
 using namespace bb::plonk;
 using Builder = bb::UltraCircuitBuilder;
@@ -62,19 +64,20 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
-bb::AggregationObjectIndices create_recursion_constraints(Builder& builder,
-                                                          const RecursionConstraint& input,
-                                                          const bb::AggregationObjectIndices& input_aggregation_object,
-                                                          const bb::AggregationObjectIndices& nested_aggregation_object,
-                                                          bool has_valid_witness_assignments = false);
+bb::PairingPointAccumulatorIndices create_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    const bb::PairingPointAccumulatorIndices& input_aggregation_object,
+    const bb::PairingPointAccumulatorIndices& nested_aggregation_object,
+    bool has_valid_witness_assignments = false);
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
 std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                         bool contains_recursive_proof = 0);
+                                                         bool contains_pairing_point_accumulator = 0);
 
 std::vector<bb::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
 std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                                const bool contains_recursive_proof);
+                                                                const bool contains_pairing_point_accumulator);
 size_t recursion_proof_size_without_public_inputs();
 
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1

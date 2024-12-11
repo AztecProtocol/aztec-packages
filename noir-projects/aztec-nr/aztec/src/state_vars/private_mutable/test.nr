@@ -1,18 +1,22 @@
-use dep::protocol_types::{address::AztecAddress, point::Point};
 use crate::{
-    context::PrivateContext, state_vars::private_mutable::PrivateMutable,
-    oracle::execution::get_contract_address
+    context::PrivateContext, oracle::execution::get_contract_address,
+    state_vars::private_mutable::PrivateMutable,
 };
-use crate::test::{mocks::mock_note::MockNote, helpers::{cheatcodes, test_environment::TestEnvironment}};
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use std::test::OracleMock;
 
-global storage_slot = 17;
+global storage_slot: Field = 17;
 
-fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+unconstrained fn setup() -> TestEnvironment {
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
-fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(
+    env: &mut TestEnvironment,
+) -> PrivateMutable<MockNote, &mut PrivateContext> {
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
     // This oracle is called for its side effects alone - it's always expected to return 0.
@@ -22,12 +26,15 @@ fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut Privat
 }
 
 #[test]
-fn test_initialize_or_replace_without_nullifier() {
+unconstrained fn test_initialize_or_replace_without_nullifier() {
     let mut env = setup();
     let state_var = in_private(&mut env);
 
     let value = 42;
-    let mut note = MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build();
+    let mut note = MockNote::new(value)
+        .contract_address(get_contract_address())
+        .storage_slot(storage_slot)
+        .build();
 
     let _ = OracleMock::mock("checkNullifierExists").returns(0);
     state_var.initialize_or_replace(&mut note).discard();
@@ -48,7 +55,7 @@ fn test_initialize_or_replace_without_nullifier() {
 }
 
 #[test]
-fn test_initialize_or_replace_with_nullifier() {
+unconstrained fn test_initialize_or_replace_with_nullifier() {
     // Here we'd want to test a scenario like the one above with the oracle indicating that the initialization
     // nullifier does exist. Unfortunately that requires us to produce a valid oracle return value for getNotes,
     // which is fairly involved as it deals with serialization of notes, and is relatively complicated to replicate

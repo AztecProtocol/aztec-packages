@@ -1,0 +1,123 @@
+tests:
+  base: {}
+  bench_prover:
+    env:
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_prover'
+  bench_publish_rollup:
+    env:
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_publish_rollup'
+  bench_tx_size:
+    env:
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_tx_size'
+  e2e_2_pxes: {}
+  e2e_account_contracts: {}
+  e2e_amm: {}
+  e2e_authwit: {}
+  e2e_avm_simulator: {}
+  e2e_blacklist_token_contract: {}
+  e2e_block_building: {}
+  e2e_bot: {}
+  e2e_aztec_js_browser:
+    use_compose: true
+  e2e_card_game: {}
+  e2e_cheat_codes: {}
+  e2e_cross_chain_messaging: {}
+  e2e_crowdfunding_and_claim: {}
+  e2e_deploy_contract: {}
+  e2e_devnet_smoke: {}
+  docs_examples:
+    use_compose: true
+  e2e_epochs: {}
+  e2e_escrow_contract: {}
+  e2e_fees_account_init:
+    test_path: 'e2e_fees/account_init.test.ts'
+  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9488): reenable
+  # e2e_fees_dapp_subscription:
+  #   test_path: "e2e_fees/dapp_subscription.test.ts"
+  e2e_fees_failures:
+    test_path: 'e2e_fees/failures.test.ts'
+  e2e_fees_fee_juice_payments:
+    test_path: 'e2e_fees/fee_juice_payments.test.ts'
+  e2e_fees_gas_estimation:
+    test_path: 'e2e_fees/gas_estimation.test.ts'
+  e2e_fees_private_payments:
+    test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_public_payments:
+    test_path: 'e2e_fees/public_payments.test.ts'
+  e2e_keys: {}
+  e2e_l1_with_wall_time: {}
+  e2e_lending_contract: {}
+  e2e_event_logs: {}
+  e2e_max_block_number: {}
+  e2e_multiple_accounts_1_enc_key: {}
+  e2e_nested_contract: {}
+  e2e_nft: {}
+  e2e_non_contract_account: {}
+  e2e_note_getter: {}
+  e2e_ordering: {}
+  e2e_outbox: {}
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_pending_note_hashes_contract: {}
+  e2e_private_voting_contract: {}
+  e2e_prover_coordination: {}
+  e2e_prover_fake_proofs:
+    test_path: 'e2e_prover/full.test.ts'
+    env:
+      FAKE_PROOFS: '1'
+  e2e_prover_full:
+    test_path: 'e2e_prover/full.test.ts'
+    env:
+      HARDWARE_CONCURRENCY: '32'
+  e2e_public_testnet: {}
+  e2e_pxe:
+    use_compose: true
+  e2e_sandbox_example:
+    use_compose: true
+  e2e_state_vars: {}
+  e2e_static_calls: {}
+  e2e_synching: {}
+  e2e_token_contract:
+    with_alerts: true
+  e2e_p2p_gossip:
+    test_path: 'e2e_p2p/gossip_network.test.ts'
+    with_alerts: true
+  e2e_p2p_upgrade_governance_proposer:
+    test_path: 'e2e_p2p/upgrade_governance_proposer.test.ts'
+  e2e_p2p_rediscovery:
+    test_path: 'e2e_p2p/rediscovery.test.ts'
+  e2e_p2p_reqresp:
+    test_path: 'e2e_p2p/reqresp.test.ts'
+  e2e_p2p_reex:
+    test_path: 'e2e_p2p/reex.test.ts'
+  flakey_e2e_tests:
+    test_path: './src/flakey'
+    ignore_failures: true
+  guides_dapp_testing:
+    use_compose: true
+    test_path: 'guides/dapp_testing.test.ts'
+  guides_sample_dapp:
+    use_compose: true
+    test_path: 'sample-dapp/index.test.mjs'
+  guides_sample_dapp_ci:
+    use_compose: true
+    test_path: 'sample-dapp/ci/index.test.mjs'
+  guides_up_quick_start:
+    use_compose: true
+    test_path: 'guides/up_quick_start.test.ts'
+  guides_writing_an_account_contract:
+    use_compose: true
+    test_path: 'guides/writing_an_account_contract.test.ts'
+  integration_l1_publisher:
+    use_compose: true
+  # https://github.com/AztecProtocol/aztec-packages/issues/10030
+  # uniswap_trade_on_l1_from_l2:
+  #   use_compose: true

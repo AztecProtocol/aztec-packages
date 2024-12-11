@@ -2,15 +2,19 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
+import { type SentTx, createLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { generatePrivateKey } from 'viem/accounts';
+import getPort from 'get-port';
 
 import { getPrivateKeyFromIndex } from './utils.js';
+import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
+
+// Setup snapshots will create a node with index 0, so all of our loops here
+// need to start from 1 to avoid running validators with the same key
+export const PROPOSER_PRIVATE_KEYS_START_INDEX = 1;
+export const ATTESTER_PRIVATE_KEYS_START_INDEX = 1001;
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -19,81 +23,85 @@ export interface NodeContext {
   account: AztecAddress;
 }
 
-export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
-  const peerIdPrivateKeys = [];
-  for (let i = 0; i < numberOfPeers; i++) {
-    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
-    peerIdPrivateKeys.push('08021220' + generatePrivateKey().substr(2, 66));
+export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `0x${string}`[] {
+  const privateKeys: `0x${string}`[] = [];
+  // Do not start from 0 as it is used during setup
+  for (let i = startIndex; i < startIndex + numberOfKeys; i++) {
+    privateKeys.push(`0x${getPrivateKeyFromIndex(i)!.toString('hex')}`);
   }
-  return peerIdPrivateKeys;
+  return privateKeys;
 }
 
-export async function createNodes(
+export function createNodes(
   config: AztecNodeConfig,
-  peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
+  dataDirectory?: string,
+  metricsPort?: number,
 ): Promise<AztecNodeService[]> {
-  const nodes = [];
+  const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
-    const node = await createNode(config, peerIdPrivateKeys[i], i + 1 + bootNodePort, bootstrapNodeEnr, i);
-    nodes.push(node);
+    // We run on ports from the bootnode upwards
+    const port = bootNodePort + i + 1;
+
+    const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
+    const nodePromise = createNode(config, port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    nodePromises.push(nodePromise);
   }
-  return nodes;
+  return Promise.all(nodePromises);
 }
 
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
   config: AztecNodeConfig,
-  peerIdPrivateKey: string,
-  tcpListenPort: number,
+  tcpPort: number,
   bootstrapNode: string | undefined,
-  publisherAddressIndex: number,
+  accountIndex: number,
   dataDirectory?: string,
+  metricsPort?: number,
 ) {
-  // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
-  // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
-  const publisherPrivKey = getPrivateKeyFromIndex(publisherAddressIndex + 1);
-  config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
 
-  const validatorPrivKey = getPrivateKeyFromIndex(1 + publisherAddressIndex);
-  config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort);
 
-  const newConfig: AztecNodeConfig = {
-    ...config,
-    peerIdPrivateKey: peerIdPrivateKey,
-    udpListenAddress: `0.0.0.0:${tcpListenPort}`,
-    tcpListenAddress: `0.0.0.0:${tcpListenPort}`,
-    tcpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-    udpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-    minTxsPerBlock: config.minTxsPerBlock,
-    maxTxsPerBlock: config.maxTxsPerBlock,
-    p2pEnabled: true,
-    blockCheckIntervalMS: 1000,
-    l2QueueSize: 1,
-    transactionProtocol: '',
-    dataDirectory,
-    bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
-  };
-  return await AztecNodeService.createAndSync(
-    newConfig,
-    new NoopTelemetryClient(),
-    createDebugLogger(`aztec:node-${tcpListenPort}`),
-  );
+  return await AztecNodeService.createAndSync(validatorConfig, {
+    telemetry: telemetryClient,
+    logger: createLogger(`node:${tcpPort}`),
+  });
 }
 
-export async function createBootstrapNode(port: number) {
-  const peerId = await createLibP2PPeerId();
-  const bootstrapNode = new BootstrapNode();
-  const config: BootnodeConfig = {
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-    minPeerCount: 10,
-    maxPeerCount: 100,
-  };
-  await bootstrapNode.start(config);
+export async function createValidatorConfig(
+  config: AztecNodeConfig,
+  bootstrapNodeEnr?: string,
+  port?: number,
+  accountIndex: number = 1,
+  dataDirectory?: string,
+) {
+  port = port ?? (await getPort());
 
-  return bootstrapNode;
+  const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
+    ATTESTER_PRIVATE_KEYS_START_INDEX + accountIndex,
+  )!.toString('hex')}`;
+  const proposerPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
+    PROPOSER_PRIVATE_KEYS_START_INDEX + accountIndex,
+  )!.toString('hex')}`;
+
+  config.validatorPrivateKey = attesterPrivateKey;
+  config.publisherPrivateKey = proposerPrivateKey;
+
+  const nodeConfig: AztecNodeConfig = {
+    ...config,
+    udpListenAddress: `0.0.0.0:${port}`,
+    tcpListenAddress: `0.0.0.0:${port}`,
+    tcpAnnounceAddress: `127.0.0.1:${port}`,
+    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pEnabled: true,
+    blockCheckIntervalMS: 1000,
+    transactionProtocol: '',
+    dataDirectory,
+    bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
+  };
+
+  return nodeConfig;
 }

@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -14,6 +15,7 @@ using namespace bb;
 class MockKernelTest : public ::testing::Test {
   public:
     using Builder = MegaCircuitBuilder;
+    using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   protected:
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
@@ -21,21 +23,17 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    ClientIVC ivc;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
-    // Construct two function circuits and a kernel circuit
-    Builder circuit_1{ ivc.goblin.op_queue };
-    Builder circuit_2{ ivc.goblin.op_queue };
-    Builder kernel_circuit{ ivc.goblin.op_queue };
+    MockCircuitProducer circuit_producer;
 
-    GoblinMockCircuits::construct_mock_function_circuit(circuit_1);
-    GoblinMockCircuits::construct_mock_function_circuit(circuit_2);
-    GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit);
+    // Construct and accumulate a series of mocked private function execution circuits
+    size_t NUM_CIRCUITS = 4;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        Builder circuit = circuit_producer.create_next_circuit(ivc);
 
-    // Accumulate all three; The kernel will contain a single recursive folding verifier
-    ivc.accumulate(circuit_1);
-    ivc.accumulate(circuit_2);
-    ivc.accumulate(kernel_circuit);
+        ivc.accumulate(circuit);
+    }
 
-    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 17);
+    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 19);
 }

@@ -1,8 +1,8 @@
-import { AccountWallet, CompleteAddress, Contract, Fr, createDebugLogger } from '@aztec/aztec.js';
+import { AccountWallet, CompleteAddress, Contract, Fr, createLogger } from '@aztec/aztec.js';
 import { BoxReactContract } from '../artifacts/BoxReact.js';
 import { deployerEnv } from '../src/config.js';
 
-const logger = createDebugLogger('aztec:http-pxe-client');
+const logger = createLogger('aztec:http-pxe-client');
 
 describe('BoxReact Contract Tests', () => {
   let wallet: AccountWallet;
@@ -14,15 +14,11 @@ describe('BoxReact Contract Tests', () => {
     wallet = await deployerEnv.getWallet();
     accountCompleteAddress = wallet.getCompleteAddress();
     const salt = Fr.random();
-    const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } =
-      accountCompleteAddress.publicKeys;
+
     contract = await BoxReactContract.deploy(
       wallet,
       Fr.random(),
-      accountCompleteAddress.address,
-      masterNullifierPublicKey.hash(),
-      masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
-      masterIncomingViewingPublicKey.toWrappedNoirStruct(),
+      accountCompleteAddress.address
     )
       .send({ contractAddressSalt: salt })
       .deployed();
@@ -32,15 +28,11 @@ describe('BoxReact Contract Tests', () => {
 
   test('Can set a number', async () => {
     logger.info(`${await wallet.getRegisteredAccounts()}`);
-    const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } =
-      accountCompleteAddress.publicKeys;
+
     await contract.methods
       .setNumber(
         numberToSet,
-        accountCompleteAddress.address,
-        masterNullifierPublicKey.hash(),
-        masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
-        masterIncomingViewingPublicKey.toWrappedNoirStruct(),
+        accountCompleteAddress.address
       )
       .send()
       .wait();

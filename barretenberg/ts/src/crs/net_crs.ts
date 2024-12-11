@@ -21,6 +21,11 @@ export class NetCrs {
   }
 
   async downloadG1Data() {
+    // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
+    if (this.numPoints === 0) {
+      return (this.data = new Uint8Array([]));
+    }
+
     const g1End = this.numPoints * 64 - 1;
 
     const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {
@@ -58,5 +63,53 @@ export class NetCrs {
    */
   getG2Data(): Uint8Array {
     return this.g2Data;
+  }
+}
+
+/**
+ * Downloader for CRS from the web or local.
+ */
+export class NetGrumpkinCrs {
+  private data!: Uint8Array;
+
+  constructor(
+    /**
+     * The number of circuit gates.
+     */
+    public readonly numPoints: number,
+  ) {}
+
+  /**
+   * Download the data.
+   */
+  async init() {
+    await this.downloadG1Data();
+  }
+
+  async downloadG1Data() {
+    // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
+    if (this.numPoints === 0) {
+      return (this.data = new Uint8Array([]));
+    }
+
+    const g1Start = 28;
+    const g1End = this.numPoints * 64 - 1;
+
+    const response = await fetch('https://aztec-ignition.s3.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat', {
+      headers: {
+        Range: `bytes=${g1Start}-${g1End}`,
+      },
+      cache: 'force-cache',
+    });
+
+    return (this.data = new Uint8Array(await response.arrayBuffer()));
+  }
+
+  /**
+   * G1 points data for prover key.
+   * @returns The points data.
+   */
+  getG1Data(): Uint8Array {
+    return this.data;
   }
 }

@@ -2,15 +2,20 @@ import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
 import { botConfigMappings } from '@aztec/bot';
 import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/circuit-types';
+import {
   type ConfigMapping,
   type EnvVar,
   booleanConfigHelper,
-  filterConfigMappings,
   isBooleanConfigValue,
+  omitConfigMappings,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
 import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
-import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
 import { allPxeConfigMappings } from '@aztec/pxe';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
@@ -68,6 +73,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--sandbox.enableGas',
       description: 'Enable gas on sandbox start',
       envVar: 'ENABLE_GAS',
+      ...booleanConfigHelper(),
+    },
+    {
+      flag: '--sandbox.noPXE',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
       ...booleanConfigHelper(),
     },
   ],
@@ -133,16 +144,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'OUTBOX_CONTRACT_ADDRESS',
     },
     {
-      flag: '--availability-oracle-address <value>',
-      description: 'The deployed L1 availability oracle contract address',
-      defaultValue: undefined,
-      envVar: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
-    },
-    {
       flag: '--fee-juice-address <value>',
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',
@@ -186,10 +197,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
-      flag: '--node.assumeProvenUntilBlockNumber',
+      flag: '--node.assumeProvenThroughBlockNumber',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
-      envVar: 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER',
+      envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
       parseVal: (val: string) => parseInt(val, 10),
       defaultValue: 0,
     },
@@ -198,13 +209,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Private key of account for publishing L1 contracts',
       defaultValue: undefined,
       envVar: 'L1_PRIVATE_KEY',
-    },
-    {
-      flag: '--node.l2QueueSize <value>',
-      description: 'Size of queue of L2 blocks to store in world state',
-      defaultValue: 1000,
-      envVar: 'L2_QUEUE_SIZE',
-      parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',
@@ -231,12 +235,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    {
-      flag: '--pxe.dataDirectory <value>',
-      description: 'Where to store PXE data. If not set, will store in memory',
-      defaultValue: undefined,
-      envVar: 'PXE_DATA_DIRECTORY',
-    },
     ...getOptions('pxe', allPxeConfigMappings),
   ],
   ARCHIVER: [
@@ -258,15 +256,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  'PROVER AGENT': [
-    {
-      flag: '--prover',
-      description: 'Starts Aztec Prover Agent with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('prover', proverClientConfigMappings),
-  ],
   'PROVER NODE': [
     {
       flag: '--prover-node',
@@ -282,9 +271,35 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions(
       'proverNode',
-      // filter out archiver options from prover node options as they're passed separately in --archiver
-      filterConfigMappings(proverNodeConfigMappings, Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
+      omitConfigMappings(proverNodeConfigMappings, [
+        // filter out options passed separately
+        ...(Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
+        ...(Object.keys(proverBrokerConfigMappings) as (keyof ProverBrokerConfig)[]),
+        ...(Object.keys(proverAgentConfigMappings) as (keyof ProverAgentConfig)[]),
+      ]),
     ),
+  ],
+  'PROVER BROKER': [
+    {
+      flag: '--prover-broker',
+      description: 'Starts Aztec proving job broker',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions(
+      'proverBroker',
+      // filter out archiver options from prover node options as they're passed separately in --archiver
+      proverBrokerConfigMappings,
+    ),
+  ],
+  'PROVER AGENT': [
+    {
+      flag: '--prover-agent',
+      description: 'Starts Aztec Prover Agent with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('proverAgent', proverAgentConfigMappings),
   ],
   'P2P BOOTSTRAP': [
     {

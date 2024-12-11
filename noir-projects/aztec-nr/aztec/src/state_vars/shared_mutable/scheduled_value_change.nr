@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
+use dep::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 use std::cmp::min;
 
 mod test;
@@ -8,7 +8,7 @@ mod test;
 // of change after some minimum delay measured in blocks has elapsed. This means that at any given block number we know
 // both the current value and the smallest block number at which the value might change - this is called the
 // 'block horizon'.
-struct ScheduledValueChange<T> {
+pub(crate) struct ScheduledValueChange<T> {
     pre: T,
     post: T,
     // Block at which `post` value is used instead of `pre`
@@ -16,7 +16,7 @@ struct ScheduledValueChange<T> {
 }
 
 impl<T> ScheduledValueChange<T> {
-    pub fn new(pre: T, post: T, block_of_change: u32) -> Self {
+    pub(crate) fn new(pre: T, post: T, block_of_change: u32) -> Self {
         Self { pre, post, block_of_change }
     }
 
@@ -26,12 +26,11 @@ impl<T> ScheduledValueChange<T> {
     /// to construct the proof).
     /// Reading in private is only safe if the transaction's `max_block_number` property is set to a value lower or
     /// equal to the block horizon (see `get_block_horizon()`).
-    pub fn get_current_at(self, block_number: u32) -> T {
+    pub(crate) fn get_current_at(self, block_number: u32) -> T {
         // The post value becomes the current one at the block of change. This means different things in each realm:
         // - in public, any transaction that is included in the block of change will use the post value
         // - in private, any transaction that includes the block of change as part of the historical state will use the
         //   post value (barring any follow-up changes)
-
         if block_number < self.block_of_change {
             self.pre
         } else {
@@ -42,7 +41,7 @@ impl<T> ScheduledValueChange<T> {
     /// Returns the scheduled change, i.e. the post-change value and the block at which it will become the current
     /// value. Note that this block may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
-    pub fn get_scheduled(self) -> (T, u32) {
+    pub(crate) fn get_scheduled(self) -> (T, u32) {
         (self.post, self.block_of_change)
     }
 
@@ -57,12 +56,11 @@ impl<T> ScheduledValueChange<T> {
     /// The value returned by `get_current_at` in private when called with a historical block number is only safe to use
     /// if the transaction's `max_block_number` property is set to a value lower or equal to the block horizon computed
     /// using the same historical block number.
-    pub fn get_block_horizon(self, historical_block_number: u32, minimum_delay: u32) -> u32 {
+    pub(crate) fn get_block_horizon(self, historical_block_number: u32, minimum_delay: u32) -> u32 {
         // The block horizon is the very last block in which the current value is known. Any block past the horizon
         // (i.e. with a block number larger than the block horizon) may have a different current value. Reading the
         // current value in private typically requires constraining the maximum valid block number to be equal to the
         // block horizon.
-
         if historical_block_number >= self.block_of_change {
             // Once the block of change has been mined, the current value (post) will not change unless a new value
             // change is scheduled. This did not happen at the historical block number (or else it would not be
@@ -77,7 +75,6 @@ impl<T> ScheduledValueChange<T> {
             //                         ^                   ^
             //                         ---------------------
             //                             minimum delay
-
             historical_block_number + minimum_delay
         } else {
             // If the block of change has not yet been mined however, then there are two possible scenarios.
@@ -110,24 +107,23 @@ impl<T> ScheduledValueChange<T> {
             // Note that the current implementation does not allow the caller to set the block of change to an arbitrary
             // value, and therefore scenario a) is not currently possible. However implementing #5501 would allow for
             // this to happen.
-
             // Because historical_block_number < self.block_of_change, then block_of_change > 0 and we can safely
             // subtract 1.
             min(
                 self.block_of_change - 1,
-                historical_block_number + minimum_delay
+                historical_block_number + minimum_delay,
             )
         }
     }
 
     /// Mutates the value by scheduling a change at the current block number. This function is only meaningful when
     /// called in public with the current block number.
-    pub fn schedule_change(
+    pub(crate) fn schedule_change(
         &mut self,
         new_value: T,
         current_block_number: u32,
         minimum_delay: u32,
-        block_of_change: u32
+        block_of_change: u32,
     ) {
         assert(block_of_change >= current_block_number + minimum_delay);
 
@@ -137,24 +133,35 @@ impl<T> ScheduledValueChange<T> {
     }
 }
 
-impl<T> Serialize<3> for ScheduledValueChange<T> where T: ToField {
+impl<T> Serialize<3> for ScheduledValueChange<T>
+where
+    T: ToField,
+{
     fn serialize(self) -> [Field; 3] {
         [self.pre.to_field(), self.post.to_field(), self.block_of_change.to_field()]
     }
 }
 
-impl<T> Deserialize<3> for ScheduledValueChange<T> where T: FromField {
-  fn deserialize(input: [Field; 3]) -> Self {
-    Self {
-        pre: FromField::from_field(input[0]),
-        post: FromField::from_field(input[1]),
-        block_of_change: FromField::from_field(input[2]),
+impl<T> Deserialize<3> for ScheduledValueChange<T>
+where
+    T: FromField,
+{
+    fn deserialize(input: [Field; 3]) -> Self {
+        Self {
+            pre: FromField::from_field(input[0]),
+            post: FromField::from_field(input[1]),
+            block_of_change: FromField::from_field(input[2]),
+        }
     }
-  }
 }
 
-impl<T> Eq for ScheduledValueChange<T> where T: Eq {
+impl<T> Eq for ScheduledValueChange<T>
+where
+    T: Eq,
+{
     fn eq(self, other: Self) -> bool {
-        (self.pre == other.pre) & (self.post == other.post) & (self.block_of_change == other.block_of_change)
+        (self.pre == other.pre)
+            & (self.post == other.post)
+            & (self.block_of_change == other.block_of_change)
     }
 }

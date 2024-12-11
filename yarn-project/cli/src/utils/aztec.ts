@@ -1,13 +1,12 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/circuit-types';
-import { type DeployL1Contracts } from '@aztec/ethereum';
+import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -58,24 +57,10 @@ export async function deployAztecContracts(
   privateKey: string | undefined,
   mnemonic: string,
   salt: number | undefined,
-  debugLogger: DebugLogger,
+  initialValidators: EthAddress[],
+  config: L1ContractsConfig,
+  debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
-  const {
-    InboxAbi,
-    InboxBytecode,
-    OutboxAbi,
-    OutboxBytecode,
-    RegistryAbi,
-    RegistryBytecode,
-    RollupAbi,
-    RollupBytecode,
-    AvailabilityOracleAbi,
-    AvailabilityOracleBytecode,
-    FeeJuicePortalAbi,
-    FeeJuicePortalBytecode,
-    PortalERC20Abi,
-    PortalERC20Bytecode,
-  } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
@@ -83,47 +68,21 @@ export async function deployAztecContracts(
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, chainId);
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: PortalERC20Abi,
-      contractBytecode: PortalERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
+
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt,
+    initialValidators,
+    ...config,
   });
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenUntil(
+export async function setAssumeProvenThrough(
   blockNumber: number,
   rollupAddress: EthAddress,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
@@ -133,7 +92,7 @@ export async function setAssumeProvenUntil(
     abi: RollupAbi,
     client: walletClient,
   });
-  const hash = await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]);
+  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
   await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 

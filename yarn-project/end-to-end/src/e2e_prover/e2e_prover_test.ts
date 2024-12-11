@@ -3,21 +3,26 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
+  type CheatCodes,
   type CompleteAddress,
-  type DebugLogger,
   type DeployL1Contracts,
-  ExtendedNote,
+  EthAddress,
   type Fq,
   Fr,
-  Note,
+  type Logger,
   type PXE,
-  type TxHash,
-  computeSecretHash,
-  createDebugLogger,
+  createLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
-import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import {
+  BBCircuitVerifier,
+  type ClientProtocolCircuitVerifier,
+  TestCircuitVerifier,
+  type UltraKeccakHonkProtocolArtifact,
+} from '@aztec/bb-prover';
+import { compileContract } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
@@ -26,9 +31,9 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
-import { getContract } from 'viem';
+import { type Hex, getContract } from 'viem';
+import { privateKeyToAddress } from 'viem/accounts';
 
-import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
@@ -62,7 +67,7 @@ export class FullProverTest {
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   keys: Array<[Fr, Fq]> = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
@@ -70,19 +75,31 @@ export class FullProverTest {
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   pxe!: PXEService;
+  cheatCodes!: CheatCodes;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: BBCircuitVerifier;
+  circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  private l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1Contracts;
+  public proverAddress!: EthAddress;
 
-  constructor(testName: string, private minNumberOfTxsPerBlock: number) {
-    this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
-    this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
+  constructor(
+    testName: string,
+    private minNumberOfTxsPerBlock: number,
+    coinbase: EthAddress,
+    private realProofs = true,
+  ) {
+    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
+    this.snapshotManager = createSnapshotManager(
+      `full_prover_integration/${testName}`,
+      dataPath,
+      { startProverNode: true, fundRewardDistributor: true, coinbase },
+      { assumeProvenThrough: undefined },
+    );
   }
 
   /**
@@ -105,7 +122,7 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2), false);
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
@@ -116,7 +133,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send()
-          .deployed({ proven: true });
+          .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         return { tokenContractAddress: asset.address };
@@ -133,49 +150,64 @@ export class FullProverTest {
           this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
   }
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+    this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,
       aztecNode: this.aztecNode,
-      proverNode: this.simulatedProverNode,
       deployL1ContractsValues: this.l1Contracts,
+      cheatCodes: this.cheatCodes,
     } = this.context);
 
     // Configure a full prover PXE
+    let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
+    let bbConfig: Awaited<ReturnType<typeof getBBConfig>> | undefined;
+    if (this.realProofs) {
+      [acvmConfig, bbConfig] = await Promise.all([getACVMConfig(this.logger), getBBConfig(this.logger)]);
+      if (!acvmConfig || !bbConfig) {
+        throw new Error('Missing ACVM or BB config');
+      }
 
-    const [acvmConfig, bbConfig] = await Promise.all([getACVMConfig(this.logger), getBBConfig(this.logger)]);
-    if (!acvmConfig || !bbConfig) {
-      throw new Error('Missing ACVM or BB config');
+      this.acvmConfigCleanup = acvmConfig.cleanup;
+      this.bbConfigCleanup = bbConfig.cleanup;
+
+      if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
+        throw new Error(`Test must be run with BB native configuration`);
+      }
+
+      this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
+
+      this.logger.debug(`Configuring the node for real proofs...`);
+      await this.aztecNode.setConfig({
+        realProofs: true,
+        minTxsPerBlock: this.minNumberOfTxsPerBlock,
+      });
+    } else {
+      this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
+      this.circuitProofVerifier = new TestCircuitVerifier();
+      await this.aztecNode.setConfig({
+        minTxsPerBlock: this.minNumberOfTxsPerBlock,
+      });
     }
 
-    this.acvmConfigCleanup = acvmConfig.cleanup;
-    this.bbConfigCleanup = bbConfig.cleanup;
+    this.logger.verbose(`Move to a clean epoch`);
+    await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
-    if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
-      throw new Error(`Test must be run with BB native configuration`);
-    }
+    this.logger.verbose(`Marking current block as proven`);
+    await this.context.cheatCodes.rollup.markAsProven();
 
-    this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
-
-    this.logger.debug(`Configuring the node for real proofs...`);
-    await this.aztecNode.setConfig({
-      realProofs: true,
-      minTxsPerBlock: this.minNumberOfTxsPerBlock,
-    });
-
-    this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
-
+    this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
       const result = await setupPXEService(
         this.aztecNode,
         {
-          proverEnabled: true,
+          proverEnabled: this.realProofs,
           bbBinaryPath: bbConfig?.bbBinaryPath,
           bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
         },
@@ -186,17 +218,8 @@ export class FullProverTest {
       await result.pxe.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
-        await waitRegisteredAccountSynced(
-          result.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
-
-        await waitRegisteredAccountSynced(
-          this.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
+        await result.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+        await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
       }
 
       const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
@@ -214,7 +237,6 @@ export class FullProverTest {
       });
       this.provenAssets.push(asset);
     }
-
     this.logger.info(`Full prover PXE started`);
 
     // Shutdown the current, simulated prover node
@@ -222,7 +244,6 @@ export class FullProverTest {
     await this.simulatedProverNode.stop();
 
     // Creating temp store and archiver for fully proven prover node
-
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
@@ -232,27 +253,45 @@ export class FullProverTest {
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).toString());
+    this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
-    this.logger.verbose('Starting fully proven prover node');
+    this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
+    await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
+
+    this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
-      txProviderNodeUrl: undefined,
+      proverCoordinationNodeUrl: undefined,
       dataDirectory: undefined,
       proverId: new Fr(81),
-      realProofs: true,
-      proverAgentConcurrency: 2,
+      realProofs: this.realProofs,
+      proverAgentCount: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
+      proverNodePollingIntervalMs: 100,
+      quoteProviderBasisPointFee: 100,
+      quoteProviderBondAmount: 1000n,
+      proverMinimumEscrowAmount: 3000n,
+      proverTargetEscrowAmount: 6000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
       archiver: archiver as Archiver,
     });
-    this.proverNode.start();
+    await this.proverNode.start();
 
-    this.logger.info('Prover node started');
-
+    this.logger.warn(`Proofs are now enabled`);
     return this;
+  }
+
+  private async mintL1ERC20(recipient: Hex, amount: bigint) {
+    const erc20Address = this.context.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
+    const client = this.context.deployL1ContractsValues.walletClient;
+    const erc20 = getContract({ abi: TestERC20Abi, address: erc20Address.toString(), client });
+    const hash = await erc20.write.mint([recipient, amount]);
+    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash });
   }
 
   snapshot = <T>(
@@ -276,42 +315,28 @@ export class FullProverTest {
     await this.acvmConfigCleanup?.();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.fakeProofsAsset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
-  }
-
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
         const { fakeProofsAsset: asset, accounts } = this;
-        const amount = 10000n;
+        const privateAmount = 10000n;
+        const publicAmount = 10000n;
 
-        const waitOpts = { proven: true };
+        const waitOpts = { proven: false };
 
-        this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
+        this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
+        await asset.methods
+          .mint_to_public(accounts[0].address, privateAmount + publicAmount)
+          .send()
+          .wait(waitOpts);
 
-        this.logger.verbose(`Minting ${amount} privately...`);
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait(waitOpts);
+        this.logger.verbose(`Transferring ${privateAmount} to private...`);
+        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait(waitOpts);
 
-        await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true, proven: true });
         this.logger.verbose(`Minting complete.`);
 
-        return { amount };
+        return { amount: publicAmount };
       },
       async ({ amount }) => {
         const {
@@ -325,8 +350,7 @@ export class FullProverTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
@@ -341,55 +365,35 @@ export class FullProverTest {
   }
 
   async deployVerifier() {
+    if (!this.realProofs) {
+      return;
+    }
+
     if (!this.circuitProofVerifier) {
       throw new Error('No verifier');
     }
 
+    const verifier = this.circuitProofVerifier as BBCircuitVerifier;
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
-
-    const contract = await this.circuitProofVerifier.generateSolidityContract(
-      'BlockRootRollupArtifact',
-      'UltraHonkVerifier.sol',
-    );
-
-    const input = {
-      language: 'Solidity',
-      sources: {
-        'UltraHonkVerifier.sol': {
-          content: contract,
-        },
-      },
-      settings: {
-        // we require the optimizer
-        optimizer: {
-          enabled: true,
-          runs: 200,
-        },
-        evmVersion: 'paris',
-        outputSelection: {
-          '*': {
-            '*': ['evm.bytecode.object', 'abi'],
-          },
-        },
-      },
-    };
-
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-    const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
-    const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
-
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
-
-    this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
-
     const rollup = getContract({
       abi: RollupAbi,
       address: l1ContractAddresses.rollupAddress.toString(),
       client: walletClient,
     });
 
-    await rollup.write.setVerifier([verifierAddress.toString()]);
+    // REFACTOR: Extract this method to a common package. We need a package that deals with L1
+    // but also has a reference to L1 artifacts and bb-prover.
+    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
+      const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
+      const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
+      const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
+      this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);
+
+      await rollup.write.setEpochVerifier([verifierAddress.toString()]);
+    };
+
+    await setupVerifier('RootRollupArtifact');
+
     this.logger.info('Rollup only accepts valid proofs now');
   }
 }

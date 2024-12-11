@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/circuits.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import {
   logJson,
+  makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
   parseField,
@@ -13,12 +14,11 @@ import {
   parseOptionalInteger,
   parseOptionalLogId,
   parseOptionalTxHash,
-  parsePartialAddress,
   parsePublicKey,
   pxeOption,
 } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('add-contract')
     .description(
@@ -62,6 +62,15 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('get-current-base-fee')
+    .description('Gets the current base fee.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
+      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('get-contract-data')
     .description('Gets information about the Aztec contract deployed at the specified address.')
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
@@ -92,22 +101,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('register-recipient')
-    .description('Register a recipient in the PXE.')
-    .requiredOption('-a, --address <aztecAddress>', "The account's Aztec address.", parseAztecAddress)
-    .requiredOption('-p, --public-key <publicKey>', 'The account public key.', parsePublicKey)
-    .requiredOption(
-      '-pa, --partial-address <partialAddress>',
-      'The partially computed address of the account contract.',
-      parsePartialAddress,
-    )
-    .addOption(pxeOption)
-    .action(async ({ address, publicKey, partialAddress, rpcUrl }) => {
-      const { registerRecipient } = await import('./register_recipient.js');
-      await registerRecipient(address, publicKey, partialAddress, rpcUrl, debugLogger, log);
-    });
-
-  program
     .command('get-accounts')
     .description('Gets all the Aztec accounts stored in the PXE.')
     .addOption(pxeOption)
@@ -125,25 +118,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (address, options) => {
       const { getAccount } = await import('./get_account.js');
       await getAccount(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipients')
-    .description('Gets all the recipients stored in the PXE.')
-    .addOption(pxeOption)
-    .action(async (options: any) => {
-      const { getRecipients } = await import('./get_recipients.js');
-      await getRecipients(options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipient')
-    .description('Gets a recipient given its Aztec address.')
-    .argument('<address>', 'The Aztec address to get recipient for', parseAztecAddress)
-    .addOption(pxeOption)
-    .action(async (address, options) => {
-      const { getRecipient } = await import('./get_recipient.js');
-      await getRecipient(address, options.rpcUrl, debugLogger, log);
     });
 
   program
@@ -169,11 +143,18 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
   program
     .command('get-node-info')
-    .description('Gets the information of an aztec node at a URL.')
-    .addOption(pxeOption)
+    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
+    .option('--node-url <string>', 'URL of the node.')
+    .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
-      await getNodeInfo(options.rpcUrl, debugLogger, log);
+      let url: string;
+      if (options.nodeUrl) {
+        url = options.nodeUrl;
+      } else {
+        url = options.rpcUrl;
+      }
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
     });
 
   program

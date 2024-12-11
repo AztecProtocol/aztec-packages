@@ -1,17 +1,17 @@
-import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
-  type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
-  type MerkleTreeAdminOperations,
   type MerkleTreeLeafType,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -27,36 +27,44 @@ import {
   PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
+  PublicDataWrite,
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type AppendOnlyTree,
   type IndexedTree,
   Poseidon,
   StandardIndexedTree,
   StandardTree,
-  type UpdateOnlyTree,
   getTreeMeta,
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
+  type WorldStateStatusFull,
+  type WorldStateStatusSummary,
+  buildEmptyWorldStateStatusFull,
+} from '../native/message.js';
+import {
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
-  type MerkleTreeDb,
+  type MerkleTreeAdminDatabase,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
 import { type MerkleTreeMap } from './merkle_tree_map.js';
-import { MerkleTreeAdminOperationsFacade } from './merkle_tree_operations_facade.js';
+import { MerkleTreeReadOperationsFacade } from './merkle_tree_operations_facade.js';
+import { MerkleTreeSnapshotOperationsFacade } from './merkle_tree_snapshot_operations_facade.js';
 import { WorldStateMetrics } from './metrics.js';
 
 /**
@@ -96,14 +104,14 @@ class PublicDataTree extends StandardIndexedTree {
 /**
  * A convenience class for managing multiple merkle trees.
  */
-export class MerkleTrees implements MerkleTreeDb {
+export class MerkleTrees implements MerkleTreeAdminDatabase {
   // gets initialized in #init
   private trees: MerkleTreeMap = null as any;
   private jobQueue = new SerialQueue();
   private initialStateReference: AztecSingleton<Buffer>;
   private metrics: WorldStateMetrics;
 
-  private constructor(private store: AztecKVStore, private telemetryClient: TelemetryClient, private log: DebugLogger) {
+  private constructor(private store: AztecKVStore, private telemetryClient: TelemetryClient, private log: Logger) {
     this.initialStateReference = store.openSingleton('merkle_trees_initial_state_reference');
     this.metrics = new WorldStateMetrics(telemetryClient);
   }
@@ -113,10 +121,22 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore, client: TelemetryClient, log = createDebugLogger('aztec:merkle_trees')) {
+  public static async new(
+    store: AztecKVStore,
+    client: TelemetryClient,
+    log = createLogger('world-state:merkle_trees'),
+  ) {
     const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
+  }
+
+  /**
+   * Creates a temporary store. Useful for testing.
+   */
+  public static tmp() {
+    const store = openTmpStore();
+    return MerkleTrees.new(store, new NoopTelemetryClient());
   }
 
   /**
@@ -179,49 +199,68 @@ export class MerkleTrees implements MerkleTreeDb {
       // and persist the initial header state reference so we can later load it when requested.
       const initialState = await this.getStateReference(true);
       await this.#saveInitialStateReference(initialState);
-      await this.#updateArchive(this.getInitialHeader(), true);
+      await this.#updateArchive(this.getInitialHeader());
 
       // And commit anything we did to initialize this set of trees
       await this.#commit();
     }
   }
 
-  public async fork(): Promise<MerkleTrees> {
+  public removeHistoricalBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
+    throw new Error('Method not implemented.');
+  }
+
+  public unwindBlocks(_toBlockNumber: bigint): Promise<WorldStateStatusFull> {
+    throw new Error('Method not implemented.');
+  }
+
+  public setFinalised(_toBlockNumber: bigint): Promise<WorldStateStatusSummary> {
+    throw new Error('Method not implemented.');
+  }
+
+  public getStatusSummary(): Promise<WorldStateStatusSummary> {
+    throw new Error('Method not implemented.');
+  }
+
+  public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+    if (blockNumber) {
+      throw new Error('Block number forking is not supported in js world state');
+    }
     const [ms, db] = await elapsed(async () => {
       const forked = await this.store.fork();
       return MerkleTrees.new(forked, this.telemetryClient, this.log);
     });
 
     this.metrics.recordForkDuration(ms);
-    return db;
+    return new MerkleTreeReadOperationsFacade(db, true);
   }
 
   // REFACTOR: We're hiding the `commit` operations in the tree behind a type check only, but
   // we should make sure it's not accidentally called elsewhere by splitting this class into one
   // that can work on a read-only store and one that actually writes to the store. This implies
   // having read-only versions of the kv-stores, all kv-containers, and all trees.
-  public async ephemeralFork(): Promise<MerkleTreeDb> {
+  public async ephemeralFork(): Promise<MerkleTreeWriteOperations> {
     const forked = new MerkleTrees(
       this.store,
       this.telemetryClient,
-      createDebugLogger('aztec:merkle_trees:ephemeral_fork'),
+      createLogger('world-state:merkle_trees:ephemeral_fork'),
     );
     await forked.#init(true);
-    return forked;
+    return new MerkleTreeReadOperationsFacade(forked, true);
   }
 
   public async delete() {
     await this.store.delete();
   }
 
-  public getInitialHeader(): Header {
-    return Header.empty({ state: this.#loadInitialStateReference() });
+  public getInitialHeader(): BlockHeader {
+    return BlockHeader.empty({ state: this.#loadInitialStateReference() });
   }
 
   /**
    * Stops the job queue (waits for all jobs to finish).
    */
-  public async stop() {
+  public async close() {
     await this.jobQueue.end();
   }
 
@@ -229,16 +268,20 @@ export class MerkleTrees implements MerkleTreeDb {
    * Gets a view of this db that returns uncommitted data.
    * @returns - A facade for this instance.
    */
-  public asLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, true);
+  public getLatest(): Promise<MerkleTreeWriteOperations> {
+    return Promise.resolve(new MerkleTreeReadOperationsFacade(this, true));
   }
 
   /**
    * Gets a view of this db that returns committed data only.
    * @returns - A facade for this instance.
    */
-  public asCommitted(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, false);
+  public getCommitted(): MerkleTreeReadOperations {
+    return new MerkleTreeReadOperationsFacade(this, false);
+  }
+
+  public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
+    return new MerkleTreeSnapshotOperationsFacade(this, blockNumber);
   }
 
   /**
@@ -246,8 +289,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(header: Header, includeUncommitted: boolean) {
-    await this.synchronize(() => this.#updateArchive(header, includeUncommitted));
+  public async updateArchive(header: BlockHeader) {
+    await this.synchronize(() => this.#updateArchive(header));
   }
 
   /**
@@ -427,23 +470,12 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Updates a leaf in a tree at a given index.
-   * @param treeId - The ID of the tree.
-   * @param leaf - The new leaf value.
-   * @param index - The index to insert into.
-   * @returns Empty promise.
-   */
-  public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
-    return await this.synchronize(() => this.#updateLeaf(treeId, leaf, index));
-  }
-
-  /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     return await this.synchronize(() => this.#handleL2BlockAndMessages(block, l1ToL2Messages));
   }
 
@@ -491,8 +523,8 @@ export class MerkleTrees implements MerkleTreeDb {
     return StateReference.fromBuffer(serialized);
   }
 
-  async #updateArchive(header: Header, includeUncommitted: boolean) {
-    const state = await this.getStateReference(includeUncommitted);
+  async #updateArchive(header: BlockHeader) {
+    const state = await this.getStateReference(true);
 
     // This method should be called only when the block builder already updated the state so we sanity check that it's
     // the case here.
@@ -544,14 +576,6 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves as any[]);
   }
 
-  async #updateLeaf(treeId: IndexedTreeId, leaf: MerkleTreeLeafType<typeof treeId>, index: bigint): Promise<void> {
-    const tree = this.trees[treeId];
-    if (!('updateLeaf' in tree)) {
-      throw new Error('Tree does not support `updateLeaf` method');
-    }
-    return await (tree as UpdateOnlyTree<typeof leaf>).updateLeaf(leaf, index);
-  }
-
   /**
    * Commits all pending updates.
    * @returns Empty promise.
@@ -572,7 +596,7 @@ export class MerkleTrees implements MerkleTreeDb {
     }
   }
 
-  public async getSnapshot(blockNumber: number): Promise<TreeSnapshots> {
+  public async getTreeSnapshots(blockNumber: number): Promise<TreeSnapshots> {
     const snapshots = await Promise.all([
       this.trees[MerkleTreeId.NULLIFIER_TREE].getSnapshot(blockNumber),
       this.trees[MerkleTreeId.NOTE_HASH_TREE].getSnapshot(blockNumber),
@@ -601,7 +625,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param l2Block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     const timer = new Timer();
 
     const treeRootWithIdPairs = [
@@ -663,14 +687,14 @@ export class MerkleTrees implements MerkleTreeDb {
           );
 
           await publicDataTree.batchInsert(
-            publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+            publicDataWrites.map(write => write.toBuffer()),
             PUBLIC_DATA_SUBTREE_HEIGHT,
           );
         }
       }
 
       // The last thing remaining is to update the archive
-      await this.#updateArchive(l2Block.header, true);
+      await this.#updateArchive(l2Block.header);
 
       await this.#commit();
     }
@@ -692,9 +716,9 @@ export class MerkleTrees implements MerkleTreeDb {
     }
     await this.#snapshot(l2Block.number);
 
-    this.metrics.recordDbSize(this.store.estimateSize().bytes);
-    this.metrics.recordSyncDuration(ourBlock ? 'commit' : 'rollback_and_update', timer);
-    return { isBlockOurs: ourBlock };
+    this.metrics.recordDbSize(this.store.estimateSize().actualSize);
+    this.metrics.recordSyncDuration('commit', timer);
+    return buildEmptyWorldStateStatusFull();
   }
 
   #isDbPopulated(): boolean {

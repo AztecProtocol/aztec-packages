@@ -447,3 +447,49 @@ TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
+
+/**
+ * @brief Test to catch the Point at infinity issue in the interaction between ECCVM and Translator
+ *
+ * @details Currently, Goblin does not support clean initialization, which means that we have to create mock ECCOpQueue
+ * to avoid commiting to zero polynomials. This test localizes the issue to the problem with populating ECCVM Transcript
+ * rows in the method \ref  bb::ECCVMTranscriptBuilder::compute_rows "compute rows". Namely, we are loosing the point at
+ * infinity contribution to the 'transcipt_Px' polynomials while parsing the raw ops of ECCOpQueue.
+ *
+ * More specifically, in this test we add a simple MSM with the point at infinity multiplied by \f$0\f$. While the ECCVM
+ * computes the result of this op correctly, i.e. outputs the point at infinity, the computation of 'transcript_Px' is
+ * incorrect, because the \f$x\f$-coordinate of the point at infinity is replaced with \f$ 0 \f$. This leads to the
+ * ECCVM opening result being equal to \f$ x \cdot 4 \f$, where \f$4\f$ is the mul opcode.
+ *
+ * In a more global context, the Translator verifier would compute the accumulated result as \f$ 4 + \varepsilon\f$,
+ * where \f$ \varepsilon\f$ is the \f$x\f$-coordinate of the point at infinity.
+ *
+ */
+TEST(ECCVMCircuitBuilderTests, InfinityFailure)
+{
+    using G1 = g1::affine_element;
+    using Fr = fr;
+
+    auto P1 = G1::infinity();
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+
+    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+
+    for (size_t i = 0; i < 1; i++) {
+        op_queue->mul_accumulate(P1, Fr(0));
+    }
+
+    auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
+
+    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_raw_ops(), 1);
+
+    // check that the corresponding op is mul
+    bool row_op_code_correct = transcript_rows[1].opcode == 4;
+    // row.base_x populate the transcript polynomial transcript_Px in ECCVM Flavor
+    bool failure = Fr(transcript_rows[1].base_x) == Fr(0);
+
+    bool circuit_checked = ECCVMTraceChecker::check(eccvm_builder);
+
+    EXPECT_TRUE(failure && row_op_code_correct && circuit_checked);
+}

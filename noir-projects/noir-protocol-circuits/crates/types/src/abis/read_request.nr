@@ -1,12 +1,14 @@
 use crate::{
-    abis::side_effect::{Ordered, Scoped}, traits::{Empty, Serialize, Deserialize},
-    address::AztecAddress, constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    utils::{arrays::array_concat, reader::Reader}
+    abis::side_effect::{Ordered, Scoped},
+    address::AztecAddress,
+    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
-struct ReadRequest {
-    value: Field,
-    counter: u32,
+pub struct ReadRequest {
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for ReadRequest {
@@ -17,17 +19,13 @@ impl Ordered for ReadRequest {
 
 impl Eq for ReadRequest {
     fn eq(self, read_request: ReadRequest) -> bool {
-        (self.value == read_request.value)
-        & (self.counter == read_request.counter)
+        (self.value == read_request.value) & (self.counter == read_request.counter)
     }
 }
 
 impl Empty for ReadRequest {
     fn empty() -> Self {
-        ReadRequest {
-            value: 0,
-            counter: 0,
-        }
+        ReadRequest { value: 0, counter: 0 }
     }
 }
 
@@ -39,10 +37,7 @@ impl Serialize<READ_REQUEST_LENGTH> for ReadRequest {
 
 impl Deserialize<READ_REQUEST_LENGTH> for ReadRequest {
     fn deserialize(values: [Field; READ_REQUEST_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-        }
+        Self { value: values[0], counter: values[1] as u32 }
     }
 }
 
@@ -52,9 +47,9 @@ impl ReadRequest {
     }
 }
 
-struct ScopedReadRequest {
-    read_request: ReadRequest,
-    contract_address: AztecAddress,
+pub struct ScopedReadRequest {
+    pub read_request: ReadRequest,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<ReadRequest> for ScopedReadRequest {
@@ -69,7 +64,7 @@ impl Scoped<ReadRequest> for ScopedReadRequest {
 impl Eq for ScopedReadRequest {
     fn eq(self, other: ScopedReadRequest) -> bool {
         (self.read_request == other.read_request)
-        & (self.contract_address.eq(other.contract_address))
+            & (self.contract_address.eq(other.contract_address))
     }
 }
 
@@ -84,7 +79,10 @@ impl Empty for ScopedReadRequest {
 
 impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
     fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
-        array_concat(self.read_request.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.read_request.serialize(),
+            [self.contract_address.to_field()],
+        )
     }
 }
 

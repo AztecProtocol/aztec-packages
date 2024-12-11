@@ -311,9 +311,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         // FF endomorphism_base_field_shift = FF::cube_root_of_unity();
         FF endomorphism_base_field_shift = FF(bb::fq::cube_root_of_unity());
 
-        auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube;
+        auto transcript_input1 =
+            transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube; // degree = 1
         auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -
-                                 transcript_Py * beta_sqr + z2 * beta_cube;
+                                 transcript_Py * beta_sqr + z2 * beta_cube; // degree = 2
 
         // | q_mul | z2_zero | z1_zero | base_infinity | lookup                 |
         // | ----- | ------- | ------- | ------------- |----------------------- |
@@ -326,15 +327,15 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         // | 1     | 0       | 1       |             1 | 1                      |
         // | 1     | 1       | 0       |             1 | 1                      |
         // | 1     | 1       | 1       |             1 | 1                      |
-        transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);
-        transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1);
+        transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);   // degree 2
+        transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1); // degree 3
 
-        // transcript_product = degree 3
+        // transcript_product = degree 6
         auto transcript_product = (transcript_input1 * transcript_input2) * (-base_infinity + 1) + base_infinity;
 
-        // point_table_init_write = degree 4
+        // point_table_init_write = degree 7
         auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
-        denominator *= point_table_init_write; // degree-14
+        denominator *= point_table_init_write; // degree 17
 
         // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);
         // denominator *= point_table_init_write_1; // degree-11
@@ -373,7 +374,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 }
 
 /**
- * @brief Expression for the StandardArithmetic gate.
+ * @brief Expression for the standard arithmetic gate.
  * @dbetails The relation is defined as C(in(X)...) =
  *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
  *
@@ -391,25 +392,28 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 {
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
+    using ShortView = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
 
     // degree-11
     Accumulator numerator_evaluation = compute_grand_product_numerator<Accumulator>(in, params);
 
-    // degree-17
+    // degree-20
     Accumulator denominator_evaluation = compute_grand_product_denominator<Accumulator>(in, params);
 
     const auto& lagrange_first = View(in.lagrange_first);
     const auto& lagrange_last = View(in.lagrange_last);
+    const auto& lagrange_last_short = ShortView(in.lagrange_last);
 
     const auto& z_perm = View(in.z_perm);
     const auto& z_perm_shift = View(in.z_perm_shift);
+    const auto& z_perm_shift_short = ShortView(in.z_perm_shift);
 
-    // degree-18
+    // degree-21
     std::get<0>(accumulator) +=
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;
 
     // Contribution (2)
-    std::get<1>(accumulator) += (lagrange_last * z_perm_shift) * scaling_factor;
+    std::get<1>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
 }
 } // namespace bb

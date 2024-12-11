@@ -85,30 +85,25 @@ osxcross:
 
 ########################################################################################################################
 # Build foundry.
-foundry-build:
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
+foundry:
+  LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   FROM +base-build
-  RUN ulimit -n 65535 \
-      && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
-      && cd foundry \
-      && cargo build --profile local \
+
+  LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
+
+  RUN curl -L https://foundry.paradigm.xyz | bash \
+      && $FOUNDRY_BIN_DIR/foundryup -v nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
-          mv ./target/local/$t /opt/foundry/bin/$t; \
+          mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
           strip /opt/foundry/bin/$t; \
       done \
-      && rm -rf /foundry
-  SAVE ARTIFACT /opt/foundry /opt/foundry
-  ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/cache:foundry-build-$FOUNDRY_TAG-$TARGETARCH
+      && rm -rf $FOUNDRY_BIN_DIR
 
-foundry:
-  BUILD +foundry-build
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
-  ARG TARGETARCH
-  FROM ubuntu:noble
-  COPY +foundry-build/opt/foundry /opt/foundry
+  SAVE ARTIFACT /opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
+
+  ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/foundry:$FOUNDRY_TAG-$TARGETARCH
 
 ########################################################################################################################
@@ -146,6 +141,8 @@ build:
           # Python (clang bindings for wasm bindgen.)
           python3 \
           python3-clang \
+          # Unminimize ubuntu installation, recently removed from base images
+          unminimize \
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -154,7 +151,7 @@ build:
   COPY +wasi-sdk/opt/wasi-sdk /opt/wasi-sdk
 
   # Install foundry.
-  COPY +foundry-build/opt/foundry /opt/foundry
+  COPY +foundry/opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
 
   # Install rust and cross-compilers. Noir specifically uses 1.74.1.
@@ -326,12 +323,12 @@ devbox:
   CMD ["/bin/zsh"]
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/devbox:1.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/devbox:1.1-$TARGETARCH
   # Save it without the arch tag as this is what's referenced in devcontainer.json
-  SAVE IMAGE aztecprotocol/devbox:1.0
+  SAVE IMAGE aztecprotocol/devbox:1.1
 
 devbox-manifest:
-  LET VERSION = 1.0
+  LET VERSION = 1.1
   ARG TARGETARCH
   WAIT
     BUILD +devbox
@@ -431,5 +428,5 @@ sysbox:
   EXPOSE 22
 
   ARG TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.0-$TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.0
+  SAVE IMAGE aztecprotocol/sysbox:1.1-$TARGETARCH
+  SAVE IMAGE aztecprotocol/sysbox:1.1

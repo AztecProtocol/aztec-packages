@@ -111,6 +111,7 @@ template <typename Builder> byte_array<Builder>::byte_array(const field_t<Builde
             byte.create_range_constraint(8, "byte_array: byte extraction failed.");
             bb::fr scaling_factor_value = byte_shift.pow(static_cast<uint64_t>(num_bytes - 1 - i));
             field_t<Builder> scaling_factor(context, scaling_factor_value);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1082): Addition could be optimized
             validator = validator + (scaling_factor * byte);
             values[i] = byte;
             if (i == 15) {
@@ -154,12 +155,15 @@ template <typename Builder> byte_array<Builder>::byte_array(const field_t<Builde
             y_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
         }
     }
+    set_origin_tag(input.tag);
 }
 
 template <typename Builder>
 byte_array<Builder>::byte_array(const safe_uint_t<Builder>& input, const size_t num_bytes)
     : byte_array(input.value, num_bytes)
-{}
+{
+    set_origin_tag(input.get_origin_tag());
+}
 
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t const& input)
@@ -219,6 +223,7 @@ template <typename Builder> byte_array<Builder>::operator field_t<Builder>() con
         field_t<Builder> scaling_factor(values[i].context, scaling_factor_value);
         result = result + (scaling_factor * temp);
     }
+    result.set_origin_tag(get_origin_tag());
     return result.normalize();
 }
 
@@ -324,6 +329,7 @@ template <typename Builder> void byte_array<Builder>::set_bit(size_t index_rever
     const size_t bit_index = 7UL - (index % 8UL);
 
     field_t<Builder> scaled_new_bit = field_t<Builder>(new_bit) * bb::fr(uint256_t(1) << bit_index);
+    scaled_new_bit.set_origin_tag(new_bit.get_origin_tag());
     const auto new_value = slice.low.add_two(slice.high, scaled_new_bit).normalize();
     values[byte_index] = new_value;
 }
@@ -352,6 +358,10 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
         field_t<Builder> low(context, low_value);
         field_t<Builder> shifted_high(context, high_value * (uint64_t(1) << (8ULL - num_high_bits)));
         bool_t<Builder> bit(context, static_cast<bool>(bit_value));
+        auto tag = values[byte_index].get_origin_tag();
+        low.set_origin_tag(tag);
+        shifted_high.set_origin_tag(tag);
+        bit.set_origin_tag(tag);
         return { low, shifted_high, bit };
     }
     field_t<Builder> low = witness_t<Builder>(context, low_value);
@@ -375,6 +385,11 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
     field_t<Builder> scaled_bit = field_t<Builder>(bit) * bb::fr(uint256_t(1) << bit_index);
     field_t<Builder> result = low.add_two(scaled_high, scaled_bit);
     result.assert_equal(byte);
+
+    auto tag = values[byte_index].get_origin_tag();
+    low.set_origin_tag(tag);
+    scaled_high.set_origin_tag(tag);
+    bit.set_origin_tag(tag);
 
     return { low, scaled_high, bit };
 }

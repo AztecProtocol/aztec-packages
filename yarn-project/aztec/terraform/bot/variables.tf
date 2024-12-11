@@ -80,4 +80,8 @@ variable "BOT_DA_GAS_LIMIT" {
   type = string
 }
 
+variable "BOT_TOKEN_CONTRACT" {
+  type    = string
+  default = "TokenContract"
+}
 

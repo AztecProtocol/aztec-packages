@@ -1,4 +1,5 @@
 #include "mem_bn254_crs_factory.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
@@ -51,7 +52,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
 
     verifier_crs_ = std::make_shared<MemVerifierCrs>(g2_point, g1_identity);
 
-    vinfo("Initializing ",
+    vinfo("Initialized ",
           curve::BN254::name,
           " prover CRS from memory with num points = ",
           prover_crs_->get_monomial_size());
@@ -59,8 +60,10 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
 
 std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> MemBn254CrsFactory::get_prover_crs(size_t degree)
 {
+    PROFILE_THIS();
+
     if (prover_crs_->get_monomial_size() < degree) {
-        throw_or_abort(format("prover trying to get too many points in MemGrumpkinCrsFactory! ",
+        throw_or_abort(format("prover trying to get too many points in MemBn254CrsFactory! ",
                               prover_crs_->get_monomial_size(),
                               " vs ",
                               degree));
@@ -72,7 +75,7 @@ std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> MemBn254CrsFactor
 {
 
     if (prover_crs_->get_monomial_size() < degree) {
-        throw_or_abort(format("verifier trying to get too many points in MemGrumpkinCrsFactory! ",
+        throw_or_abort(format("verifier trying to get too many points in MemBn254CrsFactory! ",
                               prover_crs_->get_monomial_size(),
                               " vs ",
                               degree));

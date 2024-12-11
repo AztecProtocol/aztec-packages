@@ -1,9 +1,7 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
-import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js';
 
@@ -11,7 +9,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { computeNoteHash } from './test_utils.js';
 
 describe('Simulator', () => {
   let oracle: MockProxy<DBOracle>;
@@ -55,36 +52,9 @@ describe('Simulator', () => {
     const storageSlot = TokenBlacklistContractArtifact.storageLayout['balances'].slot;
     const noteTypeId = TokenBlacklistContractArtifact.notes['TokenNote'].id;
 
-    const createNote = (amount = 123n) => new Note([new Fr(amount), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
-
-    it('should compute note hashes and nullifier', async () => {
-      oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
-
-      const note = createNote();
-      const noteHash = computeNoteHash(storageSlot, note.items);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-      const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
-      const innerNullifier = poseidon2HashWithSeparator(
-        [siloedNoteHash, appNullifierSecretKey],
-        GeneratorIndex.NOTE_NULLIFIER,
-      );
-
-      const result = await simulator.computeNoteHashAndOptionallyANullifier(
-        contractAddress,
-        nonce,
-        storageSlot,
-        noteTypeId,
-        true,
-        note,
-      );
-
-      expect(result).toEqual({
-        noteHash,
-        uniqueNoteHash,
-        siloedNoteHash,
-        innerNullifier,
-      });
-    });
+    // Amount is a U128, with a lo and hi limbs
+    const createNote = (amount = 123n) =>
+      new Note([new Fr(amount), new Fr(0), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
 
     it('throw if the contract does not implement "compute_note_hash_and_optionally_a_nullifier"', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(undefined);

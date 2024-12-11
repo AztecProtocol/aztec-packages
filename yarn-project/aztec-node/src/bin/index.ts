@@ -1,6 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createDebugLogger } from '@aztec/foundation/log';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createLogger } from '@aztec/foundation/log';
 
 import http from 'http';
 
@@ -8,7 +7,7 @@ import { type AztecNodeConfig, AztecNodeService, createAztecNodeRpcServer, getCo
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
-const logger = createDebugLogger('aztec:node');
+const logger = createLogger('node');
 
 /**
  * Creates the node from provided config
@@ -16,7 +15,7 @@ const logger = createDebugLogger('aztec:node');
 async function createAndDeployAztecNode() {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
 
-  return await AztecNodeService.createAndSync(aztecNodeConfig, new NoopTelemetryClient());
+  return await AztecNodeService.createAndSync(aztecNodeConfig);
 }
 
 /**

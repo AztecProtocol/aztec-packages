@@ -1,10 +1,9 @@
 import { getSingleKeyAccount } from '@aztec/accounts/single_key';
-import { type AccountWallet, Fr, Note, computeSecretHash, createPXEClient } from '@aztec/aztec.js';
-import { ExtendedNote } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createLogger('example:token');
 
 export const alicePrivateKey = Fr.random();
 export const bobPrivateKey = Fr.random();
@@ -42,27 +41,10 @@ async function main() {
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
+  const from = aliceWallet.getAddress(); // we are setting from to Alice here because of TODO(#9887)
+  await tokenAlice.methods.mint_to_private(from, aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
 
-  // Create a secret and a corresponding hash that will be used to mint funds privately
-  const aliceSecret = Fr.random();
-  const aliceSecretHash = computeSecretHash(aliceSecret);
-  const receipt = await tokenAlice.methods.mint_private(ALICE_MINT_BALANCE, aliceSecretHash).send().wait();
-
-  const note = new Note([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    alice.address,
-    token.address,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
-    receipt.txHash,
-  );
-  await pxe.addNote(extendedNote);
-
-  // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
-  // to a "token note")
-  await tokenAlice.methods.redeem_shield(alice, ALICE_MINT_BALANCE, aliceSecret).send().wait();
-  logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted and redeemed by Alice`);
+  logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 
   const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).simulate();
   logger.info(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);

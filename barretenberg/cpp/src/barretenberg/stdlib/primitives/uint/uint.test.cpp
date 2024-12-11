@@ -865,7 +865,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         sub_integers(true, false);
         sub_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -901,7 +901,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         mul_integers(true, false);
         mul_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -957,7 +957,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         divide_integers(true, false, false, true, false);
         divide_integers(true, true, false, true, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1008,7 +1008,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         mod_integers(true, false, false, true, false);
         mod_integers(true, true, false, true, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1203,7 +1203,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         and_integers(true, false);
         and_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1238,7 +1238,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         xor_integers(true, false);
         xor_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1277,7 +1277,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         or_integers(true, false);
         or_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1307,7 +1307,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         not_integers(true, false);
         not_integers(true, true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1346,7 +1346,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);  //      b > a
         compare_integers(true, false, false);  //      b = a
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1387,7 +1387,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1427,7 +1427,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1468,7 +1468,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1509,7 +1509,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1550,7 +1550,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1578,7 +1578,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         not_integer(false);
         not_integer(false);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1606,7 +1606,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
             shift_integer(true, i);
         }
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1634,7 +1634,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
             shift_integer(false, i);
         }
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1666,7 +1666,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
             ror_integer(false, i);
         }
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1698,7 +1698,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
             rol_integer(false, i);
         }
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1731,7 +1731,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         bit_test(false);
         bit_test(true);
 
-        printf("builder gates = %zu\n", builder.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
@@ -1939,7 +1939,7 @@ TEST(stdlib_uint32, test_accumulators_plookup_uint32)
         EXPECT_EQ(result, expected);
     }
 
-    info("builder gates = ", builder.get_num_gates());
+    info("builder gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);

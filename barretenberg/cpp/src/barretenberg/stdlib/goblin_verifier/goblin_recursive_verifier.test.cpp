@@ -112,8 +112,10 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
 
     // Tamper with the ECCVM proof
-    for (auto& val : proof.eccvm_proof) {
+    for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
+            // tamper by finding the first non-zero value
+            // and incrementing it by 1
             val += 1;
             break;
         }
@@ -121,9 +123,18 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    EXPECT_FALSE(CircuitChecker::check(builder));
+    auto crs_factory =
+        std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>("../srs_db/grumpkin", 1 << CONST_ECCVM_LOG_N);
+    auto grumpkin_verifier_commitment_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
+    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>(
+        convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_transcript->proof_data));
+
+    EXPECT_FALSE(
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
 }
 
 /**

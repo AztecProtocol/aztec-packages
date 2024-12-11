@@ -30,31 +30,22 @@ export enum Opcode {
   OR_16,
   XOR_8,
   XOR_16,
-  NOT,
+  NOT_8,
+  NOT_16,
   SHL_8,
   SHL_16,
   SHR_8,
   SHR_16,
-  CAST,
+  CAST_8,
+  CAST_16,
   // Execution environment
-  ADDRESS,
-  STORAGEADDRESS,
-  SENDER,
-  FUNCTIONSELECTOR,
-  TRANSACTIONFEE,
-  CHAINID,
-  VERSION,
-  BLOCKNUMBER,
-  TIMESTAMP,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
+  GETENVVAR_16,
   CALLDATACOPY,
-  // Gas
-  L2GASLEFT,
-  DAGASLEFT,
+  RETURNDATASIZE,
+  RETURNDATACOPY,
   // Control flow
-  JUMP_16,
-  JUMPI_16,
+  JUMP_32,
+  JUMPI_32,
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
@@ -66,7 +57,6 @@ export enum Opcode {
   SET_FF,
   MOV_8,
   MOV_16,
-  CMOV,
   // World state
   SLOAD,
   SSTORE,
@@ -81,25 +71,26 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
-  REVERT,
+  REVERT_8,
+  REVERT_16,
   // Misc
   DEBUGLOG,
   // Gadgets
-  KECCAK,
   POSEIDON2,
-  SHA256, // temp - may be removed, but alot of contracts rely on it
-  PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+  SHA256COMPRESSION,
+  KECCAKF1600,
   ECADD,
   MSM,
-  PEDERSENCOMMITMENT,
   // Conversion
-  TORADIXLE,
-  // Future Gadgets -- pending changes in noir
-  SHA256COMPRESSION,
-  KECCAKF1600, // Here for when we eventually support this
+  TORADIXBE,
 }
+
+export const MAX_OPCODE_VALUE = Math.max(
+  ...Object.values(Opcode)
+    .map(k => +k)
+    .filter(k => !isNaN(k)),
+);
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
 // See vm/avm_trace/deserialization.cpp)
@@ -118,7 +109,7 @@ type OperandNativeType = number | bigint;
 type OperandWriter = (value: any) => void;
 
 // Specifies how to read and write each operand type.
-const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, OperandWriter]>([
+const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNativeType, OperandWriter]>([
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
@@ -127,12 +118,12 @@ const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, Oper
   [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
 ]);
 
-function readBigInt254BE(this: Buffer): bigint {
+function readBigInt254BE(this: Buffer, offset: number): bigint {
   const totalBytes = 32;
   let ret: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {
     ret <<= 8n;
-    ret |= BigInt(this.readUint8(i));
+    ret |= BigInt(this.readUint8(i + offset));
   }
   return ret;
 }
@@ -145,12 +136,12 @@ function writeBigInt254BE(this: Buffer, value: bigint): void {
   }
 }
 
-function readBigInt128BE(this: Buffer): bigint {
+function readBigInt128BE(this: Buffer, offset: number): bigint {
   const totalBytes = 16;
   let ret: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {
     ret <<= 8n;
-    ret |= BigInt(this.readUint8(i));
+    ret |= BigInt(this.readUint8(i + offset));
   }
   return ret;
 }
@@ -171,14 +162,14 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 
   for (const op of operands) {
     const opType = op;
     const [sizeBytes, reader, _writer] = OPERAND_SPEC.get(opType)!;
-    argValues.push(reader.call(cursor.bufferAtPosition()));
+    argValues.push(reader.call(cursor.buffer(), cursor.position()));
     cursor.advance(sizeBytes);
   }
 

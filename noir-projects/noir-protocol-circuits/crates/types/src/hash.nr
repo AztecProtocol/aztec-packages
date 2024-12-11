@@ -1,20 +1,24 @@
 use crate::{
     abis::{
-    contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-    function_selector::FunctionSelector, log_hash::{LogHash, ScopedLogHash, ScopedEncryptedLogHash},
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier
-},
+        contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
+        function_selector::FunctionSelector,
+        log_hash::{LogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
+        side_effect::scoped::Scoped,
+    },
     address::{AztecAddress, EthAddress},
     constants::{
-    FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
-    GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
-    MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-},
+        FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+    },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
-    utils::field::field_from_bytes_32_trunc
+    traits::{is_empty, ToField},
+    utils::field::field_from_bytes_32_trunc,
 };
+use super::utils::{arrays::array_concat, field::field_from_bytes};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -27,21 +31,22 @@ pub fn private_functions_root_from_siblings(
     selector: FunctionSelector,
     vk_hash: Field,
     function_leaf_index: Field,
-    function_leaf_sibling_path: [Field; FUNCTION_TREE_HEIGHT]
+    function_leaf_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
 ) -> Field {
     let function_leaf_preimage = ContractClassFunctionLeafPreimage { selector, vk_hash };
     let function_leaf = function_leaf_preimage.hash();
-    root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path)
+    root_from_sibling_path(
+        function_leaf,
+        function_leaf_index,
+        function_leaf_sibling_path,
+    )
 }
 
 fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
     poseidon2_hash_with_separator(
-        [
-        tx_hash,
-        note_index_in_tx as Field
-    ],
-        GENERATOR_INDEX__NOTE_HASH_NONCE
+        [tx_hash, note_index_in_tx as Field],
+        GENERATOR_INDEX__NOTE_HASH_NONCE,
     )
 }
 
@@ -52,11 +57,8 @@ pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
 
 pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
     poseidon2_hash_with_separator(
-        [
-        app.to_field(),
-        unique_note_hash
-    ],
-        GENERATOR_INDEX__SILOED_NOTE_HASH
+        [app.to_field(), unique_note_hash],
+        GENERATOR_INDEX__SILOED_NOTE_HASH,
     )
 }
 
@@ -74,11 +76,8 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
     poseidon2_hash_with_separator(
-        [
-        app.to_field(),
-        nullifier
-    ],
-        GENERATOR_INDEX__OUTER_NULLIFIER
+        [app.to_field(), nullifier],
+        GENERATOR_INDEX__OUTER_NULLIFIER,
     )
 }
 
@@ -90,27 +89,17 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
-    // We assume contract address has already been masked
-    if log_hash.contract_address.is_zero() {
-        0
-    } else {
-        accumulate_sha256([log_hash.contract_address.to_field(), log_hash.log_hash.value])
-    }
+pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
+    poseidon2_hash([contract_address.to_field(), field])
 }
 
-pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
-    if scoped_log.contract_address.is_zero() {
-        AztecAddress::from_field(0)
-    } else if (scoped_log.log_hash.randomness == 0) {
-        scoped_log.contract_address
+pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
+    if private_log.contract_address.is_zero() {
+        private_log.inner.log
     } else {
-        AztecAddress::from_field(
-            poseidon2_hash_with_separator(
-                [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
-                0
-            )
-        )
+        let mut fields = private_log.inner.log.fields;
+        fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
+        PrivateLog { fields }
     }
 }
 
@@ -130,24 +119,17 @@ pub fn merkle_hash(left: Field, right: Field) -> Field {
     poseidon2_hash([left, right])
 }
 
-pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey) -> Field {
-    // Original cpp code
-    // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
-    // The above cpp method is only ever called on verification key, so it has been special cased here
-    let _hash_index = GENERATOR_INDEX__VK;
-    0
-}
-
 pub fn compute_l2_to_l1_hash(
     contract_address: AztecAddress,
     recipient: EthAddress,
     content: Field,
     rollup_version_id: Field,
-    chain_id: Field
+    chain_id: Field,
 ) -> Field {
     let mut bytes: BoundedVec<u8, 160> = BoundedVec::new();
 
-    let inputs = [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
+    let inputs =
+        [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
     for i in 0..inputs.len() {
         // TODO are bytes be in fr.to_buffer() ?
         let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
@@ -156,10 +138,14 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_to_field(bytes.storage())
 }
 
-pub fn silo_l2_to_l1_message(msg: ScopedL2ToL1Message, rollup_version_id: Field, chain_id: Field) -> Field {
+pub fn silo_l2_to_l1_message(
+    msg: ScopedL2ToL1Message,
+    rollup_version_id: Field,
+    chain_id: Field,
+) -> Field {
     if msg.contract_address.is_zero() {
         0
     } else {
@@ -168,7 +154,7 @@ pub fn silo_l2_to_l1_message(msg: ScopedL2ToL1Message, rollup_version_id: Field,
             msg.message.recipient,
             msg.message.content,
             rollup_version_id,
-            chain_id
+            chain_id,
         )
     }
 }
@@ -190,7 +176,6 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-
     // Concatentate two fields into 32x2 = 64 bytes
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 64];
@@ -205,13 +190,12 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 }
 
 // Computes the final logs hash for a tx.
-// NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly.
-pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash<let N: u32>(logs: [LogHash; N]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
+    let mut hash_input_flattened = [0; N * 32];
+    for offset in 0..N {
+        // TODO: This is not checking that the decomposition is smaller than P
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -228,27 +212,11 @@ pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field
     hash
 }
 
-pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]) -> Field {
-    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
-    // Ideally we would push to a slice then hash, but there is no sha_slice
-    // Hardcode to 256 bytes for now
-    let mut hash = sha256_to_field(hash_input_flattened);
-    // Not having a 0 value hash for empty logs causes issues with empty txs
-    // used for padding. Returning early is currently unsupported.
-    // We always provide sorted logs here, so 0 being empty means all are empty.
-    if is_empty(logs[0]) {
-        hash = 0;
-    }
-    hash
+pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {
+    crate::hash::poseidon2_hash(key)
 }
 
+#[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
@@ -258,14 +226,21 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
 }
 
 #[no_predicates]
-pub fn poseidon2_hash_with_separator<let N: u32, T>(
-    inputs: [Field; N],
-    separator: T
-) -> Field where T: ToField {
-    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
-    let in_len = N + 1;
+pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separator: T) -> Field
+where
+    T: ToField,
+{
+    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    poseidon2_hash(inputs_with_separator)
+}
+
+pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
+where
+    T: ToField,
+{
+    let in_len = inputs.len() + 1;
     let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
     sponge.absorb(separator.to_field());
 
@@ -276,17 +251,37 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     sponge.squeeze()
 }
 
+#[no_predicates]
+pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
+    let mut fields = [0; (N + 30) / 31];
+    let mut field_index = 0;
+    let mut current_field = [0; 31];
+    for i in 0..inputs.len() {
+        let index = i % 31;
+        current_field[index] = inputs[i];
+        if index == 30 {
+            fields[field_index] = field_from_bytes(current_field, false);
+            current_field = [0; 31];
+            field_index += 1;
+        }
+    }
+    if field_index != fields.len() {
+        fields[field_index] = field_from_bytes(current_field, false);
+    }
+    poseidon2_hash(fields)
+}
+
 #[test]
 fn smoke_sha256_to_field() {
     let full_buffer = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-        60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
-        80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99,
-        100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119,
-        120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139,
-        140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+        71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93,
+        94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
+        113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,
+        131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148,
+        149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159,
     ];
     let result = sha256_to_field(full_buffer);
 
@@ -303,11 +298,18 @@ fn smoke_sha256_to_field() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), EthAddress::zero(), 0, 0, 0);
+    let hash_result =
+        compute_l2_to_l1_hash(AztecAddress::from_field(0), EthAddress::zero(), 0, 0, 0);
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
 
     // Non-zero case
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), EthAddress::from_field(3), 5, 2, 4);
+    let hash_result = compute_l2_to_l1_hash(
+        AztecAddress::from_field(1),
+        EthAddress::from_field(3),
+        5,
+        2,
+        4,
+    );
     assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
 }
 
@@ -318,11 +320,11 @@ fn silo_l2_to_l1_message_matches_typescript() {
 
     let hash = silo_l2_to_l1_message(
         ScopedL2ToL1Message {
-        message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
-        contract_address: AztecAddress::from_field(3)
-    },
+            message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
+            contract_address: AztecAddress::from_field(3),
+        },
         version,
-        chainId
+        chainId,
     );
 
     // The following value was generated by `l2_to_l1_message.test.ts`

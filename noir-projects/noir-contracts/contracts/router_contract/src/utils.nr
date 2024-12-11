@@ -1,6 +1,6 @@
-use aztec::protocol_types::constants::ROUTER_ADDRESS;
-use aztec::context::private_context::PrivateContext;
 use crate::Router;
+use aztec::context::private_context::PrivateContext;
+use aztec::protocol_types::constants::ROUTER_ADDRESS;
 
 // docs:start:helper_router_functions
 /// Asserts that the current timestamp in the enqueued public call enqueued by `check_timestamp` satisfies

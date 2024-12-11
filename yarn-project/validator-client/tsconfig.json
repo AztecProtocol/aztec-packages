@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../epoch-cache"
+    },
+    {
       "path": "../ethereum"
     },
     {
@@ -20,6 +23,9 @@
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"

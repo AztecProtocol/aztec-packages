@@ -1,23 +1,25 @@
 import {
+  type ProverAgentApi,
   type ProvingJob,
+  type ProvingJobInputs,
+  type ProvingJobResultsMap,
   type ProvingJobSource,
-  type ProvingRequest,
-  type ProvingRequestResult,
   ProvingRequestType,
   type ServerCircuitProver,
+  makeProvingRequestResult,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
-import { ProvingError } from './proving-error.js';
+import { InlineProofStore } from '../proving_broker/proof_store.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
-export class ProverAgent {
+export class ProverAgent implements ProverAgentApi {
   private inFlightPromises = new Map<
     string,
     {
@@ -27,6 +29,7 @@ export class ProverAgent {
     }
   >();
   private runningPromise?: RunningPromise;
+  private proofInputsDatabase = new InlineProofStore();
 
   constructor(
     /** The prover implementation to defer jobs to */
@@ -35,14 +38,15 @@ export class ProverAgent {
     private maxConcurrency = 1,
     /** How long to wait between jobs */
     private pollIntervalMs = 100,
-    private log = createDebugLogger('aztec:prover-client:prover-agent'),
+    private log = createLogger('prover-client:prover-agent'),
   ) {}
 
-  setMaxConcurrency(maxConcurrency: number): void {
+  setMaxConcurrency(maxConcurrency: number): Promise<void> {
     if (maxConcurrency < 1) {
       throw new Error('Concurrency must be at least 1');
     }
     this.maxConcurrency = maxConcurrency;
+    return Promise.resolve();
   }
 
   setCircuitProver(circuitProver: ServerCircuitProver): void {
@@ -50,11 +54,17 @@ export class ProverAgent {
   }
 
   isRunning() {
+    return Promise.resolve(this.#isRunning());
+  }
+
+  #isRunning() {
     return this.runningPromise?.isRunning() ?? false;
   }
 
-  getCurrentJobs(): { id: string; type: string }[] {
-    return Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] }));
+  getCurrentJobs(): Promise<{ id: string; type: string }[]> {
+    return Promise.resolve(
+      Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] })),
+    );
   }
 
   start(jobSource: ProvingJobSource): void {
@@ -94,12 +104,12 @@ export class ProverAgent {
             const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
             this.inFlightPromises.set(job.id, {
               id: job.id,
-              type: job.request.type,
+              type: job.type,
               promise,
             });
           } catch (err) {
             this.log.warn(
-              `Error processing job! type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
+              `Error processing job! type=${ProvingRequestType[job.type]}: ${err}. ${(err as Error).stack}`,
             );
           }
         } catch (err) {
@@ -123,64 +133,57 @@ export class ProverAgent {
     this.log.info('Agent stopped');
   }
 
-  private async work(jobSource: ProvingJobSource, job: ProvingJob<ProvingRequest>): Promise<void> {
+  private async work(jobSource: ProvingJobSource, job: ProvingJob): Promise<void> {
     try {
-      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
-      const [time, result] = await elapsed(this.getProof(job.request));
-      if (this.isRunning()) {
-        this.log.verbose(
-          `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
-        );
-        await jobSource.resolveProvingJob(job.id, result);
+      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
+      const type = job.type;
+      const inputs = await this.proofInputsDatabase.getProofInput(job.inputsUri);
+      const [time, result] = await elapsed(this.getProof(inputs));
+      if (this.#isRunning()) {
+        this.log.verbose(`Processed proving job id=${job.id} type=${ProvingRequestType[type]} duration=${time}ms`);
+        await jobSource.resolveProvingJob(job.id, makeProvingRequestResult(type, result));
       } else {
         this.log.verbose(
-          `Dropping proving job id=${job.id} type=${
-            ProvingRequestType[job.request.type]
-          } duration=${time}ms: agent stopped`,
+          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.type]} duration=${time}ms: agent stopped`,
         );
       }
     } catch (err) {
-      const type = ProvingRequestType[job.request.type];
-      if (this.isRunning()) {
-        if (job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
+      const type = ProvingRequestType[job.type];
+      if (this.#isRunning()) {
+        if (job.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
           this.log.warn(`Expected error processing VM proving job id=${job.id} type=${type}: ${err}`);
         } else {
           this.log.error(`Error processing proving job id=${job.id} type=${type}: ${err}`, err);
         }
-        await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
+        const reason = (err as any)?.message ?? String(err);
+        await jobSource.rejectProvingJob(job.id, reason);
       } else {
         this.log.verbose(`Dropping proving job id=${job.id} type=${type}: agent stopped: ${(err as any).stack || err}`);
       }
     }
   }
 
-  private getProof(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
+  private getProof(request: ProvingJobInputs): Promise<ProvingJobResultsMap[ProvingRequestType]> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
         return this.circuitProver.getAvmProof(inputs);
       }
 
-      case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {
-        return this.circuitProver.getPublicKernelProof({
-          type: request.kernelType,
-          inputs,
-        });
+      case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
+        return this.circuitProver.getPrivateBaseRollupProof(inputs);
       }
 
-      case ProvingRequestType.PUBLIC_KERNEL_TAIL: {
-        return this.circuitProver.getPublicTailProof({
-          type: request.kernelType,
-          inputs,
-        });
-      }
-
-      case ProvingRequestType.BASE_ROLLUP: {
-        return this.circuitProver.getBaseRollupProof(inputs);
+      case ProvingRequestType.PUBLIC_BASE_ROLLUP: {
+        return this.circuitProver.getPublicBaseRollupProof(inputs);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {
         return this.circuitProver.getMergeRollupProof(inputs);
+      }
+
+      case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
+        return this.circuitProver.getEmptyBlockRootRollupProof(inputs);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {

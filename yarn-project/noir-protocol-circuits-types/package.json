@@ -16,8 +16,11 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
-    "generate": "yarn generate:noir-circuits",
-    "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "generate": "yarn generate:copy-artifacts && yarn generate:vk-hashes && yarn generate:noir-circuits && yarn generate:reset-data",
+    "generate:copy-artifacts": "mkdir -p ./artifacts && cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts ",
+    "generate:vk-hashes": "node --no-warnings --loader ts-node/esm src/scripts/generate_vk_hashes.ts",
+    "generate:noir-circuits": "node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "generate:reset-data": "node --no-warnings --loader ts-node/esm src/scripts/generate_private_kernel_reset_data.ts && run -T prettier -w src/private_kernel_reset_data.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch"
@@ -39,6 +42,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -51,6 +57,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

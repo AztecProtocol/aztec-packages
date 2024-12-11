@@ -1,25 +1,26 @@
 use crate::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::CALL_CONTEXT_LENGTH,
-    traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::CALL_CONTEXT_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:call-context
-struct CallContext {
-    msg_sender: AztecAddress,
-    storage_contract_address: AztecAddress,
-    function_selector: FunctionSelector,
-    is_delegate_call: bool,
-    is_static_call: bool,
+pub struct CallContext {
+    pub msg_sender: AztecAddress,
+    pub contract_address: AztecAddress,
+    pub function_selector: FunctionSelector,
+    pub is_static_call: bool,
 }
 // docs:end:call-context
 
 impl Eq for CallContext {
     fn eq(self, other: CallContext) -> bool {
-        (self.msg_sender == other.msg_sender) &
-        (self.storage_contract_address == other.storage_contract_address) &
-        (self.function_selector == other.function_selector) &
-        (self.is_delegate_call == other.is_delegate_call) &
-        (self.is_static_call == other.is_static_call)
+        (self.msg_sender == other.msg_sender)
+            & (self.contract_address == other.contract_address)
+            & (self.function_selector == other.function_selector)
+            & (self.is_static_call == other.is_static_call)
     }
 }
 
@@ -28,12 +29,11 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
         let mut serialized: BoundedVec<Field, CALL_CONTEXT_LENGTH> = BoundedVec::new();
 
         serialized.push(self.msg_sender.to_field());
-        serialized.push(self.storage_contract_address.to_field());
+        serialized.push(self.contract_address.to_field());
         serialized.push(self.function_selector.to_field());
-        serialized.push(self.is_delegate_call as Field);
         serialized.push(self.is_static_call as Field);
-    
-        serialized.storage
+
+        serialized.storage()
     }
 }
 
@@ -42,9 +42,8 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
         let mut reader = Reader::new(serialized);
         CallContext {
             msg_sender: AztecAddress::from_field(reader.read()),
-            storage_contract_address: AztecAddress::from_field(reader.read()),
+            contract_address: AztecAddress::from_field(reader.read()),
             function_selector: FunctionSelector::from_field(reader.read()),
-            is_delegate_call: reader.read() as bool,
             is_static_call: reader.read() as bool,
         }
     }
@@ -54,9 +53,8 @@ impl Empty for CallContext {
     fn empty() -> Self {
         CallContext {
             msg_sender: AztecAddress::empty(),
-            storage_contract_address: AztecAddress::empty(),
+            contract_address: AztecAddress::empty(),
             function_selector: FunctionSelector::empty(),
-            is_delegate_call: false,
             is_static_call: false,
         }
     }
@@ -75,9 +73,6 @@ fn test_eq() {
     let mut context1 = CallContext::empty();
     let mut context2 = CallContext::empty();
 
-    context1.is_delegate_call = true;
-    context2.is_delegate_call = true;
-
     let address: AztecAddress = AztecAddress::from_field(69420);
     context1.msg_sender = address;
     context2.msg_sender = address;
@@ -89,9 +84,6 @@ fn test_eq() {
 fn not_eq_test_eq() {
     let mut context1 = CallContext::empty();
     let mut context2 = CallContext::empty();
-
-    context1.is_delegate_call = true;
-    context2.is_delegate_call = false;
 
     let address1: AztecAddress = AztecAddress::from_field(69420);
     let address2: AztecAddress = AztecAddress::from_field(42069);

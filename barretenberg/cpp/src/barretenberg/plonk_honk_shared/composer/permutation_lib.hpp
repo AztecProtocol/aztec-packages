@@ -62,7 +62,9 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
-        ZoneScopedN("PermutationMapping constructor");
+
+        PROFILE_THIS_NAME("PermutationMapping constructor");
+
         for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
             sigmas[col_idx].reserve(circuit_size);
             if constexpr (generalized) {
@@ -152,7 +154,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
     size_t pub_inputs_offset = 0;
-    if constexpr (IsHonkFlavor<Flavor>) {
+    if constexpr (IsUltraFlavor<Flavor>) {
         pub_inputs_offset = proving_key->pub_inputs_offset;
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -372,7 +374,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               typename Flavor::ProvingKey* key,
                                               const std::vector<CyclicPermutation>& copy_cycles)
 {
-    constexpr bool generalized = IsUltraPlonkFlavor<Flavor> || IsUltraFlavor<Flavor>;
+    constexpr bool generalized = IsUltraPlonkOrHonk<Flavor>;
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
 
     if constexpr (IsPlonkFlavor<Flavor>) { // any Plonk flavor
@@ -386,12 +388,16 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
+            PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_sigmas(), mapping.sigmas, key);
         }
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
+            PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_ids(), mapping.ids, key);
         }

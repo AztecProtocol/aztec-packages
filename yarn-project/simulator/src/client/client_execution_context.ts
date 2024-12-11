@@ -1,50 +1,34 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
-  Event,
-  L1EventPayload,
-  L1NotePayload,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
   Note,
+  NoteAndSlot,
   type NoteStatus,
+  type PrivateExecutionResult,
   PublicExecutionRequest,
-  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   CallContext,
   FunctionSelector,
-  type Header,
-  type KeyValidationRequest,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
+  PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   type TxContext,
 } from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import {
-  EventSelector,
-  type FunctionAbi,
-  type FunctionArtifact,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import {
-  CountedLog,
-  CountedNoteLog,
-  CountedPublicExecutionRequest,
-  type ExecutionResult,
-  type NoteAndSlot,
-} from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -72,20 +56,17 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
-  private noteEncryptedLogs: CountedNoteLog[] = [];
-  private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
-  private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
-  private nestedExecutions: ExecutionResult[] = [];
+  private contractClassLogs: CountedContractClassLog[] = [];
+  private nestedExecutions: PrivateExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
   constructor(
-    contractAddress: AztecAddress,
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly historicalHeader: Header,
+    protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     private readonly packedValuesCache: PackedValuesCache,
@@ -93,10 +74,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     db: DBOracle,
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
-    log = createDebugLogger('aztec:simulator:client_execution_context'),
+    log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
-    super(contractAddress, authWitnesses, db, node, log, scopes);
+    super(callContext.contractAddress, authWitnesses, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -121,8 +102,12 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext,
       this.sideEffectCounter,
     );
+    const privateContextInputsAsFields = privateContextInputs.toFields();
+    if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
+      throw new Error('Invalid private context inputs size');
+    }
 
-    const fields = [...privateContextInputs.toFields(), ...args];
+    const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -146,24 +131,10 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Return the note encrypted logs emitted during this execution.
+   * Return the contract class logs emitted during this execution.
    */
-  public getNoteEncryptedLogs() {
-    return this.noteEncryptedLogs;
-  }
-
-  /**
-   * Return the encrypted logs emitted during this execution.
-   */
-  public getEncryptedLogs() {
-    return this.encryptedLogs;
-  }
-
-  /**
-   * Return the encrypted logs emitted during this execution.
-   */
-  public getUnencryptedLogs() {
-    return this.unencryptedLogs;
+  public getContractClassLogs() {
+    return this.contractClassLogs;
   }
 
   /**
@@ -248,10 +219,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     status: NoteStatus,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
-    const pendingNotes = this.noteCache.getNotes(this.callContext.storageContractAddress, storageSlot);
+    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, storageSlot);
 
-    const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.storageContractAddress);
-    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status, this.scopes);
+    const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
+    const dbNotes = await this.db.getNotes(this.callContext.contractAddress, storageSlot, status, this.scopes);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -269,7 +240,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     });
 
     this.log.debug(
-      `Returning ${notes.length} notes for ${this.callContext.storageContractAddress} at ${storageSlot}: ${notes
+      `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
@@ -305,7 +276,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
-        contractAddress: this.callContext.storageContractAddress,
+        contractAddress: this.callContext.contractAddress,
         storageSlot,
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
@@ -314,11 +285,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       },
       counter,
     );
-    this.newNotes.push({
-      storageSlot,
-      noteTypeId,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot, noteTypeId));
   }
 
   /**
@@ -329,7 +296,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
-      this.callContext.storageContractAddress,
+      this.callContext.contractAddress,
       innerNullifier,
       noteHash,
     );
@@ -340,130 +307,28 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Emit encrypted data
-   * @param contractAddress - The contract emitting the encrypted event.
-   * @param randomness - A value used to mask the contract address we are siloing with.
-   * @param encryptedEvent - The encrypted event data.
-   * @param counter - The effects counter.
-   */
-  public override emitEncryptedEventLog(
-    contractAddress: AztecAddress,
-    randomness: Fr,
-    encryptedEvent: Buffer,
-    counter: number,
-  ) {
-    // In some cases, we actually want to reveal the contract address we are siloing with:
-    // e.g. 'handshaking' contract w/ known address
-    // An app providing randomness = 0 signals to not mask the address.
-    const maskedContractAddress = randomness.isZero()
-      ? contractAddress.toField()
-      : poseidon2HashWithSeparator([contractAddress, randomness], 0);
-    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
-    this.encryptedLogs.push(encryptedLog);
-  }
-
-  /**
-   * Emit encrypted note data
-   * @param noteHashCounter - The note hash counter.
-   * @param encryptedNote - The encrypted note data.
-   * @param counter - The log counter.
-   */
-  public override emitEncryptedNoteLog(noteHashCounter: number, encryptedNote: Buffer, counter: number) {
-    const encryptedLog = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, noteHashCounter);
-    this.noteEncryptedLogs.push(encryptedLog);
-  }
-
-  /**
-   * Encrypt an event
-   * @param contractAddress - The contract emitting the encrypted event.
-   * @param randomness - A value used to mask the contract address we are siloing with.
-   * @param eventTypeId - The type ID of the event (function selector).
-   * @param ovKeys - The outgoing viewing keys to use to encrypt.
-   * @param ivpkM - The master incoming viewing public key.
-   * @param recipient - The recipient of the encrypted event log.
-   * @param preimage - The event preimage.
-   */
-  public override computeEncryptedEventLog(
-    contractAddress: AztecAddress,
-    randomness: Fr,
-    eventTypeId: Fr,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ) {
-    const event = new Event(preimage);
-    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
-    const taggedEvent = new TaggedLog(l1EventPayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
-  }
-
-  /**
-   * Encrypt a note
-   * @param contractAddress - The contract address of the note.
-   * @param storageSlot - The storage slot the note is at.
-   * @param noteTypeId - The type ID of the note.
-   * @param ovKeys - The outgoing viewing keys to use to encrypt.
-   * @param ivpkM - The master incoming viewing public key.
-   * @param recipient - The recipient of the encrypted note log.
-   * @param preimage - The note preimage.
-   */
-  public override computeEncryptedNoteLog(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    noteTypeId: NoteSelector,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ) {
-    const note = new Note(preimage);
-    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedLog(l1NotePayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
-  }
-
-  /**
-   * Emit an unencrypted log.
-   * @param log - The unencrypted log to be emitted.
-   */
-  public override emitUnencryptedLog(log: UnencryptedL2Log, counter: number) {
-    this.unencryptedLogs.push(new CountedLog(log, counter));
-    const text = log.toHumanReadable();
-    this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
-  }
-
-  /**
    * Emit a contract class unencrypted log.
-   * This fn exists separately from emitUnencryptedLog because sha hashing the preimage
+   * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
    * @param log - The unencrypted log to be emitted.
    */
-  public override emitContractClassUnencryptedLog(log: UnencryptedL2Log, counter: number) {
-    this.unencryptedLogs.push(new CountedLog(log, counter));
+  public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
+    this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toHumanReadable();
     this.log.verbose(
-      `Emitted unencrypted log from ContractClassRegisterer: "${
-        text.length > 100 ? text.slice(0, 100) + '...' : text
-      }"`,
+      `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: ExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
     if (
-      childExecutionResult.callStackItem.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
+      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -476,7 +341,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @param isDelegateCall - Whether the call is a delegate call.
    * @returns The execution result.
    */
   override async callPrivateFunction(
@@ -485,10 +349,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     this.log.debug(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
+      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
@@ -497,15 +360,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const derivedTxContext = this.txContext.clone();
 
-    const derivedCallContext = this.deriveCallContext(
-      targetContractAddress,
-      targetArtifact,
-      isDelegateCall,
-      isStaticCall,
-    );
+    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
     const context = new ClientExecutionContext(
-      targetContractAddress,
       argsHash,
       derivedTxContext,
       derivedCallContext,
@@ -533,7 +390,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.nestedExecutions.push(childExecutionResult);
 
-    const publicInputs = childExecutionResult.callStackItem.publicInputs;
+    const publicInputs = childExecutionResult.publicInputs;
     return {
       endSideEffectCounter: publicInputs.endSideEffectCounter,
       returnsHash: publicInputs.returnsHash,
@@ -541,7 +398,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Creates a PublicCallStackItem object representing the request to call a public function.
+   * Creates a PublicExecutionRequest object representing the request to call a public function.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
@@ -556,25 +413,18 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = this.deriveCallContext(
-      targetContractAddress,
-      targetArtifact,
-      isDelegateCall,
-      isStaticCall,
-    );
+    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
     );
 
     const request = PublicExecutionRequest.from({
       args,
       callContext: derivedCallContext,
-      contractAddress: targetContractAddress,
     });
 
     if (callType === 'enqueued') {
@@ -585,7 +435,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Creates and enqueues a PublicCallStackItem object representing the request to call a public function. No function
+   * Creates and enqueues a PublicExecutionRequest object representing the request to call a public function. No function
    * is actually called, since that must happen on the sequencer side. All the fields related to the result
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
@@ -601,21 +451,30 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
+    return newArgsHash;
   }
 
   /**
-   * Creates a PublicCallStackItem and sets it as the public teardown function. No function
+   * Creates a PublicExecutionRequest and sets it as the public teardown function. No function
    * is actually called, since that must happen on the sequencer side. All the fields related to the result
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
@@ -631,17 +490,26 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
-  ) {
+  ): Promise<Fr> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+    // WARNING: This is insecure and should be temporary!
+    // The oracle repacks the arguments and returns a new args_hash.
+    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+    // b) this is only temporary.
+    const newArgsHash = this.packedValuesCache.pack([
+      functionSelector.toField(),
+      ...this.packedValuesCache.unpack(argsHash),
+    ]);
     await this.createPublicExecutionRequest(
       'teardown',
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+      newArgsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
+    return newArgsHash;
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
@@ -652,55 +520,20 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Derives the call context for a nested execution.
    * @param targetContractAddress - The address of the contract being called.
    * @param targetArtifact - The artifact of the function being called.
-   * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
   private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
-    isDelegateCall = false,
     isStaticCall = false,
   ) {
     return new CallContext(
-      isDelegateCall ? this.callContext.msgSender : this.contractAddress,
-      isDelegateCall ? this.contractAddress : targetContractAddress,
+      this.contractAddress,
+      targetContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
-      isDelegateCall,
       isStaticCall,
     );
-  }
-
-  /**
-   * Read the public storage data.
-   * @param contractAddress - The address to read storage from.
-   * @param startStorageSlot - The starting storage slot.
-   * @param blockNumber - The block number to read storage at.
-   * @param numberOfElements - Number of elements to read from the starting storage slot.
-   */
-  public override async storageRead(
-    contractAddress: Fr,
-    startStorageSlot: Fr,
-    blockNumber: number,
-    numberOfElements: number,
-  ): Promise<Fr[]> {
-    const values = [];
-    for (let i = 0n; i < numberOfElements; i++) {
-      const storageSlot = new Fr(startStorageSlot.value + i);
-
-      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
-      this.log.debug(
-        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
-      );
-
-      values.push(value);
-    }
-    return values;
-  }
-
-  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
-    const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 
   public override debugLog(message: string, fields: Fr[]) {
@@ -709,5 +542,20 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   public getDebugFunctionName() {
     return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+  }
+
+  public override async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
+    await this.db.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
+  }
+
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      this.historicalHeader.globalVariables.blockNumber.toNumber(),
+      this.scopes,
+    );
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

@@ -5,15 +5,14 @@ use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 use fm::FileManager;
 use nargo::{
-    insert_all_files_for_workspace_into_file_manager, ops::TestStatus, package::Package, parse_all,
-    prepare_package,
+    insert_all_files_for_workspace_into_file_manager,
+    ops::TestStatus,
+    package::{CrateName, Package},
+    parse_all, prepare_package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::{check_crate, CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
-use noirc_frontend::{
-    graph::CrateName,
-    hir::{FunctionNameMatch, ParsedFiles},
-};
+use noirc_frontend::hir::{FunctionNameMatch, ParsedFiles};
 use rayon::prelude::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
@@ -255,6 +254,12 @@ fn display_test_report(
                         compile_options.silence_warnings,
                     );
                 }
+            }
+            TestStatus::Skipped { .. } => {
+                writer
+                    .set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))
+                    .expect("Failed to set color");
+                writeln!(writer, "skipped").expect("Failed to write to stderr");
             }
             TestStatus::CompileError(err) => {
                 noirc_errors::reporter::report_all(

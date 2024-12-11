@@ -1,17 +1,17 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
-import { mkdirSync } from 'fs';
-import { mkdtemp } from 'fs/promises';
-import { type Database, type Key, type RootDatabase, open } from 'lmdb';
+import { promises as fs, mkdirSync } from 'fs';
+import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 
-import { type AztecArray } from '../interfaces/array.js';
-import { type AztecCounter } from '../interfaces/counter.js';
-import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
-import { type AztecSet } from '../interfaces/set.js';
-import { type AztecSingleton } from '../interfaces/singleton.js';
-import { type AztecKVStore } from '../interfaces/store.js';
+import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
+import { type Key } from '../interfaces/common.js';
+import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
+import { type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
+import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
+import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
@@ -21,11 +21,13 @@ import { LmdbAztecSingleton } from './singleton.js';
 /**
  * A key-value store backed by LMDB.
  */
-export class AztecLmdbStore implements AztecKVStore {
+export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
+  syncGetters = true as const;
+
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #log = createDebugLogger('aztec:kv-store:lmdb');
+  #log = createLogger('kv-store:lmdb');
 
   constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
     this.#rootDb = rootDb;
@@ -58,14 +60,16 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   static open(
     path?: string,
+    mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:lmdb'),
+    log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
-    log.debug(`Opening LMDB database at ${path || 'temporary location'}`);
     if (path) {
       mkdirSync(path, { recursive: true });
     }
-    const rootDb = open({ path, noSync: ephemeral });
+    const mapSize = 1024 * mapSizeKb;
+    log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
+    const rootDb = open({ path, noSync: ephemeral, mapSize });
     return new AztecLmdbStore(rootDb, ephemeral, path);
   }
 
@@ -77,7 +81,7 @@ export class AztecLmdbStore implements AztecKVStore {
     const baseDir = this.path ? dirname(this.path) : tmpdir();
     this.#log.debug(`Forking store with basedir ${baseDir}`);
     const forkPath =
-      (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+      (await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
@@ -90,7 +94,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
+  openMap<K extends Key, V>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -99,7 +103,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends string | number>(name: string): AztecSet<K> {
+  openSet<K extends Key>(name: string): AztecSet<K> & AztecAsyncSet<K> {
     return new LmdbAztecSet(this.#data, name);
   }
 
@@ -108,11 +112,11 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
+  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
     return new LmdbAztecMap(this.#multiMapData, name);
   }
 
-  openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
+  openCounter<K extends Key>(name: string): AztecCounter<K> & AztecAsyncCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
   }
 
@@ -121,7 +125,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecArray<T> {
+  openArray<T>(name: string): AztecArray<T> & AztecAsyncArray<T> {
     return new LmdbAztecArray(this.#data, name);
   }
 
@@ -130,7 +134,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  openSingleton<T>(name: string): AztecSingleton<T> {
+  openSingleton<T>(name: string): AztecSingleton<T> & AztecAsyncSingleton<T> {
     return new LmdbAztecSingleton(this.#data, name);
   }
 
@@ -144,26 +148,93 @@ export class AztecLmdbStore implements AztecKVStore {
   }
 
   /**
-   * Clears all entries in the store
+   * Runs a callback in a transaction.
+   * @param callback - Function to execute in a transaction
+   * @returns A promise that resolves to the return value of the callback
+   */
+  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return await this.#rootDb.transaction(callback);
+  }
+
+  /**
+   * Clears all entries in the store & sub DBs.
    */
   async clear() {
+    await this.#data.clearAsync();
+    await this.#multiMapData.clearAsync();
     await this.#rootDb.clearAsync();
   }
 
-  /** Deletes this store */
-  async delete() {
+  /**
+   * Drops the database & sub DBs.
+   */
+  async drop() {
+    await this.#data.drop();
+    await this.#multiMapData.drop();
     await this.#rootDb.drop();
   }
 
-  estimateSize(): { bytes: number } {
-    const stats = this.#rootDb.getStats();
-    // `mapSize` represents to total amount of memory currently being used by the database.
-    // since the database is mmap'd, this is a good estimate of the size of the database for now.
-    // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
-    if ('mapSize' in stats && typeof stats.mapSize === 'number') {
-      return { bytes: stats.mapSize };
-    } else {
-      return { bytes: 0 };
+  /**
+   * Close the database. Note, once this is closed we can no longer interact with the DB.
+   */
+  async close() {
+    await this.#data.close();
+    await this.#multiMapData.close();
+    await this.#rootDb.close();
+  }
+
+  /** Deletes this store and removes the database files from disk */
+  async delete() {
+    await this.drop();
+    await this.close();
+    if (this.path) {
+      await fs.rm(this.path, { recursive: true, force: true });
+      this.#log.verbose(`Deleted database files at ${this.path}`);
     }
+  }
+
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    const stats = this.#rootDb.getStats();
+    // The 'mapSize' is the total amount of virtual address space allocated to the DB (effectively the maximum possible size)
+    // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
+    let mapSize = 0;
+    if ('mapSize' in stats && typeof stats.mapSize === 'number') {
+      mapSize = stats.mapSize;
+    }
+    const dataResult = this.estimateSubDBSize(this.#data);
+    const multiResult = this.estimateSubDBSize(this.#multiMapData);
+    return {
+      mappingSize: mapSize,
+      actualSize: dataResult.actualSize + multiResult.actualSize,
+      numItems: dataResult.numItems + multiResult.numItems,
+    };
+  }
+
+  private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
+    const stats = db.getStats();
+    let actualSize = 0;
+    let numItems = 0;
+    // This is the total number of key/value pairs present in the DB
+    if ('entryCount' in stats && typeof stats.entryCount === 'number') {
+      numItems = stats.entryCount;
+    }
+    // The closest value we can get to the actual size of the database is the number of consumed pages * the page size
+    if (
+      'treeBranchPageCount' in stats &&
+      typeof stats.treeBranchPageCount === 'number' &&
+      'treeLeafPageCount' in stats &&
+      typeof stats.treeLeafPageCount === 'number' &&
+      'overflowPages' in stats &&
+      typeof stats.overflowPages === 'number' &&
+      'pageSize' in stats &&
+      typeof stats.pageSize === 'number'
+    ) {
+      const branchPages = stats.treeBranchPageCount;
+      const leafPages = stats.treeLeafPageCount;
+      const overflowPages = stats.overflowPages;
+      const pageSize = stats.pageSize;
+      actualSize = (branchPages + leafPages + overflowPages) * pageSize;
+    }
+    return { actualSize, numItems };
   }
 }

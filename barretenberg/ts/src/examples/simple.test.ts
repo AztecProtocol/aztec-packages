@@ -8,11 +8,12 @@ describe('simple', () => {
   beforeAll(async () => {
     api = await Barretenberg.new();
 
-    // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-    const CIRCUIT_SIZE = 2 ** 19;
-    await api.commonInitSlabAllocator(CIRCUIT_SIZE);
+    // // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+    // const CIRCUIT_SIZE = 2 ** 19;
+    // await api.commonInitSlabAllocator(CIRCUIT_SIZE);
 
-    const crs = await Crs.new(2 ** 19 + 1);
+    const crs = await Crs.new(2 ** 20 + 1);
     await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }, 60000);
 

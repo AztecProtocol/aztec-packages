@@ -1,19 +1,13 @@
 use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
+    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
 };
 
-use crate::context::{
-    private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    public_context::FunctionReturns, inputs::{PrivateContextInputs, PublicContextInputs}
-};
+use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 
-use crate::oracle::arguments::pack_arguments;
 use crate::hash::hash_args;
+use crate::oracle::arguments::pack_arguments;
 
-trait CallInterface<let N: u32, T, P, Env> {
-    fn get_original(self) -> fn[Env](T) -> P;
-
+pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -35,360 +29,352 @@ trait CallInterface<let N: u32, T, P, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
-        self.original
-    }
+pub struct PrivateCallInterface<let N: u32, T> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
 }
 
-struct PrivateCallInterface<let N: u32, T, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
-}
-
-impl<let N: u32, T, Env> PrivateCallInterface<N, T, Env> {
-    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
+impl<let N: u32, T> PrivateCallInterface<N, T> {
+    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        pack_arguments(self.args);
         let returns = context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
-            false
         );
         let unpacked: T = returns.unpack_into();
         unpacked
     }
 
-    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
-        returns.unpack_into()
-    }
-
-    pub fn delegate_call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
-        returns.unpack_into()
-    }
-}
-
-impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
-        self.original
-    }
-}
-
-struct PrivateVoidCallInterface<let N: u32, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
-}
-
-impl<let N: u32, Env> PrivateVoidCallInterface<N, Env> {
-    pub fn call(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
-        context.call_private_function_with_packed_args(
+    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        pack_arguments(self.args);
+        let returns = context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
-            false,
-            false
-        ).assert_empty();
-    }
-
-    pub fn view(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
-    }
-
-    pub fn delegate_call(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
-    }
-}
-
-impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateStaticCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
-        self.original
-    }
-}
-
-struct PrivateStaticCallInterface<let N: u32, T, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
-}
-
-impl<let N: u32, T, Env> PrivateStaticCallInterface<N, T, Env> {
-    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
-        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+            true,
+        );
         returns.unpack_into()
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircuitPublicInputs, Env> for PrivateStaticVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs {
-        self.original
+impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {}
+
+pub struct PrivateVoidCallInterface<let N: u32> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
+}
+
+impl<let N: u32> PrivateVoidCallInterface<N> {
+    pub fn call(self, context: &mut PrivateContext) {
+        pack_arguments(self.args);
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                false,
+            )
+            .assert_empty();
     }
-}
 
-struct PrivateStaticVoidCallInterface<let N: u32, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    original: fn[Env](PrivateContextInputs) -> PrivateCircuitPublicInputs,
-    is_static: bool
-}
-
-impl<let N: u32, Env> PrivateStaticVoidCallInterface<N, Env> {
     pub fn view(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
+        pack_arguments(self.args);
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                true,
+            )
+            .assert_empty();
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
-        self.original
+impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {}
+
+pub struct PrivateStaticCallInterface<let N: u32, T> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
+}
+
+impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
+    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        pack_arguments(self.args);
+        let returns = context.call_private_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            true,
+        );
+        returns.unpack_into()
     }
 }
 
-struct PublicCallInterface<let N: u32, T, Env> {
+impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {}
+
+pub struct PrivateStaticVoidCallInterface<let N: u32> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
+}
+
+impl<let N: u32> PrivateStaticVoidCallInterface<N> {
+    pub fn view(self, context: &mut PrivateContext) {
+        pack_arguments(self.args);
+        context
+            .call_private_function_with_packed_args(
+                self.target_contract,
+                self.selector,
+                self.args_hash,
+                true,
+            )
+            .assert_empty();
+    }
+}
+
+impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {}
+
+pub struct PublicCallInterface<let N: u32, T> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub gas_opts: GasOpts,
+    pub return_type: T,
+    pub is_static: bool,
+}
+
+impl<let N: u32, T> PublicCallInterface<N, T> {
+    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+        self.gas_opts = gas_opts;
+        self
+    }
+
+    pub unconstrained fn call<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
+        Deserialize::deserialize(returns.as_array::<M>())
+    }
+
+    pub unconstrained fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
+        Deserialize::deserialize(returns.as_array::<M>())
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/
+            false,
+        )
+    }
+
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/
+            true,
+        )
+    }
+}
+
+impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {}
+
+pub struct PublicVoidCallInterface<let N: u32> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
+    pub gas_opts: GasOpts,
+}
+
+impl<let N: u32> PublicVoidCallInterface<N> {
+    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+        self.gas_opts = gas_opts;
+        self
+    }
+
+    pub unconstrained fn call(self, context: &mut PublicContext) {
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
+        assert(returns.len() == 0);
+    }
+
+    pub unconstrained fn view(self, context: &mut PublicContext) {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
+        assert(returns.len() == 0);
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/
+            false,
+        )
+    }
+
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/
+            true,
+        )
+    }
+}
+
+impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {}
+
+pub struct PublicStaticCallInterface<let N: u32, T> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
+    pub gas_opts: GasOpts,
+}
+
+impl<let N: u32, T> PublicStaticCallInterface<N, T> {
+    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+        self.gas_opts = gas_opts;
+        self
+    }
+
+    pub unconstrained fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            self.gas_opts,
+        );
+        Deserialize::deserialize(returns.as_array::<M>())
+    }
+
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/
+            true,
+        )
+    }
+}
+
+impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {}
+
+pub struct PublicStaticVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
+    return_type: (),
+    is_static: bool,
     gas_opts: GasOpts,
-    original: fn[Env](PublicContextInputs) -> T,
-    is_static: bool
 }
 
-impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
+impl<let N: u32> PublicStaticVoidCallInterface<N> {
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
     }
 
-    pub fn call<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        returns.deserialize_into()
-    }
-
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        returns.deserialize_into()
-    }
-
-    pub fn delegate_call<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
-        returns.deserialize_into()
-    }
-
-    pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
+    pub unconstrained fn view(self, context: &mut PublicContext) {
+        let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
-        )
+            self.args,
+            self.gas_opts,
+        );
+        assert(returns.len() == 0);
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        pack_arguments(self.args);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
-        )
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
-        )
-    }
-}
-
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
-        self.original
-    }
-}
-
-struct PublicVoidCallInterface<let N: u32, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
-    is_static: bool,
-    gas_opts: GasOpts
-}
-
-impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
-    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
-        self.gas_opts = gas_opts;
-        self
-    }
-
-    pub fn call(self, context: &mut PublicContext) {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        returns.assert_empty()
-    }
-
-    pub fn view(self, context: &mut PublicContext) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        returns.assert_empty()
-    }
-
-    pub fn delegate_call(self, context: &mut PublicContext) {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
-        returns.assert_empty()
-    }
-
-    pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
-        )
-    }
-
-    pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
-        )
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
-        )
-    }
-}
-
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicStaticCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
-        self.original
-    }
-}
-
-struct PublicStaticCallInterface<let N: u32, T, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    original: fn[Env](PublicContextInputs) -> T,
-    is_static: bool,
-    gas_opts: GasOpts
-}
-
-impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
-    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
-        self.gas_opts = gas_opts;
-        self
-    }
-
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        let unpacked: T = returns.deserialize_into();
-        unpacked
-    }
-
-    pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
-        )
-    }
-}
-
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicStaticVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
-        self.original
-    }
-}
-
-struct PublicStaticVoidCallInterface<let N: u32, Env> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
-    is_static: bool,
-    gas_opts: GasOpts
-}
-
-impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
-    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
-        self.gas_opts = gas_opts;
-        self
-    }
-
-    pub fn view(self, context: &mut PublicContext) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
-        returns.assert_empty()
-    }
-
-    pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/
+            true,
         )
     }
 }

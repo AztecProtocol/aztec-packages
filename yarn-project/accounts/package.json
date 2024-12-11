@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
+    "./dapp": "./dest/dapp/index.js",
     "./defaults": "./dest/defaults/index.js",
     "./ecdsa": "./dest/ecdsa/index.js",
     "./schnorr": "./dest/schnorr/index.js",
@@ -52,6 +53,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -67,6 +71,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

@@ -1,16 +1,17 @@
 use crate::{
-    address::AztecAddress,
     abis::validation_requests::{
-    key_validation_request::KeyValidationRequest,
-    scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator
-},
-    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::{arrays::array_concat, reader::Reader}
+        key_validation_request::KeyValidationRequest,
+        scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
+    },
+    address::AztecAddress,
+    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
-struct KeyValidationRequestAndGenerator {
-    request: KeyValidationRequest,
-    sk_app_generator: Field,
+pub struct KeyValidationRequestAndGenerator {
+    pub request: KeyValidationRequest,
+    pub sk_app_generator: Field,
 }
 
 impl Eq for KeyValidationRequestAndGenerator {

@@ -1,8 +1,5 @@
 import { type AccountManager, type Fr } from '@aztec/aztec.js';
-import { type L1ContractAddresses, l1ContractsNames } from '@aztec/ethereum';
 import { type ConfigMappingsType } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { type PXEService } from '@aztec/pxe';
 
@@ -10,10 +7,6 @@ import chalk from 'chalk';
 import { type Command } from 'commander';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
-
-export interface ServiceStarter<T = any> {
-  (options: T, signalHandlers: (() => Promise<void>)[], logger: LogFn): Promise<ServerList>;
-}
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
   const shutdown = async () => {
@@ -174,23 +167,6 @@ export const extractNamespacedOptions = (options: Record<string, any>, namespace
     }
   }
   return namespacedOptions;
-};
-
-/**
- * Extracts L1 contract addresses from a key-value map.
- * @param options - Key-value map of options.
- * @returns L1 contract addresses.
- */
-export const extractL1ContractAddresses = (options: Record<string, any>): L1ContractAddresses => {
-  const contractAddresses: L1ContractAddresses = l1ContractsNames.reduce((acc, cn) => {
-    const key = cn as keyof L1ContractAddresses;
-    if (options[key]) {
-      return { ...acc, [key]: EthAddress.fromString(options[key]) };
-    }
-    return acc;
-  }, {} as L1ContractAddresses);
-
-  return contractAddresses;
 };
 
 /**

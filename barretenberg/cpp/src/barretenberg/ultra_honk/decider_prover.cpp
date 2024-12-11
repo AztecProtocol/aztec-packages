@@ -17,7 +17,6 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
                                        const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 /**
@@ -31,32 +30,59 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     size_t polynomial_size = proving_key->proving_key.circuit_size;
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
-        ZoneScopedN("sumcheck.prove");
-        sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                         proving_key->relation_parameters,
-                                         proving_key->alphas,
-                                         proving_key->gate_challenges);
+
+        PROFILE_THIS_NAME("sumcheck.prove");
+        if constexpr (Flavor::HasZK) {
+            auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+            zk_sumcheck_data = ZKSumcheckData<Flavor>(numeric::get_msb(polynomial_size), transcript, commitment_key);
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges,
+                                             zk_sumcheck_data);
+        } else {
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges);
+        }
     }
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
- * Sumcheck and then produce an opening proof with a univariate PCS.
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
- * */
+ */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim = ZeroMorph::prove(proving_key->proving_key.circuit_size,
-                                                 proving_key->proving_key.polynomials.get_unshifted(),
-                                                 proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                 sumcheck_output.claimed_evaluations.get_shifted(),
-                                                 sumcheck_output.challenge,
-                                                 commitment_key,
-                                                 transcript);
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    auto& ck = proving_key->proving_key.commitment_key;
+    ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+
+    OpeningClaim prover_opening_claim;
+    if constexpr (!Flavor::HasZK) {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              ck,
+                                                              transcript);
+    } else {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              ck,
+                                                              transcript,
+                                                              zk_sumcheck_data.libra_univariates_monomial,
+                                                              sumcheck_output.claimed_libra_evaluations);
+    }
+    vinfo("executed multivariate-to-univariate reduction");
+    PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
+    vinfo("computed opening proof");
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
@@ -67,20 +93,24 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+    PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
+    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
+    // Execute Shplemini PCS
+    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();
 }
 
 template class DeciderProver_<UltraFlavor>;
+template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<MegaFlavor>;
+template class DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

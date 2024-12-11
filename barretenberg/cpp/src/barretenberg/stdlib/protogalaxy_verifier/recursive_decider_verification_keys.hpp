@@ -35,5 +35,98 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
             idx++;
         }
     }
+
+    /**
+     * @brief Get the max log circuit size from the set of decider verification keys
+     *
+     * @return size_t
+     */
+    size_t get_max_log_circuit_size() const
+    {
+        size_t max_log_circuit_size{ 0 };
+        for (auto key : _data) {
+            max_log_circuit_size =
+                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+        }
+        return max_log_circuit_size;
+    }
+
+    /**
+     * @brief Get the precomputed commitments grouped by commitment index
+     * @example If the commitments are grouped as in
+     *           VK 0    VK 1    VK 2    VK 3
+     *           q_c_0   q_c_1   q_c_2   q_c_3
+     *           q_l_0   q_l_1   q_l_2   q_l_3
+     *             ⋮        ⋮        ⋮       ⋮
+     *
+     *  then this function outputs this matrix of group elements as a vector of rows,
+     *  i.e. it outputs {{q_c_0, q_c_1, q_c_2, q_c_3}, {q_l_0, q_l_1, q_l_2, q_l_3},...}.
+     *  The "commitment index" is the index of the row.
+     */
+    std::vector<std::vector<typename Flavor::Commitment>> get_precomputed_commitments() const
+    {
+        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        std::vector<std::vector<typename Flavor::Commitment>> result(num_commitments_to_fold,
+                                                                     std::vector<typename Flavor::Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->verification_key->get_all()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the witness commitments grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<typename Flavor::Commitment>> get_witness_commitments() const
+    {
+        const size_t num_commitments_to_fold = _data[0]->witness_commitments.get_all().size();
+        std::vector<std::vector<typename Flavor::Commitment>> result(num_commitments_to_fold,
+                                                                     std::vector<typename Flavor::Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->witness_commitments.get_all()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the alphas grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<typename Flavor::FF>> get_alphas() const
+    {
+        const size_t num_alphas_to_fold = _data[0]->alphas.size();
+        std::vector<std::vector<typename Flavor::FF>> result(num_alphas_to_fold, std::vector<typename Flavor::FF>(NUM));
+        for (size_t idx = 0; auto& alpha_at_idx : result) {
+            for (auto [elt, key] : zip_view(alpha_at_idx, _data)) {
+                elt = key->alphas[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the relation parameters grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<typename Flavor::FF>> get_relation_parameters() const
+    {
+        const size_t num_params_to_fold = _data[0]->relation_parameters.get_to_fold().size();
+        std::vector<std::vector<typename Flavor::FF>> result(num_params_to_fold, std::vector<typename Flavor::FF>(NUM));
+        for (size_t idx = 0; auto& params_at_idx : result) {
+            for (auto [elt, key] : zip_view(params_at_idx, _data)) {
+                elt = key->relation_parameters.get_to_fold()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
 };
 } // namespace bb::stdlib::recursion::honk

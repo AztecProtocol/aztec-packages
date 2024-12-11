@@ -1,24 +1,25 @@
 #include "translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
 
-TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript)
+TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder,
+                                   const std::shared_ptr<Transcript>& transcript,
+                                   std::shared_ptr<CommitmentKey> commitment_key)
     : dyadic_circuit_size(Flavor::compute_dyadic_circuit_size(circuit_builder))
     , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
     , transcript(transcript)
+    , key(std::make_shared<ProvingKey>(circuit_builder))
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
 
-    // Compute total number of gates, dyadic circuit size, etc.
-    key = std::make_shared<ProvingKey>(circuit_builder);
+    key->commitment_key = commitment_key ? commitment_key : std::make_shared<CommitmentKey>(key->circuit_size);
     compute_witness(circuit_builder);
-    compute_commitment_key(key->circuit_size);
 }
 
 /**
@@ -56,15 +57,10 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     computed_witness = true;
 }
 
-std::shared_ptr<TranslatorProver::CommitmentKey> TranslatorProver::compute_commitment_key(size_t circuit_size)
+void TranslatorProver::compute_commitment_key(size_t circuit_size)
 {
-    if (commitment_key) {
-        return commitment_key;
-    }
-
-    commitment_key = std::make_shared<CommitmentKey>(circuit_size);
-    return commitment_key;
-};
+    key->commitment_key = std::make_shared<CommitmentKey>(circuit_size);
+}
 
 /**
  * @brief Add circuit size and values used in the relations to the transcript
@@ -95,7 +91,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     auto wire_polys = key->polynomials.get_wires_and_ordered_range_constraints();
     auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
     }
 }
 
@@ -146,7 +142,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
 
-    transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->polynomials.z_perm));
+    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
 
 /**
@@ -159,36 +155,42 @@ void TranslatorProver::execute_relation_check_rounds()
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
+
+    // // create masking polynomials for sumcheck round univariates and auxiliary data
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
+
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
- * Sumcheck and then produce an opening proof with a univariate PCS
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
- * */
+ */
 void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim =
-        ZeroMorph::prove(key->circuit_size,
-                         key->polynomials.get_unshifted_without_concatenated(),
-                         key->polynomials.get_to_be_shifted(),
-                         sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
-                         sumcheck_output.claimed_evaluations.get_shifted(),
-                         sumcheck_output.challenge,
-                         commitment_key,
-                         transcript,
-                         key->polynomials.get_concatenated_constraints(),
-                         sumcheck_output.claimed_evaluations.get_concatenated_constraints(),
-                         key->polynomials.get_concatenation_groups());
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(key->circuit_size,
+                                       key->polynomials.get_unshifted_without_concatenated(),
+                                       key->polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       key->commitment_key,
+                                       transcript,
+                                       zk_sumcheck_data.libra_univariates_monomial,
+                                       sumcheck_output.claimed_libra_evaluations,
+                                       key->polynomials.get_concatenated(),
+                                       key->polynomials.get_groups_to_be_concatenated());
+
+    PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof TranslatorProver::export_proof()
@@ -199,7 +201,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("TranslatorProver::construct_proof");
+    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
@@ -216,8 +218,9 @@ HonkProof TranslatorProver::construct_proof()
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
+    // Execute Shplemini PCS
     execute_pcs_rounds();
+    vinfo("computed opening proof");
 
     return export_proof();
 }

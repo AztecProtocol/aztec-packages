@@ -37,7 +37,7 @@ Consider a user, Alice, who does not have FPA but wishes to interact with the ne
 
 Suppose there is a Fee Payment Contract (FPC) that has been deployed by another user to the network. Alice can structure her transaction as follows:
 
-0. Before the transaction, Alice creates a private authwit in her wallet, allowing the FPC to unshield a specified amount of BananaCoin from Alice's private balance to the FPC's public balance.
+0. Before the transaction, Alice creates a private authwit in her wallet, allowing the FPC to transfer to public a specified amount of BananaCoin from Alice's private balance to the FPC's public balance.
 1. Private setup:
    - Alice calls a private function on the FPC which is exposed for public fee payment in BananaCoin.
    - The FPC checks that the amount of teardown gas Alice has allocated is sufficient to cover the gas associated with the teardown function it will use to provide a refund to Alice.
@@ -52,7 +52,7 @@ Suppose there is a Fee Payment Contract (FPC) that has been deployed by another 
    - Alice performs an arbitrary computation in public, potentially consuming DA and L2 gas.
 5. Public teardown:
    - The FPC looks at `transaction_fee` to compute Alice's corresponding refund of BananaCoin.
-   - The FPC transfers the refund to Alice via a pending shield.
+   - The FPC transfers the refund to Alice via a partial note.
 6. Base rollup:
    - The Base rollup kernel circuit injects a public data write that levies the transaction fee on the `fee_payer`.
 

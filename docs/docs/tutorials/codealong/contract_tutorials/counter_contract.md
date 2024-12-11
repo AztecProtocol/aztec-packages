@@ -7,8 +7,9 @@ In this guide, we will create our first Aztec.nr smart contract. We will build a
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../guides/developer_guides/getting_started/quickstart.md)
+- You have followed the [quickstart](../../../guides/getting_started.md)
 - Running Aztec Sandbox
+- Installed [Noir LSP](../../../guides/developer_guides/local_env/installing_noir_lsp.md) (optional)
 
 ## Set up a project
 
@@ -60,7 +61,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 Go to `main.nr` and start with this contract initialization:
 
 ```rust
-contract Counter {
+#include_code setup /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr raw
 }
 ```
 
@@ -98,13 +99,13 @@ Add this below the imports. It declares the storage variables for our contract. 
 
 Now we’ve got a mechanism for storing our private state, we can start using it to ensure the privacy of balances.
 
-Let’s create a constructor method to run on deployment that assigns an initial supply of tokens to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[aztec(initializer)]` decorator that specifies that this function behaves like a constructor. Write this:
+Let’s create a constructor method to run on deployment that assigns an initial supply of tokens to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
 #include_code constructor /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
-We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs.
+We have annotated this and other functions with `#[private]` which are ABI macros so the compiler understands it will handle private inputs.
 
 ## Incrementing our counter
 
@@ -158,4 +159,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/inner_workings.md)
+ - [Functions and annotations like `#[private]`](../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)

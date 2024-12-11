@@ -1,8 +1,7 @@
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
-import { type MemoryOperations } from '../avm_memory_types.js';
+import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import { type BufferCursor } from '../serialization/buffer_cursor.js';
 import { type Serializable } from '../serialization/bytecode_serialization.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
@@ -22,6 +21,13 @@ export abstract class Instruction {
    * @param context - The AvmContext in which the instruction executes.
    */
   public abstract execute(context: AvmContext): Promise<void>;
+
+  /**
+   * Whether the instruction will modify the PC itself.
+   */
+  public handlesPC(): boolean {
+    return false;
+  }
 
   /**
    * Generate a string representation of the instruction including
@@ -86,17 +92,11 @@ export abstract class Instruction {
 
   /**
    * Computes gas cost for the instruction based on its base cost and memory operations.
-   * @param memoryOps Memory operations performed by the instruction.
    * @returns Gas cost.
    */
-  protected gasCost(ops: Partial<MemoryOperations & { indirect: number; dynMultiplier: number }> = {}) {
+  protected gasCost(dynMultiplier: number = 0): Gas {
     const baseGasCost = getBaseGasCost(this.opcode);
-    // TODO: We are using a simplified gas model to reduce complexity in the circuit.
-    // Memory accounting will probably be removed.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6861): reconsider.
-    // const memoryGasCost = getMemoryGasCost(memoryOps);
-    // const memoryGasCost = { l2Gas: 0, daGas: 0 };
-    const dynGasCost = mulGas(getDynamicGasCost(this.opcode), ops.dynMultiplier ?? 0);
+    const dynGasCost = mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
     return sumGas(baseGasCost, dynGasCost);
   }
 

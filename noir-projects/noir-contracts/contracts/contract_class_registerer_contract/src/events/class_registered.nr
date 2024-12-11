@@ -1,11 +1,12 @@
 use dep::aztec::protocol_types::{
+    constants::{
+        MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+    },
     contract_class_id::ContractClassId,
-    constants::{MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE},
-    traits::Serialize
+    traits::Serialize,
 };
 
-// #[aztec(event)]
-struct ContractClassRegistered {
+pub struct ContractClassRegistered {
     contract_class_id: ContractClassId,
     version: Field,
     artifact_hash: Field,

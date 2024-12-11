@@ -1,10 +1,10 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
 global BLACKLIST_FLAG: u64 = 4;
 
-struct UserFlags {
+pub struct UserFlags {
     is_admin: bool,
     is_minter: bool,
     is_blacklisted: bool,
@@ -43,7 +43,9 @@ impl ToField for UserFlags {
 
 impl Eq for UserFlags {
     fn eq(self, other: Self) -> bool {
-        (self.is_admin == other.is_admin) & (self.is_minter == other.is_minter) & (self.is_blacklisted == other.is_blacklisted)
+        (self.is_admin == other.is_admin)
+            & (self.is_minter == other.is_minter)
+            & (self.is_blacklisted == other.is_blacklisted)
     }
 }
 

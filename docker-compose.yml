@@ -6,8 +6,6 @@ services:
     platform: linux/amd64
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DEBUG: ${DEBUG:-aztec:*,-json-rpc:*,-aztec:circuits:artifact_hash,-aztec:randomness_singleton}
-      DEBUG_COLORS: 1
       L1_CHAIN_ID: 31337
       VERSION: 1
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
@@ -38,8 +36,6 @@ services:
     platform: linux/amd64
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DEBUG: ${DEBUG:-aztec:*,-json-rpc:*,-aztec:circuits:artifact_hash,-aztec:randomness_singleton,-aztec:avm_simulator:*}
-      DEBUG_COLORS: 1
       L1_CHAIN_ID: 31337
       VERSION: 1
       NODE_NO_WARNINGS: 1
@@ -50,7 +46,6 @@ services:
       REGISTRY_CONTRACT_ADDRESS: "0x589a9634c1d00c62e47b3b7a790c8dc986b3d40d"
       INBOX_CONTRACT_ADDRESS: "0x12d9b5effc69bf5c0c29c8258c6b6fa95a08de74"
       OUTBOX_CONTRACT_ADDRESS: "0x3ec4b6c68a8c2ce4c78cdd465b3019b11a568d1d"
-      AVAILABILITY_ORACLE_CONTRACT_ADDRESS: "0x98a4089127f3f5d555656f1c9b1801342c9d6bce"
       FEE_JUICE_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
       FEE_JUICE_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
       ETHEREUM_HOST:
@@ -114,104 +109,14 @@ services:
     profiles:
       - cli
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib
-    configs:
-      - source: otel-collector-config
-        target: /etc/otelcol-contrib/config.yaml
+  otel-lgtm:
     profiles:
       - metrics
+    image: grafana/otel-lgtm
     ports:
-      - 4318:4318
-
-  prometheus:
-    image: prom/prometheus
-    profiles:
-      - metrics
-    configs:
-      - source: prometheus-config
-        target: /etc/prometheus/prometheus.yml
-
-  grafana:
-    image: grafana/grafana
-    ports:
-      - 3000:3000
-    profiles:
-      - metrics
-    volumes:
-      - ./helm-charts/aztec-network/files/grafana_dashboards:/etc/grafana/provisioning/dashboards
-      - grafana:/var/lib/grafana
-    configs:
-      - source: grafana-sources
-        target: /etc/grafana/provisioning/datasources/default.yml
-
-  jaeger:
-    image: jaegertracing/all-in-one
-    ports:
-      - 16686:16686
-    profiles:
-      - metrics
-
-volumes:
-  aztec:
-  grafana:
-
-configs:
-  grafana-sources:
-    content: |
-      apiVersion: 1
-      datasources:
-        - name: Prometheus
-          uid: aztec-node-metrics
-          type: prometheus
-          url: http://prometheus:9090
-          editable: false
-          isDefault: true
-          jsonData:
-            timeInterval: 10s
-
-  prometheus-config:
-    content: |
-      global:
-        evaluation_interval: 15s
-        scrape_interval: 15s
-      scrape_configs:
-        - job_name: otel-collector
-          static_configs:
-          - targets: ['otel-collector:8888']
-        - job_name: aztec
-          static_configs:
-          - targets: ['otel-collector:8889']
-  otel-collector-config:
-    content: |
-      receivers:
-        otlp:
-          protocols:
-            http:
-              endpoint: 0.0.0.0:4318
-
-      processors:
-        batch:
-
-      exporters:
-        prometheus:
-          endpoint: 0.0.0.0:8889
-          metric_expiration: 5m
-        otlp/jaeger:
-            endpoint: "jaeger:4317"
-            tls:
-              insecure: true
-
-      service:
-        pipelines:
-          traces:
-            receivers: [otlp]
-            processors: [batch]
-            exporters: [otlp/jaeger]
-          metrics:
-            receivers: [otlp]
-            processors: [batch]
-            exporters: [prometheus]
+      - 4318:4318 # otel collector http
+      - 4317:4317 # otel grpc
+      - 3000:3000 # grafana
 
 secrets:
   aztec-node-url:

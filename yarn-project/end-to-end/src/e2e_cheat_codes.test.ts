@@ -1,40 +1,52 @@
-import {
-  type CheatCodes,
-  type CompleteAddress,
-  EthAddress,
-  ExtendedNote,
-  Fr,
-  Note,
-  type PXE,
-  type Wallet,
-  computeSecretHash,
-} from '@aztec/aztec.js';
+import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient, parseEther } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  getContract,
+  parseEther,
+} from 'viem';
+import type * as chains from 'viem/chains';
 
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
   let wallet: Wallet;
-  let admin: CompleteAddress;
+  let admin: AztecAddress;
   let cc: CheatCodes;
-  let pxe: PXE;
   let teardown: () => Promise<void>;
 
+  let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let token: TokenContract;
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
-    admin = wallet.getCompleteAddress();
+    admin = wallet.getAddress();
+
+    rollup = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
+  });
+
+  beforeEach(async () => {
+    await rollup.write.setAssumeProvenThroughBlockNumber([(await rollup.read.getPendingBlockNumber()) + 1n]);
   });
 
   afterAll(() => teardown());
@@ -147,7 +159,7 @@ describe('e2e_cheat_codes', () => {
 
   describe('L2 cheatcodes', () => {
     it('load public', async () => {
-      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.address.toField());
+      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.toField());
     });
 
     it('load public returns 0 for non existent value', async () => {
@@ -156,39 +168,24 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('load private works as expected for no notes', async () => {
-      const notes = await cc.aztec.loadPrivate(admin.address, token.address, 5n);
+      const notes = await cc.aztec.loadPrivate(admin, token.address, 5n);
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(0n);
     });
 
     it('load private', async () => {
-      // mint note and check if it exists in pending_shield.
+      // mint a token note and check it exists in balances.
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
-      const secret = Fr.random();
-      const secretHash = computeSecretHash(secret);
-      const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-      // docs:start:pxe_add_note
-      const note = new Note([new Fr(mintAmount), secretHash]);
-      const extendedNote = new ExtendedNote(
-        note,
-        admin.address,
-        token.address,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        receipt.txHash,
-      );
-      await pxe.addNote(extendedNote);
-      // docs:end:pxe_add_note
+      await mintTokensToPrivate(token, wallet, admin, mintAmount);
+      await token.methods.sync_notes().simulate();
+
+      const balancesAdminSlot = cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 
       // check if note was added to pending shield:
-      const notes = await cc.aztec.loadPrivate(
-        admin.address,
-        token.address,
-        TokenContract.storage.pending_shields.slot,
-      );
+      const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);

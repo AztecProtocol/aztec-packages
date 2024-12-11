@@ -1,9 +1,12 @@
 use crate::merkle_tree::leaf_preimage::IndexedTreeLeafPreimage;
 
-pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
+pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE, VALUE>(
     key: Field,
-    low_leaf_preimage: LEAF_PREIMAGE
-) where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
+    low_leaf_preimage: LEAF_PREIMAGE,
+)
+where
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
+{
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();
 
@@ -12,19 +15,30 @@ pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
 }
 
 mod tests {
-    use crate::{
-        merkle_tree::{
+    use crate::merkle_tree::{
+        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
         leaf_preimage::IndexedTreeLeafPreimage,
-        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf
-    }
     };
+    use crate::traits::Empty;
 
     struct TestLeafPreimage {
         value: Field,
         next_value: Field,
     }
 
-    impl IndexedTreeLeafPreimage for TestLeafPreimage {
+    impl Empty for TestLeafPreimage {
+        fn empty() -> Self {
+            Self { value: 0, next_value: 0 }
+        }
+    }
+
+    impl Eq for TestLeafPreimage {
+        fn eq(self, other: Self) -> bool {
+            (self.value == other.value) & (self.next_value == other.next_value)
+        }
+    }
+
+    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
         fn get_key(self) -> Field {
             self.value
         }
@@ -33,8 +47,22 @@ mod tests {
             self.next_value
         }
 
+        fn points_to_infinity(self) -> bool {
+            (self.next_value == 0)
+        }
+
         fn as_leaf(self) -> Field {
             self.value
+        }
+
+        fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
+            Self { value: self.value, next_value }
+        }
+        fn update_value(self, value: Field) -> Self {
+            Self { value, next_value: self.next_value }
+        }
+        fn build_insertion_leaf(value: Field, low_leaf: Self) -> Self {
+            Self { value, next_value: low_leaf.next_value }
         }
     }
 
@@ -55,21 +83,21 @@ mod tests {
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 13, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_is_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 12, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_next_key() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 9, next_value: 11 };

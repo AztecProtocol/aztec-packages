@@ -55,7 +55,7 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("DeltaRange::accumulate");
+        PROFILE_THIS_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_1 = View(in.w_l);

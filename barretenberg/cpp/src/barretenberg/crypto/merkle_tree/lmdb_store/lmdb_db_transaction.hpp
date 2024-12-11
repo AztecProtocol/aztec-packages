@@ -10,7 +10,7 @@ class LMDBDatabaseCreationTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBDatabaseCreationTransaction>;
 
-    LMDBDatabaseCreationTransaction(LMDBEnvironment& env);
+    LMDBDatabaseCreationTransaction(LMDBEnvironment::SharedPtr env);
     LMDBDatabaseCreationTransaction(const LMDBDatabaseCreationTransaction& other) = delete;
     LMDBDatabaseCreationTransaction(LMDBDatabaseCreationTransaction&& other) = delete;
     LMDBDatabaseCreationTransaction& operator=(const LMDBDatabaseCreationTransaction& other) = delete;

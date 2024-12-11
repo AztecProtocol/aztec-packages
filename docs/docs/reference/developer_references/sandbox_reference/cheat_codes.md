@@ -1,7 +1,9 @@
 ---
 title: Cheat Codes
 tags: [sandbox]
+sidebar_position: 1
 ---
+
 import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";
 
 ## Introduction
@@ -463,7 +465,7 @@ The baseSlot is specified in the Aztec.nr contract.
 #### Example
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     balances: Map<AztecAddress, PublicMutable<Field>>,
 }
@@ -494,7 +496,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 #### Example
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     balances: Map<AztecAddress, PublicMutable<Field>>,
 }
@@ -525,17 +527,6 @@ Loads the value stored at the given slot in the private storage of the given con
 Note: One Field element occupies a storage slot. Hence, structs with multiple field elements will be spread over multiple sequential slots. Using loadPublic will only load a single field of the struct (depending on the size of the attributes within it).
 
 #### Example
-```rust
-#[aztec(storage)]
-struct Storage {
-    ...
-    pending_shields: PrivateSet<TransparentNote, TRANSPARENT_NOTE_LEN>,
-}
-
-contract Token {
-    ...
-}
-```
 
 #include_code load_private_cheatcode yarn-project/end-to-end/src/e2e_cheat_codes.test.ts typescript
 

@@ -1,15 +1,16 @@
 use crate::{
+    abis::side_effect::{Ordered, Scoped},
     address::{AztecAddress, EthAddress},
     constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
-    abis::side_effect::{Ordered, Scoped}, traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader}
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
-struct L2ToL1Message {
-    recipient: EthAddress,
-    content: Field,
-    counter: u32,
+pub struct L2ToL1Message {
+    pub recipient: EthAddress,
+    pub content: Field,
+    pub counter: u32,
 }
 
 impl Ordered for L2ToL1Message {
@@ -20,17 +21,15 @@ impl Ordered for L2ToL1Message {
 
 impl Empty for L2ToL1Message {
     fn empty() -> Self {
-        Self {
-            recipient: EthAddress::empty(),
-            content: 0,
-            counter: 0,
-        }
+        Self { recipient: EthAddress::empty(), content: 0, counter: 0 }
     }
 }
 
 impl Eq for L2ToL1Message {
     fn eq(self, other: Self) -> bool {
-        (self.recipient == other.recipient) & (self.content == other.content) & (self.counter == other.counter)
+        (self.recipient == other.recipient)
+            & (self.content == other.content)
+            & (self.counter == other.counter)
     }
 }
 
@@ -56,17 +55,21 @@ impl L2ToL1Message {
     }
 }
 
-struct ScopedL2ToL1Message {
-    message: L2ToL1Message,
-    contract_address: AztecAddress,
+pub struct ScopedL2ToL1Message {
+    pub message: L2ToL1Message,
+    pub contract_address: AztecAddress,
 }
 
 impl ScopedL2ToL1Message {
     pub fn expose_to_public(self) -> Self {
         // Hide the counter when exposing to public.
         Self {
-            message: L2ToL1Message { recipient: self.message.recipient, content: self.message.content, counter: 0 },
-            contract_address: self.contract_address
+            message: L2ToL1Message {
+                recipient: self.message.recipient,
+                content: self.message.content,
+                counter: 0,
+            },
+            contract_address: self.contract_address,
         }
     }
 }
@@ -88,8 +91,7 @@ impl Ordered for ScopedL2ToL1Message {
 
 impl Eq for ScopedL2ToL1Message {
     fn eq(self, other: ScopedL2ToL1Message) -> bool {
-        (self.message == other.message)
-            & (self.contract_address == other.contract_address) 
+        (self.message == other.message) & (self.contract_address == other.contract_address)
     }
 }
 

@@ -43,9 +43,9 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
      *           PK 0             PK 1             PK 2             PK 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
      *           *   *            *   *            *   *            *   *
-     *           *   *            *   *            *   *            *   *
      *           a_1 a_2 a_3 ...  b_1 b_2 b_3 ...  c_1 c_2 c_3 ...  d_1 d_2 d_3 ...
      *           *   *            *   *            *   *            *   *
+     *           ⋮    ⋮             ⋮   ⋮             ⋮   ⋮             ⋮   ⋮
      *
      * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
      *
@@ -53,19 +53,18 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
      * @tparam skip_count Construct univariates that skip some of the indices when computing results
      * @return The univariates whose extensions will be used to construct the combiner.
      */
-    template <size_t skip_count = 0> auto row_to_univariates(size_t row_idx) const
+    template <size_t LENGTH, size_t skip_count = 0> auto row_to_univariates(size_t row_idx) const
     {
         auto prover_polynomials_views = get_polynomials_views();
-        std::array<Univariate<FF, NUM, 0, skip_count>, prover_polynomials_views[0].size()> results;
+        std::array<Univariate<FF, LENGTH, 0, skip_count>, prover_polynomials_views[0].size()> results;
         // Set the size corresponding to the number of rows in the execution trace
-        size_t pk_idx = 0;
         // Iterate over the prover polynomials' views corresponding to each proving key
-        for (auto& get_all : prover_polynomials_views) {
+        for (size_t dpk_idx = 0; auto& get_all : prover_polynomials_views) {
             // Iterate over all columns in the trace execution of an proving key and extract their value at row_idx.
             for (auto [result, poly_ptr] : zip_view(results, get_all)) {
-                result.evaluations[pk_idx] = poly_ptr[row_idx];
+                result.evaluations[dpk_idx] = poly_ptr[row_idx];
             }
-            pk_idx++;
+            dpk_idx++;
         }
         return results;
     }
@@ -86,6 +85,8 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
 template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two decider verification keys.");
     using Flavor = Flavor_;
+    using FF = typename Flavor_::FF;
+    using Commitment = typename Flavor_::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using DeciderVK = DeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
@@ -97,8 +98,8 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     std::shared_ptr<DeciderVK> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    DeciderVerificationKeys_() = default;
 
+    DeciderVerificationKeys_() = default;
     DeciderVerificationKeys_(const std::vector<std::shared_ptr<DeciderVK>>& data)
     {
         ASSERT(data.size() == NUM);
@@ -106,5 +107,96 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
             _data[idx] = std::move(data[idx]);
         }
     };
+
+    /**
+     * @brief Get the max log circuit size from the set of decider verification keys
+     *
+     * @return size_t
+     */
+    size_t get_max_log_circuit_size() const
+    {
+        size_t max_log_circuit_size{ 0 };
+        for (auto key : _data) {
+            max_log_circuit_size =
+                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+        }
+        return max_log_circuit_size;
+    }
+
+    /**
+     * @brief Get the precomputed commitments grouped by commitment index
+     * @example If the commitments are grouped as in
+     *           VK 0    VK 1    VK 2    VK 3
+     *           q_c_0   q_c_1   q_c_2   q_c_3
+     *           q_l_0   q_l_1   q_l_2   q_l_3
+     *             ⋮        ⋮        ⋮       ⋮
+     *
+     *  then this function output this matrix of group elements as a vector of rows,
+     *  i.e. it ouptuts {{q_c_0, q_c_1, q_c_2, q_c_3}, {q_l_0, q_l_1, q_l_2, q_l_3},...}.
+     *  The "commitment index" is the index of the row.
+     */
+    std::vector<std::vector<Commitment>> get_precomputed_commitments() const
+    {
+        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->verification_key->get_all()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the witness commitments grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<Commitment>> get_witness_commitments() const
+    {
+        const size_t num_commitments_to_fold = _data[0]->witness_commitments.get_all().size();
+        std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->witness_commitments.get_all()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the alphas grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<FF>> get_alphas() const
+    {
+        const size_t num_alphas_to_fold = _data[0]->alphas.size();
+        std::vector<std::vector<FF>> result(num_alphas_to_fold, std::vector<FF>(NUM));
+        for (size_t idx = 0; auto& alpha_at_idx : result) {
+            for (auto [elt, key] : zip_view(alpha_at_idx, _data)) {
+                elt = key->alphas[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get the relation parameters grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
+    std::vector<std::vector<FF>> get_relation_parameters() const
+    {
+        const size_t num_params_to_fold = _data[0]->relation_parameters.get_to_fold().size();
+        std::vector<std::vector<FF>> result(num_params_to_fold, std::vector<FF>(NUM));
+        for (size_t idx = 0; auto& params_at_idx : result) {
+            for (auto [elt, key] : zip_view(params_at_idx, _data)) {
+                elt = key->relation_parameters.get_to_fold()[idx];
+            }
+            idx++;
+        }
+        return result;
+    }
 };
 } // namespace bb

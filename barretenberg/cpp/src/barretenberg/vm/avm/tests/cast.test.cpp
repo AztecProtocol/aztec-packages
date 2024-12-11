@@ -1,6 +1,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -17,12 +18,13 @@ class AvmCastTests : public ::testing::Test {
   public:
     AvmCastTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputs public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
     std::vector<FF> calldata;
 
@@ -36,7 +38,8 @@ class AvmCastTests : public ::testing::Test {
     {
         trace_builder.op_set(0, uint256_t::from_uint128(a), src_address, src_tag);
         trace_builder.op_cast(0, src_address, dst_address, dst_tag);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         trace = trace_builder.finalize();
         gen_indices();
     }
@@ -66,10 +69,7 @@ class AvmCastTests : public ::testing::Test {
                              uint32_t src_address,
                              uint32_t dst_address,
                              AvmMemoryTag src_tag,
-                             AvmMemoryTag dst_tag,
-                             bool force_proof = false
-
-    )
+                             AvmMemoryTag dst_tag)
     {
         auto const& row = trace.at(main_row_idx);
         EXPECT_THAT(row,
@@ -106,13 +106,7 @@ class AvmCastTests : public ::testing::Test {
                           ALU_ROW_FIELD_EQ(in_tag, static_cast<uint32_t>(dst_tag)),
                           ALU_ROW_FIELD_EQ(sel_alu, 1)));
 
-        // We still want the ability to enable proving through the environment variable and therefore we do not pass
-        // the boolean variable force_proof to validate_trace second argument.
-        if (force_proof) {
-            validate_trace(std::move(trace), public_inputs, calldata, {}, true);
-        } else {
-            validate_trace(std::move(trace), public_inputs, calldata);
-        }
+        validate_trace(std::move(trace), public_inputs, calldata);
     }
 };
 
@@ -120,6 +114,24 @@ class AvmCastNegativeTests : public AvmCastTests {
   protected:
     void SetUp() override { GTEST_SKIP(); }
 };
+
+TEST_F(AvmCastTests, basicU1ToU8)
+{
+    gen_trace(1, 0, 1, AvmMemoryTag::U1, AvmMemoryTag::U8);
+    validate_cast_trace(1, 1, 0, 1, AvmMemoryTag::U1, AvmMemoryTag::U8);
+}
+
+TEST_F(AvmCastTests, noTruncationU8ToU1)
+{
+    gen_trace(1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+    validate_cast_trace(1, 1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+}
+
+TEST_F(AvmCastTests, truncationU8ToU1)
+{
+    gen_trace(15, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+    validate_cast_trace(15, 1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+}
 
 TEST_F(AvmCastTests, basicU8ToU16)
 {
@@ -171,11 +183,26 @@ TEST_F(AvmCastTests, noTruncationFFToU32)
 TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 {
     calldata = { FF::modulus - 1 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
+    trace_builder.set_all_calldata(calldata);
+    AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                               .parent_id = 0,
+                                               .contract_address = FF(0),
+                                               .calldata = calldata,
+                                               .nested_returndata = {},
+                                               .last_pc = 0,
+                                               .success_offset = 0,
+                                               .l2_gas = 0,
+                                               .da_gas = 0,
+                                               .internal_return_ptr_stack = {} });
+    trace_builder.current_ext_call_ctx = ext_call_ctx;
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -185,11 +212,27 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
 {
     calldata = { FF::modulus_minus_two };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
+    trace_builder.set_all_calldata(calldata);
+    AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                               .parent_id = 0,
+                                               .contract_address = FF(0),
+                                               .calldata = calldata,
+                                               .nested_returndata = {},
+                                               .last_pc = 0,
+                                               .success_offset = 0,
+                                               .l2_gas = 0,
+                                               .da_gas = 0,
+                                               .internal_return_ptr_stack = {} });
+    trace_builder.current_ext_call_ctx = ext_call_ctx;
+
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -213,22 +256,26 @@ TEST_F(AvmCastTests, indirectAddrTruncationU64ToU8)
     trace_builder.op_set(0, 11, 1, AvmMemoryTag::U32);
     trace_builder.op_set(0, 256'000'000'203UL, 10, AvmMemoryTag::U64);
     trace_builder.op_cast(3, 0, 1, AvmMemoryTag::U8);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
-    validate_cast_trace(256'000'000'203UL, 203, 10, 11, AvmMemoryTag::U64, AvmMemoryTag::U8, true);
+    validate_cast_trace(256'000'000'203UL, 203, 10, 11, AvmMemoryTag::U64, AvmMemoryTag::U8);
 }
 
 TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
 {
+    // TODO(#9995): Re-enable as part of #9995
+    GTEST_SKIP();
     // Indirect addresses. src:5  dst:6
     // Direct addresses.   src:10 dst:11
     trace_builder.op_set(0, 10, 5, AvmMemoryTag::U8); // Not an address type
     trace_builder.op_set(0, 11, 6, AvmMemoryTag::U32);
     trace_builder.op_set(0, 4234, 10, AvmMemoryTag::U64);
     trace_builder.op_cast(3, 5, 6, AvmMemoryTag::U8);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
 
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cast == FF(1); });
@@ -297,10 +344,12 @@ TEST_F(AvmCastNegativeTests, wrongOutputAluIc)
 TEST_F(AvmCastNegativeTests, wrongLimbDecompositionInput)
 {
     calldata = { FF::modulus_minus_two };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -322,10 +371,12 @@ TEST_F(AvmCastNegativeTests, wrongPSubALo)
 TEST_F(AvmCastNegativeTests, wrongPSubAHi)
 {
     calldata = { FF::modulus_minus_two - 987 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -360,10 +411,12 @@ TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionLo)
 TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionHi)
 {
     calldata = { FF::modulus_minus_two - 987 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -398,10 +451,12 @@ TEST_F(AvmCastNegativeTests, wrongCopySubLoForRangeCheck)
 TEST_F(AvmCastNegativeTests, wrongCopySubHiForRangeCheck)
 {
     std::vector<FF> const calldata = { FF::modulus_minus_two - 972836 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U128);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
     gen_indices();
 

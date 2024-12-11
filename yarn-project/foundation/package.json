@@ -11,18 +11,22 @@
     "./prettier": "./.prettierrc.json",
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
+    "./async-pool": "./dest/async-pool/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
+    "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
+    "./eth-signature": "./dest/eth-signature/index.js",
     "./queue": "./dest/queue/index.js",
     "./fs": "./dest/fs/index.js",
     "./buffer": "./dest/buffer/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
@@ -38,13 +42,15 @@
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js",
+    "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
-    "./promise": "./dest/promise/index.js"
+    "./promise": "./dest/promise/index.js",
+    "./string": "./dest/string/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -67,6 +73,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -87,6 +96,13 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -94,6 +110,7 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
+    "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
     "elliptic": "^6.5.4",
@@ -108,8 +125,10 @@
     "lodash.clonedeepwith": "^4.5.0",
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
-    "zod": "^3.22.4"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
@@ -144,7 +163,8 @@
     "prettier": "^2.7.1",
     "supertest": "^6.3.3",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "viem": "^2.7.15"
   },
   "files": [
     "dest",

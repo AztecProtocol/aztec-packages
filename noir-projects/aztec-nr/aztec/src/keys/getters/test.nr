@@ -1,58 +1,67 @@
-use crate::keys::getters::{get_current_public_keys, get_historical_public_keys, KEY_REGISTRY_UPDATE_BLOCKS};
-use crate::context::PrivateContext;
-use dep::protocol_types::address::AztecAddress;
+use crate::keys::getters::get_public_keys;
 
 use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment, utils::TestAccount};
 use dep::std::test::OracleMock;
 
-global KEY_ORACLE_RESPONSE_LENGTH = 13; // 12 fields for the keys, one field for the partial address
+global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one field for the partial address
 
-fn setup() -> (TestEnvironment, PrivateContext, TestAccount) {
-    let mut env = TestEnvironment::new();
+unconstrained fn setup() -> TestAccount {
+    let _ = TestEnvironment::new();
     let account = cheatcodes::create_account();
 
-    let historical_block_number = env.block_number();
-    let context = env.private_at(historical_block_number);
-
-    (env, context, account)
+    account
 }
 
-#[test(should_fail_with="Invalid public keys hint for address")]
-fn test_get_current_keys_unknown_unregistered() {
-    let (_, context, account) = setup();
+#[test(should_fail_with = "Invalid public keys hint for address")]
+unconstrained fn test_get_public_keys_unknown() {
+    let account = setup();
 
-    let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns([0; KEY_ORACLE_RESPONSE_LENGTH]).times(1);
-    let _ = get_current_public_keys(&mut context, account.address);
-}
+    // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad oracle
+    // response to check that the circuit properly checks the address derivation.
+    let mut random_keys_and_partial_address = [0; KEY_ORACLE_RESPONSE_LENGTH];
+    // We use randomly generated points on the curve, and a random partial address to ensure that
+    // this combination does not derive the address and we should see the assertion fail.
+    // npk_m
+    random_keys_and_partial_address[0] =
+        0x292364b852c6c6f01472951e76a39cbcf074591fd0e063a81965e7b51ad868a5;
+    random_keys_and_partial_address[1] =
+        0x0a687b46cdc9238f1c311f126aaaa4acbd7a737bff2efd7aeabdb8d805843a27;
+    random_keys_and_partial_address[2] =
+        0x0000000000000000000000000000000000000000000000000000000000000000;
+    // ivpk_m
+    random_keys_and_partial_address[3] =
+        0x173c5229a00c5425255680dd6edc27e278c48883991f348fe6985de43b4ec25f;
+    random_keys_and_partial_address[4] =
+        0x1698608e23b5f6c2f43c49a559108bb64e2247b8fc2da842296a416817f40b7f;
+    random_keys_and_partial_address[5] =
+        0x0000000000000000000000000000000000000000000000000000000000000000;
+    // ovpk_m
+    random_keys_and_partial_address[6] =
+        0x1bad2f7d1ad960a1bd0fe4d2c8d17f5ab4a86ef8b103e0a9e7f67ec0d3b4795e;
+    random_keys_and_partial_address[7] =
+        0x206db87110abbecc9fbaef2c865189d94ef2c106202f734ee4eba9257fd28bf1;
+    random_keys_and_partial_address[8] =
+        0x0000000000000000000000000000000000000000000000000000000000000000;
+    // tpk_m
+    random_keys_and_partial_address[9] =
+        0x05e3bd9cfe6b47daa139613619cf7d7fd8bb0112b6f2908caa6d9b536ed948ed;
+    random_keys_and_partial_address[10] =
+        0x051066f877c9df47552d02e7dc32127ff4edefc8498e813bca1cbd3f5d1be429;
+    random_keys_and_partial_address[11] =
+        0x0000000000000000000000000000000000000000000000000000000000000000;
+    // partial address
+    random_keys_and_partial_address[12] =
+        0x236703e2cb00a182e024e98e9f759231b556d25ff19f98896cebb69e9e678cc9;
 
-#[test(should_fail_with="Invalid public keys hint for address")]
-fn test_get_historical_keys_unknown_unregistered() {
-    let (_, context, account) = setup();
-    let historical_header = context.get_header();
-
-    let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns([0; KEY_ORACLE_RESPONSE_LENGTH]).times(1);
-    let _ = get_historical_public_keys(historical_header, account.address);
+    let _ = OracleMock::mock("getPublicKeysAndPartialAddress")
+        .returns(random_keys_and_partial_address.serialize())
+        .times(1);
+    let _ = get_public_keys(account.address);
 }
 
 #[test]
-fn test_get_current_keys_known_unregistered() {
-    let (_, mut context, account) = setup();
+unconstrained fn test_get_public_keys_known() {
+    let account = setup();
 
-    let current_keys = get_current_public_keys(&mut context, account.address);
-
-    assert_eq(current_keys, account.keys);
-    assert_eq(
-        context.max_block_number.unwrap(), context.historical_header.global_variables.block_number as u32 + KEY_REGISTRY_UPDATE_BLOCKS
-    );
-}
-
-#[test]
-fn test_get_historical_keys_known_unregistered() {
-    let (_, context, account) = setup();
-
-    let historical_header = context.get_header();
-
-    let historical_keys = get_historical_public_keys(historical_header, account.address);
-    assert_eq(historical_keys, account.keys);
-    assert(context.max_block_number.is_none());
+    assert_eq(get_public_keys(account.address), account.keys);
 }

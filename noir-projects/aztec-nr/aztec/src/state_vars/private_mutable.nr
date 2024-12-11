@@ -1,26 +1,33 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Serialize},
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
-    lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_note, view_notes},
-    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions, note_emission::NoteEmission
+    lifecycle::{create_note, destroy_note_unsafe},
+    note_emission::NoteEmission,
+    note_getter::{get_note, view_notes},
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct PrivateMutable<Note, Context> {
+pub struct PrivateMutable<Note, Context> {
     context: Context,
-    storage_slot: Field
+    storage_slot: Field,
 }
 // docs:end:struct
 
 mod test;
 
-impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PrivateMutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new
@@ -41,12 +48,15 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER
+            GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
         )
     }
 }
 
-impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
     // docs:start:initialize
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
@@ -59,7 +69,8 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
 
     // docs:start:replace
     pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
-        let (prev_note, note_hash_for_read_request): (Note, Field) = get_note(self.context, self.storage_slot);
+        let (prev_note, note_hash_for_read_request): (Note, Field) =
+            get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
         destroy_note_unsafe(self.context, prev_note, note_hash_for_read_request);
@@ -70,11 +81,7 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
     // docs:end:replace
 
     pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
-        let is_initialized = unsafe {
-            check_nullifier_exists(self.compute_initialization_nullifier())
-        };
-
-        // check_nullifier_exists() is an unconstrained function - we can constrain a true value by providing an
+        // `check_nullifier_exists` is an unconstrained function - we can constrain a true value by providing an
         // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only
         // be valid if done in public.
         // Ultimately, this is not an issue ginen that we'll either:
@@ -84,6 +91,9 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
         //    an inclusion proof for the current note
         // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
         // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
+        let is_initialized =
+            unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
+
         if (!is_initialized) {
             self.initialize(note)
         } else {
@@ -105,14 +115,17 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
     // docs:end:get_note
 }
 
-impl<Note, N, M> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
-    unconstrained pub fn is_initialized(self) -> bool {
+impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
+    pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
 
     // docs:start:view_note
-    unconstrained pub fn view_note(self) -> Note {
+    pub unconstrained fn view_note(self) -> Note {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

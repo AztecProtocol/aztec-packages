@@ -1,5 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
+
+import { z } from 'zod';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
@@ -25,6 +29,19 @@ export class ContentCommitment {
     if (outHash[0] !== 0) {
       throw new Error(`outHash buffer should be truncated and left padded`);
     }
+  }
+
+  static get schema() {
+    return z
+      .object({
+        numTxs: schemas.Fr,
+        txsEffectsHash: schemas.Buffer,
+        inHash: schemas.Buffer,
+        outHash: schemas.Buffer,
+      })
+      .transform(
+        ({ numTxs, txsEffectsHash, inHash, outHash }) => new ContentCommitment(numTxs, txsEffectsHash, inHash, outHash),
+      );
   }
 
   getSize() {
@@ -88,11 +105,20 @@ export class ContentCommitment {
   }
 
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string): ContentCommitment {
     const buffer = Buffer.from(str.replace(/^0x/i, ''), 'hex');
     return ContentCommitment.fromBuffer(buffer);
+  }
+
+  public equals(other: this): boolean {
+    return (
+      this.inHash.equals(other.inHash) &&
+      this.outHash.equals(other.outHash) &&
+      this.numTxs.equals(other.numTxs) &&
+      this.txsEffectsHash.equals(other.txsEffectsHash)
+    );
   }
 }

@@ -1,11 +1,11 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { type AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
 
-import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient } from 'viem';
+import { type Account, type GetContractReturnType, type HttpTransport, type WalletClient } from 'viem';
+import type * as chains from 'viem/chains';
 
 import { type TokenSimulator } from './token_simulator.js';
 
@@ -80,8 +80,9 @@ export class LendingSimulator {
     private cc: CheatCodes,
     private account: LendingAccount,
     private rate: bigint,
+    private ethereumSlotDuration: number,
     /** the rollup contract */
-    public rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
+    public rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>,
     /** the lending contract */
     public lendingContract: LendingContract,
     /** the collateral asset used in the lending contract */
@@ -93,7 +94,7 @@ export class LendingSimulator {
   async prepare() {
     this.accumulator = BASE;
     const slot = await this.rollup.read.getSlotAt([
-      BigInt(await this.cc.eth.timestamp()) + BigInt(ETHEREUM_SLOT_DURATION),
+      BigInt(await this.cc.eth.timestamp()) + BigInt(this.ethereumSlotDuration),
     ]);
     this.time = Number(await this.rollup.read.getTimestampForSlot([slot]));
   }
@@ -109,12 +110,14 @@ export class LendingSimulator {
     this.time = ts;
 
     // Mine ethereum blocks such that the next block will be in a new slot
-    await this.cc.eth.warp(this.time - ETHEREUM_SLOT_DURATION);
+    await this.cc.eth.warp(this.time - this.ethereumSlotDuration);
+
+    await this.rollup.write.setAssumeProvenThroughBlockNumber([(await this.rollup.read.getPendingBlockNumber()) + 1n]);
     this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {
-    this.collateralAsset.unshield(from, this.lendingContract.address, amount);
+    this.collateralAsset.transferToPublic(from, this.lendingContract.address, amount);
     this.deposit(onBehalfOf, amount);
   }
 
@@ -163,7 +166,7 @@ export class LendingSimulator {
 
   mintStableCoinOutsideLoan(recipient: AztecAddress, amount: bigint, priv = false) {
     if (priv) {
-      this.stableCoin.mintPrivate(amount);
+      this.stableCoin.mintPrivate(recipient, amount);
     } else {
       this.stableCoin.mintPublic(recipient, amount);
     }

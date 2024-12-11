@@ -1,8 +1,10 @@
 mod block_root_rollup_inputs;
+mod empty_block_root_rollup_inputs;
 
 // Re-exports
-pub use block_root_rollup_inputs::BlockRootRollupInputs;
 pub use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+pub use block_root_rollup_inputs::BlockRootRollupInputs;
+pub use empty_block_root_rollup_inputs::EmptyBlockRootRollupInputs;
 
 mod tests {
     use crate::tests::block_root_rollup_inputs::default_block_root_rollup_inputs;
@@ -24,11 +26,17 @@ mod tests {
         let inputs = default_block_root_rollup_inputs();
         let outputs = inputs.block_root_rollup_circuit();
 
-        assert(
-            outputs.previous_archive.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.last_archive)
-        );
-        assert(
-            outputs.start_global_variables.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.global_variables)
-        );
+        assert(outputs.previous_archive.eq(
+            inputs.previous_rollup_data[0]
+                .base_or_merge_rollup_public_inputs
+                .constants
+                .last_archive,
+        ));
+        assert(outputs.start_global_variables.eq(
+            inputs.previous_rollup_data[1]
+                .base_or_merge_rollup_public_inputs
+                .constants
+                .global_variables,
+        ));
     }
 }

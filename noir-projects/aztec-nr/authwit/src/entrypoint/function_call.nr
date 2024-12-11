@@ -1,22 +1,30 @@
-use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize};
+use dep::aztec::protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
+};
 
 // 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS) + 1 (IS_PUBLIC) + 1 (IS_STATIC)
-global FUNCTION_CALL_SIZE: Field = 5;
+global FUNCTION_CALL_SIZE: u32 = 5;
 // 3 * 32 + 2
-global FUNCTION_CALL_SIZE_IN_BYTES: Field = 98;
+global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
-struct FunctionCall {
-  args_hash: Field,
-  function_selector: FunctionSelector,
-  target_address: AztecAddress,
-  is_public: bool,
-  is_static: bool,
+pub struct FunctionCall {
+    pub args_hash: Field,
+    pub function_selector: FunctionSelector,
+    pub target_address: AztecAddress,
+    pub is_public: bool,
+    pub is_static: bool,
 }
 
 impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {
-  fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
-    [self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field, self.is_static as Field]
-  }
+    fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
+        [
+            self.args_hash,
+            self.function_selector.to_field(),
+            self.target_address.to_field(),
+            self.is_public as Field,
+            self.is_static as Field,
+        ]
+    }
 }
 
 impl FunctionCall {

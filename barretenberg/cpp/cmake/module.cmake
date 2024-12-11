@@ -156,7 +156,7 @@ function(barretenberg_module MODULE_NAME)
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
         add_dependencies(${MODULE_NAME}_tests msgpack-c)
-        if(NOT WASM AND NOT CI)
+        if(NOT WASM)
             # If collecting coverage data, set profile
             # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
             if(COVERAGE)
@@ -168,7 +168,7 @@ function(barretenberg_module MODULE_NAME)
                 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
             else()
                 # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
-                gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+                gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
             endif()
         endif()
 
@@ -204,6 +204,7 @@ function(barretenberg_module MODULE_NAME)
 
     file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
     if(FUZZING AND FUZZERS_SOURCE_FILES)
+        add_definitions(-DULTRA_FUZZ)
         foreach(FUZZER_SOURCE_FILE ${FUZZERS_SOURCE_FILES})
             get_filename_component(FUZZER_NAME_STEM ${FUZZER_SOURCE_FILE} NAME_WE)
             add_executable(

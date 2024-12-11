@@ -6,6 +6,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -34,8 +35,8 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
-    // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
+    // Indicates that this flavor runs with ZK Sumcheck.
+    static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -81,7 +82,30 @@ class TranslatorFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 177;
-
+    static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
+    static constexpr size_t NUM_CONCATENATED = NUM_CONCATENATED_WIRES * CONCATENATION_GROUP_SIZE;
+    // Number of elements in WireToBeShiftedWithoutConcatenated
+    static constexpr size_t NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED = 16;
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
+    // The index of the shift of the first to be shifted witness
+    static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_WITNESSES + TO_BE_SHIFTED_WITNESSES_START;
+    // The index of the first unshifted witness that is contained in the groups to be concatenated, when AllEntities are
+    // partitioned into get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
+    static constexpr size_t TO_BE_CONCATENATED_START =
+        NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED;
+    // The index of the first concatenation groups element inside AllEntities
+    static constexpr size_t CONCATENATED_START = NUM_SHIFTED_WITNESSES + SHIFTED_WITNESSES_START;
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_WITNESSES,
+                                NUM_SHIFTED_WITNESSES,
+                                TO_BE_CONCATENATED_START,
+                                CONCATENATED_START,
+                                NUM_CONCATENATED);
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -90,7 +114,8 @@ class TranslatorFlavor {
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>>;
+                                  TranslatorNonNativeFieldRelation<FF>,
+                                  TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -109,7 +134,8 @@ class TranslatorFlavor {
                    typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
@@ -128,65 +154,6 @@ class TranslatorFlavor {
                               lagrange_even_in_minicircuit,            // column 4
                               lagrange_second,                         // column 5
                               lagrange_second_to_last_in_minicircuit); // column 6
-        auto get_selectors() { return RefArray<DataType, 0>{}; };
-        auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_id_polynomials() { return RefArray<DataType, 0>{}; };
-
-        inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
-        {
-            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
-
-            for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-                this->lagrange_odd_in_minicircuit.at(i) = 1;
-                this->lagrange_even_in_minicircuit.at(i + 1) = 1;
-            }
-            this->lagrange_second.at(1) = 1;
-            this->lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
-        }
-
-        /**
-         * @brief Compute the extra numerator for Goblin range constraint argument
-         *
-         * @details Goblin proves that several polynomials contain only values in a certain range through 2 relations:
-         * 1) A grand product which ignores positions of elements (TranslatorPermutationRelation)
-         * 2) A relation enforcing a certain ordering on the elements of the given polynomial
-         * (TranslatorDeltaRangeConstraintRelation)
-         *
-         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from MAX_VALUE
-         * to 0. We order these polynomials and use them in the denominator of the grand product, at the same time
-         * checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an extra range
-         * constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
-         *
-         */
-        inline void compute_extra_range_constraint_numerator()
-        {
-            auto& extra_range_constraint_numerator = this->ordered_extra_range_constraints_numerator;
-
-            static constexpr uint32_t MAX_VALUE = (1 << MICRO_LIMB_BITS) - 1;
-
-            // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
-            size_t sorted_elements_count = (MAX_VALUE / SORT_STEP) + 1 + (MAX_VALUE % SORT_STEP == 0 ? 0 : 1);
-
-            // Check that we can fit every element in the polynomial
-            ASSERT((NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
-
-            std::vector<size_t> sorted_elements(sorted_elements_count);
-
-            // Calculate the sequence in integers
-            sorted_elements[0] = MAX_VALUE;
-            for (size_t i = 1; i < sorted_elements_count; i++) {
-                sorted_elements[i] = (sorted_elements_count - 1 - i) * SORT_STEP;
-            }
-
-            // TODO(#756): can be parallelized further. This will use at most 5 threads
-            auto fill_with_shift = [&](size_t shift) {
-                for (size_t i = 0; i < sorted_elements_count; i++) {
-                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
-                }
-            };
-            // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
-            parallel_for(NUM_CONCATENATED_WIRES + 1, fill_with_shift);
-        }
     };
 
     template <typename DataType> class ConcatenatedRangeConstraints {
@@ -198,89 +165,101 @@ class TranslatorFlavor {
                               concatenated_range_constraints_3) // column 3
     };
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/790) dedupe with shifted?
-    template <typename DataType> class WireToBeShiftedEntities {
+    template <typename DataType> class WireToBeShiftedWithoutConcatenated {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi,                                    // column 0
-                              x_hi_z_1,                                     // column 1
-                              y_lo_z_2,                                     // column 2
-                              p_x_low_limbs,                                // column 3
-                              p_x_low_limbs_range_constraint_0,             // column 4
-                              p_x_low_limbs_range_constraint_1,             // column 5
-                              p_x_low_limbs_range_constraint_2,             // column 6
-                              p_x_low_limbs_range_constraint_3,             // column 7
-                              p_x_low_limbs_range_constraint_4,             // column 8
-                              p_x_low_limbs_range_constraint_tail,          // column 9
-                              p_x_high_limbs,                               // column 10
-                              p_x_high_limbs_range_constraint_0,            // column 11
-                              p_x_high_limbs_range_constraint_1,            // column 12
-                              p_x_high_limbs_range_constraint_2,            // column 13
-                              p_x_high_limbs_range_constraint_3,            // column 14
-                              p_x_high_limbs_range_constraint_4,            // column 15
-                              p_x_high_limbs_range_constraint_tail,         // column 16
-                              p_y_low_limbs,                                // column 17
-                              p_y_low_limbs_range_constraint_0,             // column 18
-                              p_y_low_limbs_range_constraint_1,             // column 19
-                              p_y_low_limbs_range_constraint_2,             // column 20
-                              p_y_low_limbs_range_constraint_3,             // column 21
-                              p_y_low_limbs_range_constraint_4,             // column 22
-                              p_y_low_limbs_range_constraint_tail,          // column 23
-                              p_y_high_limbs,                               // column 24
-                              p_y_high_limbs_range_constraint_0,            // column 25
-                              p_y_high_limbs_range_constraint_1,            // column 26
-                              p_y_high_limbs_range_constraint_2,            // column 27
-                              p_y_high_limbs_range_constraint_3,            // column 28
-                              p_y_high_limbs_range_constraint_4,            // column 29
-                              p_y_high_limbs_range_constraint_tail,         // column 30
-                              z_low_limbs,                                  // column 31
-                              z_low_limbs_range_constraint_0,               // column 32
-                              z_low_limbs_range_constraint_1,               // column 33
-                              z_low_limbs_range_constraint_2,               // column 34
-                              z_low_limbs_range_constraint_3,               // column 35
-                              z_low_limbs_range_constraint_4,               // column 36
-                              z_low_limbs_range_constraint_tail,            // column 37
-                              z_high_limbs,                                 // column 38
-                              z_high_limbs_range_constraint_0,              // column 39
-                              z_high_limbs_range_constraint_1,              // column 40
-                              z_high_limbs_range_constraint_2,              // column 41
-                              z_high_limbs_range_constraint_3,              // column 42
-                              z_high_limbs_range_constraint_4,              // column 43
-                              z_high_limbs_range_constraint_tail,           // column 44
-                              accumulators_binary_limbs_0,                  // column 45
-                              accumulators_binary_limbs_1,                  // column 46
-                              accumulators_binary_limbs_2,                  // column 47
-                              accumulators_binary_limbs_3,                  // column 48
-                              accumulator_low_limbs_range_constraint_0,     // column 49
-                              accumulator_low_limbs_range_constraint_1,     // column 50
-                              accumulator_low_limbs_range_constraint_2,     // column 51
-                              accumulator_low_limbs_range_constraint_3,     // column 52
-                              accumulator_low_limbs_range_constraint_4,     // column 53
-                              accumulator_low_limbs_range_constraint_tail,  // column 54
-                              accumulator_high_limbs_range_constraint_0,    // column 55
-                              accumulator_high_limbs_range_constraint_1,    // column 56
-                              accumulator_high_limbs_range_constraint_2,    // column 57
-                              accumulator_high_limbs_range_constraint_3,    // column 58
-                              accumulator_high_limbs_range_constraint_4,    // column 59
-                              accumulator_high_limbs_range_constraint_tail, // column 60
-                              quotient_low_binary_limbs,                    // column 61
-                              quotient_high_binary_limbs,                   // column 62
-                              quotient_low_limbs_range_constraint_0,        // column 63
-                              quotient_low_limbs_range_constraint_1,        // column 64
-                              quotient_low_limbs_range_constraint_2,        // column 65
-                              quotient_low_limbs_range_constraint_3,        // column 66
-                              quotient_low_limbs_range_constraint_4,        // column 67
-                              quotient_low_limbs_range_constraint_tail,     // column 68
-                              quotient_high_limbs_range_constraint_0,       // column 69
-                              quotient_high_limbs_range_constraint_1,       // column 70
-                              quotient_high_limbs_range_constraint_2,       // column 71
-                              quotient_high_limbs_range_constraint_3,       // column 72
-                              quotient_high_limbs_range_constraint_4,       // column 73
-                              quotient_high_limbs_range_constraint_tail,    // column 74
-                              relation_wide_limbs,                          // column 75
+                              x_lo_y_hi,                   // column 0
+                              x_hi_z_1,                    // column 1
+                              y_lo_z_2,                    // column 2
+                              p_x_low_limbs,               // column 3
+                              p_x_high_limbs,              // column 4
+                              p_y_low_limbs,               // column 5
+                              p_y_high_limbs,              // column 6
+                              z_low_limbs,                 // column 7
+                              z_high_limbs,                // column 8
+                              accumulators_binary_limbs_0, // column 9
+                              accumulators_binary_limbs_1, // column 10
+                              accumulators_binary_limbs_2, // column 11
+                              accumulators_binary_limbs_3, // column 12
+                              quotient_low_binary_limbs,   // column 13
+                              quotient_high_binary_limbs,  // column 14
+                              relation_wide_limbs);        // column 15
+    };
+
+    template <typename DataType> class WireToBeShiftedAndConcatenated {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              p_x_low_limbs_range_constraint_0,             // column 16
+                              p_x_low_limbs_range_constraint_1,             // column 17
+                              p_x_low_limbs_range_constraint_2,             // column 18
+                              p_x_low_limbs_range_constraint_3,             // column 19
+                              p_x_low_limbs_range_constraint_4,             // column 20
+                              p_x_low_limbs_range_constraint_tail,          // column 21
+                              p_x_high_limbs_range_constraint_0,            // column 22
+                              p_x_high_limbs_range_constraint_1,            // column 23
+                              p_x_high_limbs_range_constraint_2,            // column 24
+                              p_x_high_limbs_range_constraint_3,            // column 25
+                              p_x_high_limbs_range_constraint_4,            // column 26
+                              p_x_high_limbs_range_constraint_tail,         // column 27
+                              p_y_low_limbs_range_constraint_0,             // column 28
+                              p_y_low_limbs_range_constraint_1,             // column 29
+                              p_y_low_limbs_range_constraint_2,             // column 30
+                              p_y_low_limbs_range_constraint_3,             // column 31
+                              p_y_low_limbs_range_constraint_4,             // column 32
+                              p_y_low_limbs_range_constraint_tail,          // column 33
+                              p_y_high_limbs_range_constraint_0,            // column 34
+                              p_y_high_limbs_range_constraint_1,            // column 35
+                              p_y_high_limbs_range_constraint_2,            // column 36
+                              p_y_high_limbs_range_constraint_3,            // column 37
+                              p_y_high_limbs_range_constraint_4,            // column 38
+                              p_y_high_limbs_range_constraint_tail,         // column 39
+                              z_low_limbs_range_constraint_0,               // column 40
+                              z_low_limbs_range_constraint_1,               // column 41
+                              z_low_limbs_range_constraint_2,               // column 42
+                              z_low_limbs_range_constraint_3,               // column 43
+                              z_low_limbs_range_constraint_4,               // column 44
+                              z_low_limbs_range_constraint_tail,            // column 45
+                              z_high_limbs_range_constraint_0,              // column 46
+                              z_high_limbs_range_constraint_1,              // column 47
+                              z_high_limbs_range_constraint_2,              // column 48
+                              z_high_limbs_range_constraint_3,              // column 49
+                              z_high_limbs_range_constraint_4,              // column 50
+                              z_high_limbs_range_constraint_tail,           // column 51
+                              accumulator_low_limbs_range_constraint_0,     // column 52
+                              accumulator_low_limbs_range_constraint_1,     // column 53
+                              accumulator_low_limbs_range_constraint_2,     // column 54
+                              accumulator_low_limbs_range_constraint_3,     // column 55
+                              accumulator_low_limbs_range_constraint_4,     // column 56
+                              accumulator_low_limbs_range_constraint_tail,  // column 57
+                              accumulator_high_limbs_range_constraint_0,    // column 58
+                              accumulator_high_limbs_range_constraint_1,    // column 59
+                              accumulator_high_limbs_range_constraint_2,    // column 60
+                              accumulator_high_limbs_range_constraint_3,    // column 61
+                              accumulator_high_limbs_range_constraint_4,    // column 62
+                              accumulator_high_limbs_range_constraint_tail, // column 63
+                              quotient_low_limbs_range_constraint_0,        // column 64
+                              quotient_low_limbs_range_constraint_1,        // column 65
+                              quotient_low_limbs_range_constraint_2,        // column 66
+                              quotient_low_limbs_range_constraint_3,        // column 67
+                              quotient_low_limbs_range_constraint_4,        // column 68
+                              quotient_low_limbs_range_constraint_tail,     // column 69
+                              quotient_high_limbs_range_constraint_0,       // column 70
+                              quotient_high_limbs_range_constraint_1,       // column 71
+                              quotient_high_limbs_range_constraint_2,       // column 72
+                              quotient_high_limbs_range_constraint_3,       // column 73
+                              quotient_high_limbs_range_constraint_4,       // column 74
+                              quotient_high_limbs_range_constraint_tail,    // column 75
                               relation_wide_limbs_range_constraint_0,       // column 76
                               relation_wide_limbs_range_constraint_1,       // column 77
                               relation_wide_limbs_range_constraint_2,       // column 78
                               relation_wide_limbs_range_constraint_3);      // column 79
+    };
+
+    template <typename DataType>
+    class WireToBeShiftedEntities : public WireToBeShiftedWithoutConcatenated<DataType>,
+                                    public WireToBeShiftedAndConcatenated<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WireToBeShiftedWithoutConcatenated<DataType>, WireToBeShiftedAndConcatenated<DataType>)
     };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
@@ -338,7 +317,7 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
+        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -356,14 +335,6 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all(),
                                ConcatenatedRangeConstraints<DataType>::get_all());
         }
-        std::vector<std::string> get_unshifted_labels()
-        {
-            return concatenate(WireNonshiftedEntities<DataType>::get_labels(),
-                               WireToBeShiftedEntities<DataType>::get_labels(),
-                               OrderedRangeConstraints<DataType>::get_labels(),
-                               DerivedWitnessEntities<DataType>::get_labels(),
-                               ConcatenatedRangeConstraints<DataType>::get_labels());
-        }
         auto get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -376,14 +347,14 @@ class TranslatorFlavor {
          *
          * @return auto
          */
-        auto get_concatenated_constraints() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
+        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the polynomials that are concatenated for the permutation relation
+         * @brief Get the entities concatenated for the permutation relation
          *
          * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_concatenation_groups()
+        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
             return {
                 {
@@ -472,51 +443,54 @@ class TranslatorFlavor {
                               x_hi_z_1_shift,                                     // column 1
                               y_lo_z_2_shift,                                     // column 2
                               p_x_low_limbs_shift,                                // column 3
+                              p_x_high_limbs_shift,                               // column 10
+                              p_y_low_limbs_shift,                                // column 17
+                              p_y_high_limbs_shift,                               // column 24
+                              z_low_limbs_shift,                                  // column 31
+                              z_high_limbs_shift,                                 // column 38
+                              accumulators_binary_limbs_0_shift,                  // column 45
+                              accumulators_binary_limbs_1_shift,                  // column 46
+                              accumulators_binary_limbs_2_shift,                  // column 47
+                              accumulators_binary_limbs_3_shift,                  // column 48
+                              quotient_low_binary_limbs_shift,                    // column 61
+                              quotient_high_binary_limbs_shift,                   // column 62
+                              relation_wide_limbs_shift,                          // column 75
                               p_x_low_limbs_range_constraint_0_shift,             // column 4
                               p_x_low_limbs_range_constraint_1_shift,             // column 5
                               p_x_low_limbs_range_constraint_2_shift,             // column 6
                               p_x_low_limbs_range_constraint_3_shift,             // column 7
                               p_x_low_limbs_range_constraint_4_shift,             // column 8
                               p_x_low_limbs_range_constraint_tail_shift,          // column 9
-                              p_x_high_limbs_shift,                               // column 10
                               p_x_high_limbs_range_constraint_0_shift,            // column 11
                               p_x_high_limbs_range_constraint_1_shift,            // column 12
                               p_x_high_limbs_range_constraint_2_shift,            // column 13
                               p_x_high_limbs_range_constraint_3_shift,            // column 14
                               p_x_high_limbs_range_constraint_4_shift,            // column 15
                               p_x_high_limbs_range_constraint_tail_shift,         // column 16
-                              p_y_low_limbs_shift,                                // column 17
                               p_y_low_limbs_range_constraint_0_shift,             // column 18
                               p_y_low_limbs_range_constraint_1_shift,             // column 19
                               p_y_low_limbs_range_constraint_2_shift,             // column 20
                               p_y_low_limbs_range_constraint_3_shift,             // column 21
                               p_y_low_limbs_range_constraint_4_shift,             // column 22
                               p_y_low_limbs_range_constraint_tail_shift,          // column 23
-                              p_y_high_limbs_shift,                               // column 24
                               p_y_high_limbs_range_constraint_0_shift,            // column 25
                               p_y_high_limbs_range_constraint_1_shift,            // column 26
                               p_y_high_limbs_range_constraint_2_shift,            // column 27
                               p_y_high_limbs_range_constraint_3_shift,            // column 28
                               p_y_high_limbs_range_constraint_4_shift,            // column 29
                               p_y_high_limbs_range_constraint_tail_shift,         // column 30
-                              z_low_limbs_shift,                                  // column 31
                               z_low_limbs_range_constraint_0_shift,               // column 32
                               z_low_limbs_range_constraint_1_shift,               // column 33
                               z_low_limbs_range_constraint_2_shift,               // column 34
                               z_low_limbs_range_constraint_3_shift,               // column 35
                               z_low_limbs_range_constraint_4_shift,               // column 36
                               z_low_limbs_range_constraint_tail_shift,            // column 37
-                              z_high_limbs_shift,                                 // column 38
                               z_high_limbs_range_constraint_0_shift,              // column 39
                               z_high_limbs_range_constraint_1_shift,              // column 40
                               z_high_limbs_range_constraint_2_shift,              // column 41
                               z_high_limbs_range_constraint_3_shift,              // column 42
                               z_high_limbs_range_constraint_4_shift,              // column 43
                               z_high_limbs_range_constraint_tail_shift,           // column 44
-                              accumulators_binary_limbs_0_shift,                  // column 45
-                              accumulators_binary_limbs_1_shift,                  // column 46
-                              accumulators_binary_limbs_2_shift,                  // column 47
-                              accumulators_binary_limbs_3_shift,                  // column 48
                               accumulator_low_limbs_range_constraint_0_shift,     // column 49
                               accumulator_low_limbs_range_constraint_1_shift,     // column 50
                               accumulator_low_limbs_range_constraint_2_shift,     // column 51
@@ -529,8 +503,6 @@ class TranslatorFlavor {
                               accumulator_high_limbs_range_constraint_3_shift,    // column 58
                               accumulator_high_limbs_range_constraint_4_shift,    // column 59
                               accumulator_high_limbs_range_constraint_tail_shift, // column 60
-                              quotient_low_binary_limbs_shift,                    // column 61
-                              quotient_high_binary_limbs_shift,                   // column 62
                               quotient_low_limbs_range_constraint_0_shift,        // column 63
                               quotient_low_limbs_range_constraint_1_shift,        // column 64
                               quotient_low_limbs_range_constraint_2_shift,        // column 65
@@ -543,7 +515,6 @@ class TranslatorFlavor {
                               quotient_high_limbs_range_constraint_3_shift,       // column 72
                               quotient_high_limbs_range_constraint_4_shift,       // column 73
                               quotient_high_limbs_range_constraint_tail_shift,    // column 74
-                              relation_wide_limbs_shift,                          // column 75
                               relation_wide_limbs_range_constraint_0_shift,       // column 76
                               relation_wide_limbs_range_constraint_1_shift,       // column 77
                               relation_wide_limbs_range_constraint_2_shift,       // column 78
@@ -570,105 +541,22 @@ class TranslatorFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get the polynomials that are concatenated for the permutation relation
+         * @brief Get entities concatenated for the permutation relation
          *
-         * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_concatenation_groups()
+        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
-            return {
-                {
-                    this->p_x_low_limbs_range_constraint_0,
-                    this->p_x_low_limbs_range_constraint_1,
-                    this->p_x_low_limbs_range_constraint_2,
-                    this->p_x_low_limbs_range_constraint_3,
-                    this->p_x_low_limbs_range_constraint_4,
-                    this->p_x_low_limbs_range_constraint_tail,
-                    this->p_x_high_limbs_range_constraint_0,
-                    this->p_x_high_limbs_range_constraint_1,
-                    this->p_x_high_limbs_range_constraint_2,
-                    this->p_x_high_limbs_range_constraint_3,
-                    this->p_x_high_limbs_range_constraint_4,
-                    this->p_x_high_limbs_range_constraint_tail,
-                    this->p_y_low_limbs_range_constraint_0,
-                    this->p_y_low_limbs_range_constraint_1,
-                    this->p_y_low_limbs_range_constraint_2,
-                    this->p_y_low_limbs_range_constraint_3,
-                },
-                {
-                    this->p_y_low_limbs_range_constraint_4,
-                    this->p_y_low_limbs_range_constraint_tail,
-                    this->p_y_high_limbs_range_constraint_0,
-                    this->p_y_high_limbs_range_constraint_1,
-                    this->p_y_high_limbs_range_constraint_2,
-                    this->p_y_high_limbs_range_constraint_3,
-                    this->p_y_high_limbs_range_constraint_4,
-                    this->p_y_high_limbs_range_constraint_tail,
-                    this->z_low_limbs_range_constraint_0,
-                    this->z_low_limbs_range_constraint_1,
-                    this->z_low_limbs_range_constraint_2,
-                    this->z_low_limbs_range_constraint_3,
-                    this->z_low_limbs_range_constraint_4,
-                    this->z_low_limbs_range_constraint_tail,
-                    this->z_high_limbs_range_constraint_0,
-                    this->z_high_limbs_range_constraint_1,
-                },
-                {
-                    this->z_high_limbs_range_constraint_2,
-                    this->z_high_limbs_range_constraint_3,
-                    this->z_high_limbs_range_constraint_4,
-                    this->z_high_limbs_range_constraint_tail,
-                    this->accumulator_low_limbs_range_constraint_0,
-                    this->accumulator_low_limbs_range_constraint_1,
-                    this->accumulator_low_limbs_range_constraint_2,
-                    this->accumulator_low_limbs_range_constraint_3,
-                    this->accumulator_low_limbs_range_constraint_4,
-                    this->accumulator_low_limbs_range_constraint_tail,
-                    this->accumulator_high_limbs_range_constraint_0,
-                    this->accumulator_high_limbs_range_constraint_1,
-                    this->accumulator_high_limbs_range_constraint_2,
-                    this->accumulator_high_limbs_range_constraint_3,
-                    this->accumulator_high_limbs_range_constraint_4,
-                    this->accumulator_high_limbs_range_constraint_tail,
-                },
-                {
-                    this->quotient_low_limbs_range_constraint_0,
-                    this->quotient_low_limbs_range_constraint_1,
-                    this->quotient_low_limbs_range_constraint_2,
-                    this->quotient_low_limbs_range_constraint_3,
-                    this->quotient_low_limbs_range_constraint_4,
-                    this->quotient_low_limbs_range_constraint_tail,
-                    this->quotient_high_limbs_range_constraint_0,
-                    this->quotient_high_limbs_range_constraint_1,
-                    this->quotient_high_limbs_range_constraint_2,
-                    this->quotient_high_limbs_range_constraint_3,
-                    this->quotient_high_limbs_range_constraint_4,
-                    this->quotient_high_limbs_range_constraint_tail,
-                    this->relation_wide_limbs_range_constraint_0,
-                    this->relation_wide_limbs_range_constraint_1,
-                    this->relation_wide_limbs_range_constraint_2,
-                    this->relation_wide_limbs_range_constraint_3,
-                },
-            };
+            return WitnessEntities<DataType>::get_groups_to_be_concatenated();
         }
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
-         *
-         * @return auto
+         * @brief Getter for entities constructed by concatenation
          */
-        auto get_concatenated_constraints() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
+        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
         /**
          * @brief Get the polynomials from the grand product denominator
          *
@@ -688,7 +576,6 @@ class TranslatorFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -698,29 +585,12 @@ class TranslatorFlavor {
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted_witnesses() { return this->get_shifted(); };
         auto get_wires_and_ordered_range_constraints()
         {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
         };
 
-        /**
-         * @brief Polynomials/commitments, that can be constructed only after the r challenge has been received from
-         * gemini
-         *
-         * @return auto
-         */
-        auto get_special() { return get_concatenated_constraints(); }
-
-        auto get_unshifted_then_shifted_then_special()
-        {
-            auto result{ this->get_unshifted() };
-            auto shifted{ get_shifted() };
-            auto special{ get_special() };
-            result.insert(result.end(), shifted.begin(), shifted.end());
-            result.insert(result.end(), special.begin(), special.end());
-            return result;
-        }
         // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
         auto get_all_witnesses()
         {
@@ -811,7 +681,7 @@ class TranslatorFlavor {
          */
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            BB_OP_COUNT_TIME();
+            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -854,11 +724,67 @@ class TranslatorFlavor {
 
             // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
             // polynomials at second and second to last indices in the minicircuit
-            polynomials.compute_lagrange_polynomials(builder);
+            compute_lagrange_polynomials(builder);
 
             // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and
             // maximum range constraint compute_extra_range_constraint_numerator();
-            polynomials.compute_extra_range_constraint_numerator();
+            compute_extra_range_constraint_numerator();
+        }
+
+        inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
+        {
+            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
+
+            for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
+                polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+                polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+            }
+            polynomials.lagrange_second.at(1) = 1;
+            polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+        }
+
+        /**
+         * @brief Compute the extra numerator for Goblin range constraint argument
+         *
+         * @details Goblin proves that several polynomials contain only values in a certain range through 2
+         * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
+         * relation enforcing a certain ordering on the elements of the given polynomial
+         * (TranslatorDeltaRangeConstraintRelation)
+         *
+         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
+         * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
+         * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
+         * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+         *
+         */
+        inline void compute_extra_range_constraint_numerator()
+        {
+            auto& extra_range_constraint_numerator = polynomials.ordered_extra_range_constraints_numerator;
+
+            static constexpr uint32_t MAX_VALUE = (1 << MICRO_LIMB_BITS) - 1;
+
+            // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
+            size_t sorted_elements_count = (MAX_VALUE / SORT_STEP) + 1 + (MAX_VALUE % SORT_STEP == 0 ? 0 : 1);
+
+            // Check that we can fit every element in the polynomial
+            ASSERT((NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
+
+            std::vector<size_t> sorted_elements(sorted_elements_count);
+
+            // Calculate the sequence in integers
+            sorted_elements[0] = MAX_VALUE;
+            for (size_t i = 1; i < sorted_elements_count; i++) {
+                sorted_elements[i] = (sorted_elements_count - 1 - i) * SORT_STEP;
+            }
+
+            // TODO(#756): can be parallelized further. This will use at most 5 threads
+            auto fill_with_shift = [&](size_t shift) {
+                for (size_t i = 0; i < sorted_elements_count; i++) {
+                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
+                }
+            };
+            // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
+            parallel_for(NUM_CONCATENATED_WIRES + 1, fill_with_shift);
         }
     };
 
@@ -949,13 +875,13 @@ class TranslatorFlavor {
             this->x_hi_z_1 = "X_HI_Z_1";
             this->y_lo_z_2 = "Y_LO_Z_2";
             this->p_x_low_limbs = "P_X_LOW_LIMBS";
+            this->p_x_high_limbs = "P_X_HIGH_LIMBS";
             this->p_x_low_limbs_range_constraint_0 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_0";
             this->p_x_low_limbs_range_constraint_1 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_1";
             this->p_x_low_limbs_range_constraint_2 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_2";
             this->p_x_low_limbs_range_constraint_3 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_3";
             this->p_x_low_limbs_range_constraint_4 = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_4";
             this->p_x_low_limbs_range_constraint_tail = "P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL";
-            this->p_x_high_limbs = "P_X_HIGH_LIMBS";
             this->p_x_high_limbs_range_constraint_0 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0";
             this->p_x_high_limbs_range_constraint_1 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1";
             this->p_x_high_limbs_range_constraint_2 = "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2";

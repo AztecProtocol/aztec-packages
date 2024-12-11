@@ -1,8 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`ContractAddress computeContractAddressFromInstance 1`] = `"0x0ea56faa48431d99cc2d073463d1b718c11174bb551a3d1d6f296b0096089dbb"`;
+exports[`ContractAddress computeContractAddressFromInstance 1`] = `"0x226f73921336a2893fd3748d317de107ab1cdd8fa7d9ddc235e8a189236cd265"`;
 
-exports[`ContractAddress computeInitializationHash 1`] = `Fr<0x2f11768c825fac132c632372d7c6d657fd471a9f9db05a153c6927a24863ec53>`;
+exports[`ContractAddress computeInitializationHash 1`] = `Fr<0x153329c6098512a53cb449057bb5adade93e360575b71192b7b304ace35b2b6b>`;
 
 exports[`ContractAddress computePartialAddress 1`] = `Fr<0x2521255ebd14e8e3e7cd1e8a27d26a902ee9e74905b711950d580e826ba9010d>`;
 

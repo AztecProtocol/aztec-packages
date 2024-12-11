@@ -1,11 +1,11 @@
-use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Eq, Serialize, Deserialize}};
+use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field::field_from_bytes};
 
 // The general Compressed String.
 // Compresses M bytes into N fields.
 // Can be used for longer strings that don't fit in a single field.
 // Each field can store 31 characters, so N should be M/31 rounded up.
-struct CompressedString<let N: u32, let M: u32> {
-  value: [Field; N]
+pub struct CompressedString<let N: u32, let M: u32> {
+    value: [Field; N],
 }
 
 impl<let N: u32, let M: u32> CompressedString<N, M> {
@@ -55,7 +55,6 @@ impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
 impl<let N: u32, let M: u32> Serialize<N> for CompressedString<N, M> {
     fn serialize(self) -> [Field; N] {
         self.value
-
     }
 }
 
@@ -66,45 +65,45 @@ impl<let N: u32, let M: u32> Deserialize<N> for CompressedString<N, M> {
 }
 
 #[test]
-fn test_short_string() {
+unconstrained fn test_short_string() {
     let i = "Hello world";
     let b = i.as_bytes();
-    let name: CompressedString<1,11> = CompressedString::from_string(i);
+    let name: CompressedString<1, 11> = CompressedString::from_string(i);
     let p = b == name.to_bytes();
     assert(p, "invalid recover");
 }
 
 #[test]
-fn test_long_string() {
+unconstrained fn test_long_string() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
-    let name: CompressedString<4,118> = CompressedString::from_string(i);
+    let name: CompressedString<4, 118> = CompressedString::from_string(i);
     let p = b == name.to_bytes();
     assert(p, "invalid recover");
 }
 
 #[test]
-fn test_long_string_work_with_too_many_fields() {
+unconstrained fn test_long_string_work_with_too_many_fields() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
-    let name: CompressedString<5,118> = CompressedString::from_string(i);
+    let name: CompressedString<5, 118> = CompressedString::from_string(i);
     let p = b == name.to_bytes();
     assert(p, "invalid recover");
 }
 
 #[test]
-fn test_serde() {
+unconstrained fn test_serde() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
-    let name: CompressedString<5,118> = CompressedString::from_string(i);
+    let name: CompressedString<5, 118> = CompressedString::from_string(i);
 
     assert_eq(name, CompressedString::deserialize(name.serialize()));
 }
 
 #[test(should_fail)]
-fn test_long_string_fail_with_too_few_fields() {
+unconstrained fn test_long_string_fail_with_too_few_fields() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
-    let name: CompressedString<3,118> = CompressedString::from_string(i);
+    let name: CompressedString<3, 118> = CompressedString::from_string(i);
     let p = b == name.to_bytes();
     assert(p, "invalid recover");
 }

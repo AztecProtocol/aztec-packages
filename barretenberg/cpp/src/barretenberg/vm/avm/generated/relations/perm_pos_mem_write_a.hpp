@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_pos_mem_write_a_permutation_settings {
   public:
@@ -15,17 +15,17 @@ class perm_pos_mem_write_a_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm == 1 || in.mem_sel_op_poseidon_write_a == 1);
+        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_write_a == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(in.perm_pos_mem_write_a_inv,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.poseidon2_sel_poseidon_perm,
+                                     in.poseidon2_sel_poseidon_perm_mem_op,
+                                     in.poseidon2_sel_poseidon_perm_mem_op,
                                      in.mem_sel_op_poseidon_write_a,
                                      in.poseidon2_clk,
-                                     in.main_space_id,
+                                     in.poseidon2_space_id,
                                      in.poseidon2_mem_addr_write_a,
                                      in.poseidon2_b_0,
                                      in.poseidon2_sel_poseidon_perm,
@@ -39,11 +39,11 @@ class perm_pos_mem_write_a_permutation_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
         return std::forward_as_tuple(in.perm_pos_mem_write_a_inv,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.poseidon2_sel_poseidon_perm,
+                                     in.poseidon2_sel_poseidon_perm_mem_op,
+                                     in.poseidon2_sel_poseidon_perm_mem_op,
                                      in.mem_sel_op_poseidon_write_a,
                                      in.poseidon2_clk,
-                                     in.main_space_id,
+                                     in.poseidon2_space_id,
                                      in.poseidon2_mem_addr_write_a,
                                      in.poseidon2_b_0,
                                      in.poseidon2_sel_poseidon_perm,
@@ -63,4 +63,4 @@ class perm_pos_mem_write_a_relation
 };
 template <typename FF_> using perm_pos_mem_write_a = GenericPermutation<perm_pos_mem_write_a_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

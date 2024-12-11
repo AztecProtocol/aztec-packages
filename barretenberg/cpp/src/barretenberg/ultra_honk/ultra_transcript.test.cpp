@@ -92,15 +92,21 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
+            manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
         }
-        manifest_expected.add_challenge(round, "ZM:y");
-
+        manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        manifest_expected.add_entry(round, "ZM:C_q", frs_per_G);
-        manifest_expected.add_challenge(round, "ZM:x", "ZM:z");
+        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
+        }
+
+        manifest_expected.add_challenge(round, "Shplonk:nu");
+        round++;
+        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
+        manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);

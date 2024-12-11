@@ -4,6 +4,7 @@ import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
@@ -47,7 +48,7 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (value instanceof Buffer) {
+    if (Buffer.isBuffer(value)) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
@@ -182,9 +183,7 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   return new f(buffer);
 }
 
-/**
- * Branding to ensure fields are not interchangeable types.
- */
+/** Branding to ensure fields are not interchangeable types. */
 export interface Fr {
   /** Brand. */
   _branding: 'Fr';
@@ -303,10 +302,11 @@ export class Fr extends BaseField {
   }
 
   toJSON() {
-    return {
-      type: 'Fr',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fr);
   }
 }
 
@@ -381,11 +381,16 @@ export class Fq extends BaseField {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
   }
 
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
   toJSON() {
-    return {
-      type: 'Fq',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fq);
   }
 }
 

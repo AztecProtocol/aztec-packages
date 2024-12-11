@@ -94,7 +94,7 @@ While Ethereum contracts are defined by bytecode that runs on the EVM, Aztec con
 
 ### Private Execution
 
-Contract functions marked with `#[aztec(private)]` can only be called privately, and as such 'run' in the user's device. Since they're circuits, their 'execution' is actually the generation of a zk-SNARK proof that'll later be sent to the sequencer for verification.
+Contract functions marked with `#[private]` can only be called privately, and as such 'run' in the user's device. Since they're circuits, their 'execution' is actually the generation of a zk-SNARK proof that'll later be sent to the sequencer for verification.
 
 #### Private Calls
 
@@ -112,7 +112,7 @@ Since the public call is made asynchronously, any return values or side effects 
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
-It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[aztec(internal)]`.
+It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
@@ -148,7 +148,7 @@ For this reason it is encouraged to try to avoid public function calls and inste
 
 ### Public Execution
 
-Contract functions marked with `#[aztec(public)]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
+Contract functions marked with `#[public]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
 
 Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
@@ -178,7 +178,7 @@ This is used to get a result out of an execution, either private or public. It c
 
 #include_code public_getter /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
-#include_code simulate_public_getter yarn-project/end-to-end/src/e2e_auth_contract.test.ts typescript
+#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 
 :::warning
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.

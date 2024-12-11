@@ -15,4 +15,23 @@ export enum TopicType {
   tx = 'tx',
   block_proposal = 'block_proposal',
   block_attestation = 'block_attestation',
+  epoch_proof_quote = 'epoch_proof_quote',
+}
+
+/**
+ * Convert the topic string into a set of labels
+ *
+ * In the form:
+ * {
+ *  "/aztec/tx/0.1.0": "tx",
+ *  ...
+ * }
+ */
+export function metricsTopicStrToLabels() {
+  const topicStrToLabel = new Map<string, string>();
+  for (const topic in TopicType) {
+    topicStrToLabel.set(createTopicString(TopicType[topic as keyof typeof TopicType]), topic);
+  }
+
+  return topicStrToLabel;
 }

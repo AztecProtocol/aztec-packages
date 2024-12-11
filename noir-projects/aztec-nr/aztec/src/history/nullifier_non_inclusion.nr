@@ -1,19 +1,26 @@
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-use dep::protocol_types::{header::Header, utils::field::{full_field_less_than, full_field_greater_than}};
 use crate::{
-    context::PrivateContext, note::{utils::compute_siloed_nullifier, note_interface::NoteInterface},
-    oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness
+    context::PrivateContext,
+    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
+    oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
+use dep::protocol_types::{
+    block_header::BlockHeader,
+    utils::field::{full_field_greater_than, full_field_less_than},
+};
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 trait ProveNullifierNonInclusion {
-    fn prove_nullifier_non_inclusion(header: Header, nullifier: Field);
+    fn prove_nullifier_non_inclusion(header: BlockHeader, nullifier: Field);
 }
 
-impl ProveNullifierNonInclusion for Header {
+impl ProveNullifierNonInclusion for BlockHeader {
     fn prove_nullifier_non_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of a low nullifier of the nullifier
         let witness = unsafe {
-            get_low_nullifier_membership_witness(self.global_variables.block_number as u32, nullifier)
+            get_low_nullifier_membership_witness(
+                self.global_variables.block_number as u32,
+                nullifier,
+            )
         };
 
         // 2) First we prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be
@@ -22,12 +29,14 @@ impl ProveNullifierNonInclusion for Header {
         let low_nullifier_leaf = witness.leaf_preimage;
         assert(
             self.state.partial.nullifier_tree.root
-            == root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
+                == root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
+            "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion",
         );
 
         // 3) Prove that the low leaf is indeed smaller than the nullifier
         assert(
-            full_field_less_than(low_nullifier_leaf.nullifier, nullifier), "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed"
+            full_field_less_than(low_nullifier_leaf.nullifier, nullifier),
+            "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed",
         );
 
         // 4) Prove that the low leaf is pointing "over" the nullifier, which means that the nullifier is not included
@@ -35,18 +44,28 @@ impl ProveNullifierNonInclusion for Header {
         // special case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
         assert(
             full_field_greater_than(low_nullifier_leaf.next_nullifier, nullifier)
-            | (low_nullifier_leaf.next_index == 0), "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed"
+                | (low_nullifier_leaf.next_index == 0),
+            "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
         );
     }
 }
 
 trait ProveNoteNotNullified {
-    fn prove_note_not_nullified<Note, N, M>(header: Header, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M>;
+    fn prove_note_not_nullified<Note, let N: u32>(
+        header: BlockHeader,
+        note: Note,
+        context: &mut PrivateContext,
+    )
+    where
+        Note: NoteInterface<N> + NullifiableNote;
 }
 
-impl ProveNoteNotNullified for Header {
+impl ProveNoteNotNullified for BlockHeader {
     // docs:start:prove_note_not_nullified
-    fn prove_note_not_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
+    fn prove_note_not_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    where
+        Note: NoteInterface<N> + NullifiableNote,
+    {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_non_inclusion(nullifier);

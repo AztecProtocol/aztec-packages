@@ -129,7 +129,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        BB_OP_COUNT_TIME_NAME("Permutation::accumulate");
+        PROFILE_THIS_NAME("Permutation::accumulate");
         // Contribution (1)
         [&]() {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;

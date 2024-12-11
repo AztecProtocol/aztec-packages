@@ -1,8 +1,8 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{ToField, FromField, Serialize, Deserialize};
+use crate::traits::{Deserialize, FromField, Serialize, ToField};
 
-struct ContractClassId {
-  inner: Field
+pub struct ContractClassId {
+    pub inner: Field,
 }
 
 impl Eq for ContractClassId {
@@ -30,7 +30,7 @@ impl Serialize<1> for ContractClassId {
 }
 
 impl Deserialize<1> for ContractClassId {
-  fn deserialize(fields: [Field; 1]) -> Self {
+    fn deserialize(fields: [Field; 1]) -> Self {
         Self { inner: fields[0] }
     }
 }
@@ -39,17 +39,12 @@ impl ContractClassId {
     pub fn compute(
         artifact_hash: Field,
         private_functions_root: Field,
-        public_bytecode_commitment: Field
+        public_bytecode_commitment: Field,
     ) -> Self {
         let hash = crate::hash::poseidon2_hash_with_separator(
-            [
-            artifact_hash,
-            private_functions_root,
-            public_bytecode_commitment
-        ],
-            GENERATOR_INDEX__CONTRACT_LEAF
+            [artifact_hash, private_functions_root, public_bytecode_commitment],
+            GENERATOR_INDEX__CONTRACT_LEAF,
         ); // TODO(@spalladino): Update generator index
-
         ContractClassId::from_field(hash)
     }
 

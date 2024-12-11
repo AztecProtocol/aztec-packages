@@ -1,13 +1,14 @@
-import { type FunctionCall, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  type ContractInstanceWithAddress,
+  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
@@ -17,6 +18,7 @@ import { BaseContractInteraction, type SendMethodOptions } from './base_contract
 import { type Contract } from './contract.js';
 import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
+import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 
 /**
@@ -50,11 +52,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Constructor function to call. */
   private constructorArtifact: FunctionArtifact | undefined;
 
-  /** Cached call to request() */
-  private functionCalls?: ExecutionRequestInit;
-
   constructor(
-    private publicKeysHash: Fr,
+    private publicKeys: PublicKeys,
     wallet: Wallet,
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
@@ -75,10 +74,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
-    if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest(await this.request(options));
-    }
-    return this.txRequest;
+    return this.wallet.createTxExecutionRequest(await this.request(options));
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -93,43 +89,34 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
-    if (!this.functionCalls) {
-      // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-      // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
-      // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
-      // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
-      // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
-      // once this tx has gone through.
-      await this.wallet.registerContract({ artifact: this.artifact, instance: this.getInstance(options) });
+    const deployment = await this.getDeploymentFunctionCalls(options);
 
-      const deployment = await this.getDeploymentFunctionCalls(options);
-      const bootstrap = await this.getInitializeFunctionCalls(options);
+    // NOTE: MEGA HACK. Remove with #10007
+    // register the contract after generating deployment function calls in order to publicly register the class and (optioanlly) emit its bytecode
+    //
+    // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
+    // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
+    // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
+    // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
+    // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
+    // once this tx has gone through.
+    await this.wallet.registerContract({ artifact: this.artifact, instance: this.getInstance(options) });
 
-      if (deployment.calls.length + bootstrap.calls.length === 0) {
-        throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
-      }
+    const bootstrap = await this.getInitializeFunctionCalls(options);
 
-      const request = {
-        calls: [...deployment.calls, ...bootstrap.calls],
-        authWitnesses: [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])],
-        packedArguments: [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])],
-        fee: options.fee,
-      };
-
-      if (options.estimateGas) {
-        // Why do we call this seemingly idempotent getter method here, without using its return value?
-        // This call pushes a capsule required for contract class registration under the hood. And since
-        // capsules are a stack, when we run the simulation for estimating gas, we consume the capsule
-        // that was meant for the actual call. So we need to push it again here. Hopefully this design
-        // will go away soon.
-        await this.getDeploymentFunctionCalls(options);
-        request.fee = await this.getFeeOptionsFromEstimatedGas(request);
-      }
-
-      this.functionCalls = request;
+    if (deployment.calls.length + bootstrap.calls.length === 0) {
+      throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
     }
 
-    return this.functionCalls;
+    const calls = [...deployment.calls, ...bootstrap.calls];
+    const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
+    const packedArguments = [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])];
+    const { cancellable, nonce, fee: userFee } = options;
+
+    const request = { calls, authWitnesses, packedArguments, cancellable, fee: userFee, nonce };
+
+    const fee = await this.getFeeOptions(request);
+    return { ...request, fee };
   }
 
   /**
@@ -147,7 +134,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+  protected async getDeploymentFunctionCalls(
+    options: DeployOptions = {},
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -181,9 +170,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       calls.push(deployInstance(this.wallet, instance).request());
     }
 
-    return {
-      calls,
-    };
+    return { calls };
   }
 
   /**
@@ -191,7 +178,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+  protected getInitializeFunctionCalls(
+    options: DeployOptions,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const { address } = this.getInstance(options);
     const calls: FunctionCall[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
@@ -203,9 +192,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       );
       calls.push(constructorCall.request());
     }
-    return Promise.resolve({
-      calls,
-    });
+    return Promise.resolve({ calls });
   }
 
   /**
@@ -236,7 +223,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       this.instance = getContractInstanceFromDeployParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
-        publicKeysHash: this.publicKeysHash,
+        publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
         deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
       });
@@ -249,8 +236,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns The proven tx.
    */
-  public override prove(options: DeployOptions): Promise<Tx> {
-    return super.prove(options);
+  public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
+    const txProvingResult = await this.proveInternal(options);
+    const instance = this.getInstance(options);
+    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, instance);
   }
 
   /**

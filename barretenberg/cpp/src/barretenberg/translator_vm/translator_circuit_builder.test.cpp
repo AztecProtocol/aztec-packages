@@ -106,8 +106,9 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     const auto& raw_ops = op_queue->get_raw_ops();
     for (const auto& ecc_op : raw_ops) {
         op_accumulator = op_accumulator * x_inv + ecc_op.get_opcode_value();
-        p_x_accumulator = p_x_accumulator * x_inv + ecc_op.base_point.x;
-        p_y_accumulator = p_y_accumulator * x_inv + ecc_op.base_point.y;
+        const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
+        p_x_accumulator = p_x_accumulator * x_inv + x_u256;
+        p_y_accumulator = p_y_accumulator * x_inv + y_u256;
         z_1_accumulator = z_1_accumulator * x_inv + ecc_op.z1;
         z_2_accumulator = z_2_accumulator * x_inv + ecc_op.z2;
     }

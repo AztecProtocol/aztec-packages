@@ -47,7 +47,7 @@ for key in ['commit(t)', 'compute_combiner(t)', 'compute_perturbator(t)', 'compu
 
 print('\nBreakdown of ProtogalaxyProver::prove:')
 protogalaxy_round_labels = [
-    "ProtogalaxyProver_::preparation_round(t)",
+    "ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)",
     "ProtogalaxyProver_::perturbator_round(t)",
     "ProtogalaxyProver_::combiner_quotient_round(t)",
     "ProtogalaxyProver_::update_target_sum_and_fold(t)"

@@ -2,15 +2,30 @@
 set -eu
 
 cd "$(dirname "$0")"
-source ../../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
 
 echo -e "\033[1mRetrieving bb binary from remote cache...\033[0m"
-extract_repo_if_working_copy_clean barretenberg-x86_64-linux-clang \
-  /usr/src/barretenberg/cpp/build/bin ./build
 
-echo -e "\033[1mRetrieving bb.wasm from remote cache...\033[0m"
-extract_repo_if_working_copy_clean barretenberg-wasm-linux-clang \
-  /usr/src/barretenberg/cpp/build-wasm/bin ./build-wasm \
-  /usr/src/barretenberg/cpp/build-wasm-threads/bin ./build-wasm-threads
+SCRIPTS_PATH=../../build-system/s3-cache-scripts/
+HASH=$(AZTEC_CACHE_REBUILD_PATTERNS=.rebuild_patterns $SCRIPTS_PATH/compute-content-hash.sh)
+TMP=$(mktemp -d)
 
-remove_old_images barretenberg-wasm-linux-clang
+function on_exit() {
+  rm -rf "$TMP"
+}
+trap on_exit EXIT
+
+# Parallel download of all the cached builds because they're quite big
+echo "
+barretenberg-preset-wasm
+barretenberg-preset-wasm-threads
+barretenberg-preset-release
+barretenberg-preset-release-world-state
+" | xargs --max-procs 0 -I {} bash -c "$SCRIPTS_PATH/cache-download.sh {}-$HASH.tar.gz $TMP/{}"
+
+# # clobber the existing build with the cached build
+cp -r $TMP/barretenberg-preset-wasm/build build-wasm/
+cp -r $TMP/barretenberg-preset-wasm-threads/build build-wasm-threads/
+
+mkdir -p build
+cp -r $TMP/barretenberg-preset-release/build/* build/
+cp -r $TMP/barretenberg-preset-release-world-state/build/* build/

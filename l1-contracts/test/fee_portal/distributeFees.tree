@@ -1,0 +1,9 @@
+DistributeFees
+├── given the caller is not the canonical rollup
+│   └── it should revert
+└── given the caller is the canonical rollup
+    ├── given insufficient balance
+    │   └── it should revert
+    └── given sufficient balance
+        ├── it should transfer the tokens to the recipient
+        └── it should emit a {FeesDistributed} event

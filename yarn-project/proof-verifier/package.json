@@ -39,6 +39,9 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
+  "inherits": [
+    "../package.common.json"
+  ],
   "jest": {
     "extensionsToTreatAsEsm": [
       ".ts"
@@ -51,6 +54,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -68,6 +74,10 @@
       ]
     ],
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   }
 }

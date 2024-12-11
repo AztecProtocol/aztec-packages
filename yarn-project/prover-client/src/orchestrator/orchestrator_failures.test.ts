@@ -1,16 +1,16 @@
-import { PROVING_STATUS, type ServerCircuitProver } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { TestCircuitProver } from '@aztec/bb-prover';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { timesAsync } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-failures');
+const logger = createLogger('prover-client:test:orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;
@@ -29,67 +29,84 @@ describe('prover/orchestrator/failures', () => {
 
     beforeEach(() => {
       mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
+      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
+    });
+
+    const run = async (message: string) => {
+      // We need at least 3 blocks, 3 txs, and 1 message to ensure all circuits are used
+      // We generate them and add them as part of the pending chain
+      const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
+
+      orchestrator.startNewEpoch(1, 1, 3);
+
+      for (const { block, txs, msgs } of blocks) {
+        // these operations could fail if the target circuit fails before adding all blocks or txs
+        try {
+          await orchestrator.startNewBlock(txs.length, block.header.globalVariables, msgs);
+          let allTxsAdded = true;
+          for (const tx of txs) {
+            try {
+              await orchestrator.addNewTx(tx);
+            } catch (err) {
+              allTxsAdded = false;
+              break;
+            }
+          }
+
+          if (!allTxsAdded) {
+            await expect(orchestrator.setBlockCompleted(block.number)).rejects.toThrow(
+              `Block proving failed: ${message}`,
+            );
+          } else {
+            await orchestrator.setBlockCompleted(block.number);
+          }
+        } catch (err) {
+          break;
+        }
+      }
+    };
+
+    it('succeeds without failed proof', async () => {
+      await run('successful case');
+      await expect(orchestrator.finaliseEpoch()).resolves.not.toThrow();
     });
 
     it.each([
       [
-        'Base Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue('Base Rollup Failed');
-        },
+        'Private Base Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getPrivateBaseRollupProof').mockRejectedValue(msg),
       ],
       [
-        'Merge Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue('Merge Rollup Failed');
-        },
+        'Public Base Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getPublicBaseRollupProof').mockRejectedValue(msg),
       ],
+      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
       [
         'Block Root Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue('Block Root Rollup Failed');
-        },
-      ],
-      // TODO(#7346): Integrate batch rollup circuits into orchestrator and test here
-      // [
-      //   'Block Merge Rollup Failed',
-      //   () => {
-      //     jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue('Block Merge Rollup Failed');
-      //   },
-      // ],
-      // [
-      //   'Root Rollup Failed',
-      //   () => {
-      //     jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue('Root Rollup Failed');
-      //   },
-      // ],
-      [
-        'Base Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue('Base Parity Failed');
-        },
+        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
       ],
       [
-        'Root Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue('Root Parity Failed');
-        },
+        'Block Merge Rollup Failed',
+        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
       ],
-    ] as const)('handles a %s error', async (message: string, fn: () => void) => {
-      fn();
-      const txs = [
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-        makeBloatedProcessedTx(context.actualDb, 3),
-      ];
+      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
+      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
+      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
+    ] as const)('handles a %s error', async (message: string, makeFailedProof: (msg: string) => void) => {
+      /**
+       * NOTE: these tests start a new epoch with N blocks. Each block will have M txs in it.
+       * Txs are proven in parallel and as soon as one fails (which is what this test is setting up to happen)
+       * the orchestrator stops accepting txs in a block.
+       * This means we have to be careful with our assertions as the order in which things happen is non-deterministic.
+       * We need to expect
+       * - addTx to fail (because a block's provingState became invalid)
+       * - addTx to work fine (because we haven't hit the error in the test setup) but the epoch to fail
+       */
+      makeFailedProof(message);
 
-      const blockTicket = await orchestrator.startNewBlock(txs.length, context.globalVariables, []);
+      await run(message);
 
-      for (const tx of txs) {
-        await orchestrator.addNewTx(tx);
-      }
-      await expect(blockTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
+      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow();
     });
   });
 });

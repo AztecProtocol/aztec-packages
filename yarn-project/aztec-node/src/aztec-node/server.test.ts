@@ -4,18 +4,18 @@ import {
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
-  type MerkleTreeAdminOperations,
   MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type NullifierWithBlockSource,
+  type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables, MaxBlockNumber } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress, Fr, MaxBlockNumber } from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
@@ -23,17 +23,13 @@ import { AztecNodeService } from './server.js';
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
 
   let lastBlockNumber: number;
 
   let node: AztecNode;
 
   const chainId = new Fr(12345);
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.random();
-  const feeRecipient = AztecAddress.random();
-  const gasFees = GasFees.empty();
 
   beforeEach(() => {
     lastBlockNumber = 0;
@@ -41,14 +37,14 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeAdminOperations>();
+    merkleTreeOps = mock<MerkleTreeReadOperations>();
 
     const worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => merkleTreeOps,
+      getCommitted: () => merkleTreeOps,
     });
 
     const l2BlockSource = mock<L2BlockSource>({
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getBlockNumber: () => Promise.resolve(lastBlockNumber),
     });
 
     const l2LogsSource = mock<L2LogsSource>();
@@ -57,6 +53,8 @@ describe('aztec node', () => {
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
+
+    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -69,18 +67,17 @@ describe('aztec node', () => {
           registryAddress: EthAddress.ZERO,
           inboxAddress: EthAddress.ZERO,
           outboxAddress: EthAddress.ZERO,
-          availabilityOracleAddress: EthAddress.ZERO,
         },
       },
       p2p,
       l2BlockSource,
       l2LogsSource,
-      l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
+      nullifierWithBlockSource,
       worldState,
       undefined,
-      31337,
+      12345,
       1,
       globalVariablesBuilder,
       new TestCircuitVerifier(),
@@ -96,21 +93,7 @@ describe('aztec node', () => {
       });
       const doubleSpendTx = txs[0];
       const doubleSpendWithExistingTx = txs[1];
-
-      const mockedGlobalVariables = new GlobalVariables(
-        chainId,
-        version,
-        new Fr(lastBlockNumber + 1),
-        new Fr(1),
-        Fr.ZERO,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-
-      globalVariablesBuilder.buildGlobalVariables
-        .mockResolvedValueOnce(mockedGlobalVariables)
-        .mockResolvedValueOnce(mockedGlobalVariables);
+      lastBlockNumber += 1;
 
       expect(await node.isValidTx(doubleSpendTx)).toBe(true);
 
@@ -118,10 +101,6 @@ describe('aztec node', () => {
       doubleSpendTx.data.forRollup!.end.nullifiers.push(doubleSpendTx.data.forRollup!.end.nullifiers[0]);
 
       expect(await node.isValidTx(doubleSpendTx)).toBe(false);
-
-      globalVariablesBuilder.buildGlobalVariables
-        .mockResolvedValueOnce(mockedGlobalVariables)
-        .mockResolvedValueOnce(mockedGlobalVariables);
 
       expect(await node.isValidTx(doubleSpendWithExistingTx)).toBe(true);
 
@@ -134,26 +113,12 @@ describe('aztec node', () => {
       });
 
       expect(await node.isValidTx(doubleSpendWithExistingTx)).toBe(false);
+      lastBlockNumber = 0;
     });
 
     it('tests that the node correctly validates chain id', async () => {
       const tx = mockTxForRollup(0x10000);
       tx.data.constants.txContext.chainId = chainId;
-
-      const mockedGlobalVariables = new GlobalVariables(
-        chainId,
-        version,
-        new Fr(lastBlockNumber + 1),
-        new Fr(1),
-        Fr.ZERO,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-
-      globalVariablesBuilder.buildGlobalVariables
-        .mockResolvedValueOnce(mockedGlobalVariables)
-        .mockResolvedValueOnce(mockedGlobalVariables);
 
       expect(await node.isValidTx(tx)).toBe(true);
 
@@ -173,33 +138,21 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
-      validMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
-      const mockedGlobalVariables = new GlobalVariables(
-        chainId,
-        version,
-        new Fr(lastBlockNumber + 5),
-        new Fr(1),
-        Fr.ZERO,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-
-      globalVariablesBuilder.buildGlobalVariables
-        .mockResolvedValueOnce(mockedGlobalVariables)
-        .mockResolvedValueOnce(mockedGlobalVariables)
-        .mockResolvedValueOnce(mockedGlobalVariables);
+      lastBlockNumber = 3;
 
       // Default tx with no max block number should be valid
       expect(await node.isValidTx(noMaxBlockNumberMetadata)).toBe(true);

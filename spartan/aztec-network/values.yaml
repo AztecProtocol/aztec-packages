@@ -1,0 +1,242 @@
+nameOverride: ""
+fullnameOverride: ""
+
+network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
+  public: false
+  setupL2Contracts: true
+
+telemetry:
+  enabled: false
+  otelCollectorEndpoint:
+
+images:
+  aztec:
+    image: aztecprotocol/aztec
+    pullPolicy: IfNotPresent
+  curl:
+    image: curlimages/curl:7.81.0
+    pullPolicy: IfNotPresent
+  foundry:
+    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
+    pullPolicy: IfNotPresent
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+
+aztec:
+  slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
+  epochDuration: 16 # how many L2 slots in an epoch
+  epochProofClaimWindow: 13 # in L2 slots
+  realProofs: false
+  l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+
+bootNode:
+  peerIdPrivateKey: ""
+  externalHost: ""
+  replicas: 1
+  service:
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
+    nodePort: 8080
+  logLevel: "debug"
+  debug: ""
+  coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+  validator:
+    disabled: true
+  p2p:
+    enabled: "true"
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+  deployContracts: true # Set to false to use manual contract addresses
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
+  contracts:
+    rollupAddress: ""
+    registryAddress: ""
+    inboxAddress: ""
+    outboxAddress: ""
+    feeJuiceAddress: ""
+    feeJuicePortalAddress: ""
+    stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
+
+validator:
+  # If true, the validator will use its peers to serve as the boot node.
+  # This cannot be used when the network first starts up.
+  # But it must be used if the boot node is killed, and the validator is restarted.
+  dynamicBootNode: false
+  replicas: 1
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  service:
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
+    nodePort: 8080
+  logLevel: "debug"
+  debug: ""
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+    maxTxsPerBlock: 4
+    enforceTimeTable: true
+  validator:
+    disabled: false
+    reexecute: true
+  p2p:
+    enabled: "true"
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+  storageSize: "1Gi"
+  dataDir: "/data"
+
+proverNode:
+  externalHost: ""
+  replicas: 1
+  p2pEnabled: true
+  service:
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
+    nodePort: 8080
+  logLevel: "debug"
+  debug: ""
+  proverAgent:
+    count: 0
+    pollIntervalMs: 1000
+    proofTypes: []
+  proverBroker:
+    enabled: false
+    jobTimeoutMs: 30000
+    pollIntervalMs: 1000
+    jobMaxRetries: 3
+    dataDirectory: ""
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+  storage: "8Gi"
+
+pxe:
+  logLevel: "debug"
+  replicas: 1
+  service:
+    nodePort: 8081
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+bot:
+  enabled: true
+  nodeUrl: ""
+  logLevel: "debug"
+  replicas: 1
+  botPrivateKey: "0xcafe"
+  txIntervalSeconds: 24
+  privateTransfersPerTx: 0
+  publicTransfersPerTx: 1
+  # Do not wait for transactions
+  followChain: "NONE"
+  botNoStart: false
+  maxErrors: 3
+  stopIfUnhealthy: true
+  service:
+    type: ClusterIP
+    nodePort: 8082
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+ethereum:
+  externalHost: ""
+  replicas: 1
+  chainId: 1337
+  blockTime: 12sec
+  # 1 billion gas limit
+  # helps ensure we can deploy public contracts
+  gasLimit: "1000000000"
+  args: ""
+  service:
+    type: ClusterIP
+    port: 8545
+    targetPort: 8545
+    nodePort: ""
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+  storage: "80Gi"
+
+proverAgent:
+  service:
+    nodePort: 8083
+  enabled: true
+  replicas: 1
+  pollIntervalMs: 1000
+  proofTypes: ["foo", "bar", "baz"]
+  gke:
+    spotEnabled: false
+  logLevel: "debug"
+  bb:
+    hardwareConcurrency: ""
+  nodeSelector: {}
+  resources: {}
+
+proverBroker:
+  service:
+    nodePort: 8084
+  enabled: true
+  replicas: 1
+  jobTimeoutMs: 30000
+  pollIntervalMs: 1000
+  jobMaxRetries: 3
+  dataDirectory: ""
+  logLevel: "debug"
+  nodeSelector: {}
+  resources: {}
+
+jobs:
+  deployL1Verifier:
+    enable: false

@@ -4,7 +4,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { beforeEach } from '@jest/globals';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint32 } from '../avm_memory_types.js';
+import { Field, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { EcAdd } from './ec_add.js';
 
@@ -20,24 +20,24 @@ describe('EC Instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         EcAdd.opcode, // opcode
-        0x20, // indirect
-        ...Buffer.from('12345670', 'hex'), // p1x
-        ...Buffer.from('12345671', 'hex'), // p1y
-        ...Buffer.from('00000000', 'hex'), // p1IsInfinite
-        ...Buffer.from('12345672', 'hex'), // p2x
-        ...Buffer.from('12345673', 'hex'), // p2y
-        ...Buffer.from('00000001', 'hex'), // p2IsInfinite
-        ...Buffer.from('12345674', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // indirect
+        ...Buffer.from('1235', 'hex'), // p1x
+        ...Buffer.from('1236', 'hex'), // p1y
+        ...Buffer.from('0000', 'hex'), // p1IsInfinite
+        ...Buffer.from('1237', 'hex'), // p2x
+        ...Buffer.from('1238', 'hex'), // p2y
+        ...Buffer.from('0001', 'hex'), // p2IsInfinite
+        ...Buffer.from('1239', 'hex'), // dstOffset
       ]);
       const inst = new EcAdd(
-        /*indirect=*/ 0x20,
-        /*p1X=*/ 0x12345670,
-        /*p1Y=*/ 0x12345671,
+        /*indirect=*/ 0x1234,
+        /*p1X=*/ 0x1235,
+        /*p1Y=*/ 0x1236,
         /*p1IsInfinite=*/ 0,
-        /*p2X=*/ 0x12345672,
-        /*p2Y=*/ 0x12345673,
+        /*p2X=*/ 0x1237,
+        /*p2Y=*/ 0x1238,
         /*p2IsInfinite=*/ 1,
-        /*dstOffset=*/ 0x12345674,
+        /*dstOffset=*/ 0x1239,
       );
 
       expect(EcAdd.deserialize(buf)).toEqual(inst);
@@ -47,7 +47,7 @@ describe('EC Instructions', () => {
     it(`Should double correctly`, async () => {
       const x = new Field(grumpkin.generator().x);
       const y = new Field(grumpkin.generator().y);
-      const zero = new Uint32(0);
+      const zero = new Uint1(0);
 
       context.machineState.memory.set(0, x);
       context.machineState.memory.set(1, y);
@@ -81,7 +81,7 @@ describe('EC Instructions', () => {
 
     it('Should add correctly', async () => {
       const G2 = grumpkin.add(grumpkin.generator(), grumpkin.generator());
-      const zero = new Uint32(0);
+      const zero = new Uint1(0);
 
       const x1 = new Field(grumpkin.generator().x);
       const y1 = new Field(grumpkin.generator().y);

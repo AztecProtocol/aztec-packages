@@ -1,8 +1,8 @@
-use dep::protocol_types::traits::{Eq, Serialize, Deserialize};
+use dep::protocol_types::traits::{Deserialize, Serialize};
 
-struct MockStruct {
-    a: Field,
-    b: Field,
+pub(crate) struct MockStruct {
+    pub(crate) a: Field,
+    pub(crate) b: Field,
 }
 
 impl MockStruct {
@@ -30,7 +30,7 @@ impl Deserialize<2> for MockStruct {
 }
 
 #[test]
-fn test_serde() {
+unconstrained fn test_serde() {
     let val = MockStruct::new(5, 6);
     assert_eq(val, MockStruct::deserialize(val.serialize()));
 }

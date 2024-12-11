@@ -1,16 +1,19 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 
 namespace bb::crypto::merkle_tree {
+
+class LMDBDatabaseCreationTransaction;
 /**
  * RAII wrapper atound the opening and closing of an LMDB database
  * Contains a reference to its LMDB environment
  */
 class LMDBDatabase {
   public:
-    LMDBDatabase(const LMDBEnvironment& env,
+    using Ptr = std::unique_ptr<LMDBDatabase>;
+
+    LMDBDatabase(LMDBEnvironment::SharedPtr env,
                  const LMDBDatabaseCreationTransaction& transaction,
                  const std::string& name,
                  bool integerKeys = false,
@@ -28,6 +31,6 @@ class LMDBDatabase {
 
   private:
     MDB_dbi _dbi;
-    const LMDBEnvironment& _environment;
+    LMDBEnvironment::SharedPtr _environment;
 };
 } // namespace bb::crypto::merkle_tree

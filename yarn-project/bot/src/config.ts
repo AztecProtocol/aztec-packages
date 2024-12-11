@@ -7,9 +7,17 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
-const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
-type BotFollowChain = (typeof botFollowChain)[number];
+import { z } from 'zod';
+
+const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+type BotFollowChain = (typeof BotFollowChain)[number];
+
+export enum SupportedTokenContracts {
+  TokenContract = 'TokenContract',
+  EasyPrivateTokenContract = 'EasyPrivateTokenContract',
+}
 
 export type BotConfig = {
   /** The URL to the Aztec node to check for tx pool status. */
@@ -46,7 +54,44 @@ export type BotConfig = {
   l2GasLimit: number | undefined;
   /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
   daGasLimit: number | undefined;
+  /** Token contract to use */
+  contract: SupportedTokenContracts;
+  /** The maximum number of consecutive errors before the bot shuts down */
+  maxConsecutiveErrors: number;
+  /** Stops the bot if service becomes unhealthy */
+  stopWhenUnhealthy: boolean;
 };
+
+export const BotConfigSchema = z
+  .object({
+    nodeUrl: z.string().optional(),
+    pxeUrl: z.string().optional(),
+    senderPrivateKey: schemas.Fr,
+    recipientEncryptionSecret: schemas.Fr,
+    tokenSalt: schemas.Fr,
+    txIntervalSeconds: z.number(),
+    privateTransfersPerTx: z.number(),
+    publicTransfersPerTx: z.number(),
+    feePaymentMethod: z.union([z.literal('fee_juice'), z.literal('none')]),
+    noStart: z.boolean(),
+    txMinedWaitSeconds: z.number(),
+    followChain: z.enum(BotFollowChain),
+    maxPendingTxs: z.number(),
+    flushSetupTransactions: z.boolean(),
+    skipPublicSimulation: z.boolean(),
+    l2GasLimit: z.number().optional(),
+    daGasLimit: z.number().optional(),
+    contract: z.nativeEnum(SupportedTokenContracts),
+    maxConsecutiveErrors: z.number(),
+    stopWhenUnhealthy: z.boolean(),
+  })
+  .transform(config => ({
+    nodeUrl: undefined,
+    pxeUrl: undefined,
+    l2GasLimit: undefined,
+    daGasLimit: undefined,
+    ...config,
+  })) satisfies ZodFor<BotConfig>;
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeUrl: {
@@ -109,9 +154,9 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   followChain: {
     env: 'BOT_FOLLOW_CHAIN',
     description: 'Which chain the bot follows',
-    defaultValue: 'none',
+    defaultValue: 'NONE',
     parseEnv(val) {
-      if (!botFollowChain.includes(val as any)) {
+      if (!(BotFollowChain as readonly string[]).includes(val.toUpperCase())) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
       return val as BotFollowChain;
@@ -141,6 +186,31 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_DA_GAS_LIMIT',
     description: 'DA gas limit for the tx (empty to have the bot trigger an estimate gas).',
     ...optionalNumberConfigHelper(),
+  },
+  contract: {
+    env: 'BOT_TOKEN_CONTRACT',
+    description: 'Token contract to use',
+    defaultValue: SupportedTokenContracts.TokenContract,
+    parseEnv(val) {
+      if (!Object.values(SupportedTokenContracts).includes(val as any)) {
+        throw new Error(
+          `Invalid value for BOT_TOKEN_CONTRACT: ${val}. Valid values: ${Object.values(SupportedTokenContracts).join(
+            ', ',
+          )}`,
+        );
+      }
+      return val as SupportedTokenContracts;
+    },
+  },
+  maxConsecutiveErrors: {
+    env: 'BOT_MAX_CONSECUTIVE_ERRORS',
+    description: 'The maximum number of consecutive errors before the bot shuts down',
+    ...numberConfigHelper(0),
+  },
+  stopWhenUnhealthy: {
+    env: 'BOT_STOP_WHEN_UNHEALTHY',
+    description: 'Stops the bot if service becomes unhealthy',
+    ...booleanConfigHelper(false),
   },
 };
 

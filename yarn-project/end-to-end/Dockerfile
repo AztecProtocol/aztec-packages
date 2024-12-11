@@ -39,7 +39,7 @@ RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
 # Anvil. Hacky, but can't be bothered handling foundry image as we're moving to earthly.
 RUN curl -L https://foundry.paradigm.xyz | bash
-RUN /root/.foundry/bin/foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916 && mkdir -p /usr/src/foundry/bin && cp /root/.foundry/bin/anvil /usr/src/foundry/bin/anvil
+RUN /root/.foundry/bin/foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc && mkdir -p /usr/src/foundry/bin && cp /root/.foundry/bin/anvil /usr/src/foundry/bin/anvil
 
 # Create minimal image.
 FROM node:18.19.1-slim

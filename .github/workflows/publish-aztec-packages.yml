@@ -1,0 +1,402 @@
+name: Publish Aztec Packages
+
+on:
+  push:
+    branches:
+      - master
+      - "*/release-master*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        description: "The tag to release"
+        required: true
+      publish:
+        type: boolean
+        description: "Whether to publish the release"
+        required: true
+
+permissions:
+  # Necessary to upload new release artifacts
+  contents: write
+  issues: write
+
+env:
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  SHOULD_PUBLISH_DOCKER_IMAGES: ${{ github.event.inputs.publish == 'true' || github.event_name == 'push' }}
+  DEPLOY_TAG: ${{ github.event.inputs.tag }}
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    outputs:
+      username: ${{ steps.compute_username.outputs.username }}
+    steps:
+      - name: Compute Username
+        id: compute_username
+        shell: bash
+        env:
+          REPO: "${{ github.repository }}"
+          BRANCH: "${{ github.ref_name }}"
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "username=${{ github.actor }}"
+            echo "username=${{ github.actor }}" >> $GITHUB_OUTPUT
+          else
+            GIT_HASH="${{ github.sha }}"
+            GIT_HASH_LAST8=${GIT_HASH: -8}
+            GIT_HASH_LAST8_DEC=$(printf "%d" 0x$GIT_HASH_LAST8)
+            GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
+            echo "username=master-${GIT_HASH_MODULO_8}"
+            echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
+          fi
+      - name: Check if tag is valid
+        id: check_tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG=${{ github.event.inputs.tag }}
+          if [[ "$TAG" == aztec-packages-v* ]]; then
+            DEPLOY_TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${DEPLOY_TAG#aztec-packages-v}
+            echo "Tag is valid. Proceeding with publishing v$VERSION."
+          else
+            echo "Invalid tag format. Expected aztec-packages-v*"
+            exit 1
+          fi
+
+  setup-x86:
+    needs: [configure]
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ needs.configure.outputs.username }}
+      runner_type: builder-x86
+    secrets: inherit
+
+  setup-arm:
+    needs: [configure]
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ needs.configure.outputs.username }}
+      runner_type: builder-arm
+    secrets: inherit
+
+  build-aztec-x86:
+    needs: [configure, setup-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & Push Aztec and End-to-End x86_64
+        timeout-minutes: 40
+        run: |
+          earthly-ci \
+            --no-output \
+            --push \
+            ./yarn-project+export-images-arch \
+            --DIST_TAG=${{ env.GIT_COMMIT }} \
+            --ARCH=x86_64
+
+  build-aztec-arm:
+    needs: [configure, setup-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & Push Aztec arm64
+        timeout-minutes: 80
+        run: |
+          sudo shutdown -P 80
+          earthly-ci \
+            --no-output \
+            --push \
+            ./yarn-project+export-aztec-arch \
+            --DIST_TAG=${{ env.GIT_COMMIT }} \
+            --ARCH=arm64
+
+  build-nargo-x86:
+    needs: [configure, build-aztec-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-nargo
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & push aztec nargo image
+        run: |
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
+
+  build-nargo-arm:
+    needs: [configure, build-aztec-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-nargo
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & push aztec nargo image
+        run: |
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
+
+  build-cli-wallet-x86:
+    needs: [configure, build-aztec-x86]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-cli-wallet
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & push aztec cli wallet image
+        run: |
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=x86_64
+
+  build-cli-wallet-arm:
+    needs: [configure, build-aztec-arm]
+    runs-on: ${{ needs.configure.outputs.username }}-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-cli-wallet
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Build & push aztec cli wallet image
+        run: |
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.GIT_COMMIT }} --ARCH=arm64
+
+  publish-manifests:
+    needs:
+      - configure
+      - build-aztec-x86
+      - build-aztec-arm
+      - build-nargo-x86
+      - build-nargo-arm
+      - build-cli-wallet-x86
+      - build-cli-wallet-arm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Publish aztec manifests
+        if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
+        run: |
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#release/}"
+            DIST_TAG=devnet
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+            DIST_TAG=latest
+          else
+            VERSION=""
+            DIST_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          fi
+
+          docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
+          docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+          docker pull aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64
+          docker pull aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
+          docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64
+          docker pull aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
+
+          if [ -n "$VERSION" ]; then
+            docker manifest create aztecprotocol/aztec:$VERSION \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec:$VERSION
+
+            docker manifest create aztecprotocol/aztec-nargo:$VERSION \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/aztec-nargo:$VERSION
+
+            docker manifest create aztecprotocol/cli-wallet:$VERSION \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
+              aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
+            docker manifest push aztecprotocol/cli-wallet:$VERSION
+          fi
+
+          docker manifest create aztecprotocol/aztec:$DIST_TAG \
+            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64 \
+            aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+          docker manifest push aztecprotocol/aztec:$DIST_TAG
+
+          docker manifest create aztecprotocol/aztec-nargo:$DIST_TAG \
+            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64 \
+            aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-arm64
+          docker manifest push aztecprotocol/aztec-nargo:$DIST_TAG
+
+          docker manifest create aztecprotocol/cli-wallet:$DIST_TAG \
+            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-x86_64 \
+            aztecprotocol/cli-wallet:${{ env.GIT_COMMIT }}-arm64
+          docker manifest push aztecprotocol/cli-wallet:$DIST_TAG
+
+  publish-npm:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [configure, publish-manifests]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GIT_COMMIT }}
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: publish-npm
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Set tags and versions
+        id: version_step
+        run: |
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            DIST_TAG=devnet
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}-devnet
+          else
+            DIST_TAG=latest
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "DIST_TAG=$DIST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Publish bb.js NPM package
+        run: |
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./barretenberg/ts+publish-npm \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+      - name: Publish yarn-project NPM packages
+        run: |
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./yarn-project+publish-npm \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+      - name: Publish l1-contracts NPM package
+        run: |
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./l1-contracts+publish-npm \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+      - name: Publish spartan NPM package
+        run: |
+          earthly-ci \
+            --no-output \
+            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
+            ./spartan/releases/rough-rhino+publish-npm \
+            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
+            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
+
+  publish-aztec-up:
+    needs: [configure, publish-manifests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GIT_COMMIT }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Publish aztec-up
+        working-directory: ./aztec-up/terraform
+        run: |
+          if [ "${{ github.ref_name }}" == "release/*" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#release/}"
+          elif [ -n "${{ env.DEPLOY_TAG }}" ]; then
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+          else
+            VERSION=${{ github.ref_name }}
+          fi
+          terraform init
+          export TF_VAR_VERSION=${VERSION}
+          terraform apply -auto-approve
+
+  # Sometimes runners get killed because they can be spot, we try once more for good measure
+  rerun-check:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    needs:
+      - setup-x86
+      - setup-arm
+      - build-aztec-x86
+      - build-aztec-arm
+      - build-nargo-x86
+      - build-nargo-arm
+      - build-cli-wallet-x86
+      - build-cli-wallet-arm
+      - publish-npm
+      - publish-manifests
+    if: github.event.pull_request.draft == false && !cancelled()
+    steps:
+      - name: Check for Rerun
+        env:
+          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_ATTEMPT: ${{ env.RUN_ATTEMPT }}
+        run: |
+          # Retry first with failed and then with all, in case a runner snagged (e.g. ARM runner going down doesn't get rescued by a rescue script currently)
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 1 ]]; then
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }}
+          elif [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT == 2 ]]; then
+            gh workflow run rerun.yml -F run_id=${{ github.run_id }} -F rerun_mode=all
+          fi

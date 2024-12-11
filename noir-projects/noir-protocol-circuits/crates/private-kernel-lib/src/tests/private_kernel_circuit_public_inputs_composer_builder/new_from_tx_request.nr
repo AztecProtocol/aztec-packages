@@ -1,8 +1,11 @@
 use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_first_nullifier,
-    tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder
+    tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
-use dep::types::{abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths, traits::is_empty};
+use dep::types::{
+    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
+    traits::is_empty,
+};
 
 #[test]
 fn new_from_tx_request_succeeds() {
@@ -22,7 +25,6 @@ fn new_from_tx_request_succeeds() {
     // Check output constants.
     assert_eq(output.constants.tx_context, tx_request.tx_context);
     assert_eq(output.constants.historical_header, historical_header);
-    assert(is_empty(output.constants.global_variables));
 
     // Check first nullifier is set.
     assert_eq(output.end.nullifiers[0], first_nullifier);

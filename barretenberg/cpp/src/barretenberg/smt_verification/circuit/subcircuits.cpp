@@ -8,9 +8,9 @@ CircuitProps get_standard_range_constraint_circuit(size_t n)
     uint32_t a_idx = builder.add_variable(bb::fr(0xabbba));
     builder.set_variable_name(a_idx, "a");
 
-    size_t start_gate = builder.get_num_gates();
+    size_t start_gate = builder.get_estimated_num_finalized_gates();
     auto accumulators = builder.decompose_into_base4_accumulators(a_idx, n);
-    size_t num_gates = builder.get_num_gates() - start_gate;
+    size_t num_gates = builder.get_estimated_num_finalized_gates() - start_gate;
 
     // give names to accumulators for tests
     size_t num_accs = accumulators.size();
@@ -46,9 +46,9 @@ CircuitProps get_standard_logic_circuit(size_t n, bool is_xor)
     builder.set_variable_name(a_idx, "a");
     builder.set_variable_name(b_idx, "b");
 
-    size_t start_gate = builder.get_num_gates();
+    size_t start_gate = builder.get_estimated_num_finalized_gates();
     auto acc = builder.create_logic_constraint(a_idx, b_idx, n, is_xor);
-    size_t num_gates = builder.get_num_gates() - start_gate;
+    size_t num_gates = builder.get_estimated_num_finalized_gates() - start_gate;
 
     builder.set_variable_name(acc.out.back(), "c");
 

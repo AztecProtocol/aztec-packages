@@ -2,42 +2,36 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { codegen } from '@noir-lang/noir_codegen';
 import { type CompiledCircuit } from '@noir-lang/types';
-import { pascalCase, snakeCase } from 'change-case';
-import fs from 'fs/promises';
+import { pascalCase } from 'change-case';
+import { promises as fs } from 'fs';
 
-const log = createConsoleLogger('aztec:noir-contracts');
-
-const resetCircuit = 'private_kernel_reset';
+const log = createConsoleLogger('autogenerate');
 
 const circuits = [
   'parity_base',
   'parity_root',
   'private_kernel_init',
   'private_kernel_inner',
-  resetCircuit,
+  'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
-  'public_kernel_setup',
-  'public_kernel_app_logic',
-  'public_kernel_teardown',
-  'public_kernel_tail',
-  'rollup_base',
+  'rollup_base_private',
+  'rollup_base_public',
   'rollup_merge',
   'rollup_block_root',
   'rollup_block_merge',
+  'rollup_block_root_empty',
   'rollup_root',
   'private_kernel_empty',
   'empty_nested',
 ];
 
 const main = async () => {
-  const resetVariants = JSON.parse(
-    await fs.readFile('../../noir-projects/noir-protocol-circuits/reset_variants.json', 'utf8'),
-  );
-
-  for (const variant of resetVariants) {
-    circuits.push(`${resetCircuit}_${snakeCase(variant.tag)}`);
-  }
+  const dimensionsLists = JSON.parse(
+    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
+  ) as number[][];
+  // Need any variant in the set so that the type will be rendered with generics.
+  circuits.push(`private_kernel_reset_${dimensionsLists[0].join('_')}`);
 
   try {
     await fs.access('./src/types/');

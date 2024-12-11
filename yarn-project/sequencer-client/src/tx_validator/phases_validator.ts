@@ -1,16 +1,16 @@
 import {
   type AllowedElement,
   type PublicExecutionRequest,
-  PublicKernelType,
   Tx,
+  TxExecutionPhase,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { AbstractPhaseManager, ContractsDataSourcePublicDB } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
+import { type ContractDataSource } from '@aztec/circuits.js';
+import { createLogger } from '@aztec/foundation/log';
+import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
+  #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
   constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
@@ -27,7 +27,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // which is what we're trying to do as part of the current txs.
       await this.contractDataSource.addNewContracts(tx);
 
-      if (await this.#validateTx(tx)) {
+      if (await this.validateTx(tx)) {
         validTxs.push(tx);
       } else {
         invalidTxs.push(tx);
@@ -39,19 +39,18 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     return Promise.resolve([validTxs, invalidTxs]);
   }
 
-  async #validateTx(tx: Tx): Promise<boolean> {
+  async validateTx(tx: Tx): Promise<boolean> {
     if (!tx.data.forPublic) {
       this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
       return true;
     }
 
-    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
-
+    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(
           `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
-            setupFn.contractAddress
+            setupFn.callContext.contractAddress
           }:${setupFn.callContext.functionSelector}`,
         );
 
@@ -67,10 +66,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const {
-      contractAddress,
-      callContext: { functionSelector },
-    } = publicCall;
+    const { contractAddress, functionSelector } = publicCall.callContext;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {
@@ -89,7 +85,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
 
       if (!contractClass) {
-        throw new Error(`Contract not found: ${publicCall.contractAddress.toString()}`);
+        throw new Error(`Contract not found: ${contractAddress}`);
       }
 
       if ('classId' in entry && !('selector' in entry)) {

@@ -6,14 +6,14 @@ use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 // and last time it was updated.
 // In practice, it should also point to an oracle and have more fields related to
 // loan to value ratios and other things, but we did not have enough reads/writes for this.
-struct Asset {
+pub struct Asset {
     interest_accumulator: U128,
     last_updated_ts: u64,
     loan_to_value: U128,
     oracle: AztecAddress,
 }
 
-global SERIALIZED_LEN: Field = 6;
+global SERIALIZED_LEN: u32 = 6;
 
 impl Serialize<SERIALIZED_LEN> for Asset {
     fn serialize(Asset: Asset) -> [Field; SERIALIZED_LEN] {
@@ -23,7 +23,7 @@ impl Serialize<SERIALIZED_LEN> for Asset {
             Asset.last_updated_ts as Field,
             Asset.loan_to_value.lo,
             Asset.loan_to_value.hi,
-            Asset.oracle.to_field()
+            Asset.oracle.to_field(),
         ]
     }
 }
@@ -37,11 +37,6 @@ impl Deserialize<SERIALIZED_LEN> for Asset {
         let loan_to_value = U128 { lo: fields[3], hi: fields[4] };
         let oracle = AztecAddress::from_field(fields[5]);
 
-        Asset {
-            interest_accumulator,
-            last_updated_ts,
-            loan_to_value,
-            oracle,
-        }
+        Asset { interest_accumulator, last_updated_ts, loan_to_value, oracle }
     }
 }

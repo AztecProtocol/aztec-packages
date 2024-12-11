@@ -1,12 +1,12 @@
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
-import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
@@ -34,25 +34,36 @@ export class SequencerClient {
    */
   public static async new(
     config: SequencerClientConfig,
-    validatorClient: ValidatorClient | undefined, // allowed to be undefined while we migrate
-    p2pClient: P2P,
-    worldStateSynchronizer: WorldStateSynchronizer,
-    contractDataSource: ContractDataSource,
-    l2BlockSource: L2BlockSource,
-    l1ToL2MessageSource: L1ToL2MessageSource,
-    simulationProvider: SimulationProvider,
-    telemetryClient: TelemetryClient,
+    deps: {
+      validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
+      p2pClient: P2P;
+      worldStateSynchronizer: WorldStateSynchronizer;
+      contractDataSource: ContractDataSource;
+      l2BlockSource: L2BlockSource;
+      l1ToL2MessageSource: L1ToL2MessageSource;
+      telemetry: TelemetryClient;
+      publisher?: L1Publisher;
+    },
   ) {
-    const publisher = new L1Publisher(config, telemetryClient);
-    const globalsBuilder = new GlobalVariableBuilder(config);
-    const merkleTreeDb = worldStateSynchronizer.getLatest();
-
-    const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTreeDb,
+    const {
+      validatorClient,
+      p2pClient,
+      worldStateSynchronizer,
       contractDataSource,
-      simulationProvider,
-      telemetryClient,
-    );
+      l2BlockSource,
+      l1ToL2MessageSource,
+      telemetry: telemetryClient,
+    } = deps;
+    const publisher = deps.publisher ?? new L1Publisher(config, telemetryClient);
+    const globalsBuilder = new GlobalVariableBuilder(config);
+
+    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, telemetryClient);
+
+    const rollup = publisher.getRollupContract();
+    const [l1GenesisTime, slotDuration] = await Promise.all([
+      rollup.read.GENESIS_TIME(),
+      rollup.read.SLOT_DURATION(),
+    ] as const);
 
     const sequencer = new Sequencer(
       publisher,
@@ -60,11 +71,13 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      new BlockBuilderFactory(simulationProvider, telemetryClient),
+      new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeDb, contractDataSource, !!config.enforceFees),
+      new TxValidatorFactory(worldStateSynchronizer.getCommitted(), contractDataSource, !!config.enforceFees),
+      Number(l1GenesisTime),
+      Number(slotDuration),
       telemetryClient,
       config,
     );
@@ -100,7 +113,7 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
-  get coinbase() {
+  get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
 

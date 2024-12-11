@@ -1,4 +1,6 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader,
+};
 
 #[oracle(callPrivateFunction)]
 unconstrained fn call_private_function_oracle(
@@ -7,16 +9,14 @@ unconstrained fn call_private_function_oracle(
     _args_hash: Field,
     _start_side_effect_counter: u32,
     _is_static_call: bool,
-    _is_delegate_call: bool
 ) -> [Field; 2] {}
 
-unconstrained pub fn call_private_function_internal(
+pub unconstrained fn call_private_function_internal(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,
     start_side_effect_counter: u32,
     is_static_call: bool,
-    is_delegate_call: bool
 ) -> (u32, Field) {
     let fields = call_private_function_oracle(
         contract_address,
@@ -24,7 +24,6 @@ unconstrained pub fn call_private_function_internal(
         args_hash,
         start_side_effect_counter,
         is_static_call,
-        is_delegate_call
     );
 
     let mut reader = Reader::new(fields);

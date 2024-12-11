@@ -1,37 +1,51 @@
+import { type BlockHeader } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-
-import { type PrivateKeyAccount } from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
-import { Signature } from './signature.js';
+import { ConsensusPayload } from './consensus_payload.js';
+import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 
-export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
-  signer = signer || randomSigner();
+export interface MakeConsensusPayloadOptions {
+  signer?: Secp256k1Signer;
+  header?: BlockHeader;
+  archive?: Fr;
+  txHashes?: TxHash[];
+}
 
-  const blockHeader = makeHeader(1);
-  const archive = Fr.random();
-  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
+const makeAndSignConsensusPayload = (
+  domainSeperator: SignatureDomainSeperator,
+  options?: MakeConsensusPayloadOptions,
+) => {
+  const {
+    signer = Secp256k1Signer.random(),
+    header = makeHeader(1),
+    archive = Fr.random(),
+    txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  } = options ?? {};
 
-  return new BlockProposal(blockHeader, archive, txs, signature);
+  const payload = ConsensusPayload.fromFields({
+    header,
+    archive,
+    txHashes,
+  });
+
+  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeperator);
+  const signature = signer.sign(hash);
+
+  return { payload, signature };
+};
+
+export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
+  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeperator.blockProposal, options);
+  return new BlockProposal(payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = async (signer?: PrivateKeyAccount): Promise<BlockAttestation> => {
-  signer = signer || randomSigner();
-
-  const blockHeader = makeHeader(1);
-  const archive = Fr.random();
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
-
-  return new BlockAttestation(blockHeader, archive, signature);
-};
-
-export const randomSigner = (): PrivateKeyAccount => {
-  const privateKey = generatePrivateKey();
-  return privateKeyToAccount(privateKey);
+export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
+  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeperator.blockAttestation, options);
+  return new BlockAttestation(payload, signature);
 };

@@ -1,21 +1,20 @@
-import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  type ProverConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+  proverConfigMappings,
+} from '@aztec/circuit-types';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
  * The prover configuration.
  */
-export type ProverClientConfig = ProverConfig & {
-  /** The working directory to use for simulation/proving */
-  acvmWorkingDirectory: string;
-  /** The path to the ACVM binary */
-  acvmBinaryPath: string;
-  /** The working directory to for proving */
-  bbWorkingDirectory: string;
-  /** The path to the bb binary */
-  bbBinaryPath: string;
-};
+export type ProverClientConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
 
-export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   acvmWorkingDirectory: {
     env: 'ACVM_WORKING_DIRECTORY',
     description: 'The working directory to use for simulation/proving',
@@ -32,7 +31,18 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
     env: 'BB_BINARY_PATH',
     description: 'The path to the bb binary',
   },
+  bbSkipCleanup: {
+    env: 'BB_SKIP_CLEANUP',
+    description: 'Whether to skip cleanup of bb temporary files',
+    ...booleanConfigHelper(false),
+  },
+};
+
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+  ...bbConfigMappings,
   ...proverConfigMappings,
+  ...proverAgentConfigMappings,
+  ...proverBrokerConfigMappings,
 };
 
 /**

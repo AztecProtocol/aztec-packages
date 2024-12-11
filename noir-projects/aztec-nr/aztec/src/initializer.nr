@@ -1,20 +1,25 @@
 use dep::protocol_types::{
-    address::AztecAddress, hash::poseidon2_hash_with_separator, constants::GENERATOR_INDEX__CONSTRUCTOR,
-    abis::function_selector::FunctionSelector
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::GENERATOR_INDEX__CONSTRUCTOR, hash::poseidon2_hash_with_separator,
 };
 
 use crate::{
-    context::{PrivateContext, PublicContext}, oracle::get_contract_instance::get_contract_instance,
-    oracle::get_contract_instance::get_contract_instance_avm
+    context::{PrivateContext, PublicContext},
+    oracle::get_contract_instance::{
+        get_contract_instance, get_contract_instance_deployer_avm,
+        get_contract_instance_initialization_hash_avm,
+    },
 };
 
 pub fn mark_as_initialized_public(context: &mut PublicContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
+    let init_nullifier =
+        compute_unsiloed_contract_initialization_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
 pub fn mark_as_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
+    let init_nullifier =
+        compute_unsiloed_contract_initialization_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
@@ -34,11 +39,13 @@ fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> 
 
 pub fn assert_initialization_matches_address_preimage_public(context: PublicContext) {
     let address = context.this_address();
-    let instance = get_contract_instance_avm(address).unwrap();
+    let deployer = get_contract_instance_deployer_avm(address).unwrap();
+    let initialization_hash = get_contract_instance_initialization_hash_avm(address).unwrap();
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
-    assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
+    assert(initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer"
+        (deployer.is_zero()) | (deployer == context.msg_sender()),
+        "Initializer address is not the contract deployer",
     );
 }
 
@@ -48,13 +55,17 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer"
+        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()),
+        "Initializer address is not the contract deployer",
     );
 }
 
-pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
+pub fn compute_initialization_hash(
+    init_selector: FunctionSelector,
+    init_args_hash: Field,
+) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
-        GENERATOR_INDEX__CONSTRUCTOR
+        GENERATOR_INDEX__CONSTRUCTOR,
     )
 }

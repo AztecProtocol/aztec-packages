@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 
 namespace bb::avm_trace {
 
@@ -69,8 +70,10 @@ std::string to_string(OpCode opcode)
         return "XOR_8";
     case OpCode::XOR_16:
         return "XOR_16";
-    case OpCode::NOT:
-        return "NOT";
+    case OpCode::NOT_8:
+        return "NOT_8";
+    case OpCode::NOT_16:
+        return "NOT_16";
     case OpCode::SHL_8:
         return "SHL_8";
     case OpCode::SHL_16:
@@ -80,46 +83,26 @@ std::string to_string(OpCode opcode)
     case OpCode::SHR_16:
         return "SHR_16";
     // Compute - Type Conversions
-    case OpCode::CAST:
-        return "CAST";
+    case OpCode::CAST_8:
+        return "CAST_8";
+    case OpCode::CAST_16:
+        return "CAST_16";
     // Execution Environment
-    case OpCode::ADDRESS:
-        return "ADDRESS";
-    case OpCode::STORAGEADDRESS:
-        return "STORAGEADDRESS";
-    case OpCode::SENDER:
-        return "SENDER";
-    case OpCode::FUNCTIONSELECTOR:
-        return "FUNCTIONSELECTOR";
-    case OpCode::TRANSACTIONFEE:
-        return "TRANSACTIONFEE";
-    // Execution Environment - Globals
-    case OpCode::CHAINID:
-        return "CHAINID";
-    case OpCode::VERSION:
-        return "VERSION";
-    case OpCode::BLOCKNUMBER:
-        return "BLOCKNUMBER";
-    case OpCode::TIMESTAMP:
-        return "TIMESTAMP";
-    case OpCode::FEEPERL2GAS:
-        return "FEEPERL2GAS";
-    case OpCode::FEEPERDAGAS:
-        return "FEEPERDAGAS";
+    case OpCode::GETENVVAR_16:
+        return "GETENVVAR_16";
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
+    case OpCode::RETURNDATASIZE:
+        return "RETURNDATASIZE";
+    case OpCode::RETURNDATACOPY:
+        return "RETURNDATACOPY";
     // Machine State
-    // Machine State - Gas
-    case OpCode::L2GASLEFT:
-        return "L2GASLEFT";
-    case OpCode::DAGASLEFT:
-        return "DAGASLEFT";
     // Machine State - Internal Control Flow
-    case OpCode::JUMP_16:
-        return "JUMP_16";
-    case OpCode::JUMPI_16:
-        return "JUMPI_16";
+    case OpCode::JUMP_32:
+        return "JUMP_32";
+    case OpCode::JUMPI_32:
+        return "JUMPI_32";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:
@@ -141,8 +124,6 @@ std::string to_string(OpCode opcode)
         return "MOV_8";
     case OpCode::MOV_16:
         return "MOV_16";
-    case OpCode::CMOV:
-        return "CMOV";
     // World State
     case OpCode::SLOAD:
         return "SLOAD";
@@ -170,36 +151,29 @@ std::string to_string(OpCode opcode)
         return "CALL";
     case OpCode::STATICCALL:
         return "STATICCALL";
-    case OpCode::DELEGATECALL:
-        return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
-    case OpCode::REVERT:
-        return "REVERT";
+    case OpCode::REVERT_8:
+        return "REVERT_8";
+    case OpCode::REVERT_16:
+        return "REVERT_16";
     // Misc
     case OpCode::DEBUGLOG:
         return "DEBUGLOG";
     // Gadgets
-    case OpCode::KECCAK:
-        return "KECCAK";
-    case OpCode::POSEIDON2:
+    case OpCode::POSEIDON2PERM:
         return "POSEIDON2";
-    case OpCode::SHA256:
-        return "SHA256";
-    case OpCode::PEDERSEN:
-        return "PEDERSEN";
+    case OpCode::SHA256COMPRESSION:
+        return "SHA256COMPRESSION";
+    case OpCode::KECCAKF1600:
+        return "KECCAKF1600";
     case OpCode::ECADD:
         return "ECADD";
     case OpCode::MSM:
         return "MSM";
     // Conversions
-    case OpCode::TORADIXLE:
-        return "TORADIXLE";
-    // Future Gadgets -- pending changes in noir
-    case OpCode::SHA256COMPRESSION:
-        return "SHA256COMPRESSION";
-    case OpCode::KECCAKF1600:
-        return "KECCAKF1600";
+    case OpCode::TORADIXBE:
+        return "TORADIXBE";
     // Sentinel
     case OpCode::LAST_OPCODE_SENTINEL:
         return "LAST_OPCODE_SENTINEL";

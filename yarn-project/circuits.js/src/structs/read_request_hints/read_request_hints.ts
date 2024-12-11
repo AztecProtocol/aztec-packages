@@ -1,3 +1,4 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, type Bufferable, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MembershipWitness } from '../membership_witness.js';
@@ -150,5 +151,16 @@ export class ReadRequestResetHints<
 
   toBuffer() {
     return serializeToBuffer(this.readRequestStatuses, this.pendingReadHints, this.settledReadHints);
+  }
+}
+
+export class ReadRequestResetStates<NUM_READS extends number> {
+  constructor(public states: Tuple<ReadRequestState, NUM_READS>, public pendingReadHints: PendingReadHint[]) {}
+
+  static empty<NUM_READS extends number>(numReads: NUM_READS) {
+    return new ReadRequestResetStates(
+      makeTuple(numReads, () => ReadRequestState.NADA),
+      [],
+    );
   }
 }

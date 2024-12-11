@@ -1,13 +1,12 @@
-import { PROVING_STATUS } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { times } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-mixed-blocks');
+const logger = createLogger('prover-client:test:orchestrator-mixed-blocks');
 
 describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;
@@ -22,27 +21,36 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
   describe('blocks', () => {
     it('builds an unbalanced L2 block', async () => {
-      const txs = [
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-        makeBloatedProcessedTx(context.actualDb, 3),
-      ];
+      const txs = times(3, i => context.makeProcessedTx(i + 1));
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket = await context.orchestrator.startNewBlock(3, context.globalVariables, l1ToL2Messages);
+      context.orchestrator.startNewEpoch(1, 1, 1);
+      await context.orchestrator.startNewBlock(3, context.globalVariables, l1ToL2Messages);
+      for (const tx of txs) {
+        await context.orchestrator.addNewTx(tx);
+      }
+
+      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+      await context.orchestrator.finaliseEpoch();
+      expect(block.number).toEqual(context.blockNumber);
+    });
+
+    it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
+      const txs = times(totalCount, i => context.makeProcessedTx(i + 1));
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      context.orchestrator.startNewEpoch(1, 1, 1);
+      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
       }
 
-      await context.orchestrator.setBlockCompleted();
-
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+      await context.orchestrator.finaliseEpoch();
+      expect(block.number).toEqual(context.blockNumber);
     });
   });
 });

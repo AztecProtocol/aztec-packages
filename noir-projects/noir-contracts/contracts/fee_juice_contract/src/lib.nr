@@ -1,5 +1,5 @@
-use dep::aztec::prelude::AztecAddress;
 use dep::aztec::context::PublicContext;
+use dep::aztec::prelude::AztecAddress;
 use dep::aztec::protocol_types::hash::sha256_to_field;
 
 pub fn calculate_fee<TPublicContext>(context: PublicContext) -> Field {
@@ -11,16 +11,18 @@ pub fn get_bridge_gas_msg_hash(owner: AztecAddress, amount: Field) -> Field {
     let recipient_bytes: [u8; 32] = owner.to_field().to_be_bytes();
     let amount_bytes: [u8; 32] = amount.to_be_bytes();
 
+    // The purpose of including the following selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
+    let selector = comptime { std::hash::keccak256("claim(bytes32,uint256)".as_bytes(), 22) };
+
+    for i in 0..4 {
+        hash_bytes[i] = selector[i];
+    }
+
     for i in 0..32 {
         hash_bytes[i + 4] = recipient_bytes[i];
         hash_bytes[i + 36] = amount_bytes[i];
     }
-
-    // Function selector: 0x3e87b9be keccak256('mint_public(bytes32,uint256)')
-    hash_bytes[0] = 0x3e;
-    hash_bytes[1] = 0x87;
-    hash_bytes[2] = 0xb9;
-    hash_bytes[3] = 0xbe;
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

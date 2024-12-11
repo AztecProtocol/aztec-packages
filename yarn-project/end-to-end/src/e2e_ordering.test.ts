@@ -62,7 +62,7 @@ describe('e2e_ordering', () => {
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await action.prove();
 
-          await action.send().wait();
+          await tx.send().wait();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.enqueuedPublicFunctionCalls;
@@ -70,18 +70,20 @@ describe('e2e_ordering', () => {
 
           // The call stack items in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
           enqueuedPublicCalls.forEach((c, i) => {
-            expect(c.isForCallRequest(tx.data.forPublic!.end.publicCallStack[i])).toBe(true);
+            expect(c.isForCallRequest(tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests[i])).toBe(true);
           });
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
-          expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual([...expectedOrder].reverse());
+          // args[1] is used instead of args[0] because public functions are routed through the public dispatch
+          // function and args[0] is the target function selector.
+          expect(enqueuedPublicCalls.map(c => c.args[1].toBigInt())).toEqual([...expectedOrder].reverse());
 
           // Logs are emitted in the expected order
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
           const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
-          expect(value.value).toBe(expectedOrder[1]); // final state should match last value set
+          expect(value.toBigInt()).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
     });
@@ -106,7 +108,7 @@ describe('e2e_ordering', () => {
         await child.methods[method]().send().wait();
 
         const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
-        expect(value.value).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
+        expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 
       it.each([

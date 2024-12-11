@@ -43,6 +43,13 @@ Returns `true` if this operator is `-`.
 
 Returns this operator as a `Quoted` value.
 
+### Trait Implementations
+
+```rust
+impl Eq for UnaryOp
+impl Hash for UnaryOp
+```
+
 ### BinaryOp
 
 Represents a binary operator. One of `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&`, `|`, `^`, `>>`, or `<<`.
@@ -135,7 +142,7 @@ Represents a binary operator. One of `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `
 
 #### is_shift_left
 
-#include_code is_shift_right noir_stdlib/src/meta/op.nr rust
+#include_code is_shift_left noir_stdlib/src/meta/op.nr rust
 
 `true` if this operator is `<<`
 
@@ -144,3 +151,10 @@ Represents a binary operator. One of `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `
 #include_code binary_quoted noir_stdlib/src/meta/op.nr rust
 
 Returns this operator as a `Quoted` value.
+
+### Trait Implementations
+
+```rust
+impl Eq for BinaryOp
+impl Hash for BinaryOp
+```

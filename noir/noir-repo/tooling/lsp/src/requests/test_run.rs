@@ -84,7 +84,7 @@ fn on_test_run_request_inner(
                 &state.solver,
                 &mut context,
                 &test_function,
-                false,
+                true,
                 None,
                 Some(workspace.root_dir.clone()),
                 Some(package.name.to_string()),
@@ -100,6 +100,11 @@ fn on_test_run_request_inner(
                     id: params.id.clone(),
                     result: "fail".to_string(),
                     message: Some(message),
+                },
+                TestStatus::Skipped => NargoTestRunResult {
+                    id: params.id.clone(),
+                    result: "skipped".to_string(),
+                    message: None,
                 },
                 TestStatus::CompileError(diag) => NargoTestRunResult {
                     id: params.id.clone(),

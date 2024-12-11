@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class lookup_opcode_gas_lookup_settings {
   public:
@@ -21,14 +21,14 @@ class lookup_opcode_gas_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_execution_row == 1 || in.gas_sel_gas_cost == 1);
+        return (in.main_is_gas_accounted == 1 || in.gas_sel_gas_cost == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_sel_execution_row);
+        const auto is_operation = View(in.main_is_gas_accounted);
         const auto is_table_entry = View(in.gas_sel_gas_cost);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -37,7 +37,7 @@ class lookup_opcode_gas_lookup_settings {
     {
         return std::forward_as_tuple(in.lookup_opcode_gas_inv,
                                      in.lookup_opcode_gas_counts,
-                                     in.main_sel_execution_row,
+                                     in.main_is_gas_accounted,
                                      in.gas_sel_gas_cost,
                                      in.main_opcode_val,
                                      in.main_base_l2_gas_op_cost,
@@ -55,7 +55,7 @@ class lookup_opcode_gas_lookup_settings {
     {
         return std::forward_as_tuple(in.lookup_opcode_gas_inv,
                                      in.lookup_opcode_gas_counts,
-                                     in.main_sel_execution_row,
+                                     in.main_is_gas_accounted,
                                      in.gas_sel_gas_cost,
                                      in.main_opcode_val,
                                      in.main_base_l2_gas_op_cost,
@@ -77,4 +77,4 @@ class lookup_opcode_gas_relation : public GenericLookupRelation<lookup_opcode_ga
 };
 template <typename FF_> using lookup_opcode_gas = GenericLookup<lookup_opcode_gas_lookup_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

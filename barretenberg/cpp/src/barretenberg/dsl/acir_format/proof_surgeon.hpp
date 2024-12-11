@@ -1,17 +1,57 @@
 #pragma once
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <barretenberg/common/container.hpp>
 #include <cstdint>
 
 namespace acir_format {
 
-// Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
-static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
-
 class ProofSurgeon {
+    using FF = bb::fr;
+
+    // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
+    static std::string to_json(const std::vector<bb::fr>& data)
+    {
+        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+    }
+
   public:
+    /**
+     * @brief Constrcut a string containing the inputs to a noir verify_proof call (to be written to a .toml)
+     *
+     * @param proof A complete bberg style proof (i.e. contains the public inputs)
+     * @param verification_key
+     * @param toml_path
+     */
+    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof, const auto& verification_key)
+    {
+        // Convert verification key to fields
+        std::vector<FF> vkey_fields = verification_key.to_field_elements();
+
+        // Get public inputs by cutting them out of the proof
+        const size_t num_public_inputs_to_extract =
+            verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        std::vector<FF> public_inputs =
+            acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
+
+        // Construct json-style output for each component
+        std::string proof_json = to_json(proof);
+        std::string pub_inputs_json = to_json(public_inputs);
+        std::string vk_json = to_json(vkey_fields);
+
+        // Format with labels for noir recursion input
+        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n"; // not used by honk
+        toml_content += "proof = " + proof_json + "\n";
+        toml_content += "public_inputs = " + pub_inputs_json + "\n";
+        toml_content += "verification_key = " + vk_json + "\n";
+
+        return toml_content;
+    }
+
     /**
      * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
      * @details Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this
@@ -29,9 +69,9 @@ class ProofSurgeon {
         proof.reserve(proof_in.size() + public_inputs.size());
 
         // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
-        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-        proof.insert(proof.end(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET, proof_in.end());
+        proof.insert(proof.end(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET, proof_in.end());
 
         return proof;
     }
@@ -48,10 +88,10 @@ class ProofSurgeon {
     {
         // Construct iterators pointing to the start and end of the public inputs within the proof
         auto pub_inputs_begin_itr =
-            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         auto pub_inputs_end_itr =
             proof_witnesses.begin() +
-            static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
+            static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
 
         // Construct the isolated public inputs
         std::vector<bb::fr> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
@@ -60,6 +100,28 @@ class ProofSurgeon {
         proof_witnesses.erase(pub_inputs_begin_itr, pub_inputs_end_itr);
 
         return public_input_witnesses;
+    }
+
+    /**
+     * @brief Get the witness indices for a given number of public inputs contained within a stdlib proof
+     *
+     * @param proof A bberg style stdlib proof (contains public inputs)
+     * @param num_public_inputs The number of public input witness indices to get from the proof
+     * @return std::vector<bb::fr> The corresponding public input witness indices
+     */
+    static std::vector<uint32_t> get_public_inputs_witness_indices_from_proof(
+        const bb::StdlibProof<bb::MegaCircuitBuilder>& proof, const size_t num_public_inputs_to_extract)
+    {
+        std::vector<uint32_t> public_input_witness_indices;
+        public_input_witness_indices.reserve(num_public_inputs_to_extract);
+
+        const size_t start = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
+        const size_t end = start + num_public_inputs_to_extract;
+        for (size_t i = start; i < end; ++i) {
+            public_input_witness_indices.push_back(proof[i].get_witness_index());
+        }
+
+        return public_input_witness_indices;
     }
 
     struct RecursionWitnessData {
@@ -84,10 +146,9 @@ class ProofSurgeon {
     static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
-                                                                const size_t num_public_inputs)
+                                                                const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
-        const size_t num_public_inputs_to_extract = num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
         std::vector<bb::fr> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 

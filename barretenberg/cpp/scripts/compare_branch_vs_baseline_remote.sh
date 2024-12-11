@@ -19,6 +19,11 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 BASELINE_BRANCH="master"
 BENCH_TOOLS_DIR="$BUILD_DIR/_deps/benchmark-src/tools"
 
+if [ ! -z "$(git status --untracked-files=no --porcelain)" ]; then
+  echo "Git status is unclean; the script will not be able to check out $BASELINE_BRANCH."
+  exit 1
+fi
+
 echo -e "\nComparing $BENCHMARK between $BASELINE_BRANCH and current branch:"
 
 # Move above script dir.

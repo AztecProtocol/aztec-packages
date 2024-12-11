@@ -21,7 +21,7 @@ env:
   PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
 
   ETHEREUM_HOST: "https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}"
-  L1_CHAIN_ID: "11155111"
+  L1_CHAIN_ID: 11155111
 
 jobs:
   setup:
@@ -54,11 +54,11 @@ jobs:
           set -eux
           cd ./yarn-project/end-to-end/
           export FORCE_COLOR=1
-          ../../scripts/earthly-ci -P --no-output +e2e-public-testnet \
-          --SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }} \
-          --PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }} \
-          --ETHEREUM_HOST="https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}" \
-          --L1_CHAIN_ID="11155111"
+          SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }} \
+          PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }} \
+          ETHEREUM_HOST="https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}" \
+          L1_CHAIN_ID=${{ env.L1_CHAIN_ID }} \
+          ./scripts/e2e_test_public_testnet.sh ./src/public-testnet
 
   success-check:
     runs-on: ubuntu-20.04

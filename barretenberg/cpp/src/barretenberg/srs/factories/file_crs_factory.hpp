@@ -44,12 +44,21 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
     FileProverCrs(const size_t num_points, std::string const& path)
         : num_points(num_points)
     {
-        ZoneScopedN("FileProverCrs constructor");
+
+        PROFILE_THIS_NAME("FileProverCrs constructor");
+
         monomials_ = scalar_multiplication::point_table_alloc<typename Curve::AffineElement>(num_points);
 
         srs::IO<Curve>::read_transcript_g1(monomials_.get(), num_points, path);
         scalar_multiplication::generate_pippenger_point_table<Curve>(monomials_.get(), monomials_.get(), num_points);
     };
+
+    ~FileProverCrs()
+    {
+#ifdef TRACY_MEMORY
+        ZoneScopedN("FileProverCrs destructor");
+#endif
+    }
 
     std::span<typename Curve::AffineElement> get_monomial_points() { return { monomials_.get(), num_points * 2 }; }
 

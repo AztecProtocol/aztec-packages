@@ -1,11 +1,11 @@
 import { TimeoutError } from '../error/index.js';
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 
 export abstract class BaseMemoryQueue<T> {
   private waiting: ((item: T | null) => void)[] = [];
   private flushing = false;
 
-  constructor(private log = createDebugLogger('aztec:foundation:memory_fifo')) {}
+  constructor(private log = createLogger('foundation:memory_fifo')) {}
 
   protected abstract get items(): {
     length: number;
@@ -22,6 +22,14 @@ export abstract class BaseMemoryQueue<T> {
    */
   public length() {
     return this.items.length;
+  }
+
+  /**
+   * Returns next item within the queue, or undefined if the queue is empty. Does not block.
+   * @returns The next item in the queue.
+   */
+  public getImmediate(): T | undefined {
+    return this.items.get();
   }
 
   /**

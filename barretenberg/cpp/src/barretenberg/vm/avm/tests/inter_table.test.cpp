@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -21,7 +22,7 @@ class AvmInterTableTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
-    VmPublicInputs public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 };
 
@@ -55,10 +56,11 @@ class AvmPermMainAluNegativeTests : public AvmInterTableTests {
 
         trace_builder.op_set(0, 19, 0, AvmMemoryTag::U64);
         trace_builder.op_set(0, 15, 1, AvmMemoryTag::U64);
-        trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 15 = 34
-        trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 34 = 53
-        trace_builder.op_mul(0, 0, 1, 2, AvmMemoryTag::U64); // 19 * 53 = 1007
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_add(0, 0, 1, 1); // 19 + 15 = 34
+        trace_builder.op_add(0, 0, 1, 1); // 19 + 34 = 53
+        trace_builder.op_mul(0, 0, 1, 2); // 19 * 53 = 1007
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
 
         trace = trace_builder.finalize();
 
@@ -148,13 +150,14 @@ class AvmRangeCheckNegativeTests : public AvmInterTableTests {
 
     void SetUp() override { GTEST_SKIP(); }
 
-    void genTraceAdd(FF const& a, FF const& b, FF const& c, AvmMemoryTag tag, uint32_t min_trace_size = 0)
+    void genTraceAdd(FF const& a, FF const& b, FF const& c, AvmMemoryTag tag)
     {
         trace_builder.op_set(0, a, 0, tag);
         trace_builder.op_set(0, b, 1, tag);
-        trace_builder.op_add(0, 0, 1, 2, tag); // 7 + 8 = 15
-        trace_builder.op_return(0, 0, 0);
-        trace = trace_builder.finalize(min_trace_size);
+        trace_builder.op_add(0, 0, 1, 2); // 7 + 8 = 15
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
+        trace = trace_builder.finalize();
 
         // Find the row with addition operation and retrieve clk.
         auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
@@ -259,7 +262,7 @@ TEST_F(AvmRangeCheckNegativeTests, additionU8Reg1)
 // Out-of-range value in register u16_r0
 TEST_F(AvmRangeCheckNegativeTests, additionU16Reg0)
 {
-    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16, 130);
+    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16);
     auto& row = trace.at(main_row_idx);
     auto& mem_row = trace.at(mem_row_idx);
     auto& alu_row = trace.at(alu_row_idx);
@@ -403,8 +406,9 @@ class AvmPermMainMemNegativeTests : public AvmInterTableTests {
     {
         trace_builder.op_set(0, a, 52, AvmMemoryTag::U8);
         trace_builder.op_set(0, b, 11, AvmMemoryTag::U8);
-        trace_builder.op_sub(0, 52, 11, 55, AvmMemoryTag::U8);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_sub(0, 52, 11, 55);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
 
         trace = trace_builder.finalize();
 
@@ -449,8 +453,9 @@ TEST_F(AvmPermMainMemNegativeTests, tagErrNotCopiedInMain)
     // Equality operation on U128 and second operand is of type U16.
     trace_builder.op_set(0, 32, 18, AvmMemoryTag::U128);
     trace_builder.op_set(0, 32, 76, AvmMemoryTag::U16);
-    trace_builder.op_eq(0, 18, 76, 65, AvmMemoryTag::U128);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_eq(0, 18, 76, 65);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     auto trace = trace_builder.finalize();
 
     // Find the row with equality operation and mutate the error tag.

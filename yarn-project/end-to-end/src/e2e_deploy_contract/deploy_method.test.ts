@@ -1,4 +1,5 @@
-import { AztecAddress, type DebugLogger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -9,7 +10,7 @@ describe('e2e_deploy_contract deploy method', () => {
   const t = new DeployTest('deploy method');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   const ignoredArg = AztecAddress.random();
@@ -58,20 +59,16 @@ describe('e2e_deploy_contract deploy method', () => {
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
-    const outgoingViewer = owner;
-    await contract.methods.create_note(owner, outgoingViewer, 30).send().wait();
+    const sender = owner;
+    await contract.methods.create_note(owner, sender, 30).send().wait();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
   });
 
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
-    // Emitting the outgoing logs to the same address as owner to avoid having to set up another account.
-    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress(), wallet.getAddress())
-      .send(opts)
-      .deployed();
+    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    // Emitting the outgoing logs to the same address as owner to avoid having to set up another account.
     await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
     expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
   });
@@ -97,5 +94,19 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
     // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
+  });
+
+  describe('regressions', () => {
+    it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
+      const { PXE_URL } = process.env;
+      if (!PXE_URL) {
+        return;
+      }
+      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
+      await expect(
+        StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),
+      ).rejects.toThrow(/Unknown function/);
+    });
   });
 });

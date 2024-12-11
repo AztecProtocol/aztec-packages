@@ -10,15 +10,14 @@
 namespace tests_avm {
 
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmSkippableTests, shouldSkipCorrectly)
 {
     using FF = AvmFlavor::FF;
-    constexpr size_t TRACE_SIZE = 1 << 15;
+    constexpr size_t TRACE_SIZE = 300;
 
     std::vector<AvmFullRow<FF>> trace(TRACE_SIZE);
-    std::cerr << "Generating trace of size " << TRACE_SIZE << "..." << std::endl;
     // This is the most time consuming part of this test!
     // In particular, the generation of random fields.
     bb::parallel_for(trace.size(), [&](size_t i) {
@@ -38,14 +37,14 @@ TEST(AvmSkippableTests, shouldSkipCorrectly)
 
         // Set the conditions for skippable to return true.
         row.poseidon2_sel_poseidon_perm = 0;
+        row.poseidon2_sel_poseidon_perm_mem_op = 0;
+        row.poseidon2_sel_poseidon_perm_immediate = 0;
     });
-    std::cerr << "Done generating trace..." << std::endl;
 
     // We build the polynomials needed to run "sumcheck".
     AvmCircuitBuilder cb;
     cb.set_trace(std::move(trace));
     auto polys = cb.compute_polynomials();
-    std::cerr << "Done computing polynomials..." << std::endl;
 
     // For each skippable relation we will check:
     // 1. That Relation::skippable returns true (i.e., we correctly set the conditions)
@@ -75,7 +74,7 @@ TEST(AvmSkippableTests, shouldSkipCorrectly)
                     if (result[j] != 0) {
                         EXPECT_EQ(result[j], 0)
                             << "Relation " << Relation::NAME << " subrelation " << j << " was expected to be zero.";
-                        GTEST_SKIP();
+                        GTEST_FAIL();
                     }
                 }
             }

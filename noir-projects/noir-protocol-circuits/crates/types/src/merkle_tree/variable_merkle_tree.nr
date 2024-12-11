@@ -1,9 +1,9 @@
-use crate::{hash::accumulate_sha256};
+use crate::hash::accumulate_sha256;
 // N = maximum leaves
 // For now we only care about the root
-struct VariableMerkleTree {
+pub struct VariableMerkleTree {
     // leaves: [Field; N],
-    root: Field,
+    pub root: Field,
 }
 
 unconstrained fn get_height(input: u32, start: u8) -> u8 {
@@ -33,15 +33,13 @@ impl VariableMerkleTree {
     //
     pub fn new_sha<let N: u32>(leaves: [Field; N], num_non_empty_leaves: u32) -> Self {
         // Find size of tree required
-        let height = unsafe {
-            get_height(num_non_empty_leaves, 0)
-        };
+        let height = unsafe { get_height(num_non_empty_leaves, 0) };
         let next_power_2 = 2 << height;
         let prev_power_2 = next_power_2 / 2;
         assert(
             (num_non_empty_leaves == 0)
-            | (num_non_empty_leaves == 1)
-            | (num_non_empty_leaves > prev_power_2)
+                | (num_non_empty_leaves == 1)
+                | (num_non_empty_leaves > prev_power_2),
         );
         assert(num_non_empty_leaves <= next_power_2);
         // hash base layer
@@ -58,26 +56,26 @@ impl VariableMerkleTree {
                 stop = true;
             }
             if (!stop) {
-                nodes[i] = accumulate_sha256([leaves[2*i], leaves[2*i+1]]);
+                nodes[i] = accumulate_sha256([leaves[2 * i], leaves[2 * i + 1]]);
             }
         }
 
         // hash the other layers
-        stop = if prev_power_2 == 1 {true} else {false};
+        stop = if prev_power_2 == 1 { true } else { false };
         let mut next_layer_end = prev_power_2 / 2;
         let mut next_layer_size = next_layer_end;
         let mut root = nodes[0];
         for i in 0..(N - 1 - N / 2) {
             if !stop {
-                nodes[prev_power_2+i] = accumulate_sha256([nodes[2*i], nodes[2*i+1]]);
+                nodes[prev_power_2 + i] = accumulate_sha256([nodes[2 * i], nodes[2 * i + 1]]);
                 if i == next_layer_end {
                     // Reached next layer => move up one layer
-                    next_layer_size = next_layer_size/2;
+                    next_layer_size = next_layer_size / 2;
                     next_layer_end += next_layer_size;
                 }
                 if (next_layer_size == 1) {
                     // Reached root
-                    root = nodes[prev_power_2+i];
+                    root = nodes[prev_power_2 + i];
                     stop = true;
                 }
             }
@@ -86,15 +84,15 @@ impl VariableMerkleTree {
         VariableMerkleTree { root }
     }
 
-    fn get_root(self) -> Field {
+    pub fn get_root(self) -> Field {
         self.root
     }
 }
 
 mod tests {
     use crate::{
-        merkle_tree::{variable_merkle_tree::VariableMerkleTree, merkle_tree::MerkleTree},
-        hash::accumulate_sha256
+        hash::accumulate_sha256, merkle_tree::variable_merkle_tree::VariableMerkleTree,
+        tests::fixtures::merkle_tree::generate_full_sha_tree,
     };
 
     fn generate_test_array(non_empty_items: u32) -> [Field; 100] {
@@ -109,21 +107,6 @@ mod tests {
             }
         }
         items
-    }
-
-    pub fn generate_full_sha_tree<let N: u32>(leaves: [Field; N]) -> MerkleTree<N> {
-        let mut nodes = [0; N];
-        let total_nodes = N - 1;
-        let half_size = N / 2;
-        // hash base layer
-        for i in 0..half_size {
-            nodes[i] = accumulate_sha256([leaves[2*i], leaves[2*i+1]]);
-        }
-        // hash the other layers
-        for i in 0..(total_nodes - half_size) {
-            nodes[half_size+i] = accumulate_sha256([nodes[2*i], nodes[2*i+1]]);
-        }
-        MerkleTree { leaves, nodes }
     }
 
     #[test]
@@ -207,4 +190,3 @@ mod tests {
         assert_eq(tree.root, full_tree.get_root());
     }
 }
-

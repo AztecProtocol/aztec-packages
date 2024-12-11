@@ -1,18 +1,23 @@
-use std::rc::Rc;
+use std::hash::Hash;
+use std::{hash::Hasher, rc::Rc};
 
 use acvm::FieldElement;
+use iter_extended::try_vecmap;
 use noirc_errors::Location;
 
+use crate::hir::comptime::display::tokens_to_string;
+use crate::hir::comptime::value::add_token_spans;
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 use crate::{
     ast::{
-        BlockExpression, ExpressionKind, IntegerBitSize, LValue, Pattern, Signedness,
+        BlockExpression, ExpressionKind, Ident, IntegerBitSize, LValue, Pattern, Signedness,
         StatementKind, UnresolvedTypeData,
     },
-    elaborator::Elaborator,
     hir::{
         comptime::{
             errors::IResult,
-            value::{add_token_spans, ExprValue, TypedExpr},
+            value::{ExprValue, TypedExpr},
             Interpreter, InterpreterError, Value,
         },
         def_map::ModuleId,
@@ -22,12 +27,12 @@ use crate::{
         function::{FuncMeta, FunctionBody},
         stmt::HirPattern,
     },
-    macros_api::{NodeInterner, StructId},
-    node_interner::{FuncId, TraitId, TraitImplId},
-    parser::NoirParser,
-    token::{Token, Tokens},
+    node_interner::{FuncId, NodeInterner, StructId, TraitId, TraitImplId},
+    token::{SecondaryAttribute, Token, Tokens},
     QuotedType, Type,
 };
+use crate::{Kind, Shared, StructType};
+use rustc_hash::FxHashMap as HashMap;
 
 pub(crate) fn check_argument_count(
     expected: usize,
@@ -43,38 +48,40 @@ pub(crate) fn check_argument_count(
 }
 
 pub(crate) fn check_one_argument(
-    mut arguments: Vec<(Value, Location)>,
+    arguments: Vec<(Value, Location)>,
     location: Location,
 ) -> IResult<(Value, Location)> {
-    check_argument_count(1, &arguments, location)?;
+    let [arg1] = check_arguments(arguments, location)?;
 
-    Ok(arguments.pop().unwrap())
+    Ok(arg1)
 }
 
 pub(crate) fn check_two_arguments(
-    mut arguments: Vec<(Value, Location)>,
+    arguments: Vec<(Value, Location)>,
     location: Location,
 ) -> IResult<((Value, Location), (Value, Location))> {
-    check_argument_count(2, &arguments, location)?;
+    let [arg1, arg2] = check_arguments(arguments, location)?;
 
-    let argument2 = arguments.pop().unwrap();
-    let argument1 = arguments.pop().unwrap();
-
-    Ok((argument1, argument2))
+    Ok((arg1, arg2))
 }
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn check_three_arguments(
-    mut arguments: Vec<(Value, Location)>,
+    arguments: Vec<(Value, Location)>,
     location: Location,
 ) -> IResult<((Value, Location), (Value, Location), (Value, Location))> {
-    check_argument_count(3, &arguments, location)?;
+    let [arg1, arg2, arg3] = check_arguments(arguments, location)?;
 
-    let argument3 = arguments.pop().unwrap();
-    let argument2 = arguments.pop().unwrap();
-    let argument1 = arguments.pop().unwrap();
+    Ok((arg1, arg2, arg3))
+}
 
-    Ok((argument1, argument2, argument3))
+#[allow(clippy::type_complexity)]
+pub(crate) fn check_arguments<const N: usize>(
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<[(Value, Location); N]> {
+    check_argument_count(N, &arguments, location)?;
+    Ok(arguments.try_into().expect("checked arg count"))
 }
 
 pub(crate) fn get_array(
@@ -89,6 +96,47 @@ pub(crate) fn get_array(
             type_mismatch(value, expected, location)
         }
     }
+}
+
+/// Get the fields if the value is a `Value::Struct`, otherwise report that a struct type
+/// with `name` is expected. Returns the `Type` but doesn't verify that it's called `name`.
+pub(crate) fn get_struct_fields(
+    name: &str,
+    (value, location): (Value, Location),
+) -> IResult<(HashMap<Rc<String>, Value>, Type)> {
+    match value {
+        Value::Struct(fields, typ) => Ok((fields, typ)),
+        _ => {
+            let expected = StructType::new(
+                StructId::dummy_id(),
+                Ident::new(name.to_string(), location.span),
+                location,
+                Vec::new(),
+                Vec::new(),
+            );
+            let expected = Type::Struct(Shared::new(expected), Vec::new());
+            type_mismatch(value, expected, location)
+        }
+    }
+}
+
+/// Get a specific field of a struct and apply a decoder function on it.
+pub(crate) fn get_struct_field<T>(
+    field_name: &str,
+    struct_fields: &HashMap<Rc<String>, Value>,
+    struct_type: &Type,
+    location: Location,
+    f: impl Fn((Value, Location)) -> IResult<T>,
+) -> IResult<T> {
+    let key = Rc::new(field_name.to_string());
+    let Some(value) = struct_fields.get(&key) else {
+        return Err(InterpreterError::ExpectedStructToHaveField {
+            typ: struct_type.clone(),
+            field_name: Rc::into_inner(key).unwrap(),
+            location,
+        });
+    };
+    f((value.clone(), location))
 }
 
 pub(crate) fn get_bool((value, location): (Value, Location)) -> IResult<bool> {
@@ -112,6 +160,49 @@ pub(crate) fn get_slice(
     }
 }
 
+/// Interpret the input as a slice, then map each element.
+/// Returns the values in the slice and the original type.
+pub(crate) fn get_slice_map<T>(
+    interner: &NodeInterner,
+    (value, location): (Value, Location),
+    f: impl Fn((Value, Location)) -> IResult<T>,
+) -> IResult<(Vec<T>, Type)> {
+    let (values, typ) = get_slice(interner, (value, location))?;
+    let values = try_vecmap(values, |value| f((value, location)))?;
+    Ok((values, typ))
+}
+
+/// Interpret the input as an array, then map each element.
+/// Returns the values in the array and the original array type.
+pub(crate) fn get_array_map<T>(
+    interner: &NodeInterner,
+    (value, location): (Value, Location),
+    f: impl Fn((Value, Location)) -> IResult<T>,
+) -> IResult<(Vec<T>, Type)> {
+    let (values, typ) = get_array(interner, (value, location))?;
+    let values = try_vecmap(values, |value| f((value, location)))?;
+    Ok((values, typ))
+}
+
+/// Get an array and convert it to a fixed size.
+/// Returns the values in the array and the original array type.
+pub(crate) fn get_fixed_array_map<T, const N: usize>(
+    interner: &NodeInterner,
+    (value, location): (Value, Location),
+    f: impl Fn((Value, Location)) -> IResult<T>,
+) -> IResult<([T; N], Type)> {
+    let (values, typ) = get_array_map(interner, (value, location), f)?;
+
+    values.try_into().map(|v| (v, typ.clone())).map_err(|_| {
+        // Assuming that `values.len()` corresponds to `typ`.
+        let Type::Array(_, ref elem) = typ else {
+            unreachable!("get_array_map checked it was an array")
+        };
+        let expected = Type::Array(Box::new(Type::Constant(N.into(), Kind::u32())), elem.clone());
+        InterpreterError::TypeMismatch { expected, actual: typ, location }
+    })
+}
+
 pub(crate) fn get_str(
     interner: &NodeInterner,
     (value, location): (Value, Location),
@@ -122,6 +213,13 @@ pub(crate) fn get_str(
             let expected = Type::String(Box::new(interner.next_type_variable()));
             type_mismatch(value, expected, location)
         }
+    }
+}
+
+pub(crate) fn get_ctstring((value, location): (Value, Location)) -> IResult<Rc<String>> {
+    match value {
+        Value::CtString(string) => Ok(string),
+        value => type_mismatch(value, Type::Quoted(QuotedType::CtString), location),
     }
 }
 
@@ -385,25 +483,43 @@ pub(super) fn check_function_not_yet_resolved(
     }
 }
 
-pub(super) fn parse<T>(
-    (value, location): (Value, Location),
-    parser: impl NoirParser<T>,
-    rule: &'static str,
-) -> IResult<T> {
-    let tokens = get_quoted((value, location))?;
-    let quoted = add_token_spans(tokens.clone(), location.span);
-    parse_tokens(tokens, quoted, location, parser, rule)
+pub(super) fn lex(input: &str) -> Vec<Token> {
+    let (tokens, _) = Lexer::lex(input);
+    let mut tokens: Vec<_> = tokens.0.into_iter().map(|token| token.into_token()).collect();
+    if let Some(Token::EOF) = tokens.last() {
+        tokens.pop();
+    }
+    tokens
 }
 
-pub(super) fn parse_tokens<T>(
+pub(super) fn parse<'a, T, F>(
+    interner: &NodeInterner,
+    (value, location): (Value, Location),
+    parser: F,
+    rule: &'static str,
+) -> IResult<T>
+where
+    F: FnOnce(&mut Parser<'a>) -> T,
+{
+    let tokens = get_quoted((value, location))?;
+    let quoted = add_token_spans(tokens.clone(), location.span);
+    parse_tokens(tokens, quoted, interner, location, parser, rule)
+}
+
+pub(super) fn parse_tokens<'a, T, F>(
     tokens: Rc<Vec<Token>>,
     quoted: Tokens,
+    interner: &NodeInterner,
     location: Location,
-    parser: impl NoirParser<T>,
+    parsing_function: F,
     rule: &'static str,
-) -> IResult<T> {
-    parser.parse(quoted).map_err(|mut errors| {
+) -> IResult<T>
+where
+    F: FnOnce(&mut Parser<'a>) -> T,
+{
+    Parser::for_tokens(quoted).parse_result(parsing_function).map_err(|mut errors| {
         let error = errors.swap_remove(0);
+        let tokens = tokens_to_string(tokens, interner);
         InterpreterError::FailedToParseMacro { error, tokens, rule, file: location.file }
     })
 }
@@ -449,25 +565,88 @@ pub(super) fn block_expression_to_value(block_expr: BlockExpression) -> Value {
     Value::Slice(statements, typ)
 }
 
-pub(super) fn has_named_attribute<'a>(
-    name: &'a str,
-    attributes: impl Iterator<Item = &'a String>,
-    location: Location,
-) -> bool {
+pub(super) fn has_named_attribute(name: &str, attributes: &[SecondaryAttribute]) -> bool {
     for attribute in attributes {
-        let parse_result = Elaborator::parse_attribute(attribute, location);
-        let Ok(Some((function, _arguments))) = parse_result else {
-            continue;
-        };
-
-        let ExpressionKind::Variable(path) = function.kind else {
-            continue;
-        };
-
-        if path.last_name() == name {
-            return true;
+        if let Some(attribute_name) = attribute.name() {
+            if name == attribute_name {
+                return true;
+            }
         }
     }
 
     false
+}
+
+pub(super) fn quote_ident(ident: &Ident) -> Value {
+    Value::Quoted(ident_to_tokens(ident))
+}
+
+pub(super) fn ident_to_tokens(ident: &Ident) -> Rc<Vec<Token>> {
+    Rc::new(vec![Token::Ident(ident.0.contents.clone())])
+}
+
+pub(super) fn hash_item<T: Hash>(
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+    get_item: impl FnOnce((Value, Location)) -> IResult<T>,
+) -> IResult<Value> {
+    let argument = check_one_argument(arguments, location)?;
+    let item = get_item(argument)?;
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    item.hash(&mut hasher);
+    let hash = hasher.finish();
+    Ok(Value::Field((hash as u128).into()))
+}
+
+pub(super) fn eq_item<T: Eq>(
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+    mut get_item: impl FnMut((Value, Location)) -> IResult<T>,
+) -> IResult<Value> {
+    let (self_arg, other_arg) = check_two_arguments(arguments, location)?;
+    let self_arg = get_item(self_arg)?;
+    let other_arg = get_item(other_arg)?;
+    Ok(Value::Bool(self_arg == other_arg))
+}
+
+/// Type to be used in `Value::Array(<values>, <array-type>)`.
+pub(crate) fn byte_array_type(len: usize) -> Type {
+    Type::Array(
+        Box::new(Type::Constant(len.into(), Kind::u32())),
+        Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)),
+    )
+}
+
+/// Type to be used in `Value::Slice(<values>, <slice-type>)`.
+pub(crate) fn byte_slice_type() -> Type {
+    Type::Slice(Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)))
+}
+
+/// Create a `Value::Array` from bytes.
+pub(crate) fn to_byte_array(values: &[u8]) -> Value {
+    Value::Array(values.iter().copied().map(Value::U8).collect(), byte_array_type(values.len()))
+}
+
+/// Create a `Value::Slice` from bytes.
+pub(crate) fn to_byte_slice(values: &[u8]) -> Value {
+    Value::Slice(values.iter().copied().map(Value::U8).collect(), byte_slice_type())
+}
+
+/// Create a `Value::Array` from fields.
+pub(crate) fn to_field_array(values: &[FieldElement]) -> Value {
+    let typ = Type::Array(
+        Box::new(Type::Constant(values.len().into(), Kind::u32())),
+        Box::new(Type::FieldElement),
+    );
+    Value::Array(values.iter().copied().map(Value::Field).collect(), typ)
+}
+
+/// Create a `Value::Struct` from fields and the expected return type.
+pub(crate) fn to_struct(
+    fields: impl IntoIterator<Item = (&'static str, Value)>,
+    typ: Type,
+) -> Value {
+    let fields = fields.into_iter().map(|(k, v)| (Rc::new(k.to_string()), v)).collect();
+    Value::Struct(fields, typ)
 }

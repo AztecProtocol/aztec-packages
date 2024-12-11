@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
@@ -25,25 +24,21 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    CommitmentLabels commitment_labels;
-
     ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys)
         : keys_to_fold(DeciderVerificationKeys(keys)){};
     ~ProtogalaxyVerifier_() = default;
 
-    std::shared_ptr<DeciderVK> get_accumulator() { return keys_to_fold[0]; }
+    /**
+     * @brief Process the public data ϕ for the decider verification keys to be folded.
+     */
+    void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Instatiate the vks and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding(const std::vector<FF>&);
-
-    /**
-     * @brief Process the public data ϕ for the decider verification keys to be folded.
-     */
-    void receive_and_finalise_key(const std::shared_ptr<DeciderVK>&, const std::string&);
+    void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new

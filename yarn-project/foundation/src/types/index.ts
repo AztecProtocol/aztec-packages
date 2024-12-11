@@ -15,3 +15,11 @@ export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 /** Removes readonly modifiers for a type. */
 export type Writeable<T> = { -readonly [P in keyof T]: T[P] };
+
+/** Removes readonly modifiers for an object. */
+export function unfreeze<T>(obj: T): Writeable<T> {
+  return obj as Writeable<T>;
+}
+
+/** Maybe exists, maybe not. */
+export type Maybe<T extends object> = T | unknown;

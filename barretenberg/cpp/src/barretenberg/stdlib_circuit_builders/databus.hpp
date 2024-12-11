@@ -1,13 +1,21 @@
 #pragma once
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
 namespace bb {
+
+// We assume all kernels have space for two return data commitments on their public inputs
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = 16;
 
 /**
  * @brief A DataBus column
  *
  */
 struct BusVector {
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): A default value added to every databus column to
+    // avoid the point at infinity commitment and to ensure the validity of the databus commitment consistency checks.
+    static constexpr bb::fr DEFAULT_VALUE = 25;
 
     /**
      * @brief Add an element to the data defining this bus column
@@ -68,18 +76,36 @@ enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
  *
  */
 struct DatabusPropagationData {
-    // Flags indicating whether the public inputs contain commitment(s) to app/kernel return data
-    bool contains_app_return_data_commitment = false;
-    bool contains_kernel_return_data_commitment = false;
+    bool operator==(const DatabusPropagationData&) const = default;
 
     // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
     // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
     // public inputs by construction.
-    size_t app_return_data_public_input_idx = 0;
-    size_t kernel_return_data_public_input_idx = 0;
+    uint32_t app_return_data_public_input_idx = 0;
+    uint32_t kernel_return_data_public_input_idx = 0;
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
+
+    friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
+    {
+        os << data.app_return_data_public_input_idx << ",\n"
+           << data.kernel_return_data_public_input_idx << ",\n"
+           << data.is_kernel << "\n";
+        return os;
+    };
+
+    // Construct an instance of this class with the default settings for a kernel circuit
+    static DatabusPropagationData kernel_default()
+    {
+        DatabusPropagationData data;
+        data.kernel_return_data_public_input_idx = 0; // kernel return data commitment is first public input
+        data.app_return_data_public_input_idx = 8;    // followed by app return data commitment
+        data.is_kernel = true;
+        return data;
+    }
+
+    MSGPACK_FIELDS(app_return_data_public_input_idx, kernel_return_data_public_input_idx, is_kernel);
 };
 
 } // namespace bb

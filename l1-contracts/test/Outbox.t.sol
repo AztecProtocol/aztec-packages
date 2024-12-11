@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Outbox} from "../src/core/messagebridge/Outbox.sol";
-import {IOutbox} from "../src/core/interfaces/messagebridge/IOutbox.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {Hash} from "../src/core/libraries/Hash.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
 contract FakeRollup {
-  uint256 public provenBlockCount = 1;
+  uint256 public getProvenBlockNumber = 0;
 
-  function setProvenBlockCount(uint256 _provenBlockCount) public {
-    provenBlockCount = _provenBlockCount;
+  function setProvenBlockNum(uint256 _provenBlockNum) public {
+    getProvenBlockNumber = _provenBlockNum;
   }
 }
 
@@ -33,7 +33,7 @@ contract OutboxTest is Test {
 
   function setUp() public {
     ROLLUP_CONTRACT = address(new FakeRollup());
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockCount(2);
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
     outbox = new Outbox(ROLLUP_CONTRACT);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
@@ -203,7 +203,7 @@ contract OutboxTest is Test {
   }
 
   function testRevertIfConsumingFromTreeNotProven() public {
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockCount(1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(0);
 
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
     bytes32 leaf = fakeMessage.sha256ToField();
@@ -256,7 +256,7 @@ contract OutboxTest is Test {
     uint8 _size
   ) public {
     uint256 blockNumber = bound(_blockNumber, 1, 256);
-    FakeRollup(ROLLUP_CONTRACT).setProvenBlockCount(blockNumber + 1);
+    FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(blockNumber);
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
@@ -288,7 +288,7 @@ contract OutboxTest is Test {
     }
   }
 
-  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafIndex) public {
+  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafIndex) public view {
     bool outOfBounds = outbox.hasMessageBeenConsumedAtBlockAndIndex(_blockNumber, _leafIndex);
     assertFalse(outOfBounds);
   }

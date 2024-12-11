@@ -1,7 +1,7 @@
 use acvm::{
     acir::{
         brillig::{
-            BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapArray, HeapValueType,
+            BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapValueType, HeapVector,
             MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
         },
         AcirField,
@@ -13,7 +13,7 @@ use crate::ssa::ir::function::FunctionId;
 
 use super::{
     artifact::{Label, UnresolvedJumpLocation},
-    brillig_variable::{BrilligArray, BrilligVector, SingleAddrVariable},
+    brillig_variable::SingleAddrVariable,
     debug_show::DebugToString,
     procedures::ProcedureId,
     registers::RegisterAllocator,
@@ -48,12 +48,12 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         result: SingleAddrVariable,
     ) {
         self.debug_show.not_instruction(input.address, input.bit_size, result.address);
-        // Compile !x as ((-1) - x)
-        let u_max = F::from(2_u128).pow(&F::from(input.bit_size as u128)) - F::one();
-        let max = self.make_constant(u_max, input.bit_size);
-
-        self.binary(max, input, result, BrilligBinaryOp::Sub);
-        self.deallocate_single_addr(max);
+        assert_eq!(input.bit_size, result.bit_size, "Not operands should have the same bit size");
+        self.push_opcode(BrilligOpcode::Not {
+            destination: result.address,
+            source: input.address,
+            bit_size: input.bit_size.try_into().unwrap(),
+        });
     }
 
     /// Utility method to perform a binary instruction with a memory address
@@ -224,7 +224,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     /// Adds a label to the next opcode
     pub(crate) fn enter_context(&mut self, label: Label) {
         self.debug_show.enter_context(label.to_string());
-        self.context_label = label;
+        self.context_label = label.clone();
         self.current_section = 0;
         // Add a context label to the next opcode
         self.obj.add_label_at_position(label, self.obj.index_of_next_opcode());
@@ -257,20 +257,16 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.compute_section_label(self.current_section)
     }
 
-    /// Emits a stop instruction
-    pub(crate) fn stop_instruction(&mut self) {
-        self.debug_show.stop_instruction();
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 });
+    /// Emits a return instruction
+    pub(crate) fn return_instruction(&mut self) {
+        self.debug_show.return_instruction();
+        self.push_opcode(BrilligOpcode::Return);
     }
 
-    /// Emits a external stop instruction (returns data)
-    pub(crate) fn external_stop_instruction(
-        &mut self,
-        return_data_offset: usize,
-        return_data_size: usize,
-    ) {
-        self.debug_show.external_stop_instruction(return_data_offset, return_data_size);
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset, return_data_size });
+    /// Emits a stop instruction with return data
+    pub(crate) fn stop_instruction(&mut self, return_data: HeapVector) {
+        self.debug_show.stop_instruction(return_data);
+        self.push_opcode(BrilligOpcode::Stop { return_data });
     }
 
     /// Issues a blackbox operation.
@@ -309,12 +305,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.push_opcode(BrilligOpcode::Store { destination_pointer, source });
     }
 
-    /// Utility method to transform a HeapArray to a HeapVector by making a runtime constant with the size.
-    pub(crate) fn array_to_vector_instruction(&mut self, array: &BrilligArray) -> BrilligVector {
-        let size_register = self.make_usize_constant_instruction(array.size.into());
-        BrilligVector { size: size_register.address, pointer: array.pointer, rc: array.rc }
-    }
-
     /// Emits a load instruction
     pub(crate) fn load_instruction(
         &mut self,
@@ -331,25 +321,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     pub(crate) fn mov_instruction(&mut self, destination: MemoryAddress, source: MemoryAddress) {
         self.debug_show.mov_instruction(destination, source);
         self.push_opcode(BrilligOpcode::Mov { destination, source });
-    }
-
-    /// Emits a conditional `mov` instruction.
-    ///
-    /// Copies the value at `source` into `destination`
-    pub(crate) fn conditional_mov_instruction(
-        &mut self,
-        destination: MemoryAddress,
-        condition: MemoryAddress,
-        source_a: MemoryAddress,
-        source_b: MemoryAddress,
-    ) {
-        self.debug_show.conditional_mov_instruction(destination, condition, source_a, source_b);
-        self.push_opcode(BrilligOpcode::ConditionalMov {
-            destination,
-            source_a,
-            source_b,
-            condition,
-        });
     }
 
     /// Cast truncates the value to the given bit size and converts the type of the value in memory to that bit size.
@@ -424,12 +395,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         var
     }
 
-    fn make_constant(&mut self, constant: F, bit_size: u32) -> SingleAddrVariable {
-        let var = SingleAddrVariable::new(self.allocate_register(), bit_size);
-        self.constant(var.address, var.bit_size, constant, false);
-        var
-    }
-
     /// Returns a register which holds the value of an usize constant
     pub(crate) fn make_usize_constant_instruction(&mut self, constant: F) -> SingleAddrVariable {
         let register = self.allocate_register();
@@ -456,7 +421,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.deallocate_single_addr(offset_var);
     }
 
-    pub(super) fn trap_instruction(&mut self, revert_data: HeapArray) {
+    pub(super) fn trap_instruction(&mut self, revert_data: HeapVector) {
         self.debug_show.trap_instruction(revert_data);
 
         self.push_opcode(BrilligOpcode::Trap { revert_data });

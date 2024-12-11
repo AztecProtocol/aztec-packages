@@ -2,34 +2,17 @@
 title: Private Execution Environment (PXE)
 sidebar_position: 6
 tags: [PXE]
+keywords: [pxe, private execution environment]
+importance: 1
 ---
+
+import Image from "@theme/IdealImage";
 
 The Private Execution Environment (or PXE, pronounced 'pixie') is a client-side library for the execution of private operations. It is a TypeScript library and can be run within Node, such as when you run the sandbox. In the future it could be run inside wallet software or a browser.
 
 The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
 
-```mermaid
-graph TD;
-
-    subgraph client[Client]
-        subgraph pxe [PXE]
-            acirSim[ACIR Simulator]
-            db[Database]
-            keyStore[KeyStore]
-        end
-    end
-
-    subgraph server[Application Server]
-        subgraph pxeService [PXE Service]
-            acctMgmt[Account Management]
-            contractTxInteract[Contract & Transaction Interactions]
-            noteMgmt[Note Management]
-        end
-    end
-
-    pxe -->|interfaces| server
-
-```
+<Image img={require("/img/pxe.png")} />
 
 ## PXE Service
 

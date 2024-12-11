@@ -26,10 +26,10 @@ namespace bb {
 template <typename Flavor> void compute_concatenated_polynomials(typename Flavor::ProverPolynomials& polynomials)
 {
     // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = polynomials.get_concatenation_groups();
+    auto concatenation_groups = polynomials.get_groups_to_be_concatenated();
 
     // Resulting concatenated polynomials
-    auto targets = polynomials.get_concatenated_constraints();
+    auto targets = polynomials.get_concatenated();
 
     // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by dividing by
     // concatenation index
@@ -116,7 +116,7 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
     // Get information which polynomials need to be concatenated
-    auto concatenation_groups = polynomials.get_concatenation_groups();
+    auto concatenation_groups = polynomials.get_groups_to_be_concatenated();
 
     // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
     // ordered polynomials
@@ -177,10 +177,10 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
 
     // Sort it
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
-    std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator.end());
+    std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
 
     // Copy the values into the actual polynomial

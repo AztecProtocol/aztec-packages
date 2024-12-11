@@ -1,37 +1,42 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Claim {
     use dep::aztec::{
+        macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::SharedImmutable
+        protocol_types::address::AztecAddress,
+        state_vars::PublicImmutable,
     };
     use dep::value_note::value_note::ValueNote;
-    use dep::token::Token;
+    use token::Token;
 
-    #[aztec(storage)]
-    struct Storage {
-      // Address of a contract based on whose notes we distribute the rewards
-      target_contract: SharedImmutable<AztecAddress>,
-      // Token to be distributed as a reward when claiming
-      reward_token: SharedImmutable<AztecAddress>,
+    #[storage]
+    struct Storage<Context> {
+        // Address of a contract based on whose notes we distribute the rewards
+        target_contract: PublicImmutable<AztecAddress, Context>,
+        // Token to be distributed as a reward when claiming
+        reward_token: PublicImmutable<AztecAddress, Context>,
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);
         storage.reward_token.initialize(reward_token);
     }
 
-    #[aztec(private)]
+    #[private]
     fn claim(proof_note: ValueNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
-        let target_address = storage.target_contract.read_private();
+        let target_address = storage.target_contract.read();
         assert(
-            target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
+            target_address == proof_note.header.contract_address,
+            "Note does not correspond to the target contract",
         );
 
         // 2) Prove that the note hash exists in the note hash tree
-        let header = context.get_header();
+        let header = context.get_block_header();
         header.prove_note_inclusion(proof_note);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
@@ -46,6 +51,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read_private()).mint_public(recipient, proof_note.value).enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }

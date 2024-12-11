@@ -1,17 +1,13 @@
-use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Serialize, Empty}};
+use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
-struct GasFees {
-    fee_per_da_gas: Field,
-    fee_per_l2_gas: Field,
+pub struct GasFees {
+    pub fee_per_da_gas: Field,
+    pub fee_per_l2_gas: Field,
 }
 
 impl GasFees {
     pub fn new(fee_per_da_gas: Field, fee_per_l2_gas: Field) -> Self {
         Self { fee_per_da_gas, fee_per_l2_gas }
-    }
-
-    pub fn default() -> Self {
-        GasFees::new(1, 1)
     }
 
     pub fn is_empty(self) -> bool {
@@ -32,8 +28,9 @@ impl Deserialize<GAS_FEES_LENGTH> for GasFees {
 }
 
 impl Eq for GasFees {
-    fn eq(self, other : GasFees) -> bool {
-        (self.fee_per_da_gas == other.fee_per_da_gas) & (self.fee_per_l2_gas == other.fee_per_l2_gas)
+    fn eq(self, other: GasFees) -> bool {
+        (self.fee_per_da_gas == other.fee_per_da_gas)
+            & (self.fee_per_l2_gas == other.fee_per_l2_gas)
     }
 }
 

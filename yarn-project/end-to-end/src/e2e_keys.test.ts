@@ -27,7 +27,7 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-describe('Key Registry', () => {
+describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;
@@ -63,19 +63,18 @@ describe('Key Registry', () => {
     //    There are some examples where the action is fully hidden though. One of those examples is shielding where you
     // instantly consume the note after creating it. In this case, the nullifier is never emitted and hence the action
     // is impossible to detect with this scheme.
-    //    Another example is a withdraw is withdrawing from DeFi and then immediately spending the funds. In this case,
-    // we would need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial
-    // note.
+    //    Another example is withdrawing from DeFi and then immediately spending the funds. In this case, we would
+    // need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial note.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
       const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
       const noteValue = 5;
       const noteOwner = account.getAddress();
-      const outgoingViewer = noteOwner; // Setting the outgoing viewer to owner to not have to bother with setting up another account.
+      const sender = noteOwner;
       const noteStorageSlot = 12;
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, outgoingViewer, noteStorageSlot).send().wait();
+      await testContract.methods.call_create_note(noteValue, noteOwner, sender, noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 

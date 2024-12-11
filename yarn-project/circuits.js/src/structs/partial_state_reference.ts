@@ -1,6 +1,8 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { z } from 'zod';
+
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 
@@ -16,6 +18,19 @@ export class PartialStateReference {
     /** Snapshot of the public data tree. */
     public readonly publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashTree: AppendOnlyTreeSnapshot.schema,
+        nullifierTree: AppendOnlyTreeSnapshot.schema,
+        publicDataTree: AppendOnlyTreeSnapshot.schema,
+      })
+      .transform(
+        ({ noteHashTree, nullifierTree, publicDataTree }) =>
+          new PartialStateReference(noteHashTree, nullifierTree, publicDataTree),
+      );
+  }
 
   getSize() {
     return this.noteHashTree.getSize() + this.nullifierTree.getSize() + this.publicDataTree.getSize();
@@ -68,5 +83,13 @@ export class PartialStateReference {
 
   isEmpty(): boolean {
     return this.noteHashTree.isZero() && this.nullifierTree.isZero() && this.publicDataTree.isZero();
+  }
+
+  public equals(other: this): boolean {
+    return (
+      this.noteHashTree.equals(other.noteHashTree) &&
+      this.nullifierTree.equals(other.nullifierTree) &&
+      this.publicDataTree.equals(other.publicDataTree)
+    );
   }
 }

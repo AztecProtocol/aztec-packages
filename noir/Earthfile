@@ -1,13 +1,14 @@
 VERSION 0.8
 
 nargo-src:
-
     FROM ../build-images/+from-registry
-    WORKDIR /usr/src
-    # Relevant source (TODO finer-grained 'tooling')
+    WORKDIR /usr/src/noir
+    COPY noir-repo/.github/scripts/*.sh noir-repo/.github/scripts/
+    # First install wasm bindgen
+    RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+    # Relevant source
     COPY --dir \
       noir-repo/acvm-repo \
-      noir-repo/aztec_macros \
       noir-repo/compiler \
       noir-repo/noir_stdlib \
       noir-repo/tooling \
@@ -25,8 +26,9 @@ nargo-src:
     # we don't want Noir to rebuild everytime the parent repo changes
     # just only when it changes
     # the commit hash gets injected into version strings
-    ENV COMMIT_HASH=$(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}')
-    RUN echo $COMMIT_HASH > .content-hash
+    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns_native"
+    # We use our content hash as a fake commit hash, stripped of non-semver characters
+    ENV COMMIT_HASH=$(cat .content-hash | sed 's/[^a-zA-Z0-9.-]//g')
 
     # # borrow Nix's approach to build everything in 1970
     ENV SOURCE_TIMESTAMP=1
@@ -34,27 +36,31 @@ nargo-src:
 
 nargo:
     FROM +nargo-src
-    RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
+    # Note: build is decoupled from barretenberg
+    LET rebuild_patterns=".rebuild_patterns_native"
     # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-    RUN ./scripts/bootstrap_native.sh && rm -rf /usr/src/noir-repo/target/release/{build,deps}
-    SAVE ARTIFACT /usr/src/noir-repo/target/release/nargo nargo
-    SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
-    SAVE IMAGE aztecprotocol/nargo
+    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
+      --prefix="noir-nargo" \
+      --rebuild_patterns="$rebuild_patterns" \
+      --command="./scripts/bootstrap_native.sh && rm -rf noir-repo/target/release/{build,deps}" \
+      --build_artifacts="noir-repo/target/release/nargo noir-repo/target/release/acvm"
+
+    SAVE ARTIFACT noir-repo/target/release/nargo nargo
+    SAVE ARTIFACT noir-repo/target/release/acvm acvm
 
 test:
-  FROM +nargo
+  FROM +nargo-src
   COPY ./scripts/test_native.sh ./scripts/test_native.sh
   COPY noir-repo/.rustfmt.toml noir-repo/.rustfmt.toml
 
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
-
   RUN ./scripts/test_native.sh
 
 examples:
   FROM +nargo
-  ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 
   COPY --dir noir-repo/examples noir-repo
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -72,7 +78,7 @@ examples:
 
 format:
   FROM +nargo
-  ENV PATH=$PATH:/usr/src/noir-repo/target/release
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 
   COPY ./noir-repo/test_programs ./noir-repo/test_programs
   COPY ./noir-repo/noir_stdlib ./noir-repo/noir_stdlib
@@ -116,7 +122,6 @@ packages-deps:
     # Relevant source (TODO finer-grained)
     COPY --dir \
       noir-repo/acvm-repo \
-      noir-repo/aztec_macros \
       noir-repo/compiler \
       noir-repo/docs \
       noir-repo/noir_stdlib \
@@ -137,18 +142,22 @@ packages-deps:
       noir-repo
 
 packages:
-    FROM +packages-deps
-
-    COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
-    RUN ./scripts/bootstrap_packages.sh
-    SAVE ARTIFACT packages
-    SAVE IMAGE --cache-hint
+  FROM +packages-deps
+  COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
+  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
+      # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
+  DO ../build-system/s3-cache-scripts/+WITH_CACHE \
+    --prefix="noir-packages" \
+    --rebuild_patterns="$REBUILD_PATTERNS" \
+    --command="./scripts/bootstrap_packages.sh" \
+    --build_artifacts="packages"
+  SAVE ARTIFACT packages
 
 packages-test-build:
     FROM +packages-deps
 
-    COPY +nargo/nargo /usr/src/noir/noir-repo/target/release/nargo
-    COPY +nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
+    COPY +nargo/nargo noir-repo/target/release/nargo
+    COPY +nargo/acvm noir-repo/target/release/acvm
 
     ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
     ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
@@ -157,8 +166,6 @@ packages-test-build:
     RUN yarn --immutable
 
     WORKDIR /usr/src/noir/noir-repo
-    COPY --dir noir-repo/.github/scripts/wasm-bindgen-install.sh ./.github/scripts/wasm-bindgen-install.sh
-    RUN ./.github/scripts/wasm-bindgen-install.sh
 
     ENV SOURCE_DATE_EPOCH=$(date +%s)
     ENV GIT_DIRTY=false
@@ -190,9 +197,11 @@ packages-test-node:
 
 packages-test-browser:
     FROM ../build-images/+base-slim-node
-    COPY --dir +packages-test-build/usr/src /usr
     WORKDIR /usr/src/noir/noir-repo
+    # cache playwright install
+    COPY noir-repo/.github/scripts/*.sh .github/scripts/
     RUN ./.github/scripts/playwright-install.sh
+    COPY --dir +packages-test-build/usr/src /usr
     RUN yarn workspaces foreach \
       --verbose \
       --include integration-tests \
@@ -209,14 +218,14 @@ build-acir-tests:
     RUN rm -rf .earthly-staging && mkdir -p .earthly-staging
     RUN cp --parents $(git ls-files "noir-repo/test_programs/*.toml" "noir-repo/test_programs/*.nr" "noir-repo/test_programs/rebuild.sh") .earthly-staging
     FROM ../build-images/+from-registry
-    COPY +nargo/ /usr/src/noir-repo/target/release
-    ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
-    WORKDIR /usr/src/noir-repo/test_programs
-    COPY .earthly-staging/noir-repo/test_programs /usr/src/noir-repo/test_programs/
-    RUN /usr/src/noir-repo/target/release/nargo --version
+    COPY +nargo/ /usr/src/noir/noir-repo/target/release
+    ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+    WORKDIR /usr/src/noir/noir-repo/test_programs
+    COPY .earthly-staging/noir-repo/test_programs /usr/src/noir/noir-repo/test_programs/
+    RUN /usr/src/noir/noir-repo/target/release/nargo --version
     # TODO(#6225): We have trouble with concurrency and pass 'true' to build in serial, see #6225 for details
     RUN ./rebuild.sh
-    SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
+    SAVE ARTIFACT /usr/src/noir/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-benches-bb:
   FROM ubuntu:noble

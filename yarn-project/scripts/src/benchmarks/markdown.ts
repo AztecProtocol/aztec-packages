@@ -192,7 +192,6 @@ export function getMarkdown(prNumber: number) {
   const kernelCircuitMetrics = Metrics.filter(m => m.groupBy === 'protocol-circuit-name').map(m => m.name);
   const appCircuitMetrics = Metrics.filter(m => m.groupBy === 'app-circuit-name')
     .filter(m => m.name !== 'avm_simulation_time_ms')
-    .filter(m => m.name !== 'avm_simulation_bytecode_size_in_bytes')
     .map(m => m.name);
   const metricsByClassesRegistered = Metrics.filter(m => m.groupBy === 'classes-registered').map(m => m.name);
   const metricsByFeePaymentMethod = Metrics.filter(m => m.groupBy === 'fee-payment-method').map(m => m.name);
@@ -261,7 +260,7 @@ ${getTableContent(
 
 Time to simulate various public functions in the AVM.
 ${getTableContent(
-  transpose(pick(benchmark, ['avm_simulation_time_ms', 'avm_simulation_bytecode_size_in_bytes'])),
+  transpose(pick(benchmark, ['avm_simulation_time_ms'])),
   transpose(baseBenchmark),
   '',
   'Function',

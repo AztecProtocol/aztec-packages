@@ -24,7 +24,6 @@ import {
   type L2BlockHandledStats,
   type MetricName,
   type NodeSyncedChainHistoryStats,
-  type NoteProcessorCaughtUpStats,
   type ProofConstructed,
   type PublicDBAccessStats,
   type Stats,
@@ -106,9 +105,6 @@ function processRollupBlockSynced(entry: L2BlockHandledStats, results: Benchmark
   if (!BENCHMARK_BLOCK_SIZES.includes(bucket)) {
     return;
   }
-  if (entry.isBlockOurs) {
-    return;
-  }
   append(results, 'l2_block_processing_time_in_ms', bucket, entry.duration);
 }
 
@@ -164,7 +160,6 @@ function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCol
 
 function processAvmSimulation(entry: AvmSimulationStats, results: BenchmarkCollectedResults) {
   append(results, 'avm_simulation_time_ms', entry.appCircuitName, entry.duration);
-  append(results, 'avm_simulation_bytecode_size_in_bytes', entry.appCircuitName, entry.bytecodeSize);
 }
 
 function processDbAccess(entry: PublicDBAccessStats, results: BenchmarkCollectedResults) {
@@ -187,15 +182,6 @@ function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, r
   } else {
     const bucket = entry.circuitName;
     append(results, 'protocol_circuit_witness_generation_time_in_ms', bucket, entry.duration);
-  }
-}
-/**
- * Processes an entry with event name 'note-processor-caught-up' and updates results
- */
-function processNoteProcessorCaughtUp(entry: NoteProcessorCaughtUpStats, results: BenchmarkCollectedResults) {
-  const { decryptedIncoming, decryptedOutgoing, blocks, dbSize } = entry;
-  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && (decryptedIncoming > 0 || decryptedOutgoing > 0)) {
-    append(results, 'pxe_database_size_in_bytes', blocks, dbSize);
   }
 }
 
@@ -270,8 +256,6 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processCircuitWitnessGeneration(entry, results);
     case 'circuit-proving':
       return processCircuitProving(entry, results);
-    case 'note-processor-caught-up':
-      return processNoteProcessorCaughtUp(entry, results);
     case 'l2-block-built':
       return processL2BlockBuilt(entry, results);
     case 'node-synced-chain-history':

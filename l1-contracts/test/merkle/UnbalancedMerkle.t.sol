@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 /**
@@ -24,7 +24,7 @@ contract UnbalancedMerkleTest is Test {
     txsHelper = new TxsDecoderHelper();
   }
 
-  function testDecomp() public {
+  function testDecomp() public view {
     // Worst case - max num txs
     uint32 numTxs = 65535;
     (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(numTxs);
@@ -62,7 +62,7 @@ contract UnbalancedMerkleTest is Test {
   //   root
   //  /     \
   // base  base
-  function testComputeTxsEffectsHash2() public {
+  function testComputeTxsEffectsHash2() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](2);
     for (uint256 i = 0; i < 2; i++) {
@@ -84,7 +84,7 @@ contract UnbalancedMerkleTest is Test {
   //  /     \
   // base  base
 
-  function testComputeTxsEffectsHash3() public {
+  function testComputeTxsEffectsHash3() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](3);
     for (uint256 i = 0; i < 3; i++) {
@@ -109,7 +109,7 @@ contract UnbalancedMerkleTest is Test {
   //   merge        merge
   //  /     \      /     \
   // base  base  base   base
-  function testComputeTxsEffectsHash5() public {
+  function testComputeTxsEffectsHash5() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](5);
     for (uint256 i = 0; i < 5; i++) {
@@ -139,7 +139,7 @@ contract UnbalancedMerkleTest is Test {
   //   merge1       merge2  base  base
   //  /     \      /     \
   // base  base  base   base
-  function testComputeTxsEffectsHash6() public {
+  function testComputeTxsEffectsHash6() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](6);
     for (uint256 i = 0; i < 6; i++) {
@@ -171,7 +171,7 @@ contract UnbalancedMerkleTest is Test {
   //   merge1       merge2      merge4  base
   //  /     \      /     \      /    \
   // base  base  base   base  base  base
-  function testComputeTxsEffectsHash7() public {
+  function testComputeTxsEffectsHash7() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](7);
     for (uint256 i = 0; i < 6; i++) {

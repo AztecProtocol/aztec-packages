@@ -2,6 +2,19 @@
 #pragma once
 
 #include <memory>
+#include <tracy/Tracy.hpp>
+
+#ifdef BB_USE_OP_COUNT_TIME_ONLY
+#define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
+#define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
+#elif defined TRACY_INSTRUMENTED
+#define PROFILE_THIS() ZoneScopedN(__func__)
+#define PROFILE_THIS_NAME(name) ZoneScopedN(name)
+#else
+#define PROFILE_THIS() (void)0
+#define PROFILE_THIS_NAME(name) (void)0
+#endif
+
 #ifndef BB_USE_OP_COUNT
 // require a semicolon to appease formatters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)

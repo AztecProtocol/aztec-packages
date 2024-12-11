@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
 // Interfaces
-import {IVerifier} from "../core/interfaces/IVerifier.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
 /**
  * @title Mock verifier

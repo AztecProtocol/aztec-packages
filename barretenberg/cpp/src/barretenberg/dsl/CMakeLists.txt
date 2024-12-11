@@ -2,10 +2,9 @@
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 
 set(DSL_DEPENDENCIES
-    aztec_ivc
+    client_ivc
     plonk
     ultra_honk
-    client_ivc
     stdlib_sha256
     stdlib_aes128
     stdlib_keccak
@@ -14,7 +13,7 @@ set(DSL_DEPENDENCIES
     stdlib_schnorr
     stdlib_honk_verifier)
 
-if (NOT WASM)
+if (NOT WASM AND NOT DISABLE_AZTEC_VM)
     list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm)
 endif()
 

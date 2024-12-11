@@ -1,38 +1,38 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
+#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::receive_and_finalise_key(
-    const std::shared_ptr<DeciderVK>& inst, std::string& domain_separator)
+void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
+    const std::shared_ptr<DeciderVK>& key, std::string& domain_separator)
 {
-    domain_separator = domain_separator + "_";
-    OinkVerifier oink_verifier{ builder, inst, transcript, domain_separator };
+    OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
-// between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
 template <class DeciderVerificationKeys>
-void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding()
+void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
+    const std::vector<FF>& proof)
 {
-    auto index = 0;
-    auto inst = keys_to_fold[0];
+    transcript = std::make_shared<Transcript>(proof);
+    size_t index = 0;
+    auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
-
-    if (!inst->is_accumulator) {
-        receive_and_finalise_key(inst, domain_separator);
-        inst->target_sum = 0;
-        inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
+    if (!key->is_accumulator) {
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
+        key->target_sum = 0;
+        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
     }
     index++;
 
     for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
-        auto inst = *it;
+        auto key = *it;
         auto domain_separator = std::to_string(index);
-        receive_and_finalise_key(inst, domain_separator);
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
     }
 }
 
@@ -40,108 +40,170 @@ template <class DeciderVerificationKeys>
 std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiveVerifier_<
     DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
-    using Transcript = typename Flavor::Transcript;
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
+    static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
-    transcript = std::make_shared<Transcript>(proof);
-    prepare_for_folding();
+    run_oink_verifier_on_each_incomplete_key(proof);
 
-    auto delta = transcript->template get_challenge<FF>("delta");
-    auto accumulator = get_accumulator();
-    auto deltas =
-        compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
+    std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
 
-    std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
-            perturbator_coeffs[idx] =
-                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
-        }
+    // Perturbator round
+    const FF delta = transcript->template get_challenge<FF>("delta");
+    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
+    // Combiner quotient round
     perturbator_coeffs[0] = accumulator->target_sum;
+    const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-
-    auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
-    // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
-    std::array<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM>
-        combiner_quotient_evals;
-    for (size_t idx = 0; idx < DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM; idx++) {
-        combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
-            "combiner_quotient_" + std::to_string(idx + DeciderVerificationKeys::NUM));
-    }
-    Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM> combiner_quotient(
-        combiner_quotient_evals);
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // fine recursive i think
-
-    auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
-
-    auto next_accumulator = std::make_shared<DeciderVK>(builder);
-
-    next_accumulator->verification_key = std::make_shared<VerificationKey>(
-        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
-    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
-    next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
-    next_accumulator->verification_key->contains_recursive_proof =
-        accumulator->verification_key->contains_recursive_proof;
-    next_accumulator->verification_key->recursive_proof_public_input_indices =
-        accumulator->verification_key->recursive_proof_public_input_indices;
-    if constexpr (IsGoblinFlavor<Flavor>) { // Databus commitment propagation data
-        next_accumulator->verification_key->databus_propagation_data =
-            accumulator->verification_key->databus_propagation_data;
+    std::array<FF, COMBINER_LENGTH>
+        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+                                 // Hence we need  k(d - 1) evaluations to represent it.
+    for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
+        combiner_quotient_evals[idx] =
+            transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_KEYS));
     }
 
-    next_accumulator->public_inputs = accumulator->public_inputs;
+    // Folding
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
+    const FF combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
-    next_accumulator->is_accumulator = true;
+    const FF vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+    const std::vector<FF> lagranges = { FF(1) - combiner_challenge, combiner_challenge };
+
+    /*
+        Fold the commitments
+        Note: we use additional challenges to reduce the amount of elliptic curve work performed by the ECCVM
+
+        For an accumulator commitment [P'] and an instance commitment [P] , we compute folded commitment [P''] where
+        [P''] = L0(gamma).[P'] + L1(gamma).[P]
+        For the size-2 case this becomes:
+        P'' = (1 - gamma).[P'] + gamma.[P] = gamma.[P - P'] + [P']
+
+        This requires a large number of size-1 scalar muls (about 53)
+        The ECCVM can perform a size-k MSM in 32 + roundup((k/4)) rows, if each scalar multiplier is <128 bits
+        i.e. number of ECCVM rows = 53 * 64 = painful
+
+        To optimize, we generate challenges `c_i` for each commitment and evaluate the relation:
+
+        [A] = \sum c_i.[P_i]
+        [B] = \sum c_i.[P'_i]
+        [C] = \sum c_i.[P''_i]
+        and validate
+        (1 - gamma).[A] + gamma.[B] == [C]
+
+
+        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
+        For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
+
+        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of scalar
+       muls, however we must also consider the number of ECCVM operations being executed, as each operation incurs a
+       cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
+       equivalent to 9 ECCVM rows. Something to pay attention to
+    */
+    std::vector<Commitment> accumulator_commitments;
+    std::vector<Commitment> instance_commitments;
+    for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
+        ASSERT(precomputed.size() == 2);
+        accumulator_commitments.emplace_back(precomputed[0]);
+        instance_commitments.emplace_back(precomputed[1]);
+    }
+    for (const auto& witness : keys_to_fold.get_witness_commitments()) {
+        ASSERT(witness.size() == 2);
+        accumulator_commitments.emplace_back(witness[0]);
+        instance_commitments.emplace_back(witness[1]);
+    }
+
+    // derive output commitment witnesses
+    std::vector<Commitment> output_commitments;
+    for (size_t i = 0; i < accumulator_commitments.size(); ++i) {
+        const auto lhs_scalar = (FF(1) - combiner_challenge).get_value();
+        const auto rhs_scalar = combiner_challenge.get_value();
+
+        const auto lhs = accumulator_commitments[i].get_value();
+
+        const auto rhs = instance_commitments[i].get_value();
+        const auto output = lhs * lhs_scalar + rhs * rhs_scalar;
+        output_commitments.emplace_back(Commitment::from_witness(builder, output));
+    }
+
+    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
+    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
+        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
+    }
+    std::array<FF, Flavor::NUM_FOLDED_ENTITIES> folding_challenges = transcript->template get_challenges<FF>(args);
+    std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
+
+    Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
+                                                       scalars,
+                                                       /*max_num_bits=*/0,
+                                                       /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment instance_sum = Commitment::batch_mul(instance_commitments,
+                                                    scalars,
+                                                    /*max_num_bits=*/0,
+                                                    /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment output_sum = Commitment::batch_mul(output_commitments,
+                                                  scalars,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment folded_sum = Commitment::batch_mul({ accumulator_sum, instance_sum },
+                                                  lagranges,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    output_sum.x.assert_equal(folded_sum.x);
+    output_sum.y.assert_equal(folded_sum.y);
 
     // Compute next folding parameters
-    next_accumulator->target_sum =
-        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-    next_accumulator->gate_challenges =
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+    accumulator->is_accumulator = true;
+    accumulator->target_sum =
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    // Compute ϕ
-    fold_commitments(lagranges, keys_to_fold, next_accumulator);
+    accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    size_t alpha_idx = 0;
-    for (auto& alpha : next_accumulator->alphas) {
-        alpha = FF(0);
-        size_t vk_idx = 0;
-        for (auto& key : keys_to_fold) {
-            alpha += key->alphas[alpha_idx] * lagranges[vk_idx];
-            vk_idx++;
-        }
-        alpha_idx++;
+    // Set the accumulator circuit size data based on the max of the keys being accumulated
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
+    accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
+
+    // Fold the relation parameters
+    for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
+        combination = linear_combination(to_combine, lagranges);
     }
 
-    auto& expected_parameters = next_accumulator->relation_parameters;
-    for (size_t inst_idx = 0; inst_idx < DeciderVerificationKeys::NUM; inst_idx++) {
-        auto& key = keys_to_fold[inst_idx];
-        expected_parameters.eta += key->relation_parameters.eta * lagranges[inst_idx];
-        expected_parameters.eta_two += key->relation_parameters.eta_two * lagranges[inst_idx];
-        expected_parameters.eta_three += key->relation_parameters.eta_three * lagranges[inst_idx];
-        expected_parameters.beta += key->relation_parameters.beta * lagranges[inst_idx];
-        expected_parameters.gamma += key->relation_parameters.gamma * lagranges[inst_idx];
-        expected_parameters.public_input_delta += key->relation_parameters.public_input_delta * lagranges[inst_idx];
-        expected_parameters.lookup_grand_product_delta +=
-            key->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
+    for (auto [combination, to_combine] :
+         zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
+        combination = linear_combination(to_combine, lagranges);
     }
-    return next_accumulator;
+
+    auto accumulator_vkey = accumulator->verification_key->get_all();
+    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
+        accumulator_vkey[i] = output_commitments[i];
+    }
+
+    auto accumulator_witnesses = accumulator->witness_commitments.get_all();
+    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
+        accumulator_witnesses[i] = output_commitments[i + accumulator_vkey.size()];
+    }
+
+    return accumulator;
 }
 
-template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+// Instantiate the template with specific flavors and builders
 template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+
 } // namespace bb::stdlib::recursion::honk

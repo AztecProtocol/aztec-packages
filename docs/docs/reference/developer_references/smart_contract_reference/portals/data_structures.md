@@ -58,13 +58,11 @@ A message that is sent from L2 to L1.
 
 A snapshot of the registry values.
 
-#include_code registry_snapshot l1-contracts/src/core/libraries/DataStructures.sol solidity
+#include_code registry_snapshot l1-contracts/src/governance/libraries/DataStructures.sol solidity
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
 | `rollup`       | `address` | The address of the rollup contract for the snapshot. |
-| `inbox`       | `address` | The address of the inbox contract for the snapshot. |
-| `outbox`       | `address` | The address of the outbox contract for the snapshot. |
 | `blockNumber`       | `uint256` | The block number at which the snapshot was created. |
 
 

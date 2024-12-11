@@ -2,7 +2,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 import { generateContractForCircuit, generateKeyForNoirCircuit } from './execute.js';
 
@@ -36,6 +36,7 @@ export function getProgram(log: LogFn): Command {
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
     .requiredOption('-f, --flavor <string>', 'The name of the verification key flavor', 'ultra_honk')
+    .option('-r, --recursive', 'Whether a SNARK friendly key should be generated', false)
     .action(async options => {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
@@ -53,6 +54,7 @@ export function getProgram(log: LogFn): Command {
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
+        options.recursive,
         options.flavor,
         // (options.circuit as ServerProtocolArtifact) === 'RootRollupArtifact' ? 'ultra_keccak_honk' : 'ultra_honk',
         log,
@@ -90,6 +92,7 @@ export function getProgram(log: LogFn): Command {
         compiledCircuit,
         options.contractName,
         log,
+        /*force= */ true,
       );
     });
 

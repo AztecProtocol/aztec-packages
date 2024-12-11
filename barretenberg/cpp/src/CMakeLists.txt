@@ -1,5 +1,6 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Enable the following warnings project wide.
 # If any compilation issues arise in the future, they should not be silenced here but rather in the
@@ -53,10 +54,17 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
-add_subdirectory(barretenberg/aztec_ivc)
-add_subdirectory(barretenberg/bb)
-add_subdirectory(barretenberg/circuit_checker)
+if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message("Building with Position Independent Code")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
+  add_subdirectory(barretenberg/world_state_napi)
+endif()
+
 add_subdirectory(barretenberg/client_ivc)
+add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/boomerang_value_detection)
+add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -65,7 +73,7 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
-add_subdirectory(barretenberg/execution_trace)
+add_subdirectory(barretenberg/trace_to_polynomials)
 add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
@@ -87,6 +95,7 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
+add_subdirectory(barretenberg/world_state)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
@@ -103,10 +112,9 @@ include(GNUInstallDirs)
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
-    $<TARGET_OBJECTS:aztec_ivc_objects>
+    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>
@@ -120,7 +128,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-    $<TARGET_OBJECTS:execution_trace_objects>
+    $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>

@@ -1,10 +1,10 @@
-use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
-struct Asset {
+pub struct Asset {
     price: U128,
 }
 
-global ASSET_SERIALIZED_LEN: Field = 2;
+global ASSET_SERIALIZED_LEN: u32 = 2;
 
 impl Serialize<ASSET_SERIALIZED_LEN> for Asset {
     fn serialize(asset: Asset) -> [Field; ASSET_SERIALIZED_LEN] {

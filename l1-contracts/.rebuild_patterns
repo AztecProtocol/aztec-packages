@@ -1,0 +1,2 @@
+^l1-contracts/src/.*\.sol$
+^l1-contracts/test/.*\.sol$

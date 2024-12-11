@@ -57,6 +57,8 @@ class ArgumentEncoder {
             this.flattened.push(Fr.fromBuffer(arg));
           } else if (typeof arg.toField === 'function') {
             this.flattened.push(arg.toField());
+          } else if (typeof arg.value === 'string') {
+            this.flattened.push(Fr.fromString(arg.value));
           } else {
             throw new Error(`Argument for ${name} cannot be serialized to a field`);
           }
@@ -80,6 +82,12 @@ class ArgumentEncoder {
         }
         break;
       case 'struct': {
+        // If the type defines the encoding to noir, we use it
+        if (arg.encodeToNoir !== undefined) {
+          this.flattened.push(...arg.encodeToNoir());
+          break;
+        }
+
         // If the abi expects a struct like { address: Field } and the supplied arg does not have
         // an address field in it, we try to encode it as if it were a field directly.
         const isAddress = isAddressStruct(abiType);

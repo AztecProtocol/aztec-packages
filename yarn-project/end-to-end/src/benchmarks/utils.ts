@@ -1,19 +1,9 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AztecNode,
-  BatchCall,
-  type Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type PXE,
-  type PartialAddress,
-  type SentTx,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
@@ -68,10 +58,9 @@ export function getFolderSize(path: string): number {
  */
 export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
-  // Setting the outgoing viewer to owner here since the outgoing logs are not important in this context
-  const outgoingViewer = owner;
+  const sender = owner;
   return new BatchCall(context.wallet, [
-    contract.methods.create_note(owner, outgoingViewer, index + 1).request(),
+    contract.methods.create_note(owner, sender, index + 1).request(),
     contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }
@@ -90,8 +79,8 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
-  const sentTxs = calls.map(call => call.send());
+  const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
+  const sentTxs = provenTxs.map(tx => tx.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
   await Promise.all(sentTxs.map(tx => tx.getTxHash()));
@@ -112,24 +101,16 @@ export async function waitNewPXESynced(
   contract: BenchmarkingContract,
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
-  const pxe = await createPXEService(node, {
-    l2BlockPollingIntervalMS: 100,
+  const l1Contracts = await node.getL1ContractAddresses();
+  const pxeConfig = {
     l2StartingBlock: startingBlock,
-  });
+    l2BlockPollingIntervalMS: 100,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1024 * 1024,
+    l1Contracts,
+  } as PXEServiceConfig;
+  const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
-}
-
-/**
- * Registers a new account in a pxe and waits until it's synced all its notes.
- * @param pxe - PXE where to register the account.
- * @param secretKey - Secret key of the account to register.
- * @param partialAddress - Partial address of the account to register.
- */
-export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
-  const l2Block = await pxe.getBlockNumber();
-  const accountAddress = (await pxe.registerAccount(secretKey, partialAddress)).address;
-  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[accountAddress.toString()] === l2Block;
-  await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }

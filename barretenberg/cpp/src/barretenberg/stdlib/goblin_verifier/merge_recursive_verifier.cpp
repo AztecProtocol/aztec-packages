@@ -19,7 +19,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     const HonkProof& proof)
 {
     // transform it into stdlib proof
-    StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]

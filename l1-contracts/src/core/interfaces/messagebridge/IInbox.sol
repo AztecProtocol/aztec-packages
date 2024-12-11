@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
@@ -13,10 +13,10 @@ interface IInbox {
   /**
    * @notice Emitted when a message is sent
    * @param l2BlockNumber - The L2 block number in which the message is included
-   * @param index - The index of the message in the block
+   * @param index - The index of the message in the L1 to L2 messages tree
    * @param hash - The hash of the message
    */
-  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 hash);
+  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
 
   // docs:start:send_l1_to_l2_message
   /**
@@ -25,13 +25,13 @@ interface IInbox {
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @return The key of the message in the set
+   * @return The key of the message in the set and its leaf index in the tree
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,
     bytes32 _content,
     bytes32 _secretHash
-  ) external returns (bytes32);
+  ) external returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
   // docs:start:consume

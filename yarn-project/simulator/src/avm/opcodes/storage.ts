@@ -10,8 +10,8 @@ abstract class BaseStorageInstruction extends Instruction {
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
@@ -32,20 +32,20 @@ export class SStore extends BaseStorageInstruction {
       throw new StaticCallAlterationError();
     }
 
-    const memoryOperations = { reads: 2, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations }));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], memory);
+    const operands = [this.aOffset, this.bOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [srcOffset, slotOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
     memory.checkTag(TypeTag.FIELD, srcOffset);
 
     const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
-    context.persistableState.writeStorage(context.environment.storageAddress, slot, value);
+    await context.persistableState.writeStorage(context.environment.address, slot, value);
 
-    memory.assert(memoryOperations);
-    context.machineState.incrementPc();
+    memory.assert({ reads: 2, addressing });
   }
 }
 
@@ -58,18 +58,18 @@ export class SLoad extends BaseStorageInstruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { writes: 1, reads: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations }));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [slotOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], memory);
+    const operands = [this.aOffset, this.bOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [slotOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
 
     const slot = memory.get(slotOffset).toFr();
-    const value = await context.persistableState.readStorage(context.environment.storageAddress, slot);
+    const value = await context.persistableState.readStorage(context.environment.address, slot);
     memory.set(dstOffset, new Field(value));
 
-    context.machineState.incrementPc();
-    memory.assert(memoryOperations);
+    memory.assert({ writes: 1, reads: 1, addressing });
   }
 }

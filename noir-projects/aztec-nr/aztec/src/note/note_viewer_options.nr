@@ -1,27 +1,30 @@
-use std::option::Option;
-use crate::note::note_getter_options::{PropertySelector, Select, Sort, Comparator, NoteStatus};
-use dep::protocol_types::traits::ToField;
-use crate::note::note_interface::NoteInterface;
 use crate::note::constants::MAX_NOTES_PER_PAGE;
+use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
+use crate::note::note_interface::NoteInterface;
+use dep::protocol_types::traits::ToField;
+use std::option::Option;
 
 // docs:start:NoteViewerOptions
-struct NoteViewerOptions<Note, let N: u32, let M: u32> {
-    selects: BoundedVec<Option<Select>, N>,
-    sorts: BoundedVec<Option<Sort>, N>,
-    limit: u32,
-    offset: u32,
-    status: u8,
+pub struct NoteViewerOptions<Note, let N: u32> {
+    pub selects: BoundedVec<Option<Select>, N>,
+    pub sorts: BoundedVec<Option<Sort>, N>,
+    pub limit: u32,
+    pub offset: u32,
+    pub status: u8,
 }
 // docs:end:NoteViewerOptions
 
-impl<Note, let N: u32, let M: u32> NoteViewerOptions<Note, N, M> {
-    pub fn new() -> NoteViewerOptions<Note, N, M> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> NoteViewerOptions<Note, N> {
+    pub fn new() -> NoteViewerOptions<Note, N>
+    where
+        Note: NoteInterface<N>,
+    {
         NoteViewerOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),
             limit: MAX_NOTES_PER_PAGE as u32,
             offset: 0,
-            status: NoteStatus.ACTIVE
+            status: NoteStatus.ACTIVE,
         }
     }
 
@@ -32,18 +35,13 @@ impl<Note, let N: u32, let M: u32> NoteViewerOptions<Note, N, M> {
     pub fn select<T>(
         &mut self,
         property_selector: PropertySelector,
+        comparator: u8,
         value: T,
-        comparator: Option<u8>
-    ) -> Self where T: ToField {
-        self.selects.push(
-            Option::some(
-                Select::new(
-                    property_selector,
-                    value.to_field(),
-                    comparator.unwrap_or(Comparator.EQ)
-                )
-            )
-        );
+    ) -> Self
+    where
+        T: ToField,
+    {
+        self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
         *self
     }
 
@@ -55,9 +53,10 @@ impl<Note, let N: u32, let M: u32> NoteViewerOptions<Note, N, M> {
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTES_PER_PAGE as u32);
         // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
-        // gate counts when a limit has been set. This isn't required in unconstrained code, but we still keep this
-        // requirement here for API consistency.
-        assert_constant(limit);
+        // gate counts when a limit has been set.
+        if !dep::std::runtime::is_unconstrained() {
+            assert_constant(limit);
+        }
         self.limit = limit;
         *self
     }

@@ -1,29 +1,18 @@
 import {
   type ABIParameter,
   type ABIParameterVisibility,
+  type AbiErrorType,
   type AbiType,
   type AbiValue,
   type DebugFileMap,
   type DebugInfo,
 } from '@aztec/foundation/abi';
 
-export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
-export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
-export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
-export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
-export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
-export const AZTEC_VIEW_ATTRIBUTE = 'aztec(view)';
-
-/**
- * An error could be a custom error of any regular type or a formatted string error.
- */
-export type AbiErrorType =
-  | {
-      error_kind: 'fmtstring';
-      length: number;
-      item_types: AbiType[];
-    }
-  | ({ error_kind: 'custom' } & AbiType);
+export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
+export const AZTEC_PUBLIC_ATTRIBUTE = 'public';
+export const AZTEC_INTERNAL_ATTRIBUTE = 'internal';
+export const AZTEC_INITIALIZER_ATTRIBUTE = 'initializer';
+export const AZTEC_VIEW_ATTRIBUTE = 'view';
 
 /** The ABI of an Aztec.nr function. */
 export interface NoirFunctionAbi {
@@ -41,7 +30,7 @@ export interface NoirFunctionAbi {
     visibility: ABIParameterVisibility;
   };
   /** Mapping of error selector => error type */
-  error_types: Record<string, AbiErrorType>;
+  error_types: Partial<Record<string, AbiErrorType>>;
 }
 
 /**

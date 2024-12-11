@@ -1,0 +1,44 @@
+name: Redo Typo PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'The PR number to redo'
+        required: true
+        type: string
+
+  pull_request_target:
+    types: [labeled]
+    branches:
+      - master
+    paths-ignore:
+      - '**/README.md'
+
+jobs:
+  redo-typo-pr:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'redo-typo-pr')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+    - name: Authenticate with GitHub CLI
+      run: |
+        echo "${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}" | gh auth login --with-token
+
+    - name: Set git configure for commits
+      run: |
+        # Identify ourselves, needed to commit
+        git config --global user.name AztecBot
+        git config --global user.email tech@aztecprotocol.com
+
+    - name: Determine PR number
+      id: determine-pr-number
+      run: echo "PR_NUMBER=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> $GITHUB_ENV
+
+    - name: Run repo-typo-pr script
+      run: ./scripts/redo-typo-pr ${{ env.PR_NUMBER }}

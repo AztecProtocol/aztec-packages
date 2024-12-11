@@ -7,8 +7,14 @@ variable "IMAGE_TAG" {
   default = "latest"
 }
 
+variable "ETHEREUM_HOST" {
+  type    = string
+  default = ""
+}
+
 variable "API_KEY" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "PROVER_PRIVATE_KEYS" {

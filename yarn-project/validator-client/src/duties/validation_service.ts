@@ -1,5 +1,13 @@
-import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-types';
-import { type Header } from '@aztec/circuits.js';
+import {
+  BlockAttestation,
+  BlockProposal,
+  ConsensusPayload,
+  SignatureDomainSeperator,
+  type TxHash,
+} from '@aztec/circuit-types';
+import { type BlockHeader } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
@@ -16,16 +24,17 @@ export class ValidationService {
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
-  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    // Note: just signing the archive for now
-    const archiveBuf = archive.toBuffer();
-    const sig = await this.keyStore.sign(archiveBuf);
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
 
-    return new BlockProposal(header, archive, txs, sig);
+    return BlockProposal.createProposalFromSigner(new ConsensusPayload(header, archive, txs), payloadSigner);
   }
 
   /**
    * Attest to the given block proposal constructed by the current sequencer
+   *
+   * NOTE: This is just a blind signing.
+   *       We assume that the proposal is valid and DA guarantees have been checked previously.
    *
    * @param proposal - The proposal to attest to
    * @returns attestation
@@ -33,8 +42,10 @@ export class ValidationService {
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
 
-    const buf = proposal.archive.toBuffer();
-    const sig = await this.keyStore.sign(buf);
-    return new BlockAttestation(proposal.header, proposal.archive, sig);
+    const buf = Buffer32.fromBuffer(
+      keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation)),
+    );
+    const sig = await this.keyStore.signMessage(buf);
+    return new BlockAttestation(proposal.payload, sig);
   }
 }

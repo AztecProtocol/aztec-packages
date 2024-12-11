@@ -1,22 +1,33 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+
 import { mockSimulatedTx } from '../mocks.js';
-import { SimulatedTx } from './simulated_tx.js';
+import { TxProvingResult, TxSimulationResult } from './simulated_tx.js';
 
 describe('simulated_tx', () => {
-  let simulatedTx: SimulatedTx;
+  describe('TxSimulationResult', () => {
+    let simulatedTx: TxSimulationResult;
+    beforeEach(() => {
+      simulatedTx = mockSimulatedTx();
+    });
 
-  beforeEach(() => {
-    simulatedTx = mockSimulatedTx();
-  });
-
-  describe('json', () => {
     it('convert to and from json', () => {
-      expect(SimulatedTx.fromJSON(simulatedTx.toJSON())).toEqual(simulatedTx);
+      expect(TxSimulationResult.schema.parse(JSON.parse(jsonStringify(simulatedTx)))).toEqual(simulatedTx);
     });
 
     it('convert undefined effects to and from json', () => {
-      simulatedTx.privateReturnValues = undefined;
       simulatedTx.publicOutput = undefined;
-      expect(SimulatedTx.fromJSON(simulatedTx.toJSON())).toEqual(simulatedTx);
+      expect(TxSimulationResult.schema.parse(JSON.parse(jsonStringify(simulatedTx)))).toEqual(simulatedTx);
+    });
+  });
+
+  describe('TxProvingResult', () => {
+    let tx: TxProvingResult;
+    beforeEach(() => {
+      tx = TxProvingResult.random();
+    });
+
+    it('convert to and from json', () => {
+      expect(TxProvingResult.schema.parse(JSON.parse(jsonStringify(tx)))).toEqual(tx);
     });
   });
 });

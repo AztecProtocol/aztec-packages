@@ -1,6 +1,9 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 /**
  * Represents an individual unencrypted log entry.
@@ -21,10 +24,7 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
-    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
-    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
-    // we need to add four to the length here.
-    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
+    // This +4 is because we prefix the log length - see toBuffer below
     return this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 
@@ -46,17 +46,10 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, data: ${payload})`;
   }
 
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return {
-      contractAddress: this.contractAddress.toString(),
-      data: this.data.toString('hex'),
-    };
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new UnencryptedL2Log(AztecAddress.fromString(obj.contractAddress), Buffer.from(obj.data, 'hex'));
+  static get schema() {
+    return z
+      .object({ contractAddress: schemas.AztecAddress, data: schemas.Buffer })
+      .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));
   }
 
   /**

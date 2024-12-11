@@ -1,0 +1,140 @@
+name: KIND network tests
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "00 08 * * 1-5"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  # kludge until we move away from runners
+  WAIT_FOR_RUNNERS: false
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ github.event.pull_request.user.login || github.actor }}
+      runner_type: builder-x86
+    secrets: inherit
+
+  build:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-x86
+      # prepare images locally, tagged by commit hash
+      - name: "Build E2E Image"
+        timeout-minutes: 40
+        run: |
+          earthly-ci ./yarn-project+export-e2e-test-images
+
+  test:
+    needs: build
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        test:
+          - transfer
+          - reorg
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 90
+        with:
+          runner_type: 16core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 90
+          run: |
+            set -eux
+            ./spartan/scripts/setup_local_k8s.sh
+            cd yarn-project/end-to-end
+            export FORCE_COLOR=1
+            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true CLEANUP_CLUSTER=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts
+
+  proving-test:
+    needs: build
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 90
+        with:
+          runner_type: 128core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 90
+          run: |
+            set -eux
+            ./spartan/scripts/setup_local_k8s.sh
+            cd yarn-project/end-to-end
+            export FORCE_COLOR=1
+            NAMESPACE=proving FRESH_INSTALL=true CLEANUP_CLUSTER=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts
+
+  success-check:
+    runs-on: ubuntu-20.04
+    needs:
+      - test
+      - proving-test
+    if: always()
+    steps:
+      - name: Report overall success
+        env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "Test failed."
+              exit 1
+          fi
+
+  notify:
+    needs:
+      - success-check
+    runs-on: ubuntu-20.04
+    if: ${{ github.ref == 'refs/heads/master' && failure() }}
+    steps:
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}

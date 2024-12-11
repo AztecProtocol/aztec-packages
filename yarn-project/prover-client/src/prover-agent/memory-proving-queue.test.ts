@@ -1,34 +1,37 @@
-import { ProvingRequestType } from '@aztec/circuit-types';
-import {
-  Fr,
-  RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import { ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import {
   makeBaseParityInputs,
-  makeBaseRollupInputs,
   makeParityPublicInputs,
+  makePrivateBaseRollupInputs,
+  makePublicBaseRollupInputs,
   makeRootRollupInputs,
 } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 
 describe('MemoryProvingQueue', () => {
   let queue: MemoryProvingQueue;
   let jobTimeoutMs: number;
   let pollingIntervalMs: number;
+  let proofStore: ProofStore;
 
   beforeEach(() => {
     jobTimeoutMs = 100;
     pollingIntervalMs = 10;
-    queue = new MemoryProvingQueue(new NoopTelemetryClient(), jobTimeoutMs, pollingIntervalMs);
+    proofStore = new InlineProofStore();
+    queue = new MemoryProvingQueue(
+      new NoopTelemetryClient(),
+      jobTimeoutMs,
+      pollingIntervalMs,
+      undefined,
+      undefined,
+      proofStore,
+    );
     queue.start();
   });
 
@@ -38,39 +41,39 @@ describe('MemoryProvingQueue', () => {
 
   it('returns jobs in order', async () => {
     void queue.getBaseParityProof(makeBaseParityInputs());
-    void queue.getBaseRollupProof(makeBaseRollupInputs());
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs());
 
     const job1 = await queue.getProvingJob();
-    expect(job1?.request.type).toEqual(ProvingRequestType.BASE_PARITY);
+    expect(job1?.type).toEqual(ProvingRequestType.BASE_PARITY);
 
     const job2 = await queue.getProvingJob();
-    expect(job2?.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect(job2?.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
   });
 
   it('returns jobs ordered by priority', async () => {
     // We push base rollup proof requests for a first block
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 1);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 1);
 
     // The agent consumes one of them
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
 
     // A new block comes along with its base rollups, and the orchestrator then pushes a root request for the first one
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 2);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 2);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 2);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 2);
     void queue.getRootRollupProof(makeRootRollupInputs(), undefined, 1);
 
     // The next jobs for the agent should be the ones from block 1, skipping the ones for block 2
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.ROOT_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.ROOT_ROLLUP);
 
     // And the base rollups for block 2 should go next
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
   });
 
   it('returns undefined when no jobs are available', async () => {
@@ -82,14 +85,18 @@ describe('MemoryProvingQueue', () => {
     const promise = queue.getBaseParityProof(inputs);
 
     const job = await queue.getProvingJob();
-    expect(job?.request.inputs).toEqual(inputs);
+    const jobInputs = await proofStore.getProofInput(job!.inputsUri);
+    expect(jobInputs.inputs).toEqual(inputs);
 
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
-    const vkPath = makeTuple(VK_TREE_HEIGHT, Fr.zero);
-    await queue.resolveProvingJob(job!.id, new RootParityInput(proof, vk, vkPath, publicInputs));
-    await expect(promise).resolves.toEqual(new RootParityInput(proof, vk, vkPath, publicInputs));
+    const vk = VerificationKeyData.makeFakeHonk();
+    const result = makePublicInputsAndRecursiveProof(publicInputs, proof, vk);
+    await queue.resolveProvingJob(job!.id, {
+      type: ProvingRequestType.BASE_PARITY,
+      result,
+    });
+    await expect(promise).resolves.toEqual(result);
   });
 
   it('retries failed jobs', async () => {
@@ -97,11 +104,12 @@ describe('MemoryProvingQueue', () => {
     void queue.getBaseParityProof(inputs);
 
     const job = await queue.getProvingJob();
-    expect(job?.request.inputs).toEqual(inputs);
+    const proofInput = await proofStore.getProofInput(job!.inputsUri);
+    expect(proofInput.inputs).toEqual(inputs);
 
     const error = new Error('test error');
 
-    await queue.rejectProvingJob(job!.id, error);
+    await queue.rejectProvingJob(job!.id, error.message);
     await expect(queue.getProvingJob()).resolves.toEqual(job);
   });
 
@@ -109,9 +117,9 @@ describe('MemoryProvingQueue', () => {
     const promise = queue.getBaseParityProof(makeBaseParityInputs());
 
     const error = new Error('test error');
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
 
     await expect(promise).rejects.toEqual(error);
   });
@@ -142,13 +150,12 @@ describe('MemoryProvingQueue', () => {
     await sleep(pollingIntervalMs);
     expect(queue.isJobRunning(job!.id)).toBe(true);
 
-    const output = new RootParityInput(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFake(),
-      makeTuple(VK_TREE_HEIGHT, Fr.zero),
+    const output = makePublicInputsAndRecursiveProof(
       makeParityPublicInputs(),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
     );
-    await queue.resolveProvingJob(job!.id, output);
+    await queue.resolveProvingJob(job!.id, { type: ProvingRequestType.BASE_PARITY, result: output });
     await expect(promise).resolves.toEqual(output);
   });
 });

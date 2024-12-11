@@ -21,6 +21,7 @@ describe('buildTransientDataHints', () => {
   let futureNoteHashReads: ScopedReadRequest[];
   let futureNullifierReads: ScopedReadRequest[];
   let noteHashNullifierCounterMap: Map<number, number>;
+  let validationRequestsSplitCounter = 0;
 
   const buildHints = () =>
     buildTransientDataHints(
@@ -29,9 +30,11 @@ describe('buildTransientDataHints', () => {
       futureNoteHashReads,
       futureNullifierReads,
       noteHashNullifierCounterMap,
+      validationRequestsSplitCounter,
     );
 
   beforeEach(() => {
+    validationRequestsSplitCounter = 0;
     noteHashes = [
       new NoteHash(new Fr(11), 100).scope(contractAddress),
       new NoteHash(new Fr(22), 200).scope(contractAddress),
@@ -74,6 +77,13 @@ describe('buildTransientDataHints', () => {
 
   it('keeps the pair if note hash does not match', () => {
     nullifiers[3].nullifier.noteHash = new Fr(9999);
+    const { numTransientData, hints } = buildHints();
+    expect(numTransientData).toBe(0);
+    expect(hints).toEqual(Array(nullifiers.length).fill(nadaIndexHint));
+  });
+
+  it('keeps the pair if note hash is non-revertible and nullifier is revertible', () => {
+    validationRequestsSplitCounter = noteHashes[0].counter + 1;
     const { numTransientData, hints } = buildHints();
     expect(numTransientData).toBe(0);
     expect(hints).toEqual(Array(nullifiers.length).fill(nadaIndexHint));

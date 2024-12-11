@@ -19,10 +19,7 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {
@@ -43,19 +40,21 @@ template <IsUltraFlavor Flavor> class OinkProver {
   public:
     std::shared_ptr<DeciderPK> proving_key;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
+    ExecutionTraceUsageTracker trace_usage_tracker;
+
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     OinkProver(std::shared_ptr<DeciderPK> proving_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
-               std::string domain_separator = "")
+               std::string domain_separator = "",
+               const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
         : proving_key(proving_key)
         , transcript(transcript)
-        , commitment_key(this->proving_key->proving_key.commitment_key)
         , domain_separator(std::move(domain_separator))
+        , trace_usage_tracker(trace_usage_tracker)
     {}
 
     void prove();
@@ -66,4 +65,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
 };
+
+using MegaOinkProver = OinkProver<MegaFlavor>;
+
 } // namespace bb

@@ -1,6 +1,6 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
@@ -11,7 +11,7 @@ export class FeeJuicePaymentMethod implements FeePaymentMethod {
   constructor(protected sender: AztecAddress) {}
 
   getAsset() {
-    return FeeJuiceAddress;
+    return ProtocolContractAddress.FeeJuice;
   }
 
   getFunctionCalls(): Promise<FunctionCall[]> {

@@ -2,7 +2,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
@@ -100,6 +100,145 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
+
+/// @brief
+
+/// @param scaling The scaling factor to apply to the linear term.
+/// @note This function is used internally to update the fields of a mul_quad_ gate with a linear term.
+/**
+ * @brief Assigns a linear term to a specific index in a mul_quad_ gate.
+ * @param gate The mul_quad_ gate to assign the linear term to.
+ * @param index The index of the linear term to assign (0 for a, 1 for b, 2 for c, 3 for d).
+ * @param witness_index The witness index to assign to the linear term.
+ * @return nothing, the input gate is modified in place.
+ * @note It fails if index is 4 or more.
+ */
+void assign_linear_term(mul_quad_<fr>& gate, int index, uint32_t witness_index, fr const& scaling)
+{
+    switch (index) {
+    case 0:
+        gate.a = witness_index;
+        gate.a_scaling = scaling;
+        break;
+    case 1:
+        gate.b = witness_index;
+        gate.b_scaling = scaling;
+        break;
+    case 2:
+        gate.c = witness_index;
+        gate.c_scaling = scaling;
+        break;
+    case 3:
+        gate.d = witness_index;
+        gate.d_scaling = scaling;
+        break;
+    default:
+        ASSERT(false);
+    }
+}
+
+/// Accumulate the input expression into a serie of quad gates
+std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Program::Expression const& arg)
+{
+    std::vector<mul_quad_<fr>> result;
+    auto current_mul_term = arg.mul_terms.begin();
+    auto current_linear_term = arg.linear_combinations.begin();
+
+    // number of wires to use in the intermediate gate
+    int max_size = 4;
+    bool done = false;
+    // the intermediate 'big add' gates. The first one contains the constant term.
+    mul_quad_<fr> mul_gate = { .a = 0,
+                               .b = 0,
+                               .c = 0,
+                               .d = 0,
+                               .mul_scaling = fr::zero(),
+                               .a_scaling = fr::zero(),
+                               .b_scaling = fr::zero(),
+                               .c_scaling = fr::zero(),
+                               .d_scaling = fr::zero(),
+                               .const_scaling = fr(uint256_t(arg.q_c)) };
+
+    // list of witnesses that are part of mul terms
+    std::set<uint32_t> all_mul_terms;
+    for (auto const& term : arg.mul_terms) {
+        all_mul_terms.insert(std::get<1>(term).value);
+        all_mul_terms.insert(std::get<2>(term).value);
+    }
+    // The 'mul term' witnesses that have been processed
+    std::set<uint32_t> processed_mul_terms;
+
+    while (!done) {
+        int i = 0; // index of the current free wire in the new intermediate gate
+
+        // we add a mul term (if there are some) to every intermediate gate
+        if (current_mul_term != arg.mul_terms.end()) {
+            mul_gate.mul_scaling = fr(uint256_t(std::get<0>(*current_mul_term)));
+            mul_gate.a = std::get<1>(*current_mul_term).value;
+            mul_gate.b = std::get<2>(*current_mul_term).value;
+            mul_gate.a_scaling = fr::zero();
+            mul_gate.b_scaling = fr::zero();
+            // Try to add corresponding linear terms, only if they were not already added
+            if (!processed_mul_terms.contains(mul_gate.a) || !processed_mul_terms.contains(mul_gate.b)) {
+                for (auto lin_term : arg.linear_combinations) {
+                    auto w = std::get<1>(lin_term).value;
+                    if (w == mul_gate.a) {
+                        if (!processed_mul_terms.contains(mul_gate.a)) {
+                            mul_gate.a_scaling = fr(uint256_t(std::get<0>(lin_term)));
+                            processed_mul_terms.insert(w);
+                        }
+                        if (mul_gate.a == mul_gate.b) {
+                            break;
+                        }
+                    } else if (w == mul_gate.b) {
+                        if (!processed_mul_terms.contains(mul_gate.b)) {
+                            mul_gate.b_scaling = fr(uint256_t(std::get<0>(lin_term)));
+                            processed_mul_terms.insert(w);
+                        }
+                        break;
+                    }
+                }
+            }
+            i = 2; // a and b are used because of the mul term
+            current_mul_term = std::next(current_mul_term);
+        }
+        // We need to process all the mul terms before being done.
+        done = current_mul_term == arg.mul_terms.end();
+
+        // Assign available wires with the remaining linear terms which are not also a 'mul term'
+        while (current_linear_term != arg.linear_combinations.end()) {
+            auto w = std::get<1>(*current_linear_term).value;
+            if (!all_mul_terms.contains(w)) {
+                if (i < max_size) {
+                    assign_linear_term(mul_gate, i, w, fr(uint256_t(std::get<0>(*current_linear_term)))); // * fr(-1)));
+                    ++i;
+                } else {
+                    // No more available wire, but there is still some linear terms; we need another mul_gate
+                    done = false;
+                    break;
+                }
+            }
+            current_linear_term = std::next(current_linear_term);
+        }
+
+        // Index 4 of the next gate will be used
+        max_size = 3;
+        result.push_back(mul_gate);
+        mul_gate = { .a = 0,
+                     .b = 0,
+                     .c = 0,
+                     .d = 0,
+                     .mul_scaling = fr::zero(),
+                     .a_scaling = fr::zero(),
+                     .b_scaling = fr::zero(),
+                     .c_scaling = fr::zero(),
+                     .d_scaling = fr::zero(),
+                     .const_scaling = fr::zero() };
+    }
+
+    return result;
+}
+
 mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
@@ -135,7 +274,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
         b_set = true;
     }
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    ASSERT(arg.linear_combinations.size() <= 4); // We can only accommodate 4 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
         fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
@@ -162,7 +300,17 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
             quad.d_scaling = selector_value;
             d_set = true;
         } else {
-            throw_or_abort("Cannot assign linear term to a constraint of width 4");
+            // We cannot assign linear term to a constraint of width 4
+            return { .a = 0,
+                     .b = 0,
+                     .c = 0,
+                     .d = 0,
+                     .mul_scaling = 0,
+                     .a_scaling = 0,
+                     .b_scaling = 0,
+                     .c_scaling = 0,
+                     .d_scaling = 0,
+                     .const_scaling = 0 };
         }
     }
 
@@ -193,7 +341,8 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const&
         return { 0, 0 };
     }
     if (pt.q_l == -pt.q_r && pt.q_l != bb::fr::zero() && pt.q_c == bb::fr::zero()) {
-        if (af.constrained_witness.contains(pt.a) && af.constrained_witness.contains(pt.b)) {
+        // we require that one of the 2 witnesses to be constrained in an arithmetic gate
+        if (af.constrained_witness.contains(pt.a) || af.constrained_witness.contains(pt.b)) {
             return { pt.a, pt.b };
         }
     }
@@ -202,7 +351,8 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const&
 
 void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
-    if (arg.value.linear_combinations.size() <= 3) {
+    // If the expression fits in a polytriple, we use it.
+    if (arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
 
         auto assert_equal = is_assert_equal(arg, pt, af);
@@ -210,13 +360,39 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
         uint32_t w2 = std::get<1>(assert_equal);
         if (w1 != 0) {
             if (w1 != w2) {
+                if (!af.constrained_witness.contains(pt.a)) {
+                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+                    af.constrained_witness.insert(pt.a);
+                    // swap the witnesses so that the first one is always properly constrained.
+                    auto tmp = pt.a;
+                    pt.a = pt.b;
+                    pt.b = tmp;
+                }
+                if (!af.constrained_witness.contains(pt.b)) {
+                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+                    af.constrained_witness.insert(pt.b);
+                }
+                // minimal_range of a witness is the smallest range of the witness and the witness that are
+                // 'assert_equal' to it
+                if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
+                    if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
+                        af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                    } else {
+                        af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                    }
+                } else if (af.minimal_range.contains(pt.b)) {
+                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                } else if (af.minimal_range.contains(pt.a)) {
+                    af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                }
+
                 af.assert_equalities.push_back(pt);
                 af.original_opcode_indices.assert_equalities.push_back(opcode_index);
             }
             return;
         }
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
-        // gate. This is the case if the linear terms are all disctinct witness from the multiplication term. In that
+        // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
         // gate instead. We could probably always use a width-4 gate in fact.
         if (pt == poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
@@ -228,12 +404,29 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
             af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
         }
     } else {
-        af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
-        af.original_opcode_indices.quad_constraints.push_back(opcode_index);
+        std::vector<mul_quad_<fr>> mul_quads;
+        // We try to use a single mul_quad gate to represent the expression.
+        if (arg.value.mul_terms.size() <= 1) {
+            auto quad = serialize_mul_quad_gate(arg.value);
+            // add it to the result vector if it worked
+            if (quad.a != 0 || !(quad.mul_scaling == fr(0)) || !(quad.a_scaling == fr(0))) {
+                mul_quads.push_back(quad);
+            }
+        }
+        if (mul_quads.empty()) {
+            // If not, we need to split the expression into multiple gates
+            mul_quads = split_into_mul_quad_gates(arg.value);
+        }
+        if (mul_quads.size() == 1) {
+            af.quad_constraints.push_back(mul_quads[0]);
+            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
+        }
+        if (mul_quads.size() > 1) {
+            af.big_quad_constraints.push_back(mul_quads);
+        }
     }
     constrain_witnesses(arg, af);
 }
-
 uint32_t get_witness_from_function_input(Program::FunctionInput input)
 {
     auto input_witness = std::get<Program::ConstantOrWitnessEnum::Witness>(input.input.value);
@@ -288,6 +481,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.lhs.num_bits,
                     .is_xor_gate = false,
                 });
+                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::XOR>) {
                 auto lhs_input = parse_input(arg.lhs);
@@ -299,6 +493,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.lhs.num_bits,
                     .is_xor_gate = true,
                 });
+                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RANGE>) {
                 auto witness_input = get_witness_from_function_input(arg.input);
@@ -307,7 +502,13 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.input.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
-
+                if (af.minimal_range.contains(witness_input)) {
+                    if (af.minimal_range[witness_input] > arg.input.num_bits) {
+                        af.minimal_range[witness_input] = arg.input.num_bits;
+                    }
+                } else {
+                    af.minimal_range[witness_input] = arg.input.num_bits;
+                }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
@@ -315,28 +516,19 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .key = map(arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.aes128_constraints.back().outputs) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
-
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SHA256>) {
-                af.sha256_constraints.push_back(Sha256Constraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
-                                      return Sha256Input{
-                                          .witness = input_witness,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
-                });
-                af.original_opcode_indices.sha256_constraints.push_back(opcode_index);
-
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
                     .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .hash_values = map(arg.hash_values, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.sha256_compression.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
@@ -349,6 +541,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.blake2s_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
@@ -361,34 +556,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.blake3_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SchnorrVerify>) {
-                auto input_pkey_x = get_witness_from_function_input(arg.public_key_x);
-                auto input_pkey_y = get_witness_from_function_input(arg.public_key_y);
-                af.schnorr_constraints.push_back(SchnorrConstraint{
-                    .message = map(arg.message, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .public_key_x = input_pkey_x,
-                    .public_key_y = input_pkey_y,
-                    .result = arg.output.value,
-                    .signature = map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
-                });
-                af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenCommitment>) {
-
-                af.pedersen_constraints.push_back(PedersenConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result_x = arg.outputs[0].value,
-                    .result_y = arg.outputs[1].value,
-                });
-                af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
-                af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
-                    .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .hash_index = arg.domain_separator,
-                    .result = arg.output.value,
-                });
-                af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =
@@ -398,6 +569,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .pub_y_indices = map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                 });
+                af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
@@ -408,6 +580,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result = arg.output.value,
                     .signature = map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
+                af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
@@ -417,6 +590,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .out_point_y = arg.outputs[1].value,
                     .out_point_is_infinite = arg.outputs[2].value,
                 });
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_x);
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_y);
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_is_infinite);
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 auto input_1_x = parse_input(arg.input1[0]);
@@ -437,37 +613,29 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result_y = arg.outputs[1].value,
                     .result_infinite = arg.outputs[2].value,
                 });
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_x);
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_infinite);
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
-                auto input_var_message_size = get_witness_from_function_input(arg.var_message_size);
-                af.keccak_constraints.push_back(KeccakConstraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
-                                      return HashInput{
-                                          .witness = input_witness,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
-                    .var_message_size = input_var_message_size,
-                });
-                af.original_opcode_indices.keccak_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
                     .state = map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.keccak_permutations.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
 
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto proof_type_in = arg.proof_type;
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
-                // the only means for setting the proof type. use of honk_recursion flag in this context can go away
-                // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will
+                // be the only means for setting the proof type. use of honk_recursion flag in this context can go
+                // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
+                if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
+                    proof_type_in != ROLLUP_ROOT_HONK) {
                     proof_type_in = HONK;
                 }
 
@@ -486,8 +654,15 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
                     break;
                 case HONK:
+                case ROLLUP_HONK:
+                case ROLLUP_ROOT_HONK:
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
+                    break;
+                case OINK:
+                case PG:
+                    af.ivc_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.ivc_recursion_constraints.push_back(opcode_index);
                     break;
                 case AVM:
                     af.avm_recursion_constraints.push_back(c);
@@ -509,6 +684,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .input = arg.input,
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.bigint_to_le_bytes_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.bigint_to_le_bytes_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntAdd>) {
                 af.bigint_operations.push_back(BigIntOperation{
@@ -548,6 +726,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .len = arg.len,
                 });
+                for (auto& output : af.poseidon2_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             }
         },
@@ -615,7 +796,6 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
-    af.recursive = circuit.recursive;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
@@ -648,7 +828,8 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     }
     for (const auto& [block_id, block] : block_id_to_block_constraint) {
         // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
-        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData) {
+        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
+            block.first.type == BlockType::CallData) {
             af.block_constraints.push_back(block.first);
             af.original_opcode_indices.block_constraints.push_back(block.second);
         }

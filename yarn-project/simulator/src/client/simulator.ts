@@ -1,4 +1,4 @@
-import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
+import type { AztecNode, FunctionCall, Note, PrivateExecutionResult, TxExecutionRequest } from '@aztec/circuit-types';
 import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
@@ -10,14 +10,13 @@ import {
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { type ExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -26,10 +25,10 @@ import { ViewDataOracle } from './view_data_oracle.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(private db: DBOracle, private node: AztecNode) {
-    this.log = createDebugLogger('aztec:simulator');
+    this.log = createLogger('simulator');
   }
 
   /**
@@ -47,7 +46,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     scopes?: AztecAddress[],
-  ): Promise<ExecutionResult> {
+  ): Promise<PrivateExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
     }
@@ -58,7 +57,7 @@ export class AcirSimulator {
       );
     }
 
-    const header = await this.db.getHeader();
+    const header = await this.db.getBlockHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
@@ -67,14 +66,12 @@ export class AcirSimulator {
       msgSender,
       contractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
-      false,
       entryPointArtifact.isStatic,
     );
 
     const txHash = request.toTxRequest().hash();
 
     const context = new ClientExecutionContext(
-      contractAddress,
       request.firstCallArgsHash,
       request.txContext,
       callContext,

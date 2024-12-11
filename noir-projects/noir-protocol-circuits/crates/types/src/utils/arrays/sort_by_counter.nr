@@ -1,18 +1,30 @@
 use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::sort_by::sort_by};
 
-pub fn compare_by_counter_empty_padded_asc<T>(a: T, b: T) -> bool where T: Ordered + Empty + Eq {
+pub fn compare_by_counter_empty_padded_asc<T>(a: T, b: T) -> bool
+where
+    T: Ordered + Empty + Eq,
+{
     !is_empty(a) & (is_empty(b) | (a.counter() < b.counter()))
 }
 
-pub fn compare_by_counter_empty_padded_desc<T>(a: T, b: T) -> bool where T: Ordered + Empty + Eq {
+pub fn compare_by_counter_empty_padded_desc<T>(a: T, b: T) -> bool
+where
+    T: Ordered + Empty + Eq,
+{
     !is_empty(a) & (is_empty(b) | (a.counter() >= b.counter()))
 }
 
-unconstrained pub fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
+pub unconstrained fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N]
+where
+    T: Ordered + Empty + Eq,
+{
     sort_by(array, compare_by_counter_empty_padded_asc)
 }
 
-unconstrained pub fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
+pub unconstrained fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N]
+where
+    T: Ordered + Empty + Eq,
+{
     sort_by(array, compare_by_counter_empty_padded_desc)
 }
 
@@ -20,38 +32,34 @@ mod tests {
     use crate::{
         tests::types::TestValue,
         utils::arrays::sort_by_counter::{
-        compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc, sort_by_counter_asc,
-        sort_by_counter_desc
-    }
+            compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc,
+            sort_by_counter_asc, sort_by_counter_desc,
+        },
     };
 
     fn asc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = unsafe {
-            sort_by_counter_asc(items).map(|item: TestValue| item.counter)
-        };
+        let sorted = unsafe { sort_by_counter_asc(items).map(|item: TestValue| item.counter) };
         assert_eq(sorted, expected);
     }
 
     fn desc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = unsafe {
-            sort_by_counter_desc(items).map(|item: TestValue| item.counter)
-        };
+        let sorted = unsafe { sort_by_counter_desc(items).map(|item: TestValue| item.counter) };
         assert_eq(sorted, expected);
     }
 
     fn compare_test_items_asc(value_1: u32, value_2: u32) -> bool {
         compare_by_counter_empty_padded_asc(
             TestValue { value: value_1 as Field, counter: value_1 },
-            TestValue { value: value_2 as Field, counter: value_2 }
+            TestValue { value: value_2 as Field, counter: value_2 },
         )
     }
 
     fn compare_test_items_desc(value_1: u32, value_2: u32) -> bool {
         compare_by_counter_empty_padded_desc(
             TestValue { value: value_1 as Field, counter: value_1 },
-            TestValue { value: value_2 as Field, counter: value_2 }
+            TestValue { value: value_2 as Field, counter: value_2 },
         )
     }
 
@@ -100,7 +108,7 @@ mod tests {
             TestValue { value: 44, counter: 0 },
             TestValue { value: 22, counter: 0 },
             TestValue::empty(),
-            TestValue::empty()
+            TestValue::empty(),
         ];
         let expected = [
             TestValue { value: 11, counter: 0 },
@@ -109,11 +117,9 @@ mod tests {
             TestValue { value: 55, counter: 1 },
             TestValue { value: 33, counter: 2 },
             TestValue::empty(),
-            TestValue::empty()
+            TestValue::empty(),
         ];
-        let sorted = unsafe {
-            sort_by_counter_asc(original)
-        };
+        let sorted = unsafe { sort_by_counter_asc(original) };
         assert_eq(sorted, expected);
     }
 
@@ -126,7 +132,7 @@ mod tests {
             TestValue { value: 44, counter: 0 },
             TestValue { value: 22, counter: 0 },
             TestValue::empty(),
-            TestValue::empty()
+            TestValue::empty(),
         ];
         let expected = [
             TestValue { value: 33, counter: 2 },
@@ -135,11 +141,9 @@ mod tests {
             TestValue { value: 44, counter: 0 },
             TestValue { value: 11, counter: 0 },
             TestValue::empty(),
-            TestValue::empty()
+            TestValue::empty(),
         ];
-        let sorted = unsafe {
-            sort_by_counter_desc(original)
-        };
+        let sorted = unsafe { sort_by_counter_desc(original) };
         assert_eq(sorted, expected);
     }
 }

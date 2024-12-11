@@ -1,74 +1,54 @@
+#!/bin/bash
 # Run locally from end-to-end folder while running anvil and sandbox with:
 # PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
-
 set -eux
 
+LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export WALLET_DATA_DIRECTORY="${LOCATION}/up_quick_start"
+
+aztec-wallet() {
+  node --no-warnings ../cli-wallet/dest/bin/index.js "$@"
+}
+
 # docs:start:declare-accounts
-ACCOUNTS=$(aztec-cli get-accounts --json | jq -r '.[].address')
-ALICE=$(echo "$ACCOUNTS" | sed -n 1p)
-BOB=$(echo "$ACCOUNTS" | sed -n 2p)
-ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
+aztec-wallet create-account -a alice
+aztec-wallet create-account -a bob
 # docs:end:declare-accounts
 
 # docs:start:deploy
-CONTRACT=$(aztec-cli deploy TokenContractArtifact --private-key $ALICE_PRIVATE_KEY --salt 0 --args $ALICE "TokenName" "TKN" 18 --json | jq -r '.address')
-echo "Deployed contract at $CONTRACT"
-aztec-cli check-deploy --contract-address $CONTRACT
+DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:alice Test TST 18 -f alice)
+TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
+echo "Deployed contract at $TOKEN_ADDRESS"
 # docs:end:deploy
 
 # docs:start:mint-private
-SECRET="0x29bf6afaf29f61cbcf2a4fa7da97be481fb418dc08bdab5338839974beb7b49f"
-SECRET_HASH="0x0921759afa747c9073f75df9688a17d271cef0d6ec51eacf70e112402c4db6cd"
-
-MINT_PRIVATE_OUTPUT=$(aztec-cli send mint_private \
-  --args 1000 $SECRET_HASH \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY)
-
-MINT_PRIVATE_TX_HASH=$(echo "$MINT_PRIVATE_OUTPUT" | grep "Transaction hash:" | awk '{print $NF}')
-
-aztec-cli add-note \
-  $ALICE $CONTRACT 5 84114971101151129711410111011678111116101 $MINT_PRIVATE_TX_HASH \
-  --note 1000 $SECRET_HASH
-
-aztec-cli send redeem_shield \
-  --args $ALICE 1000 $SECRET \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY
+MINT_AMOUNT=69
+aztec-wallet send mint_to_private -ca last --args accounts:alice accounts:alice $MINT_AMOUNT -f alice
 # docs:end:mint-private
 
 # docs:start:get-balance
-aztec-cli call balance_of_private \
-  --args $ALICE \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q $MINT_AMOUNT; then
+  echo "Incorrect Alice balance after transaction (expected $MINT_AMOUNT but got $ALICE_BALANCE)"
+  exit 1
+fi
 # docs:end:get-balance
 
 # docs:start:transfer
-aztec-cli send transfer \
-  --args $ALICE $BOB 500 0 \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY
+TRANSFER_AMOUNT=42
 
-aztec-cli call balance_of_private \
-  --args $ALICE \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT
-
-aztec-cli call balance_of_private \
-  --args $BOB \
-  --contract-artifact TokenContractArtifact \
-  --contract-address $CONTRACT
+aztec-wallet send transfer -ca last --args accounts:bob $TRANSFER_AMOUNT -f alice
 # docs:end:transfer
 
-aztec-cli get-logs
-
 # Test end result
-BOB_BALANCE=$(aztec-cli call balance_of_private --args $BOB --contract-artifact TokenContractArtifact --contract-address $CONTRACT)
-if ! echo $BOB_BALANCE | grep -q 500; then
-  echo "Incorrect Bob balance after transaction (expected 500 but got $BOB_BALANCE)"
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q "$(($MINT_AMOUNT - $TRANSFER_AMOUNT))"; then
+  echo "Incorrect Alice balance after transaction (expected 27 but got $ALICE_BALANCE)"
+  exit 1
+fi
+
+BOB_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:bob -f bob)
+if ! echo $BOB_BALANCE | grep -q $TRANSFER_AMOUNT; then
+  echo "Incorrect Bob balance after transaction (expected $TRANSFER_AMOUNT but got $BOB_BALANCE)"
   exit 1
 fi

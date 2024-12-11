@@ -1,12 +1,16 @@
-import { type AztecAddress, Fr, type FunctionSelector, unpackBytecode } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { PrivateFunctionsTree } from '@aztec/pxe';
 import {
+  type AztecAddress,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
+  Fr,
+  FunctionSelector,
+  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
-} from '@aztec/types/contracts';
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { PrivateFunctionsTree } from '@aztec/pxe';
 
 import { type TXE } from '../oracle/txe_oracle.js';
 
@@ -31,16 +35,29 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     const tree = new PrivateFunctionsTree(artifact);
     const privateFunctionsRoot = tree.getFunctionTreeRoot();
 
+    const publicFunctions: PublicFunction[] = [];
+    if (contractClass!.packedBytecode.length > 0) {
+      publicFunctions.push({
+        selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+        bytecode: contractClass!.packedBytecode,
+      });
+    }
+
     return {
       id,
       artifactHash: contractClass!.artifactHash,
       packedBytecode: contractClass!.packedBytecode,
-      publicFunctions: unpackBytecode(contractClass!.packedBytecode),
+      publicFunctions: publicFunctions,
       privateFunctionsRoot: new Fr(privateFunctionsRoot!.root),
       version: contractClass!.version,
       privateFunctions: [],
       unconstrainedFunctions: [],
     };
+  }
+
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
+    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -57,7 +74,24 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
   }
 
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const artifact = await this.getContractArtifact(address);
+    if (!artifact) {
+      return undefined;
+    }
+    const func = artifact.functions.find(f =>
+      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+    );
+    return Promise.resolve(func?.name);
+  }
+
   addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
     return this.txeOracle.addContractArtifact(contract);
+  }
+
+  // TODO(#10007): Remove this method.
+  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
+    // We don't really need to do anything for the txe here
+    return Promise.resolve();
   }
 }

@@ -18,6 +18,10 @@ export class PrivateKernelInitCircuitPrivateInputs {
      */
     public vkTreeRoot: Fr,
     /**
+     * The root of the protocol contract tree.
+     */
+    public protocolContractTreeRoot: Fr,
+    /**
      * Private calldata corresponding to this iteration of the kernel.
      */
     public privateCall: PrivateCallData,
@@ -28,7 +32,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.vkTreeRoot, this.privateCall);
+    return serializeToBuffer(this.txRequest, this.vkTreeRoot, this.protocolContractTreeRoot, this.privateCall);
   }
 
   /**
@@ -40,6 +44,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelInitCircuitPrivateInputs(
       reader.readObject(TxRequest),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
     );

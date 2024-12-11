@@ -1,10 +1,10 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClass } from '@aztec/types/contracts';
 
 import { getTestContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 import { type ContractClassIdPreimage } from './contract_class_id.js';
+import { type ContractClass } from './interfaces/contract_class.js';
 import {
   createUnconstrainedFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
@@ -40,6 +40,8 @@ describe('unconstrained_function_membership_proof', () => {
     expect(artifact.functions.filter(isUnconstrained).length).toBe(1);
 
     const unconstrainedFunction = unconstrainedFns[0];
+    const selector = FunctionSelector.fromNameAndParameters(unconstrainedFunction);
+
     const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
     expect(proof.artifactTreeSiblingPath.length).toBe(0);
 
@@ -48,8 +50,7 @@ describe('unconstrained_function_membership_proof', () => {
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
-  // TODO(#5860): Re-enable this test once noir non-determinism is addressed
-  test.skip.each(['artifactTreeSiblingPath', 'artifactMetadataHash', 'functionMetadataHash'] as const)(
+  test.each(['artifactTreeSiblingPath', 'artifactMetadataHash', 'functionMetadataHash'] as const)(
     'fails proof if %s is mangled',
     field => {
       const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);

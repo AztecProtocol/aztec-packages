@@ -11,6 +11,8 @@ inputs:
   run:
     # command to run once builder/tester available
     required: false
+  spot_strategy:
+    default: BestEffort
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -21,13 +23,13 @@ runs:
       run: |
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
-        echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
+        echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types, aws chooses for us based on capacity
           echo "instance_type=m6a.32xlarge m6i.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6in.32xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
+          echo "ebs_cache_size=300" >> $GITHUB_OUTPUT
           echo "runner_concurrency=20" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
@@ -53,7 +55,7 @@ runs:
         ec2_key: ${{ env.BUILD_INSTANCE_SSH_KEY }}
         # idempotency, see https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
         # makes e2e tests hitting the API at once not cause multiple spots
-        client_token: ${{ format('ci-yml-{0}-{1}', env.RUN_ID, env.RUN_ATTEMPT) }}
+        client_token: ${{ format('ci-yml-{0}-{1}-{2}', inputs.runner_type, env.RUN_ID, env.RUN_ATTEMPT) }}
         # constants:
         runner_concurrency: ${{ steps.select_instance.outputs.runner_concurrency }}
         ec2_instance_type: ${{ steps.select_instance.outputs.instance_type }}
@@ -69,21 +71,24 @@ runs:
     # Set up a context for this run
     - name: Copy Repo to Builder
       shell: bash
+      env:
+        UNPACK: |
+          [ -d ~/run-$RUN_ID ] || (
+            mkdir -p ~/run-$RUN_ID-git &&
+            cd ~/run-$RUN_ID-git && tar xzf - &&
+            git config --global advice.detachedHead false &&
+            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID &&
+            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
+            chmod 600 ~/.ssh/build_instance_key
+          )
       run: |
         sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
         set -x
         # detect run folder
         if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
           echo "Copying local repo to spot"
-          tar czf - .git | scripts/run_on_builder \
-            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
-          scripts/run_on_builder "
-            echo "Unpacking repo"
-            git config --global advice.detachedHead false
-            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
-            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-            chmod 600 ~/.ssh/build_instance_key
-          " || true
+          (tar czf - .git || true) | scripts/run_on_builder \
+            "flock /var/lock/git.lock bash -c '$UNPACK'"
         fi
 
     - name: Attach EBS Cache Disk

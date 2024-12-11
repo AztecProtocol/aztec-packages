@@ -4,7 +4,7 @@ Applied heuristic to assess the cost of a relation is given below.
 This will be used to determine whether it is worth to merge some
 relations into one.
 
-N_mul = number of mulitplication in the relation
+N_mul = number of multiplication in the relation
 N_add = number of additions/subtraction in the relation
 deg = degree of the relation (total degree of the polynomial)
 

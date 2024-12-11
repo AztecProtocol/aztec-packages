@@ -1,9 +1,5 @@
-import { type InboxLeaf } from '@aztec/circuit-types';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js/constants';
+import { InboxLeaf } from '@aztec/circuit-types';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { type Fr } from '@aztec/foundation/fields';
 
 /**
@@ -11,7 +7,7 @@ import { type Fr } from '@aztec/foundation/fields';
  */
 export class L1ToL2MessageStore {
   /**
-   * A map pointing from a key in a "blockNum-messageIndex" format to the corresponding L1 to L2 message hash.
+   * A map pointing from a key in a "messageIndex" format to the corresponding L1 to L2 message hash.
    */
   protected store: Map<string, Fr> = new Map();
 
@@ -19,21 +15,22 @@ export class L1ToL2MessageStore {
 
   constructor() {}
 
+  getTotalL1ToL2MessageCount(): bigint {
+    return BigInt(this.store.size);
+  }
+
   addMessage(message: InboxLeaf) {
-    if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
-      throw new Error(`Message index ${message.index} out of subtree range`);
-    }
-    const key = `${message.blockNumber}-${message.index}`;
-    this.store.set(key, message.leaf);
+    this.store.set(`${message.index}`, message.leaf);
   }
 
   getMessages(blockNumber: bigint): Fr[] {
     const messages: Fr[] = [];
     let undefinedMessageFound = false;
-    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+    const startIndex = Number(InboxLeaf.smallestIndexFromL2Block(blockNumber));
+
+    for (let i = startIndex; i < startIndex + this.#l1ToL2MessagesSubtreeSize; i++) {
       // This is inefficient but probably fine for now.
-      const key = `${blockNumber}-${messageIndex}`;
-      const message = this.store.get(key);
+      const message = this.store.get(`${i}`);
       if (message) {
         if (undefinedMessageFound) {
           throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
@@ -49,22 +46,14 @@ export class L1ToL2MessageStore {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getMessageIndex(l1ToL2Message: Fr, startIndex: bigint): bigint | undefined {
+  getMessageIndex(l1ToL2Message: Fr): bigint | undefined {
     for (const [key, message] of this.store.entries()) {
       if (message.equals(l1ToL2Message)) {
-        const keyParts = key.split('-');
-        const [blockNumber, messageIndex] = [BigInt(keyParts[0]), BigInt(keyParts[1])];
-        const indexInTheWholeTree =
-          (blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + messageIndex;
-        if (indexInTheWholeTree < startIndex) {
-          continue;
-        }
-        return indexInTheWholeTree;
+        return BigInt(key);
       }
     }
     return undefined;

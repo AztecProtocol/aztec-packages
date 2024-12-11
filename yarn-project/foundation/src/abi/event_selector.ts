@@ -1,6 +1,7 @@
 import { fromHex, toBigIntBE } from '../bigint-buffer/index.js';
-import { keccak256, randomBytes } from '../crypto/index.js';
+import { poseidon2HashBytes, randomBytes } from '../crypto/index.js';
 import { type Fr } from '../fields/fields.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { Selector } from './selector.js';
 
@@ -44,7 +45,10 @@ export class EventSelector extends Selector {
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    return EventSelector.fromBuffer(keccak256(Buffer.from(signature)).subarray(0, Selector.SIZE));
+    const hash = poseidon2HashBytes(Buffer.from(signature));
+    // We take the last Selector.SIZE big endian bytes
+    const bytes = hash.toBuffer().slice(-Selector.SIZE);
+    return EventSelector.fromBuffer(bytes);
   }
 
   /**
@@ -58,7 +62,7 @@ export class EventSelector extends Selector {
   static fromString(selector: string) {
     const buf = fromHex(selector);
     if (buf.length !== Selector.SIZE) {
-      throw new Error(`Invalid Selector length ${buf.length} (expected ${Selector.SIZE}).`);
+      throw new Error(`Invalid EventSelector length ${buf.length} (expected ${Selector.SIZE}).`);
     }
     return EventSelector.fromBuffer(buf);
   }
@@ -77,5 +81,13 @@ export class EventSelector extends Selector {
    */
   static random() {
     return EventSelector.fromBuffer(randomBytes(Selector.SIZE));
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(EventSelector);
   }
 }

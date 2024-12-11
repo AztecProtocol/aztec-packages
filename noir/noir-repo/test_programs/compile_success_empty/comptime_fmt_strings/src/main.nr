@@ -6,7 +6,7 @@ fn main() {
 
         // Can't print these at compile-time here since printing to stdout while
         // compiling breaks the test runner.
-        let s1 = f"x is {x}, fake interpolation: \{y}, y is {y}";
+        let s1 = f"x is {x}, fake interpolation: {{y}}, y is {y}";
         let s2 = std::mem::zeroed::<fmtstr<4, ()>>();
         (s1, s2)
     };
@@ -17,7 +17,7 @@ fn main() {
     call!(glue(quote { hello }, quote { world }));
 }
 
-fn glue(x: Quoted, y: Quoted) -> Quoted {
+comptime fn glue(x: Quoted, y: Quoted) -> Quoted {
     f"{x}_{y}".quoted_contents()
 }
 

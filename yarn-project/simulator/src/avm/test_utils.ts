@@ -1,15 +1,21 @@
-import { Fr } from '@aztec/circuits.js';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  Fr,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 
 import { type jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../public/db_interfaces.js';
+import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
-import { type HostStorage } from './journal/host_storage.js';
 
-export function mockGetBytecode(hs: HostStorage, bytecode: Buffer) {
-  (hs as jest.Mocked<HostStorage>).contractsDb.getBytecode.mockResolvedValue(bytecode);
+export function mockGetBytecode(worldStateDB: WorldStateDB, bytecode: Buffer) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecode.mockResolvedValue(bytecode);
+  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecodeCommitment.mockResolvedValue(
+    computePublicBytecodeCommitment(bytecode),
+  );
 }
 
 export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace?: PublicSideEffectTraceInterface) {
@@ -18,18 +24,18 @@ export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace
   );
 }
 
-export function mockStorageRead(hs: HostStorage, value: Fr) {
-  (hs.publicStateDb as jest.Mocked<PublicStateDB>).storageRead.mockResolvedValue(value);
+export function mockStorageRead(worldStateDB: WorldStateDB, value: Fr) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockResolvedValue(value);
 }
 
-export function mockStorageReadWithMap(hs: HostStorage, mockedStorage: Map<bigint, Fr>) {
-  (hs.publicStateDb as jest.Mocked<PublicStateDB>).storageRead.mockImplementation((_address, slot) =>
+export function mockStorageReadWithMap(worldStateDB: WorldStateDB, mockedStorage: Map<bigint, Fr>) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockImplementation((_address, slot) =>
     Promise.resolve(mockedStorage.get(slot.toBigInt()) ?? Fr.ZERO),
   );
 }
 
-export function mockNoteHashExists(hs: HostStorage, _leafIndex: Fr, value?: Fr) {
-  (hs.commitmentsDb as jest.Mocked<CommitmentsDB>).getCommitmentValue.mockImplementation((index: bigint) => {
+export function mockNoteHashExists(worldStateDB: WorldStateDB, _leafIndex: Fr, value?: Fr) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getCommitmentValue.mockImplementation((index: bigint) => {
     if (index == _leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {
@@ -39,12 +45,17 @@ export function mockNoteHashExists(hs: HostStorage, _leafIndex: Fr, value?: Fr) 
   });
 }
 
-export function mockNullifierExists(hs: HostStorage, leafIndex: Fr, _value?: Fr) {
-  (hs.commitmentsDb as jest.Mocked<CommitmentsDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
+export function mockNullifierExists(worldStateDB: WorldStateDB, leafIndex: Fr, _value?: Fr) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
 }
 
-export function mockL1ToL2MessageExists(hs: HostStorage, leafIndex: Fr, value: Fr, valueAtOtherIndices?: Fr) {
-  (hs.commitmentsDb as jest.Mocked<CommitmentsDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
+export function mockL1ToL2MessageExists(
+  worldStateDB: WorldStateDB,
+  leafIndex: Fr,
+  value: Fr,
+  valueAtOtherIndices?: Fr,
+) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
     if (index == leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {
@@ -55,6 +66,10 @@ export function mockL1ToL2MessageExists(hs: HostStorage, leafIndex: Fr, value: F
   });
 }
 
-export function mockGetContractInstance(hs: HostStorage, contractInstance: ContractInstanceWithAddress) {
-  (hs.contractsDb as jest.Mocked<PublicContractsDB>).getContractInstance.mockResolvedValue(contractInstance);
+export function mockGetContractInstance(worldStateDB: WorldStateDB, contractInstance: ContractInstanceWithAddress) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getContractInstance.mockResolvedValue(contractInstance);
+}
+
+export function mockGetContractClass(worldStateDB: WorldStateDB, contractClass: ContractClassPublic) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getContractClass.mockResolvedValue(contractClass);
 }

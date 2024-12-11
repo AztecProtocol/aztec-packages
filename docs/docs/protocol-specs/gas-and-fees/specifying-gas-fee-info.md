@@ -78,6 +78,7 @@ classDiagram
 class Header {
   +GlobalVariables globalVariables
   +Fr totalFees
+  +Fr totalManaUsed
 }
 
 class GlobalVariables {
@@ -99,6 +100,8 @@ A transaction cannot be executed if the `maxFeesPerGas` is less than the `feePer
 The `feePerGas` is presently held constant at `1` for both dimensions, but may be updated in future protocol versions.
 
 `totalFees` is the total fees collected in the block in FPA.
+
+`totalManaUsed` is the total mana used in the block and used to update the base fee.
 
 `coinbase` is the L1 address that receives the fees.
 
@@ -134,7 +137,7 @@ It is effectively set in private by the contract that calls `context.set_as_fee_
 
 This manifests as a boolean flag `is_fee_payer` in the `PrivateCircuitPublicInputs`. The private kernel circuits will check this flag for every call stack item.
 
-When a call stack item is found with `is_fee_payer` set, the kernel circuit will set `fee_payer` in its `PrivateKernelCircuitPublicInputs` to be the `callContext.storageContractAddress`.
+When a call stack item is found with `is_fee_payer` set, the kernel circuit will set `fee_payer` in its `PrivateKernelCircuitPublicInputs` to be the `callContext.contractAddress`.
 
 This is subsequently passed through the `PublicKernelCircuitPublicInputs` to the `KernelCircuitPublicInputs`.
 

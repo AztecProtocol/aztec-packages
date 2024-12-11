@@ -33,7 +33,7 @@ fn test_initialize_uninitialized() {
     assert(state_var.read() == value);
 }
 
-#[test(should_fail_with="PublicImmutable already initialized")]
+#[test(should_fail_with = "PublicImmutable already initialized")]
 fn test_initialize_already_initialized() {
     let env = setup();
     let state_var = in_public(env);
@@ -44,7 +44,7 @@ fn test_initialize_already_initialized() {
     state_var.initialize(value);
 }
 
-#[test(should_fail_with="PublicImmutable not initialized")]
+#[test(should_fail_with = "PublicImmutable not initialized")]
 fn test_read_uninitialized() {
     let env = setup();
     let state_var = in_public(env);

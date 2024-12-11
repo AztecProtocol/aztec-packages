@@ -18,7 +18,7 @@ class UltraComposer {
     using Flavor = flavor::Ultra;
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = Flavor::Curve;
-    using Trace = ExecutionTrace_<Flavor>;
+    using Trace = TraceToPolynomials<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "UltraPlonk";
     static constexpr CircuitType type = CircuitType::ULTRA;
@@ -82,8 +82,6 @@ class UltraComposer {
     UltraWithKeccakVerifier create_ultra_with_keccak_verifier(CircuitBuilder& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(polynomial& small, const std::string& tag);
-
-    size_t compute_dyadic_circuit_size(CircuitBuilder& circuit_constructor);
 
     /**
      * @brief Create a manifest object

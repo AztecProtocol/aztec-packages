@@ -1,128 +1,93 @@
 use crate::{
-    context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::{getters::get_current_public_keys, public_keys::{OvpkM, IvpkM}},
-    encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
+    context::PrivateContext,
+    encrypted_logs::payload::compute_private_log_payload,
+    note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
-    hash::sha256_to_field, address::AztecAddress, point::Point, abis::note_hash::NoteHash,
-    constants::MAX_NOTE_HASHES_PER_CALL
+    abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
 };
 
-unconstrained fn compute_unconstrained<Note, let N: u32, let NB: u32, let M: u32>(
-    contract_address: AztecAddress,
-    storage_slot: Field,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress,
-    note: Note
-) -> ([u8; M], Field) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    compute(
-        contract_address,
-        storage_slot,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        note
-    )
-}
-
-fn compute<Note, let N: u32, let NB: u32, let M: u32>(
-    contract_address: AztecAddress,
-    storage_slot: Field,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress,
-    note: Note
-) -> ([u8; M], Field) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    let encrypted_log: [u8; M] = compute_encrypted_note_log(
-        contract_address,
-        storage_slot,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        note
-    );
-    let log_hash = sha256_to_field(encrypted_log);
-    (encrypted_log, log_hash)
-}
-
-fn emit_with_keys<Note, let N: u32, let NB: u32, let M: u32>(
-    context: &mut PrivateContext,
+/// Computes private note log payload
+fn compute_payload<Note, let N: u32>(
+    context: PrivateContext,
     note: Note,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
     recipient: AztecAddress,
-    inner_compute: fn(AztecAddress, Field, Field, OvpkM, IvpkM, AztecAddress, Note) -> ([u8; M], Field)
-) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
+    sender: AztecAddress,
+) -> ([Field; PRIVATE_LOG_SIZE_IN_FIELDS], u32)
+where
+    Note: NoteInterface<N>,
+{
     let note_header = note.get_header();
     let note_hash_counter = note_header.note_hash_counter;
     let storage_slot = note_header.storage_slot;
 
-    let note_exists = context.note_hashes.storage.any(|n: NoteHash| n.counter == note_hash_counter);
+    // TODO(#8589): use typesystem to skip this check when not needed
+    let note_exists =
+        context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
     assert(note_exists, "Can only emit a note log for an existing note.");
 
     let contract_address: AztecAddress = context.this_address();
-    let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
-    let (encrypted_log, log_hash) = inner_compute(
-        contract_address,
-        storage_slot,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        note
-    );
+    let plaintext = note.to_be_bytes(storage_slot);
 
-    context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
+    let payload = compute_private_log_payload(contract_address, recipient, sender, plaintext);
+
+    (payload, note_hash_counter)
 }
 
-pub fn encode_and_encrypt_note<Note, let N: u32, let NB: u32, let M: u32>(
+unconstrained fn compute_payload_unconstrained<Note, let N: u32>(
+    context: PrivateContext,
+    note: Note,
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> ([Field; PRIVATE_LOG_SIZE_IN_FIELDS], u32)
+where
+    Note: NoteInterface<N>,
+{
+    compute_payload(context, note, recipient, sender)
+}
+
+// This function seems to be affected by the following Noir bug:
+// https://github.com/noir-lang/noir/issues/5771
+// If you get weird behavior it might be because of it.
+pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    | e: NoteEmission<Note> | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        emit_with_keys(context, e.note, ovpk, ivpk, iv, compute);
+    recipient: AztecAddress,
+    // We need this because to compute a tagging secret, we require a sender:
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+where
+    Note: NoteInterface<N>,
+{
+    |e: NoteEmission<Note>| {
+        let (encrypted_log, note_hash_counter) =
+            compute_payload(*context, e.note, recipient, sender);
+        context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
 
-pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32, let NB: u32, let M: u32>(
+pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
-    ov: AztecAddress,
-    iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    | e: NoteEmission<Note> | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
-        emit_with_keys(context, e.note, ovpk, ivpk, iv, compute_unconstrained);
-    }
-}
-
-pub fn encode_and_encrypt_note_with_keys<Note, let N: u32, let NB: u32, let M: u32>(
-    context: &mut PrivateContext,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    | e: NoteEmission<Note> | {
-        emit_with_keys(context, e.note, ovpk, ivpk, recipient, compute);
-    }
-}
-
-pub fn encode_and_encrypt_note_with_keys_unconstrained<Note, let N: u32, let NB: u32, let M: u32>(
-    context: &mut PrivateContext,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
-    | e: NoteEmission<Note> | {
-        emit_with_keys(context, e.note, ovpk, ivpk, recipient, compute_unconstrained);
+    recipient: AztecAddress,
+    // We need this because to compute a tagging secret, we require a sender:
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+where
+    Note: NoteInterface<N>,
+{
+    |e: NoteEmission<Note>| {
+        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
+        // recipient is unable to decrypt the payload.
+        //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
+        // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause
+        // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
+        // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
+        // for a note that doesn't exist).
+        //   It's important here that we do not
+        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
+        // be wrong.
+        let (encrypted_log, note_hash_counter) =
+            unsafe { compute_payload_unconstrained(*context, e.note, recipient, sender) };
+        context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }

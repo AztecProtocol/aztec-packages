@@ -1,0 +1,25 @@
+# Simulates congested network conditions
+# High latency, limited bandwidth, packet loss
+global:
+  namespace: "smoke"
+
+networkShaping:
+  enabled: true
+  conditions:
+    latency:
+      enabled: true
+      delay:
+        # Congested network latency
+        latency: 300ms
+        jitter: 100ms
+        correlation: "80"
+    bandwidth:
+      enabled: true
+      # 5Mbps
+      rate: 5mbps
+      limit: 2000000 # 2 MB
+      buffer: 2000
+    packetLoss:
+      enabled: true
+      loss: "2"
+      correlation: "75"
