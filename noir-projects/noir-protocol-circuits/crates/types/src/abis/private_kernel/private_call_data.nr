@@ -25,8 +25,8 @@ pub struct PrivateCallData {
 }
 
 impl PrivateCallData {
-    fn verify(self, is_first: bool) {
-        let proof_type = if is_first {
+    fn verify(self, is_first_app: bool) {
+        let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {
             PROOF_TYPE_PG
