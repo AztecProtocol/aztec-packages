@@ -806,6 +806,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                 for (const auto& leaf : leaves) {
                     std::optional<index_t> leaf_index =
                         store_->find_leaf_index_from(leaf, start_index, requestContext, maxIndex, *tx);
+                    if (leaf_index.has_value()) {
+                        // std::cout << "Pushing back index " << leaf_index.value() << std::endl;
+                    }
+
                     response.inner.leaf_indices.emplace_back(leaf_index);
                 }
             },
