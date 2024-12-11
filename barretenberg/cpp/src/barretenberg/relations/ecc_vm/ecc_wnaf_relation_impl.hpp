@@ -140,7 +140,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
 
     const auto precompute_select_scaled_transition = precompute_select * scaled_transition;
     const auto precompute_select_scaled = precompute_select * scaling_factor;
-    std::get<8>(accumulator) += (precompute_select_scaled - precompute_select_scaled_transition);
+    std::get<8>(accumulator) += sum_delta * (precompute_select_scaled - precompute_select_scaled_transition);
 
     /**
      * @brief Round transition logic.
