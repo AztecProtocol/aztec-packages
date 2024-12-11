@@ -92,9 +92,9 @@
     "rootDir": "./src",
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],
