@@ -226,7 +226,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
         __compute_partial_sums(fracs, ROOTS)
     };
-    for i in 0..NUM_PARTIAL_SUMS {
+    for i in 0..NUM_PARTIAL_SUMS-1 {
         // Seeking:
         //                    ___i*8 - 1              ___i*8 + 7
         //                    \            omega^i        \            /    y_k    \
