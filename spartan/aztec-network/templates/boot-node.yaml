@@ -94,6 +94,14 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       {{- end }}
       containers:
         - name: boot-node
@@ -142,6 +150,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
