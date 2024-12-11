@@ -26,8 +26,8 @@ impl Verifiable for PublicTubeData {
 
 pub struct PrivateTubeData {
     pub public_inputs: KernelCircuitPublicInputs,
-    proof: TubeProof,
-    vk_data: VkData<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub proof: TubeProof,
+    pub vk_data: VkData<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }
 
 impl Verifiable for PrivateTubeData {

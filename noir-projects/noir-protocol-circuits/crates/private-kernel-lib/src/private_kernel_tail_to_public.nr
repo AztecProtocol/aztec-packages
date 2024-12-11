@@ -34,6 +34,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
         // Generate output.
         let output = unsafe { self.generate_output() };
 

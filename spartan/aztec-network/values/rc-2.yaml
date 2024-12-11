@@ -12,6 +12,7 @@ images:
 
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 48
@@ -128,7 +129,7 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 64
+  replicas: 200
   bb:
     hardwareConcurrency: 31
   gke:
