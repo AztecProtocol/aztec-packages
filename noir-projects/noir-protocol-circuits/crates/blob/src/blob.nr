@@ -276,7 +276,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     factor.mul(sum)
 }
 
-unconstrained fn __compute_factor(z_pow_d: F) -> F {
+unconstrained fn __compute_factor_helper(z_pow_d: F) -> F {
     let one: F = BigNum::one();
     z_pow_d.__sub(one).__mul(D_INV)
 }
@@ -293,7 +293,7 @@ fn compute_factor(z: F) -> F {
 
     let factor = unsafe {
         // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
-        __compute_factor(z_pow_d)
+        __compute_factor_helper(z_pow_d)
     };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
