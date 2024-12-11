@@ -5,17 +5,16 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
  */
 export class PrivateFeePaymentMethod implements FeePaymentMethod {
+  private assetPromise: Promise<AztecAddress> | null = null;
+
   constructor(
-    /**
-     * The asset used to pay the fee.
-     */
-    private asset: AztecAddress,
     /**
      * Address which will hold the fee payment.
      */
@@ -42,9 +41,40 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
-  // TODO(benesjan): obtain directly from contract?
-  getAsset() {
-    return this.asset;
+  getAsset(): Promise<AztecAddress> {
+    if (!this.assetPromise) {
+      const interaction = new ContractFunctionInteraction(
+        this.wallet,
+        this.paymentContract,
+        {
+          name: 'get_accepted_asset',
+          functionType: FunctionType.PUBLIC,
+          isInternal: false,
+          isStatic: true,
+          parameters: [],
+          returnTypes: [
+            {
+              kind: 'struct',
+              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+              fields: [
+                {
+                  name: 'inner',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+              ],
+            },
+          ],
+          errorTypes: {},
+          isInitializer: false,
+        },
+        [],
+      );
+
+      this.assetPromise = interaction.simulate();
+    }
+    return this.assetPromise!;
   }
 
   getFeePayer(): Promise<AztecAddress> {
@@ -70,7 +100,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        to: this.asset,
+        to: await this.getAsset(),
         returnTypes: [],
       },
     });

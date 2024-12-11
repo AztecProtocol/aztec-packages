@@ -113,7 +113,7 @@ describe('e2e_fees dapp_subscription', () => {
     */
 
     const { transactionFee } = await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
+      new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, feeRecipient),
     );
 
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
@@ -144,9 +144,7 @@ describe('e2e_fees dapp_subscription', () => {
     PUBLIC TEARDOWN
     the FPC finalizes the partial notes for the fee and the refund
     */
-    const { transactionFee } = await subscribe(
-      new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
-    );
+    const { transactionFee } = await subscribe(new PublicFeePaymentMethod(bananaFPC.address, aliceWallet));
 
     await expectMapping(
       t.getGasBalanceFn,
@@ -165,7 +163,7 @@ describe('e2e_fees dapp_subscription', () => {
   it('should call dapp subscription entrypoint', async () => {
     // Subscribe again, so this test does not depend on the previous ones being run.
 
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient));
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, feeRecipient));
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
 
@@ -187,18 +185,14 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient), 0);
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, feeRecipient), 0);
     // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
     await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
   });
 
   it('should reject after the txs run out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
-      5,
-      1,
-    );
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, feeRecipient), 5, 1);
     await expect(dappIncrement()).resolves.toBeDefined();
     await expect(dappIncrement()).rejects.toThrow(/note.remaining_txs as u64 > 0/);
   });
