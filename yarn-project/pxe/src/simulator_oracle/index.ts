@@ -13,7 +13,7 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
+  AztecAddress,
   type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
@@ -38,12 +38,14 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { type Synchronizer } from '../synchronizer/synchronizer.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
 export class SimulatorOracle implements DBOracle {
   constructor(
+    private synchronizer: Synchronizer,
     private contractDataOracle: ContractDataOracle,
     private db: PxeDatabase,
     private keyStore: KeyStore,
@@ -231,7 +233,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns A Promise that resolves to a BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+    return this.db.getBlockHeader();
   }
 
   /**
@@ -570,7 +572,8 @@ export class SimulatorOracle implements DBOracle {
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
-          simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+          simulator ??
+            getAcirSimulator(this.synchronizer, this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
           incomingNotePayload ? recipient.toAddressPoint() : undefined,
           payload!,
@@ -634,5 +637,19 @@ export class SimulatorOracle implements DBOracle {
         } with nullifier ${noteDao.siloedNullifier.toString()}`,
       );
     });
+  }
+
+  /**
+   * Synchronizes the notes for a contract address, retrieving the logs from the node,
+   * decrypting them and storing them in the database.
+   * @param contractAddress - The contract address to synchronize notes for.
+   * @param scopes - The scopes allowed to synchronize.
+   */
+  public async syncNotes(contractAddress: AztecAddress, scopes?: AztecAddress[]) {
+    await this.synchronizer.trigger();
+    const taggedLogsByRecipient = await this.syncTaggedLogs(contractAddress, await this.getBlockNumber(), scopes);
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

@@ -15,8 +15,7 @@ import { type PxeDatabase } from '../database/index.js';
  * The Synchronizer class manages the synchronization of note processors and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.
  * It provides methods to start or stop the synchronization process, add new accounts, retrieve account
- * details, and fetch transactions by hash. The Synchronizer ensures that it maintains the note processors
- * in sync with the blockchain while handling retries and errors gracefully.
+ * details, and fetch transactions by hash.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
   private running = false;
@@ -65,18 +64,8 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
   }
 
-  /**
-   * Starts the synchronization process by fetching encrypted logs and blocks from a specified position.
-   * Continuously processes the fetched data for all note processors until stopped. If there is no data
-   * available, it retries after a specified interval.
-   *
-   * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
-   * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
-   */
-  public async start() {
-    if (this.running) {
-      return;
-    }
+  /** Triggers a single run. */
+  public async trigger() {
     this.running = true;
 
     let currentHeader;
@@ -90,54 +79,11 @@ export class Synchronizer implements L2BlockStreamEventHandler {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.db.setHeader(await this.node.getBlockHeader(0));
     }
-
-    await this.trigger();
-    this.log.info('Initial sync complete');
-    this.blockStream.start();
-    this.log.debug('Started loop');
-  }
-
-  /**
-   * Stops the synchronizer gracefully, interrupting any ongoing sleep and waiting for the current
-   * iteration to complete before setting the running state to false. Once stopped, the synchronizer
-   * will no longer process blocks or encrypted logs and must be restarted using the start method.
-   *
-   * @returns A promise that resolves when the synchronizer has successfully stopped.
-   */
-  public async stop() {
-    this.running = false;
-    await this.blockStream.stop();
-    this.log.info('Stopped');
-  }
-
-  /** Triggers a single run. */
-  public async trigger() {
     await this.blockStream.sync();
+    this.running = false;
   }
 
-  private async getSynchedBlockNumber() {
+  public async getSynchedBlockNumber() {
     return (await this.db.getBlockNumber()) ?? this.initialSyncBlockNumber;
-  }
-
-  /**
-   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
-   * @returns True if there are no outstanding blocks to be synched.
-   * @remarks This indicates that blocks and transactions are synched even if notes are not.
-   * @remarks Compares local block number with the block number from aztec node.
-   */
-  public async isGlobalStateSynchronized() {
-    const latest = await this.node.getBlockNumber();
-    return latest <= (await this.getSynchedBlockNumber());
-  }
-
-  /**
-   * Returns the latest block that has been synchronized by the synchronizer and each account.
-   * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
-   */
-  public async getSyncStatus() {
-    const lastBlockNumber = await this.getSynchedBlockNumber();
-    return {
-      blocks: lastBlockNumber,
-    };
   }
 }

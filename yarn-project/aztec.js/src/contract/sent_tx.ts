@@ -124,16 +124,7 @@ export class SentTx {
           }
           return undefined;
         }
-        // If we don't care about waiting for notes to be synced, return the receipt
-        const waitForNotesAvailable = opts?.waitForNotesAvailable ?? DefaultWaitOpts.waitForNotesAvailable;
-        if (!waitForNotesAvailable) {
-          return txReceipt;
-        }
-        // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
-        const { blocks } = await this.pxe.getSyncStatus();
-        const targetBlock = txReceipt.blockNumber!;
-        const areNotesAvailable = blocks >= targetBlock;
-        return areNotesAvailable ? txReceipt : undefined;
+        return txReceipt;
       },
       'isMined',
       opts?.timeout ?? DefaultWaitOpts.timeout,

@@ -47,9 +47,9 @@ export async function createPXEService(
   const tips = new L2TipsStore(store, 'pxe');
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
-  const server = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
-  await server.start();
-  return server;
+  const pxe = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
+  await pxe.init();
+  return pxe;
 }
 
 function createProver(config: PXEServiceConfig, logSuffix?: string) {

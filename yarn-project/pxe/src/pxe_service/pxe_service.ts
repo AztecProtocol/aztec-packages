@@ -105,7 +105,7 @@ export class PXEService implements PXE {
     this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(this.synchronizer, db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
 
     this.jobQueue.start();
@@ -116,8 +116,7 @@ export class PXEService implements PXE {
    *
    * @returns A promise that resolves when the server has started successfully.
    */
-  public async start() {
-    await this.synchronizer.start();
+  public async init() {
     await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
@@ -133,8 +132,6 @@ export class PXEService implements PXE {
   public async stop() {
     await this.jobQueue.cancel();
     this.log.info('Cancelled Job Queue');
-    await this.synchronizer.stop();
-    this.log.info('Stopped Synchronizer');
   }
 
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
@@ -513,6 +510,7 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue
       .put(async () => {
+        await this.synchronizer.trigger();
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs;
@@ -704,7 +702,7 @@ export class PXEService implements PXE {
       const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
-      this.log.info(`Added protocol contract ${name} at ${address.toString()}`);
+      this.log.verbose(`Added protocol contract ${name} at ${address.toString()}`);
     }
   }
 
@@ -821,11 +819,9 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate a transaction, generate a kernel proof, and create a private transaction object.
-   * The function takes in a transaction request, simulates it, and then generates a kernel proof
-   * using the simulation result. Finally, it creates a private
-   * transaction object with the generated proof and public inputs. If a new contract address is provided,
-   * the function will also include the new contract's public functions in the transaction object.
+   * Generate a kernel proof, and create a private kernel output.
+   * The function takes in a transaction execution request, and the result of private simulation
+   * and then generates a kernel proof.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param proofCreator - The proof creator to use for proving the execution.
@@ -846,14 +842,6 @@ export class PXEService implements PXE {
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
-  }
-
-  public async isGlobalStateSynchronized() {
-    return await this.synchronizer.isGlobalStateSynchronized();
-  }
-
-  public getSyncStatus() {
-    return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

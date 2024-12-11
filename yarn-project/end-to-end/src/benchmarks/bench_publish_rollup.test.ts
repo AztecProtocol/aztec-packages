@@ -5,7 +5,7 @@ import { type BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type EndToEndContext } from '../fixtures/utils.js';
-import { benchmarkSetup, sendTxs, waitNewPXESynced } from './utils.js';
+import { benchmarkSetup, createNewPXE, sendTxs } from './utils.js';
 
 describe('benchmarks/publish_rollup', () => {
   let context: EndToEndContext;
@@ -41,7 +41,7 @@ describe('benchmarks/publish_rollup', () => {
 
       // Spin up a new pxe and sync it, we'll use it to test sync times of new accounts for the last block
       context.logger.info(`Starting new pxe`);
-      const pxe = await waitNewPXESynced(node, contract, blockNumber! - 1);
+      const pxe = await createNewPXE(node, contract, blockNumber! - 1);
 
       // Register the owner account and wait until it's synced so we measure how much time it took
       context.logger.info(`Registering owner account on new pxe`);

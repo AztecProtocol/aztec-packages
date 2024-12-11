@@ -34,6 +34,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
+import { type Synchronizer } from '../synchronizer/synchronizer.js';
 import { SimulatorOracle } from './index.js';
 
 const TXS_PER_BLOCK = 4;
@@ -112,6 +113,7 @@ function computeSiloedTagForIndex(
 describe('Simulator oracle', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
+  let synchronizer: Synchronizer;
   let contractDataOracle: ContractDataOracle;
   let simulatorOracle: SimulatorOracle;
   let keyStore: KeyStore;
@@ -122,11 +124,12 @@ describe('Simulator oracle', () => {
   beforeEach(async () => {
     const db = openTmpStore();
     aztecNode = mock<AztecNode>();
+    synchronizer = mock<Synchronizer>();
     database = await KVPxeDatabase.create(db);
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
+    simulatorOracle = new SimulatorOracle(synchronizer, contractDataOracle, database, keyStore, aztecNode);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
