@@ -103,33 +103,21 @@ tests:
     ignore_failures: true
   guides_dapp_testing:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
     test_path: 'guides/dapp_testing.test.ts'
   guides_sample_dapp:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
     test_path: 'sample-dapp/index.test.mjs'
   guides_sample_dapp_ci:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
     test_path: 'sample-dapp/ci/index.test.mjs'
   guides_up_quick_start:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
     test_path: 'guides/up_quick_start.test.ts'
   guides_writing_an_account_contract:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
     test_path: 'guides/writing_an_account_contract.test.ts'
   integration_l1_publisher:
     use_compose: true
-    env:
-      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
   # https://github.com/AztecProtocol/aztec-packages/issues/10030
   # uniswap_trade_on_l1_from_l2:
   #   use_compose: true
