@@ -44,8 +44,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    */
   getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
-      // We user signer less wallet because this function would be triggered before the account is deployed if this
-      // payment method was used for the account deployment.
+      // We use signer-less wallet because this function could be triggered before the associated account is deployed.
       const signerlessWallet = new SignerlessWallet(this.wallet);
 
       const interaction = new ContractFunctionInteraction(
