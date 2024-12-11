@@ -210,7 +210,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getPrivateBaseRollupProof(
     inputs: PrivateBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const artifactName = 'PrivateBaseRollupArtifact';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
@@ -235,7 +237,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const artifactName = 'PublicBaseRollupArtifact';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
@@ -260,7 +264,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getMergeRollupProof(
     input: MergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'MergeRollupArtifact',
@@ -283,7 +289,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBlockRootRollupProof(
     input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BlockRootRollupArtifact',
@@ -306,7 +314,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'EmptyBlockRootRollupArtifact',
@@ -329,7 +339,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BlockMergeRollupArtifact',

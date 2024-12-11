@@ -10,12 +10,12 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -58,13 +58,17 @@ export interface ServerCircuitProver {
     baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   /**
    * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
@@ -84,7 +88,9 @@ export interface ServerCircuitProver {
     input: MergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   /**
    * Creates a proof for the given input.
@@ -94,7 +100,9 @@ export interface ServerCircuitProver {
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   /**
    * Creates a proof for the given input.
@@ -114,7 +122,9 @@ export interface ServerCircuitProver {
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   /**
    * Creates a proof for the given input.

@@ -181,7 +181,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input),
       ProvingRequestType.BLOCK_MERGE_ROLLUP,
@@ -194,7 +196,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input),
       ProvingRequestType.BLOCK_ROOT_ROLLUP,
@@ -233,7 +237,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     input: MergeRollupInputs,
     signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.MERGE_ROLLUP, input),
       ProvingRequestType.MERGE_ROLLUP,
@@ -245,7 +251,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput),
       ProvingRequestType.PRIVATE_BASE_ROLLUP,
@@ -258,7 +266,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     inputs: PublicBaseRollupInputs,
     signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs),
       ProvingRequestType.PUBLIC_BASE_ROLLUP,

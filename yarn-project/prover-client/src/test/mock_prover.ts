@@ -127,7 +127,9 @@ export class MockProver implements ServerCircuitProver {
     _baseRollupInput: PrivateBaseRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -141,7 +143,9 @@ export class MockProver implements ServerCircuitProver {
     _inputs: PublicBaseRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -155,7 +159,9 @@ export class MockProver implements ServerCircuitProver {
     _input: MergeRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
@@ -179,7 +185,9 @@ export class MockProver implements ServerCircuitProver {
     _input: EmptyBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
@@ -193,7 +201,9 @@ export class MockProver implements ServerCircuitProver {
     _input: BlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
