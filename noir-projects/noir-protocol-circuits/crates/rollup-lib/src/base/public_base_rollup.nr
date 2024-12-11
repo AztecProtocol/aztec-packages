@@ -390,7 +390,11 @@ mod tests {
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
-        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{
+            fixture_builder::FixtureBuilder,
+            fixtures::{self, merkle_tree::generate_full_sha_tree},
+            merkle_tree_utils::NonEmptyMerkleTree,
+        },
         traits::{Empty, is_empty},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
@@ -581,7 +585,7 @@ mod tests {
 
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -714,8 +718,8 @@ mod tests {
 
             let mut final_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
                 BoundedVec::new();
-            final_public_data_writes.extend_from_array(self.public_data_writes.storage);
-            final_public_data_writes.extend_from_array(self.protocol_public_data_writes.storage);
+            final_public_data_writes.extend_from_array(self.public_data_writes.storage());
+            final_public_data_writes.extend_from_array(self.protocol_public_data_writes.storage());
             for i in 0..self.overwritten_public_data_writes.len() {
                 if self.overwritten_public_data_writes[i].is_some() {
                     final_public_data_writes.set(
@@ -1218,9 +1222,7 @@ mod tests {
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage(),
-        );
+        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

@@ -23,7 +23,7 @@ const k8sLocalConfigSchema = z.object({
   HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().min(1, 'GRAFANA_PASSWORD env variable must be set'),
-  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1/query'),
+  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
   K8S: z.literal('local'),
 });

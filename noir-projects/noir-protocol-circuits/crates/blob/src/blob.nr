@@ -1,10 +1,7 @@
 // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    unconstrained_config::{
-        compute_roots_of_unity, D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB,
-        LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-    },
+    unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
 };
 
 use bigint::BigNum;
@@ -289,7 +286,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
 unconstrained fn __compute_factor(z_pow_d: F) -> F {
     let one: F = BigNum::one();
-
     z_pow_d.__sub(one).__mul(D_INV)
 }
 
@@ -407,10 +403,7 @@ mod tests {
             field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        unconstrained_config::{
-            D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
-            NOIR_FIELDS_PER_BLOB,
-        },
+        unconstrained_config::{D, D_INV, F, LOG_FIELDS_PER_BLOB},
     };
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
     use types::{
@@ -421,10 +414,10 @@ mod tests {
 
     // Helper to return (z^d - 1)/d (unsafe - test only)
     fn z_d_helper(challenge_z: F) -> F {
-        let mut t1 = challenge_z.__mul(challenge_z);
+        let mut t1 = unsafe { challenge_z.__mul(challenge_z) };
         let mut t2: F = BigNum::new();
         for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-            t2 = t1.__mul(t1);
+            t2 = unsafe { t1.__mul(t1) };
             t1 = t2;
         }
 
@@ -432,8 +425,8 @@ mod tests {
 
         let one: F = BigNum::one();
 
-        t1 = z_pow_d.__sub(one);
-        let factor = t1.__mul(D_INV);
+        t1 = unsafe { z_pow_d.__sub(one) };
+        let factor = unsafe { t1.__mul(D_INV) };
         factor
     }
 

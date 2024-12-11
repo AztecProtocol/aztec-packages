@@ -27,34 +27,34 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 
 pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
-    previous_rollup_data: [PreviousRollupData; 2],
+    pub previous_rollup_data: [PreviousRollupData; 2],
 
-    l1_to_l2_roots: RootRollupParityInput,
+    pub l1_to_l2_roots: RootRollupParityInput,
 
     // inputs required to process l1 to l2 messages
-    l1_to_l2_messages: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
-    l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    pub l1_to_l2_messages: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+    pub l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
 
-    start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
+    pub start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
     // inputs required to add the block hash
     // TODO: Remove in favor of left.constants.last_archive
-    start_archive_snapshot: AppendOnlyTreeSnapshot,
-    new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    pub start_archive_snapshot: AppendOnlyTreeSnapshot,
+    pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     // Added previous_block_hash to be passed through to the final root, where it will be either:
     // - checked on L1 for first block in batch
     // - checked against previous block_root.end_block_hash in a block_merge
-    previous_block_hash: Field,
+    pub previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    prover_id: Field,
+    pub prover_id: Field,
     // Fields for blob verification made of all tx effects in this block
     // (will likely change to be accumulated and sent up to the final root)
-    blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
+    pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating the challenge z
-    blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
+    pub blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
     // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs below
     // NB: to fit it into a field, we truncate to 31 bytes
-    blobs_hash: Field,
+    pub blobs_hash: Field,
 }
 
 impl BlockRootRollupInputs {

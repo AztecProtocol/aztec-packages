@@ -33,7 +33,7 @@ pub struct BlobPublicInputs {
 }
 
 impl BlobPublicInputs {
-    fn accumulate(self, other: Self) -> Self {
+    pub fn accumulate(self, other: Self) -> Self {
         // TODO: When we verify root, rather than block root, on L1 we need to accumulate many blob openings
         // @Mike this may be where we calculate z_acc, y_acc, C_acc, etc.
         // WARNING: unimplemented, below is nonsense to get noir to compile
@@ -42,7 +42,7 @@ impl BlobPublicInputs {
 
     // This checks whether the blob public inputs represent data of all 0s
     // This is not equivalent to being empty, since the challenge point z is a hash and won't have 0 value.
-    fn is_zero(self) -> bool {
+    pub fn is_zero(self) -> bool {
         // Note: there is no constrained is_zero in bignum
         (self.y == BigNum { limbs: [0, 0, 0] }) & (self.kzg_commitment.inner == [0, 0])
     }

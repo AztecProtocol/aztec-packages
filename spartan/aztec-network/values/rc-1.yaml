@@ -12,9 +12,9 @@ images:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
+  storageSize: "100Gi"
   replicas: 48
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -125,6 +125,7 @@ bootNode:
   peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
   validator:
     disabled: true
+  storageSize: "100Gi"
 
 proverAgent:
   replicas: 8

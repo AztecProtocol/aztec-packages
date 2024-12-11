@@ -13,26 +13,26 @@ pub(crate) global MERGE_ROLLUP_TYPE: u32 = 1;
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
-    rollup_type: u32,
-    num_txs: u32,
-    constants: ConstantRollupData,
+    pub rollup_type: u32,
+    pub num_txs: u32,
+    pub constants: ConstantRollupData,
 
-    start: PartialStateReference,
-    end: PartialStateReference,
+    pub start: PartialStateReference,
+    pub end: PartialStateReference,
 
     // A poseidon sponge of all tx effects to be unpacked in block root, then added to blob(s)
     // In sponge form so we can check left.end == right.start, rather than recreate a tree later
-    start_sponge_blob: SpongeBlob,
-    end_sponge_blob: SpongeBlob,
+    pub start_sponge_blob: SpongeBlob,
+    pub end_sponge_blob: SpongeBlob,
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
 
-    out_hash: Field,
+    pub out_hash: Field,
 
-    accumulated_fees: Field,
-    accumulated_mana_used: Field,
+    pub accumulated_fees: Field,
+    pub accumulated_mana_used: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {

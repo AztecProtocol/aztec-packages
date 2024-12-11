@@ -1,4 +1,4 @@
-mod tail_output_hints;
+pub mod tail_output_hints;
 
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
@@ -26,6 +26,14 @@ impl TailOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
+        TailOutputValidator::new_with_hints(output, previous_kernel, hints)
+    }
+
+    pub fn new_with_hints(
+        output: KernelCircuitPublicInputs,
+        previous_kernel: PrivateKernelCircuitPublicInputs,
+        hints: TailOutputHints,
+    ) -> Self {
         TailOutputValidator { output, previous_kernel, hints }
     }
 

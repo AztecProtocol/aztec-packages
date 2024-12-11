@@ -21,7 +21,6 @@ use dep::types::{
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-        PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -33,7 +32,7 @@ use dep::types::{
     traits::is_empty,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
+// global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -261,7 +260,11 @@ mod tests {
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
-        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{
+            fixture_builder::FixtureBuilder,
+            fixtures::{self, merkle_tree::generate_full_sha_tree},
+            merkle_tree_utils::NonEmptyMerkleTree,
+        },
         traits::{Empty, is_empty},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
@@ -441,7 +444,7 @@ mod tests {
 
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -1030,9 +1033,7 @@ mod tests {
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage(),
-        );
+        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

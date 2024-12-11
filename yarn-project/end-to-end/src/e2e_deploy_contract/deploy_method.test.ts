@@ -59,20 +59,16 @@ describe('e2e_deploy_contract deploy method', () => {
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
-    const outgoingViewer = owner;
-    await contract.methods.create_note(owner, outgoingViewer, 30).send().wait();
+    const sender = owner;
+    await contract.methods.create_note(owner, sender, 30).send().wait();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
   });
 
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
-    // Emitting the outgoing logs to the same address as owner to avoid having to set up another account.
-    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress(), wallet.getAddress())
-      .send(opts)
-      .deployed();
+    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    // Emitting the outgoing logs to the same address as owner to avoid having to set up another account.
     await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
     expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
   });
