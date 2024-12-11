@@ -11,14 +11,12 @@ import { type Synchronizer } from '../synchronizer/synchronizer.js';
  * Helper method to create an instance of the acir simulator.
  */
 export function getAcirSimulator(
-  synchronizer: Synchronizer,
   db: PxeDatabase,
   aztecNode: AztecNode,
   keyStore: KeyStore,
   contractDataOracle?: ContractDataOracle,
 ) {
   const simulatorOracle = new SimulatorOracle(
-    synchronizer,
     contractDataOracle ?? new ContractDataOracle(db),
     db,
     keyStore,

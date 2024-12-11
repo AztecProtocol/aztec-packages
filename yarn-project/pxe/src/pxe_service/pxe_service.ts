@@ -105,7 +105,7 @@ export class PXEService implements PXE {
     this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(this.synchronizer, db, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
 
     this.jobQueue.start();
@@ -587,6 +587,7 @@ export class PXEService implements PXE {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue
       .put(async () => {
+        await this.synchronizer.trigger();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
         const executionResult = await this.#simulateUnconstrained(functionCall, scopes);

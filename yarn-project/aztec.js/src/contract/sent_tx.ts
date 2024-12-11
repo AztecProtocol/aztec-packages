@@ -14,11 +14,6 @@ export type WaitOpts = {
   interval?: number;
   /** Whether to wait for the tx to be proven. */
   proven?: boolean;
-  /**
-   * Whether to wait for the node to notify that the block in which this tx was mined is available to fetch notes from.
-   * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
-   **/
-  waitForNotesAvailable?: boolean;
   /** Whether to include information useful for debugging/testing in the receipt. */
   debug?: boolean;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
@@ -31,7 +26,6 @@ export const DefaultWaitOpts: WaitOpts = {
   provenTimeout: 600,
   interval: 1,
   debug: false,
-  waitForNotesAvailable: true,
 };
 
 /**

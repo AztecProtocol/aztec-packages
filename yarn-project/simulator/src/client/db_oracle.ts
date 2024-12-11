@@ -242,12 +242,4 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The recipient of the logs.
    */
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
-
-  /**
-   * Synchronizes the notes for a contract address, retrieving the logs from the node,
-   * decrypting them and storing them in the database.
-   * @param contractAddress - The contract address to synchronize notes for.
-   * @param scopes - The scopes allowed to synchronize.
-   */
-  syncNotes(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<void>;
 }

@@ -113,7 +113,6 @@ function computeSiloedTagForIndex(
 describe('Simulator oracle', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
-  let synchronizer: Synchronizer;
   let contractDataOracle: ContractDataOracle;
   let simulatorOracle: SimulatorOracle;
   let keyStore: KeyStore;
@@ -124,12 +123,11 @@ describe('Simulator oracle', () => {
   beforeEach(async () => {
     const db = openTmpStore();
     aztecNode = mock<AztecNode>();
-    synchronizer = mock<Synchronizer>();
     database = await KVPxeDatabase.create(db);
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    simulatorOracle = new SimulatorOracle(synchronizer, contractDataOracle, database, keyStore, aztecNode);
+    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
