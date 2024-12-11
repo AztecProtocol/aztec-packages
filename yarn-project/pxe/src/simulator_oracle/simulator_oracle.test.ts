@@ -34,7 +34,6 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
-import { type Synchronizer } from '../synchronizer/synchronizer.js';
 import { SimulatorOracle } from './index.js';
 
 const TXS_PER_BLOCK = 4;

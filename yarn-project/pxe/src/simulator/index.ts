@@ -5,7 +5,6 @@ import { AcirSimulator } from '@aztec/simulator/client';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/pxe_database.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
-import { type Synchronizer } from '../synchronizer/synchronizer.js';
 
 /**
  * Helper method to create an instance of the acir simulator.

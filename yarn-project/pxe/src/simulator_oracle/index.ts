@@ -13,7 +13,7 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
+  type AztecAddress,
   type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
@@ -38,7 +38,6 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { type Synchronizer } from '../synchronizer/synchronizer.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
