@@ -3,13 +3,16 @@ import {
   type ParseInput,
   type ParseReturnType,
   ZodFirstPartyTypeKind,
+  type ZodObject,
   ZodOptional,
   ZodParsedType,
+  type ZodRawShape,
   type ZodType,
   type ZodTypeAny,
   z,
 } from 'zod';
 
+import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { type ZodFor } from './types.js';
 
@@ -101,4 +104,9 @@ export function mapSchema<TKey, TValue>(key: ZodFor<TKey>, value: ZodFor<TValue>
 /** Creates a schema for a js Set type that matches the serialization used in jsonStringify. */
 export function setSchema<T>(value: ZodFor<T>): ZodFor<Set<T>> {
   return z.array(value).transform(entries => new Set(entries));
+}
+
+/** Given an already parsed and validated object, extracts the keys defined in the given schema. Does not validate again. */
+export function pickFromSchema<T extends object, S extends ZodObject<ZodRawShape>>(obj: T, schema: S) {
+  return pick(obj, ...Object.keys(schema.shape));
 }

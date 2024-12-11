@@ -6,7 +6,7 @@ use dep::types::{constants::{BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX},
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX];
 
 pub struct BlockMergeRollupInputs {
-    previous_rollup_data: [PreviousRollupBlockData; 2],
+    pub previous_rollup_data: [PreviousRollupBlockData; 2],
 }
 
 impl Empty for BlockMergeRollupInputs {

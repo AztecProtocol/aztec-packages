@@ -10,16 +10,10 @@ import {
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import {
-  type Fr,
-  Gas,
-  type GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
-  type PublicCallRequest,
-  type RevertCode,
-} from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
@@ -29,6 +23,7 @@ import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
+import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -53,7 +48,7 @@ export type PublicTxResult = {
 export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(
     private db: MerkleTreeReadOperations,
@@ -62,7 +57,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_simulator`);
+    this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
@@ -106,11 +101,14 @@ export class PublicTxSimulator {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
     }
+
     if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
       const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
       processedPhases.push(teardownResult);
     }
+
     context.halt();
+    await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
 
@@ -264,26 +262,19 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const selector = executionRequest.callContext.functionSelector;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
 
-    const availableGas = context.getGasLeftForPhase(phase);
-    // Gas allocated to an enqueued call can be different from the available gas
-    // if there is more gas available than the max allocation per enqueued call.
-    const allocatedGas = new Gas(
-      /*daGas=*/ availableGas.daGas,
-      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
-    );
+    const allocatedGas = context.getGasLeftAtPhase(phase);
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
       executionRequest,
       allocatedGas,
-      context.getTransactionFee(phase),
+      /*transactionFee=*/ context.getTransactionFee(phase),
       fnName,
     );
 
-    const gasUsed = allocatedGas.sub(result.gasLeft);
+    const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
     this.log.verbose(
       `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
@@ -328,18 +319,16 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
-    const selector = executionRequest.callContext.functionSelector;
 
     this.log.verbose(
       `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
-    const simulator = AvmSimulator.create(
+    const simulator = await AvmSimulator.create(
       stateManager,
       address,
       sender,
-      selector,
       transactionFee,
       this.globalVariables,
       executionRequest.callContext.isStaticCall,
@@ -402,5 +391,31 @@ export class PublicTxSimulator {
         );
       }
     }
+  }
+
+  private async payFee(context: PublicTxContext) {
+    const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
+
+    if (context.feePayer.isZero()) {
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      return;
+    }
+
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
+    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
+    const stateManager = context.state.getActiveStateManager();
+
+    const currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+
+    if (currentBalance.lt(txFee)) {
+      throw new Error(
+        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+      );
+    }
+
+    const updatedBalance = currentBalance.sub(txFee);
+    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
   }
 }

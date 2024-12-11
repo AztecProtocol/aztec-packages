@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class incl_main_tag_err_lookup_settings {
   public:
@@ -61,4 +61,4 @@ class incl_main_tag_err_relation : public GenericLookupRelation<incl_main_tag_er
 };
 template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_err_lookup_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

@@ -57,7 +57,7 @@ fn propagate_from_private_call_note_hash_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
-    let res = builder.private_call.note_hash_read_requests.storage;
+    let res = builder.private_call.note_hash_read_requests.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -72,7 +72,7 @@ fn propagate_from_private_call_nullifier_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_nullifier_read_requests(2);
-    let res = builder.private_call.nullifier_read_requests.storage;
+    let res = builder.private_call.nullifier_read_requests.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -87,7 +87,7 @@ fn propagate_from_private_call_key_validation_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_key_validation_requests(2);
-    let res = builder.private_call.scoped_key_validation_requests_and_generators.storage;
+    let res = builder.private_call.scoped_key_validation_requests_and_generators.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -102,7 +102,7 @@ fn propagate_from_private_call_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_note_hashes(2);
-    let res = builder.private_call.note_hashes.storage;
+    let res = builder.private_call.note_hashes.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -114,7 +114,7 @@ fn propagate_from_private_call_nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_nullifiers(2);
-    let res = builder.private_call.nullifiers.storage;
+    let res = builder.private_call.nullifiers.storage();
 
     let tx_request = builder.tx_request;
     let first_nullifier = create_first_nullifier(tx_request);
@@ -129,7 +129,7 @@ fn propagate_from_private_call_l2_to_l1_msgs_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_l2_to_l1_msgs(2);
-    let res = builder.private_call.l2_to_l1_msgs.storage;
+    let res = builder.private_call.l2_to_l1_msgs.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -141,7 +141,7 @@ fn propagate_from_private_call_private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_private_logs(2);
-    let res = builder.private_call.private_logs.storage;
+    let res = builder.private_call.private_logs.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -153,7 +153,7 @@ fn propagate_from_private_call_contract_class_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.add_contract_class_log_hash(2, 200);
-    let res = builder.private_call.contract_class_logs_hashes.storage;
+    let res = builder.private_call.contract_class_logs_hashes.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -165,7 +165,7 @@ fn propagate_from_private_call_private_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
-    let res = builder.private_call.private_call_requests.storage;
+    let res = builder.private_call.private_call_requests.storage();
 
     let output = builder.compose_from_tx_request();
 
@@ -178,7 +178,7 @@ fn propagate_from_private_call_public_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_public_call_requests(2);
-    let res = builder.private_call.public_call_requests.storage;
+    let res = builder.private_call.public_call_requests.storage();
 
     let output = builder.compose_from_tx_request();
 

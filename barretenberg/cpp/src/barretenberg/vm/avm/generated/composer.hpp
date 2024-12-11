@@ -2,11 +2,11 @@
 #pragma once
 
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/vm/avm/generated/circuit_builder.hpp"
-#include "barretenberg/vm/avm/generated/prover.hpp"
-#include "barretenberg/vm/avm/generated/verifier.hpp"
+#include "circuit_builder.hpp"
+#include "prover.hpp"
+#include "verifier.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 class AvmComposer {
   public:
@@ -63,4 +63,4 @@ class AvmComposer {
     };
 };
 
-} // namespace bb
+} // namespace bb::avm

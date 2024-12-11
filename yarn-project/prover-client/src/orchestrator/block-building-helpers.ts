@@ -52,7 +52,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -94,13 +94,6 @@ export async function buildBaseRollupHints(
   const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
-
-  // Create data hint for reading fee payer initial balance in Fee Juice
-  // If no fee payer is set, read hint should be empty
-  const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-  const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
-    ? PublicDataHint.empty()
-    : await getPublicDataHint(db, leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -184,7 +177,6 @@ export async function buildBaseRollupHints(
     return PublicBaseRollupHints.from({
       start,
       stateDiffHints,
-      feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
       archiveRootMembershipWitness,
       constants,
     });
@@ -196,6 +188,13 @@ export async function buildBaseRollupHints(
     ) {
       throw new Error(`More than one public data write in a private only tx`);
     }
+
+    // Create data hint for reading fee payer initial balance in Fee Juice
+    // If no fee payer is set, read hint should be empty
+    const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+    const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
+      ? PublicDataHint.empty()
+      : await getPublicDataHint(db, leafSlot.toBigInt());
 
     const feeWriteLowLeafPreimage =
       txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
@@ -299,7 +298,7 @@ export function buildHeaderFromCircuitOutputs(
   parityPublicInputs: ParityPublicInputs,
   rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
-  logger?: DebugLogger,
+  logger?: Logger,
 ) {
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),

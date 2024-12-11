@@ -47,6 +47,11 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+            self.private_call.verify(false);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -127,9 +132,10 @@ mod tests {
 
         // note_hash_read_requests
         builder.previous_kernel.append_note_hash_read_requests(1);
-        let prev_note_hash_read_requests = builder.previous_kernel.note_hash_read_requests.storage;
+        let prev_note_hash_read_requests =
+            builder.previous_kernel.note_hash_read_requests.storage();
         builder.private_call.append_note_hash_read_requests(2);
-        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
+        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
 
         // private_logs
         builder.previous_kernel.append_private_logs(2);

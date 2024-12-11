@@ -1,6 +1,6 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/errors';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
@@ -10,27 +10,27 @@ import { type ContractDataOracle, type PxeDatabase } from '../index.js';
  * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: DebugLogger) {
-  // Maps contract addresses to the set of functions selectors that were in error.
+export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: Logger) {
+  // Maps contract addresses to the set of function names that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
   const mentionedFunctions: Map<string, Set<string>> = new Map();
 
-  err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
+  err.getCallStack().forEach(({ contractAddress, functionName }) => {
     if (!mentionedFunctions.has(contractAddress.toString())) {
       mentionedFunctions.set(contractAddress.toString(), new Set());
     }
-    mentionedFunctions.get(contractAddress.toString())!.add(functionSelector.toString());
+    mentionedFunctions.get(contractAddress.toString())!.add(functionName?.toString() ?? '');
   });
 
   await Promise.all(
-    [...mentionedFunctions.entries()].map(async ([contractAddress, selectors]) => {
+    [...mentionedFunctions.entries()].map(async ([contractAddress, fnNames]) => {
       const parsedContractAddress = AztecAddress.fromString(contractAddress);
       const contract = await db.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
-        selectors.forEach(selector => {
-          const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
+        fnNames.forEach(fnName => {
+          const functionArtifact = contract.functions.find(f => fnName === f.name);
           if (functionArtifact) {
             err.enrichWithFunctionName(
               parsedContractAddress,
@@ -39,7 +39,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
             );
           } else {
             logger.warn(
-              `Could not function artifact in contract ${contract.name} for selector ${selector} when enriching error callstack`,
+              `Could not function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
             );
           }
         });
@@ -56,7 +56,7 @@ export async function enrichPublicSimulationError(
   err: SimulationError,
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
-  logger: DebugLogger,
+  logger: Logger,
 ) {
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];
@@ -89,7 +89,9 @@ export async function enrichPublicSimulationError(
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(
-          `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+          `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${
+            originalFailingFunction.functionName?.toString() ?? ''
+          }: ${err}`,
         );
       }
     }

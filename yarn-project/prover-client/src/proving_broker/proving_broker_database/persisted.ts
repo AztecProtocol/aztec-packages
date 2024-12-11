@@ -1,7 +1,7 @@
 import { type ProofUri, ProvingJob, type ProvingJobId, ProvingJobSettledResult } from '@aztec/circuit-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { LmdbMetrics, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, LmdbMetrics, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 
@@ -14,14 +14,15 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     this.metrics = new LmdbMetrics(
       client.getMeter('KVBrokerDatabase'),
       {
-        name: Metrics.PROVING_QUEUE_DB_MAP_SIZE,
         description: 'Database map size for the proving broker',
       },
       {
-        name: Metrics.PROVING_QUEUE_DB_USED_SIZE,
         description: 'Database used size for the proving broker',
       },
-      { name: Metrics.PROVING_QUEUE_DB_NUM_ITEMS, description: 'Number of items in the broker database' },
+      { description: 'Number of items in the broker database' },
+      {
+        [Attributes.DB_DATA_TYPE]: 'prover-broker',
+      },
       () => store.estimateSize(),
     );
     this.jobs = store.openMap('proving_jobs');
