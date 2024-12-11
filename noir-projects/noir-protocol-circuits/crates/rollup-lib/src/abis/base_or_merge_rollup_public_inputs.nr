@@ -22,8 +22,8 @@ pub struct BaseOrMergeRollupPublicInputs {
 
     // A poseidon sponge of all tx effects to be unpacked in block root, then added to blob(s)
     // In sponge form so we can check left.end == right.start, rather than recreate a tree later
-    pub start_sponge_blob: SpongeBlob,
-    pub end_sponge_blob: SpongeBlob,
+    pub(crate) start_sponge_blob: SpongeBlob,
+    pub(crate) end_sponge_blob: SpongeBlob,
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
