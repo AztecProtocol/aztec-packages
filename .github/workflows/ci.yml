@@ -166,6 +166,8 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
+        env:
+          REF: (true) && 'master' || github.ref_name
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
@@ -173,18 +175,20 @@ jobs:
             LABELS=""
           fi
           echo Labels: $LABELS
-          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
-          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")"
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
+        env:
+          REF: (true) && 'master' || github.ref_name
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
             LABELS=""
           fi
-          echo Labels: $LABELS
-          echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "list=$(./scripts/ci/get_bench_jobs.sh $REF "$LABELS")"
+          echo "list=$(./scripts/ci/get_bench_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
 
   bench-test-gate:
     needs: [build, configure]
@@ -864,20 +868,6 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  boxes:
-    needs: [e2e-test-gate, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: boxes
-      - name: Build
-        working-directory: ./boxes
-        timeout-minutes: 40
-        run: earthly-ci +export-boxes
-
   boxes-test:
     needs: [e2e-test-gate, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
@@ -893,8 +883,11 @@ jobs:
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
-          # must be globally unique for build x runner
-          concurrency_key: boxes-${{ needs.configure.outputs.username }}-x86-${{ matrix.box }}-${{ matrix.browser }}
+          concurrency_key: boxes-${{ matrix.box }}-${{ matrix.browser }}
+      - name: Build
+        working-directory: ./boxes
+        timeout-minutes: 40
+        run: earthly-ci +export-boxes
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 40
@@ -1027,8 +1020,7 @@ jobs:
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
-      - boxes
-      - boxes-test
+      - boxes-test # OK if skipped
       # - protocol-circuits-gates-report # non-blocking
     if: always()
     outputs:
