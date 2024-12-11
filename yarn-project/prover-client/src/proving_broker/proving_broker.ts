@@ -282,7 +282,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       this.inProgress.delete(id);
     }
 
-    if (retry && retries + 1 < this.maxRetries) {
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} already is already settled, ignoring error`);
+      return;
+    }
+
+    if (retry && retries + 1 < this.maxRetries && !this.isJobStale(item)) {
       this.logger.info(`Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1}`);
       this.retries.set(id, retries + 1);
       this.enqueueJobInternal(item);
@@ -377,6 +382,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       this.inProgress.delete(id);
     }
 
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} already settled, ignoring result`);
+      return;
+    }
+
     this.logger.debug(
       `Proving job complete id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1}`,
     );
@@ -391,7 +401,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
   private cleanupPass = async () => {
     await this.cleanupStaleJobs();
-    this.reEnqueueExpiredJobs();
+    await this.reEnqueueExpiredJobs();
   };
 
   private async cleanupStaleJobs() {
@@ -400,7 +410,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     for (const id of jobIds) {
       const job = this.jobsCache.get(id)!;
       const isComplete = this.resultsCache.has(id);
-      if (isComplete && job.epochNumber < this.epochHeight - this.maxEpochsToKeepResultsFor) {
+      if (isComplete && this.isJobStale(job)) {
         jobsToClean.push(id);
       }
     }
@@ -413,7 +423,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }
   }
 
-  private reEnqueueExpiredJobs() {
+  private async reEnqueueExpiredJobs() {
     const inProgressEntries = Array.from(this.inProgress.entries());
     for (const [id, metadata] of inProgressEntries) {
       const item = this.jobsCache.get(id);
@@ -426,10 +436,15 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`);
-        this.inProgress.delete(id);
-        this.enqueueJobInternal(item);
-        this.instrumentation.incTimedOutJobs(item.type);
+        if (this.isJobStale(item)) {
+          // the job has timed out and it's also old, just cancel and move on
+          await this.cancelProvingJob(item.id);
+        } else {
+          this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`);
+          this.inProgress.delete(id);
+          this.enqueueJobInternal(item);
+          this.instrumentation.incTimedOutJobs(item.type);
+        }
       }
     }
   }
@@ -445,6 +460,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     this.enqueuedAt.set(job.id, new Timer());
     this.epochHeight = Math.max(this.epochHeight, job.epochNumber);
     this.logger.debug(`Enqueued new proving job id=${job.id}`);
+  }
+
+  private isJobStale(job: ProvingJob) {
+    return job.epochNumber < this.epochHeight - this.maxEpochsToKeepResultsFor;
   }
 }
 

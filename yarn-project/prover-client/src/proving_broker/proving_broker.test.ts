@@ -645,6 +645,42 @@ describe.each([
       await assertJobStatus(id, 'in-queue');
     });
 
+    it('cancel stale jobs that time out', async () => {
+      const id = makeProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+
+      await assertJobStatus(id, 'in-queue');
+      await getAndAssertNextJobId(id);
+      await assertJobStatus(id, 'in-progress');
+
+      // advance time so job times out because of no heartbeats
+      await sleep(jobTimeoutMs + brokerIntervalMs);
+
+      // should be back in the queue now
+      await assertJobStatus(id, 'in-queue');
+
+      // another agent picks it up
+      await getAndAssertNextJobId(id);
+      await assertJobStatus(id, 'in-progress');
+
+      // epoch has advances
+      await broker.enqueueProvingJob({
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 10,
+        inputsUri: makeInputsUri(),
+      });
+
+      // advance time again so job times out. This time it should be rejected
+      await sleep(jobTimeoutMs + brokerIntervalMs);
+      await assertJobStatus(id, 'rejected');
+    });
+
     it('keeps the jobs in progress while it is alive', async () => {
       const id = makeProvingJobId();
       await broker.enqueueProvingJob({
@@ -732,6 +768,41 @@ describe.each([
       await getAndAssertNextJobId(id);
       await assertJobStatus(id, 'in-progress');
       await broker.reportProvingJobError(id, 'test error', false);
+      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
+        status: 'rejected',
+        reason: 'test error',
+      });
+    });
+
+    it('does not retry if job is stale', async () => {
+      const id = makeProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+
+      await getAndAssertNextJobId(id);
+      await assertJobStatus(id, 'in-progress');
+
+      await broker.reportProvingJobError(id, 'test error', true);
+      // gets retried once
+      await assertJobStatus(id, 'in-queue');
+
+      // pick up the job again
+      await getAndAssertNextJobId(id);
+      await assertJobStatus(id, 'in-progress');
+
+      // advance the epoch height
+      await broker.enqueueProvingJob({
+        id: makeProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 3,
+        inputsUri: makeInputsUri(),
+      });
+
+      await broker.reportProvingJobError(id, 'test error', true);
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
         status: 'rejected',
         reason: 'test error',
