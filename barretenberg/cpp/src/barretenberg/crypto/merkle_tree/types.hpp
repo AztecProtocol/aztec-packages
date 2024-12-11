@@ -12,6 +12,7 @@ struct RequestContext {
     bool includeUncommitted;
     std::optional<block_number_t> blockNumber;
     bb::fr root;
+    std::optional<index_t> maxIndex;
 };
 
 template <typename LeafType> fr preimage_to_key(const LeafType& leaf)

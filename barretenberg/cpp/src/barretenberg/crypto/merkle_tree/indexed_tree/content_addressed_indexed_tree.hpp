@@ -455,6 +455,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
+                requestContext.maxIndex = blockData.size;
                 std::pair<bool, index_t> result = store_->find_low_value(leaf_key, requestContext, *tx);
                 response.inner.index = result.second;
                 response.inner.is_already_present = result.first;

@@ -134,7 +134,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
                                            const RequestContext& requestContext,
-                                           const std::optional<index_t>& maxCommittedIndex,
                                            ReadTransaction& tx) const;
 
     /**
@@ -143,7 +142,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
                                                 const index_t& start_index,
                                                 const RequestContext& requestContext,
-                                                const std::optional<index_t>& maxCommittedIndex,
                                                 ReadTransaction& tx) const;
 
     /**
@@ -278,14 +276,13 @@ template <typename LeafValueType>
 index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size(const RequestContext& requestContext,
                                                                             ReadTransaction& tx) const
 {
+    // We need to identify the size of the committed tree as it exists from our perspective
+    // To do this we read the uncommitted meta which will contained the committed size at our initialisation point
     TreeMeta m;
     get_meta(m, tx, true);
     index_t sizeLimit = m.committedSize;
-    if (requestContext.blockNumber.has_value()) {
-        BlockPayload blockData;
-        if (dataStore_->read_block_data(requestContext.blockNumber.value(), blockData, tx)) {
-            sizeLimit = std::min(meta_.committedSize, blockData.size);
-        }
+    if (requestContext.maxIndex.has_value() && requestContext.maxIndex.value() < sizeLimit) {
+        sizeLimit = requestContext.maxIndex.value();
     }
     return sizeLimit;
 }
@@ -294,6 +291,12 @@ template <typename LeafValueType>
 std::optional<block_number_t> ContentAddressedCachedTreeStore<LeafValueType>::find_block_for_index(
     const index_t& index, ReadTransaction& tx) const
 {
+    RequestContext context;
+    context.maxIndex = index + 1;
+    index_t constrainedSize = constrain_tree_size(context, tx);
+    if (index >= constrainedSize) {
+        return std::nullopt;
+    }
     block_number_t blockNumber = 0;
     bool success = dataStore_->find_block_for_index(index, blockNumber, tx);
     return success ? std::make_optional(blockNumber) : std::nullopt;
@@ -321,10 +324,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
     index_t committed = 0;
-    std::optional<index_t> sizeLimit = std::nullopt;
-    if (initialised_from_block_.has_value() || requestContext.blockNumber.has_value()) {
-        sizeLimit = constrain_tree_size(requestContext, tx);
-    }
+    std::optional<index_t> sizeLimit = constrain_tree_size(requestContext, tx);
 
     fr found_key = dataStore_->find_low_leaf(new_leaf_key, committed, sizeLimit, tx);
     index_t db_index = committed;
@@ -438,12 +438,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
 
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index(
-    const LeafValueType& leaf,
-    const RequestContext& requestContext,
-    const std::optional<index_t>& maxCommittedIndex,
-    ReadTransaction& tx) const
+    const LeafValueType& leaf, const RequestContext& requestContext, ReadTransaction& tx) const
 {
-    return find_leaf_index_from(leaf, 0, requestContext, maxCommittedIndex, tx);
+    return find_leaf_index_from(leaf, 0, requestContext, tx);
 }
 
 template <typename LeafValueType>
@@ -451,7 +448,6 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     const LeafValueType& leaf,
     const index_t& start_index,
     const RequestContext& requestContext,
-    const std::optional<index_t>& maxCommittedIndex,
     ReadTransaction& tx) const
 {
     if (requestContext.includeUncommitted) {
@@ -473,10 +469,11 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     FrKeyType key = leaf;
     bool success = dataStore_->read_leaf_index(key, committed, tx);
     if (success) {
+        index_t sizeLimit = constrain_tree_size(requestContext, tx);
         if (committed < start_index) {
             return std::nullopt;
         }
-        if (maxCommittedIndex.has_value() && committed >= maxCommittedIndex.value()) {
+        if (committed >= sizeLimit) {
             return std::nullopt;
         }
         return std::make_optional(committed);

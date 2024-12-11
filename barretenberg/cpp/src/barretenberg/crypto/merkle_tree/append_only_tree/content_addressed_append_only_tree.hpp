@@ -417,14 +417,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
         execute_and_report<BlockForIndexResponse>(
             [=, this](TypedResponse<BlockForIndexResponse>& response) {
                 response.inner.blockNumbers.reserve(indices.size());
-                TreeMeta meta;
                 ReadTransactionPtr tx = store_->create_read_transaction();
-                store_->get_meta(meta, *tx, true);
-                index_t maxIndex = meta.committedSize;
                 for (index_t index : indices) {
-                    bool outOfRange = index >= maxIndex;
-                    std::optional<block_number_t> block =
-                        outOfRange ? std::nullopt : store_->find_block_for_index(index, *tx);
+                    std::optional<block_number_t> block = store_->find_block_for_index(index, *tx);
                     response.inner.blockNumbers.emplace_back(block);
                 }
             },
@@ -443,16 +438,14 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
         execute_and_report<BlockForIndexResponse>(
             [=, this](TypedResponse<BlockForIndexResponse>& response) {
                 response.inner.blockNumbers.reserve(indices.size());
-                TreeMeta meta;
                 BlockPayload blockPayload;
                 ReadTransactionPtr tx = store_->create_read_transaction();
-                store_->get_meta(meta, *tx, true);
                 if (!store_->get_block_data(blockNumber, blockPayload, *tx)) {
                     throw std::runtime_error(format("Unable to find block numbers for indices for block ",
                                                     blockNumber,
                                                     ", failed to get block data."));
                 }
-                index_t maxIndex = std::min(meta.committedSize, blockPayload.size);
+                index_t maxIndex = blockPayload.size;
                 for (index_t index : indices) {
                     bool outOfRange = index >= maxIndex;
                     std::optional<block_number_t> block =
@@ -751,17 +744,13 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                 response.inner.leaf_indices.reserve(leaves.size());
                 ReadTransactionPtr tx = store_->create_read_transaction();
 
-                TreeMeta meta;
-                store_->get_meta(meta, *tx, true);
-                std::optional<index_t> maxIndex = std::make_optional(meta.committedSize);
-
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
 
                 for (const auto& leaf : leaves) {
                     std::optional<index_t> leaf_index =
-                        store_->find_leaf_index_from(leaf, start_index, requestContext, maxIndex, *tx);
+                        store_->find_leaf_index_from(leaf, start_index, requestContext, *tx);
                     response.inner.leaf_indices.emplace_back(leaf_index);
                 }
             },
@@ -794,22 +783,16 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                                                     blockNumber,
                                                     ", failed to get block data."));
                 }
-                TreeMeta meta;
-                store_->get_meta(meta, *tx, true);
+
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
-
-                std::optional<index_t> maxIndex = std::min(blockData.size, meta.committedSize);
+                requestContext.maxIndex = blockData.size;
 
                 for (const auto& leaf : leaves) {
                     std::optional<index_t> leaf_index =
-                        store_->find_leaf_index_from(leaf, start_index, requestContext, maxIndex, *tx);
-                    if (leaf_index.has_value()) {
-                        // std::cout << "Pushing back index " << leaf_index.value() << std::endl;
-                    }
-
+                        store_->find_leaf_index_from(leaf, start_index, requestContext, *tx);
                     response.inner.leaf_indices.emplace_back(leaf_index);
                 }
             },
