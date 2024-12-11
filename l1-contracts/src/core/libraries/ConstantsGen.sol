@@ -138,6 +138,7 @@ library Constants {
   uint256 internal constant MULTI_CALL_ENTRYPOINT_ADDRESS = 4;
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant ROUTER_ADDRESS = 6;
+  uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =
@@ -208,7 +209,7 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 900;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 902;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 35;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 44;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
@@ -217,7 +218,7 @@ library Constants {
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1845;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 956;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 958;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 90;

@@ -227,6 +227,9 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
+
 // CANONICAL DEFAULT KEYS
 // This below are:
 // "az_null_npk"
@@ -372,7 +375,7 @@ pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + 1 /* unencrypted_log_preimages_length */
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + 1 /* contract_class_log_preimages_length */
-    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
+    + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
@@ -409,7 +412,7 @@ pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
     + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
-    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
+    + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
     + ROLLUP_VALIDATION_REQUESTS_LENGTH
@@ -431,6 +434,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
+    + 1 /* fee_payer */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */

@@ -13,6 +13,7 @@ import {
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   type AvmCircuitPublicInputs,
+  type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
@@ -72,6 +73,7 @@ export class PublicTxContext {
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly feePayer: AztecAddress,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
@@ -88,6 +90,7 @@ export class PublicTxContext {
 
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
+      /*protocolPublicDataWrites*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
       /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
@@ -121,6 +124,7 @@ export class PublicTxContext {
       getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
+      tx.data.feePayer,
       enqueuedCallTrace,
     );
   }
@@ -331,6 +335,7 @@ export class PublicTxContext {
       this.startStateReference,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
+      this.feePayer,
       this.setupCallRequests,
       this.appLogicCallRequests,
       this.teardownCallRequests,
