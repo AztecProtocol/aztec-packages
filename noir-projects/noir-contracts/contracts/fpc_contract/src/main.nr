@@ -95,7 +95,8 @@ contract FPC {
     }
 
     /// Pays the refund to the `refund_recipient`. The refund is the difference between the `max_fee` and
-    /// the actual fee.
+    /// the actual fee. `accepted_asset` is the asset in which the refund is paid. It's passed as an argument
+    /// to avoid the need for another read from public storage.
     #[public]
     #[internal]
     fn pay_refund(refund_recipient: AztecAddress, max_fee: Field, accepted_asset: AztecAddress) {
