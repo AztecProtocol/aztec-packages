@@ -79,8 +79,7 @@ spec:
               mountPath: /shared/config
 
         - name: configure-validator-env
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"
@@ -108,8 +107,7 @@ spec:
                   fieldPath: metadata.name
       containers:
         - name: validator
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"

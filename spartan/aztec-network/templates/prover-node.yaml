@@ -71,8 +71,7 @@ spec:
               value: "{{ .Values.proverNode.proverBroker.enabled }}"
 
         - name: configure-prover-env
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"
@@ -90,8 +89,7 @@ spec:
 
       containers:
         - name: prover-node
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"
