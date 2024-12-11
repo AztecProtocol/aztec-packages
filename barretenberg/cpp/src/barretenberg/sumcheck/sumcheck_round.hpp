@@ -293,15 +293,16 @@ template <typename Flavor> class SumcheckProverRound {
     static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData<Flavor> zk_sumcheck_data,
                                                                   size_t round_idx)
     {
-        SumcheckRoundUnivariate libra_round_univariate;
+        bb::Univariate<FF, 3> libra_round_univariate;
+        info("inside sumcheck round: ", libra_round_univariate.size());
         // select the i'th column of Libra book-keeping table
         const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
-        for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; ++idx) {
+        for (size_t idx = 0; idx < libra_round_univariate.size(); ++idx) {
             libra_round_univariate.value_at(idx) = current_column.value_at(idx) + zk_sumcheck_data.libra_running_sum;
         };
-        return libra_round_univariate;
+        return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
     }
 
   private:

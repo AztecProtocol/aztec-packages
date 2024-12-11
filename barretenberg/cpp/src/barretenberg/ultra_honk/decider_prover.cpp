@@ -72,6 +72,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               ck,
                                                               transcript);
     } else {
+        using namespace std::chrono;
+
+        auto total_time = 0.0;
+        auto start = high_resolution_clock::now();
 
         // size_t log_circuit_size = proving_key->proving_key.log_circuit_size;
         zk_sumcheck_data.setup_challenge_polynomial(sumcheck_output.challenge);
@@ -79,26 +83,21 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         // compute masked big sum polynomial, commit to it
         zk_sumcheck_data.setup_big_sum_polynomial();
         Commitment big_sum_commitment = ck->commit(zk_sumcheck_data.big_sum_polynomial);
-        using namespace std::chrono;
-
-        auto total_time = 0.0;
-        auto start = high_resolution_clock::now();
+        transcript->template send_to_verifier("Libra:big_sum_commitment", big_sum_commitment);
 
         zk_sumcheck_data.compute_batched_polynomial();
         zk_sumcheck_data.compute_batched_quotient();
+        Commitment libra_batched_quotient = ck->commit(zk_sumcheck_data.batched_quotient);
+        transcript->template send_to_verifier("Libra:quotient_commitment", libra_batched_quotient);
+
         auto end = high_resolution_clock::now();
         total_time += duration<double, std::milli>(end - start).count();
 
         info("total time", total_time);
-        FF claim = FF(0);
-        size_t idx = 0;
-        for (auto poly : zk_sumcheck_data.libra_univariates_monomial) {
-            claim += poly.evaluate(sumcheck_output.challenge[idx]);
-            idx++;
-        }
 
-        info("actual claim ", claim);
-        transcript->template send_to_verifier("Libra:big_sum_commitment", big_sum_commitment);
+        std::array<Polynomial, 3> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+                                                        zk_sumcheck_data.big_sum_polynomial,
+                                                        zk_sumcheck_data.batched_quotient };
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
@@ -106,7 +105,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,
-                                                              zk_sumcheck_data.libra_univariates_monomial,
+                                                              libra_polynomials,
                                                               sumcheck_output.claimed_libra_evaluation);
     }
     vinfo("executed multivariate-to-univariate reduction");

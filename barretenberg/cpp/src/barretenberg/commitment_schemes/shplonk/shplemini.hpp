@@ -28,7 +28,7 @@ template <typename Curve> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
-                              const std::vector<bb::Univariate<FF, LENGTH>>& libra_univariates = {},
+                              const std::array<Polynomial, 3>& libra_polynomials = {},
                               const FF& libra_evaluation = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
@@ -46,15 +46,35 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        size_t idx = 0;
-        for (auto libra_univariate : libra_univariates) {
-            OpeningClaim new_claim;
-            new_claim.polynomial = Polynomial(libra_univariate);
-            new_claim.opening_pair.challenge = multilinear_challenge[idx];
-            new_claim.opening_pair.evaluation = libra_evaluation;
-            libra_opening_claims.push_back(new_claim);
-            idx++;
-        }
+        static constexpr FF bn_254_subgroup_generator =
+            FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        const auto gemini_r = opening_claims[0].opening_pair.challenge;
+        OpeningClaim new_claim;
+
+        new_claim.polynomial = libra_polynomials[0];
+        new_claim.opening_pair.challenge = gemini_r;
+        new_claim.opening_pair.evaluation = libra_polynomials[0].evaluate(gemini_r);
+        transcript->send_to_verifier("Libra:concatenation_eval", new_claim.opening_pair.evaluation);
+        libra_opening_claims.push_back(new_claim);
+
+        new_claim.polynomial = libra_polynomials[1];
+        new_claim.opening_pair.challenge = bn_254_subgroup_generator * gemini_r;
+        new_claim.opening_pair.evaluation = libra_polynomials[1].evaluate(new_claim.opening_pair.challenge);
+        transcript->send_to_verifier("Libra:shifted_big_sum_eval", new_claim.opening_pair.evaluation);
+        libra_opening_claims.push_back(new_claim);
+
+        new_claim.polynomial = libra_polynomials[1];
+        new_claim.opening_pair.challenge = gemini_r;
+        new_claim.opening_pair.evaluation = libra_polynomials[1].evaluate(gemini_r);
+        transcript->send_to_verifier("Libra:big_sum_eval", new_claim.opening_pair.evaluation);
+        libra_opening_claims.push_back(new_claim);
+
+        new_claim.polynomial = libra_polynomials[2];
+        new_claim.opening_pair.challenge = gemini_r;
+        new_claim.opening_pair.evaluation = libra_polynomials[2].evaluate(gemini_r);
+        transcript->send_to_verifier("Libra:quotient_eval", new_claim.opening_pair.evaluation);
+        libra_opening_claims.push_back(new_claim);
+
         const OpeningClaim batched_claim =
             ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
         return batched_claim;
@@ -121,6 +141,10 @@ template <typename Curve> class ShpleminiVerifier_ {
     using VK = VerifierCommitmentKey<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
+    static constexpr Fr bn_254_subgroup_generator =
+        Fr(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+    static constexpr Fr grumpkin_subgroup_generator =
+        Fr(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
   public:
     template <typename Transcript>
@@ -134,7 +158,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
-        RefSpan<Commitment> libra_univariate_commitments = {},
+        std::vector<Commitment> libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
@@ -170,15 +194,25 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
+        if (has_zk) {
+        }
+
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         const std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(log_circuit_size, transcript);
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
 
+        std::array<Fr, 4> libra_evaluations;
+        libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
+        libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_big_sum_eval");
+        libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:big_sum_eval");
+        libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
+
         // Process Shplonk transcript data:
         // - Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
+        info("shplonk nu verifier ", shplonk_batching_challenge);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -297,9 +331,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         if (has_zk) {
             add_zk_data(commitments,
                         scalars,
-                        libra_univariate_commitments,
-                        libra_univariate_evaluation,
-                        multivariate_challenge,
+                        libra_commitments,
+                        libra_evaluations,
+                        gemini_evaluation_challenge,
                         shplonk_batching_challenge,
                         shplonk_evaluation_challenge);
         }
@@ -588,7 +622,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *
      * @param commitments
      * @param scalars
-     * @param libra_univariate_commitments
+     * @param libra_commitments
      * @param libra_univariate_evaluations
      * @param multivariate_challenge
      * @param shplonk_batching_challenge
@@ -596,9 +630,9 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void add_zk_data(std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
-                            RefSpan<Commitment> libra_univariate_commitments,
-                            const Fr& libra_univariate_evaluation,
-                            const std::vector<Fr>& multivariate_challenge,
+                            std::vector<Commitment> libra_commitments,
+                            std::array<Fr, 4> libra_evaluations,
+                            const Fr& gemini_evaluation_challenge,
                             const Fr& shplonk_batching_challenge,
                             const Fr& shplonk_evaluation_challenge)
 
@@ -613,30 +647,44 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr& constant_term = scalars.back();
         // compute shplonk denominators and batch invert them
         std::vector<Fr> denominators;
-        size_t num_libra_univariates = libra_univariate_commitments.size();
-
         // compute Shplonk denominators and invert them
-        for (size_t idx = 0; idx < num_libra_univariates; idx++) {
-            if constexpr (Curve::is_stdlib_type) {
-                denominators.push_back(Fr(1) / (shplonk_evaluation_challenge - multivariate_challenge[idx]));
-            } else {
-                denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
-            }
-        };
-        if constexpr (!Curve::is_stdlib_type) {
-            Fr::batch_invert(denominators);
+        denominators.push_back(Fr(1) / (shplonk_evaluation_challenge - gemini_evaluation_challenge));
+        denominators.push_back(
+            Fr(1) / (shplonk_evaluation_challenge - bn_254_subgroup_generator * gemini_evaluation_challenge));
+        denominators.push_back(denominators[0]);
+        denominators.push_back(denominators[0]);
+
+        for (auto denom : denominators) {
+            info("verifier denom", denom);
         }
         // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to
         // the constant term
-        for (const auto [libra_univariate_commitment, denominator] :
-             zip_view(libra_univariate_commitments, denominators)) {
-            commitments.push_back(std::move(libra_univariate_commitment));
-            Fr scaling_factor = denominator * shplonk_challenge_power;
-            scalars.push_back((-scaling_factor));
-            shplonk_challenge_power *= shplonk_batching_challenge;
-            // update the constant term of the Shplonk batched claim
-            constant_term += scaling_factor * libra_univariate_evaluation;
-        }
+        commitments.push_back(libra_commitments[0]);
+        Fr scaling_factor = denominators[0] * shplonk_challenge_power;
+        info(shplonk_challenge_power);
+        scalars.push_back(-scaling_factor);
+        shplonk_challenge_power *= shplonk_batching_challenge;
+        // update the constant term of the Shplonk batched claim
+        constant_term += scaling_factor * libra_evaluations[0];
+
+        commitments.push_back(libra_commitments[1]);
+        scaling_factor = denominators[1] * shplonk_challenge_power;
+        // scalars.push_back((-scaling_factor));
+        shplonk_challenge_power *= shplonk_batching_challenge;
+        // update the constant term of the Shplonk batched claim
+        constant_term += scaling_factor * libra_evaluations[1];
+        scaling_factor += denominators[2] * shplonk_challenge_power;
+        scalars.push_back(-scaling_factor);
+        constant_term += denominators[2] * shplonk_challenge_power * libra_evaluations[2];
+
+        shplonk_challenge_power *= shplonk_batching_challenge;
+
+        commitments.push_back(libra_commitments[2]);
+        scaling_factor = denominators[3] * shplonk_challenge_power;
+        scalars.push_back(-scaling_factor);
+        shplonk_challenge_power *= shplonk_batching_challenge;
+        // update the constant term of the Shplonk batched claim
+        constant_term += scaling_factor * libra_evaluations[3];
     }
 };
 } // namespace bb
