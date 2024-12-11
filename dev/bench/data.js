@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733922011080,
+  "lastUpdate": 1733933899647,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c7c4c9bb0c01067abe57ccd06962d71c7279aa0",
-          "message": "chore(avm): Zero initialization in avm public inputs and execution test fixes (#10238)\n\nThe uninitialized members of the public inputs created some segmentation\r\nfault in AvmExecutionTests.basicAddReturn and other unit test failures\r\nin AvmExecutionTests.l2GasLeft and AvmExecutionTests.daGasLeft tests.",
-          "timestamp": "2024-11-27T11:42:09+01:00",
-          "tree_id": "36209f313f7d39598559df90c8a67ebe44fadf62",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c7c4c9bb0c01067abe57ccd06962d71c7279aa0"
-        },
-        "date": 1732705847641,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27997.618216999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26153.281726 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5067.496634999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4721.5265420000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83883.747371,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83883747000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15148.538003999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15148538000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3067410312,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3067410312 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139718631,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139718631 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 143406629,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143406629 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1365401cb379d7206e268dc01a33110cecae7293",
+          "message": "chore!: l2 gas maximum is per-TX-public-portion. AVM startup gas is now 20k. (#10214)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10030\r\n\r\nBump of AVM startup gas to 20k is mostly arbitrary, but considering some\r\nindividual opcodes cost more than its previous value of 512, it\r\ncertainly needed to be much higher. I thought 20k is at least _more_\r\nreasonable to account for the constraint cost of verifying an AVM proof.\r\n\r\nThe l2 gas maximum per-tx-public-portion ensures that there is some hard\r\nlimit on execution per AVM proof. For now, we use that limit to ensure\r\nthat you cannot overflow the AVM trace.\r\n\r\n---------\r\n\r\nCo-authored-by: IlyasRidhuan <ilyasridhuan@gmail.com>",
+          "timestamp": "2024-12-11T10:28:51-05:00",
+          "tree_id": "16478f624d315efa769aa2accd5873b046615dae",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1365401cb379d7206e268dc01a33110cecae7293"
+        },
+        "date": 1733933892288,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25089.572749000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22736.158037999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4636.394272000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4352.320544 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 90242.48128400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 90242481000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16729.639049999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16729641000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2830559702,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2830559702 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134125685,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134125685 ns\nthreads: 1"
           }
         ]
       }
