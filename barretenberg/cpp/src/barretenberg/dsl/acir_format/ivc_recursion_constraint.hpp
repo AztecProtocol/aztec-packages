@@ -11,10 +11,10 @@ using namespace bb;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1148): logic in this file is incomplete. See issue for
 // details.
 
-std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
-                                                            const TraceSettings& trace_settings);
+ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
+                                           const TraceSettings& trace_settings);
 
-void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel);
+void mock_ivc_accumulation(ClientIVC& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel);
 
 std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
                                                   const size_t num_public_inputs,
