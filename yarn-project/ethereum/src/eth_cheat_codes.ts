@@ -77,11 +77,15 @@ export class EthCheatCodes {
    * @param numberOfBlocks - The number of blocks to mine
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
+    await this.doMine(numberOfBlocks);
+    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
+  }
+
+  private async doMine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   /**
@@ -188,7 +192,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
-    await this.mine();
+    await this.doMine();
     this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
   }
 
