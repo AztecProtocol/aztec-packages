@@ -140,6 +140,13 @@ export function createArtifactOption(db?: WalletDB) {
     .makeOptionMandatory(false);
 }
 
+export function createProfileOption() {
+  return new Option(
+    '-p, --profile',
+    'Run the real prover and get the gate count for each function in the transaction.',
+  ).default(false);
+}
+
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {
   const cwd = process.cwd();
   try {

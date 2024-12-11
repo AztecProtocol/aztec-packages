@@ -1,6 +1,6 @@
-import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
-import type { BrilligFunctionId, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type NoirCallStack } from '@aztec/circuit-types';
+import type { FunctionDebugMetadata } from '@aztec/foundation/abi';
+import { createLogger } from '@aztec/foundation/log';
 
 import {
   type ExecutionError,
@@ -9,7 +9,7 @@ import {
   executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
-import { traverseCauseChain } from '../common/errors.js';
+import { resolveOpcodeLocations, traverseCauseChain } from '../common/errors.js';
 import { type ACVMWitness } from './acvm_types.js';
 import { type ORACLE_NAMES } from './oracle/index.js';
 
@@ -35,97 +35,6 @@ export interface ACIRExecutionResult {
 }
 
 /**
- * Extracts a brillig location from an opcode location.
- * @param opcodeLocation - The opcode location to extract from. It should be in the format `acirLocation.brilligLocation` or `acirLocation`.
- * @returns The brillig location if the opcode location contains one.
- */
-function extractBrilligLocation(opcodeLocation: string): string | undefined {
-  const splitted = opcodeLocation.split('.');
-  if (splitted.length === 2) {
-    return splitted[1];
-  }
-  return undefined;
-}
-
-/**
- * Extracts the call stack from the location of a failing opcode and the debug metadata.
- * One opcode can point to multiple calls due to inlining.
- */
-function getSourceCodeLocationsFromOpcodeLocation(
-  opcodeLocation: string,
-  debug: FunctionDebugMetadata,
-  brilligFunctionId?: BrilligFunctionId,
-): SourceCodeLocation[] {
-  const { debugSymbols, files } = debug;
-
-  let callStack = debugSymbols.locations[opcodeLocation] || [];
-  if (callStack.length === 0) {
-    const brilligLocation = extractBrilligLocation(opcodeLocation);
-    if (brilligFunctionId !== undefined && brilligLocation !== undefined) {
-      callStack = debugSymbols.brillig_locations[brilligFunctionId][brilligLocation] || [];
-    }
-  }
-  return callStack.map(call => {
-    const { file: fileId, span } = call;
-
-    const { path, source } = files[fileId];
-
-    const locationText = source.substring(span.start, span.end);
-    const precedingText = source.substring(0, span.start);
-    const previousLines = precedingText.split('\n');
-    // Lines and columns in stacks are one indexed.
-    const line = previousLines.length;
-    const column = previousLines[previousLines.length - 1].length + 1;
-
-    return {
-      filePath: path,
-      line,
-      column,
-      fileSource: source,
-      locationText,
-    };
-  });
-}
-
-/**
- * Extracts the source code locations for an array of opcode locations
- * @param opcodeLocations - The opcode locations that caused the error.
- * @param debug - The debug metadata of the function.
- * @returns The source code locations.
- */
-export function resolveOpcodeLocations(
-  opcodeLocations: OpcodeLocation[],
-  debug: FunctionDebugMetadata,
-  brilligFunctionId?: BrilligFunctionId,
-): SourceCodeLocation[] {
-  return opcodeLocations.flatMap(opcodeLocation =>
-    getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, brilligFunctionId),
-  );
-}
-
-/**
- * Extracts the source code locations for an array of opcode locations
- * @param opcodeLocations - The opcode locations that caused the error.
- * @param debug - The debug metadata of the function.
- * @returns The source code locations.
- */
-export function resolveAssertionMessage(
-  opcodeLocations: OpcodeLocation[],
-  debug: FunctionDebugMetadata,
-): string | undefined {
-  if (opcodeLocations.length === 0) {
-    return undefined;
-  }
-
-  const lastLocation = extractBrilligLocation(opcodeLocations[opcodeLocations.length - 1]);
-  if (!lastLocation) {
-    return undefined;
-  }
-
-  return debug.assertMessages?.[parseInt(lastLocation, 10)];
-}
-
-/**
  * The function call that executes an ACIR.
  */
 export async function acvm(
@@ -133,7 +42,7 @@ export async function acvm(
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
-  const logger = createDebugLogger('aztec:simulator:acvm');
+  const logger = createLogger('simulator:acvm');
 
   const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     acir,

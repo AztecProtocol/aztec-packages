@@ -4,7 +4,10 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./avm/fixtures": "./dest/avm/fixtures/index.js"
+    "./client": "./dest/client/index.js",
+    "./acvm": "./dest/acvm/index.js",
+    "./errors": "./dest/common/errors.js",
+    "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -56,6 +59,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -68,8 +75,10 @@
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",
+    "lodash.clonedeep": "^4.5.0",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
@@ -80,6 +89,7 @@
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.3",
+    "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.merge": "^4.6.9",
     "@types/memdown": "^3.0.2",
     "@types/node": "^18.7.23",

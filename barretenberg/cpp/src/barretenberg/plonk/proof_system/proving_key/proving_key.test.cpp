@@ -49,7 +49,7 @@ TEST(proving_key, proving_key_from_serialized_key)
     EXPECT_EQ(p_key.circuit_type, proving_key->circuit_type);
     EXPECT_EQ(p_key.circuit_size, proving_key->circuit_size);
     EXPECT_EQ(p_key.num_public_inputs, proving_key->num_public_inputs);
-    EXPECT_EQ(p_key.contains_recursive_proof, proving_key->contains_recursive_proof);
+    EXPECT_EQ(p_key.contains_pairing_point_accumulator, proving_key->contains_pairing_point_accumulator);
 }
 
 // Test proving key serialization/deserialization to/from buffer using UltraPlonkComposer
@@ -87,7 +87,7 @@ TEST(proving_key, proving_key_from_serialized_key_ultra)
     EXPECT_EQ(p_key.circuit_type, proving_key->circuit_type);
     EXPECT_EQ(p_key.circuit_size, proving_key->circuit_size);
     EXPECT_EQ(p_key.num_public_inputs, proving_key->num_public_inputs);
-    EXPECT_EQ(p_key.contains_recursive_proof, proving_key->contains_recursive_proof);
+    EXPECT_EQ(p_key.contains_pairing_point_accumulator, proving_key->contains_pairing_point_accumulator);
 }
 
 /**
@@ -154,7 +154,7 @@ StandardComposer(); fr a = fr::one(); builder.add_public_variable(a);
     EXPECT_EQ(p_key.circuit_type, pk_data.circuit_type);
     EXPECT_EQ(p_key.circuit_size, pk_data.circuit_size);
     EXPECT_EQ(p_key.num_public_inputs, pk_data.num_public_inputs);
-    EXPECT_EQ(p_key.contains_recursive_proof, pk_data.contains_recursive_proof);
+    EXPECT_EQ(p_key.contains_pairing_point_accumulator, pk_data.contains_pairing_point_accumulator);
 }
 #endif
 */

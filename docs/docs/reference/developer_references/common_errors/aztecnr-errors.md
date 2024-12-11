@@ -72,4 +72,4 @@ To address the error, register the account by calling `server.registerAccount(..
 
 You may encounter this error when trying to send a transaction that is using an invalid contract. The contract may compile without errors and you only encounter this when sending the transaction.
 
-This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double check your contract implementation, but also consider [opening an issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/new).
+This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double-check your contract implementation, but also consider [opening an issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/new).

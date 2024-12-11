@@ -62,6 +62,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -71,6 +75,7 @@
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
@@ -80,6 +85,7 @@
   },
   "devDependencies": {
     "@aztec/ethereum": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/types": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",

@@ -25,7 +25,9 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "dotenv": "^16.0.3",
     "koa": "^2.15.3",
     "koa-router": "^12.0.1",
@@ -79,6 +81,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "engines": {

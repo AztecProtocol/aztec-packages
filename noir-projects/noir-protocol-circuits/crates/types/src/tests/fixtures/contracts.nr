@@ -1,5 +1,5 @@
 use crate::{
-    address::{AztecAddress, PartialAddress, PublicKeysHash, SaltedInitializationHash},
+    address::{AztecAddress, PartialAddress, SaltedInitializationHash},
     contract_class_id::ContractClassId,
     hash::private_functions_root_from_siblings,
     public_keys::PublicKeys,
@@ -7,20 +7,20 @@ use crate::{
 };
 
 pub struct ContractData {
-    address: AztecAddress,
-    artifact_hash: Field,
-    contract_address_salt: Field,
-    contract_class_id: ContractClassId,
-    private_functions_root: Field,
-    public_bytecode_commitment: Field,
-    public_keys: PublicKeys,
-    salted_initialization_hash: SaltedInitializationHash,
-    partial_address: PartialAddress,
-    deployer: AztecAddress,
+    pub address: AztecAddress,
+    pub artifact_hash: Field,
+    pub contract_address_salt: Field,
+    pub contract_class_id: ContractClassId,
+    pub private_functions_root: Field,
+    pub public_bytecode_commitment: Field,
+    pub public_keys: PublicKeys,
+    pub salted_initialization_hash: SaltedInitializationHash,
+    pub partial_address: PartialAddress,
+    pub deployer: AztecAddress,
 }
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-global default_contract = ContractData {
+pub global default_contract: ContractData = ContractData {
     contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
     artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,
@@ -44,7 +44,7 @@ global default_contract = ContractData {
 };
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-global parent_contract = ContractData {
+pub global parent_contract: ContractData = ContractData {
     contract_address_salt: 0x0000000000000000000000000000000000000000000000000000000000001618,
     artifact_hash: 0x00000000000000000000000000000000000000000000000000000000000004bc,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,

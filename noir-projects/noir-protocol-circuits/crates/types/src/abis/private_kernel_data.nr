@@ -7,14 +7,14 @@ use crate::{
 };
 
 pub struct PrivateKernelData {
-    public_inputs: PrivateKernelCircuitPublicInputs,
-    vk: ClientIVCVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: PrivateKernelCircuitPublicInputs,
+    pub vk: ClientIVCVerificationKey,
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 impl PrivateKernelData {
-    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         self.vk.check_hash();
 
         let index_in_allowed_list = if self.vk_index >= PRIVATE_KERNEL_RESET_INDEX {

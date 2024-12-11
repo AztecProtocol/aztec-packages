@@ -1,6 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { VK_TREE_HEIGHT } from '../constants.gen.js';
 import { type UInt32 } from './shared.js';
@@ -20,7 +21,7 @@ export class VkWitnessData {
   ) {}
 
   static empty() {
-    return new VkWitnessData(VerificationKeyData.makeFakeHonk(), 0, makeTuple(VK_TREE_HEIGHT, Fr.zero));
+    return new VkWitnessData(VerificationKeyData.empty(), 0, makeTuple(VK_TREE_HEIGHT, Fr.zero));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -34,5 +35,9 @@ export class VkWitnessData {
 
   toBuffer() {
     return serializeToBuffer(this.vk, this.vkIndex, this.vkPath);
+  }
+
+  toString() {
+    return bufferToHex(this.toBuffer());
   }
 }

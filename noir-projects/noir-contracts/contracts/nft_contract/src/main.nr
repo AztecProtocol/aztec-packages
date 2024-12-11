@@ -14,7 +14,6 @@ contract NFT {
     };
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
@@ -24,7 +23,7 @@ contract NFT {
         oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicMutable, SharedImmutable,
+            PublicContext, PublicImmutable, PublicMutable,
         },
         protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
@@ -45,9 +44,9 @@ contract NFT {
     #[storage]
     struct Storage<Context> {
         // The symbol of the NFT
-        symbol: SharedImmutable<FieldCompressedString, Context>,
+        symbol: PublicImmutable<FieldCompressedString, Context>,
         // The name of the NFT
-        name: SharedImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString, Context>,
         // The admin of the contract
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
@@ -96,25 +95,25 @@ contract NFT {
     #[public]
     #[view]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> pub FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
     #[public]
@@ -150,8 +149,8 @@ contract NFT {
 
         let nft = NFT::at(context.this_address());
 
-        // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+        // We prepare the private balance increase.
+        let hiding_point_slot = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
@@ -160,20 +159,20 @@ contract NFT {
         );
     }
 
-    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
-    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
+    /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
+    /// `finalize_transfer_to_private. Returns a hiding point slot.
     #[private]
-    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
-        _prepare_transfer_to_private(to, &mut context, storage)
+    fn prepare_private_balance_increase(to: AztecAddress) -> Field {
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
 
-    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[contract_library_method]
-    fn _prepare_transfer_to_private(
+    fn _prepare_private_balance_increase(
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -186,10 +185,7 @@ contract NFT {
         let note_randomness = unsafe { random() };
         let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
 
-        // We set the ovpk to the message sender's ovpk and we encrypt the log.
-        let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
-        let setup_log =
-            note_setup_payload.encrypt_log(context, from_ovpk, to, context.msg_sender());
+        let setup_log = note_setup_payload.encrypt_log(context, to, context.msg_sender());
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -228,14 +224,14 @@ contract NFT {
     fn _store_payload_in_transient_storage_unsafe(
         slot: Field,
         point: Point,
-        setup_log: [Field; 15],
+        setup_log: [Field; 9],
     ) {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
     fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {
@@ -301,15 +297,8 @@ contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let from_ovpk_m = get_public_keys(from).ovpk_m;
-
         let mut new_note = NFTNote::new(token_id, to);
-        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(
-            &mut context,
-            from_ovpk_m,
-            to,
-            from,
-        ));
+        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }
 
     #[private]

@@ -5,16 +5,15 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
-import { type AztecNode, createAztecNodeClient } from '@aztec/circuit-types';
+import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
   AztecAddress,
   type CliPXEOptions,
   type PXEServiceConfig,
   allPxeConfigMappings,
-  createPXERpcServer,
   createPXEService,
 } from '@aztec/pxe';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
@@ -23,9 +22,13 @@ import { extractRelevantOptions } from '../util.js';
 
 const contractAddressesUrl = 'http://static.aztec.network';
 
-export async function startPXE(options: any, signalHandlers: (() => Promise<void>)[], userLog: LogFn) {
-  const services: ServerList = [];
-  await addPXE(options, services, signalHandlers, userLog, {});
+export async function startPXE(
+  options: any,
+  signalHandlers: (() => Promise<void>)[],
+  services: NamespacedApiHandlers,
+  userLog: LogFn,
+) {
+  await addPXE(options, signalHandlers, services, userLog, {});
   return services;
 }
 
@@ -43,8 +46,8 @@ async function fetchBasicContractAddresses(url: string) {
 
 export async function addPXE(
   options: any,
-  services: ServerList,
   signalHandlers: (() => Promise<void>)[],
+  services: NamespacedApiHandlers,
   userLog: LogFn,
   deps: { node?: AztecNode } = {},
 ) {
@@ -75,7 +78,6 @@ export async function addPXE(
 
   const node = deps.node ?? createAztecNodeClient(nodeUrl!);
   const pxe = await createPXEService(node, pxeConfig as PXEServiceConfig);
-  const pxeServer = createPXERpcServer(pxe);
 
   // register basic contracts
   if (pxeConfig.network) {
@@ -113,7 +115,7 @@ export async function addPXE(
   }
 
   // Add PXE to services list
-  services.push({ pxe: pxeServer });
+  services.pxe = [pxe, PXESchema];
 
   // Add PXE stop function to signal handlers
   signalHandlers.push(pxe.stop);

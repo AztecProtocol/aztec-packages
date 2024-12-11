@@ -88,7 +88,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
-        StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
+        StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
         auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
         stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
@@ -130,14 +130,14 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             return zero;
         });
 
-        auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
-                                                                            RefVector(stdlib_f_commitments),
-                                                                            RefVector(stdlib_g_commitments),
-                                                                            RefVector(stdlib_v_evaluations),
-                                                                            RefVector(stdlib_w_evaluations),
-                                                                            u_challenge_in_circuit,
-                                                                            Commitment::one(&builder),
-                                                                            stdlib_verifier_transcript);
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
+                                                                                  RefVector(stdlib_f_commitments),
+                                                                                  RefVector(stdlib_g_commitments),
+                                                                                  RefVector(stdlib_v_evaluations),
+                                                                                  RefVector(stdlib_w_evaluations),
+                                                                                  u_challenge_in_circuit,
+                                                                                  Commitment::one(&builder),
+                                                                                  stdlib_verifier_transcript);
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 

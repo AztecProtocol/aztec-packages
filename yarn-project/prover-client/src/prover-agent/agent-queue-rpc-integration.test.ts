@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { ProvingJobSourceSchema, type ServerCircuitProver } from '@aztec/circuit-types';
 import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@aztec/circuits.js';
 import {
   makeAvmCircuitInputs,
@@ -13,7 +13,8 @@ import {
   makeRootParityInputs,
   makeRootRollupInputs,
 } from '@aztec/circuits.js/testing';
-import { type JsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import getPort from 'get-port';
@@ -21,11 +22,11 @@ import getPort from 'get-port';
 import { MockProver } from '../test/mock_prover.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 import { ProverAgent } from './prover-agent.js';
-import { createProvingJobSourceClient, createProvingJobSourceServer } from './rpc.js';
+import { createProvingJobSourceServer } from './rpc.js';
 
 describe('Prover agent <-> queue integration', () => {
   let queue: MemoryProvingQueue;
-  let queueRpcServer: JsonRpcServer;
+  let queueRpcServer: SafeJsonRpcServer;
   let agent: ProverAgent;
   let prover: ServerCircuitProver;
 
@@ -44,8 +45,6 @@ describe('Prover agent <-> queue integration', () => {
     getBlockRootRollupProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
       new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
-    getEmptyTubeProof: () =>
-      new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
     getMergeRollupProof: makeMergeRollupInputs,
     getRootRollupProof: makeRootRollupInputs,
     getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),
@@ -61,7 +60,7 @@ describe('Prover agent <-> queue integration', () => {
     queueRpcServer.start(port);
 
     agent = new ProverAgent(prover, 1, 10);
-    const queueRpcClient = createProvingJobSourceClient(`http://127.0.0.1:${port}`);
+    const queueRpcClient = createSafeJsonRpcClient(`http://127.0.0.1:${port}`, ProvingJobSourceSchema);
     agent.start(queueRpcClient);
   });
 

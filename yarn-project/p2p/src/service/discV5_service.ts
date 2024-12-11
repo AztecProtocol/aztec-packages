@@ -1,10 +1,11 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import { multiaddr } from '@multiformats/multiaddr';
+import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../config.js';
@@ -34,6 +35,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   /** This instance's ENR */
   private enr: SignableENR;
 
+  /** UDP listen addr */
+  private listenMultiAddrUdp: Multiaddr;
+
   private currentState = PeerDiscoveryState.STOPPED;
 
   private bootstrapNodes: string[];
@@ -41,7 +45,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private startTime = 0;
 
-  constructor(private peerId: PeerId, config: P2PConfig, private logger = createDebugLogger('aztec:discv5_service')) {
+  constructor(
+    private peerId: PeerId,
+    config: P2PConfig,
+    telemetry: TelemetryClient,
+    private logger = createLogger('p2p:discv5_service'),
+  ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes;
@@ -60,30 +69,30 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       `${convertToMultiaddr(udpAnnounceAddress || tcpAnnounceAddress, 'udp')}/p2p/${peerId.toString()}`,
     );
 
-    const listenMultiAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
+    this.listenMultiAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
 
     // set location multiaddr in ENR record
     this.enr.setLocationMultiaddr(multiAddrUdp);
     this.enr.setLocationMultiaddr(multiAddrTcp);
 
+    const metricsRegistry = new OtelMetricsAdapter(telemetry);
     this.discv5 = Discv5.create({
       enr: this.enr,
       peerId,
-      bindAddrs: { ip4: listenMultiAddrUdp },
+      bindAddrs: { ip4: this.listenMultiAddrUdp },
       config: {
         lookupTimeout: 2000,
+        requestTimeout: 2000,
         allowUnverifiedSessions: true,
       },
+      metricsRegistry,
     });
-
-    this.logger.info(`ENR NodeId: ${this.enr.nodeId}`);
-    this.logger.info(`ENR UDP: ${multiAddrUdp.toString()}`);
 
     (this.discv5 as Discv5EventEmitter).on('discovered', (enr: ENR) => this.onDiscovered(enr));
     (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
       const multiAddrTcp = await enr.getFullMultiaddr('tcp');
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger.debug(`ENR multiaddr: ${multiAddrTcp?.toString()}, ${multiAddrUdp?.toString()}`);
+      this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
       this.onDiscovered(enr);
     });
   }
@@ -92,18 +101,23 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     if (this.currentState === PeerDiscoveryState.RUNNING) {
       throw new Error('DiscV5Service already started');
     }
-    this.logger.info('Starting DiscV5');
+    this.logger.debug('Starting DiscV5');
     await this.discv5.start();
     this.startTime = Date.now();
 
-    this.logger.info('DiscV5 started');
+    this.logger.info(`DiscV5 service started`, {
+      nodeId: this.enr.nodeId,
+      peerId: this.peerId,
+      enrUdp: await this.enr.getFullMultiaddr('udp'),
+      enrTcp: await this.enr.getFullMultiaddr('tcp'),
+    });
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
     if (this.bootstrapNodes?.length) {
       // Do this conversion once since it involves an async function call
       this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodes.map(enr => ENR.decodeTxt(enr).peerId()));
-      this.logger.info(`Adding bootstrap ENRs: ${this.bootstrapNodes.join(', ')}`);
+      this.logger.info(`Adding bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
       try {
         this.bootstrapNodes.forEach(enr => {
           this.discv5.addEnr(enr);

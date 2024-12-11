@@ -1,7 +1,11 @@
-import { EventType, L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
-import { type AbiType } from '@aztec/foundation/abi';
-import { EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
+import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+import { L1EventPayload } from './l1_payload/l1_event_payload.js';
+import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents metadata for an event decoder, including all information needed to reconstruct it.
@@ -13,10 +17,7 @@ export class EventMetadata<T> {
   public readonly abiType: AbiType;
   public readonly fieldNames: string[];
 
-  constructor(
-    public readonly eventType: EventType,
-    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
-  ) {
+  constructor(event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] }) {
     this.eventSelector = event.eventSelector;
     this.abiType = event.abiType;
     this.fieldNames = event.fieldNames;
@@ -48,30 +49,13 @@ export class EventMetadata<T> {
     };
   }
 
-  /**
-   * Serializes the metadata to a JSON-friendly format
-   */
-  public toJSON() {
-    return {
-      type: 'event_metadata',
-      eventSelector: this.eventSelector.toString(),
-      eventType: this.eventType,
-      fieldNames: this.fieldNames,
-    };
-  }
-
-  /**
-   * Creates an EventMetadata instance from a JSON representation
-   */
-  public static fromJSON(json: any): EventMetadata<any> {
-    if (json?.type !== 'event_metadata') {
-      throw new Error('Invalid event metadata format');
-    }
-
-    return new EventMetadata(EventType.Encrypted, {
-      eventSelector: EventSelector.fromString(json.eventSelector),
-      abiType: json.abiType,
-      fieldNames: json.fieldNames,
-    });
+  static get schema() {
+    return z
+      .object({
+        eventSelector: schemas.EventSelector,
+        abiType: AbiTypeSchema,
+        fieldNames: z.array(z.string()),
+      })
+      .transform(obj => new EventMetadata(obj));
   }
 }

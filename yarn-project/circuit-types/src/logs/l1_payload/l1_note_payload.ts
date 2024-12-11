@@ -1,4 +1,4 @@
-import { AztecAddress, Vector } from '@aztec/circuits.js';
+import { AztecAddress, type PrivateLog, Vector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
@@ -59,9 +59,8 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
-    const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(encryptedLog, sk);
+  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -69,13 +68,17 @@ export class L1NotePayload {
     return this.fromIncomingBodyPlaintextContractAndPublicValues(
       decryptedLog.incomingBodyPlaintext,
       decryptedLog.contractAddress,
-      publicValues,
+      /* publicValues */ [],
     );
   }
 
-  static decryptAsOutgoing(log: Buffer, sk: Fq, isFromPublic = false): L1NotePayload | undefined {
-    const { publicValues, encryptedLog } = parseLog(log, isFromPublic);
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(encryptedLog, sk);
+  static decryptAsIncomingFromPublic(log: Buffer, sk: Fq): L1NotePayload | undefined {
+    const { privateValues, publicValues } = parseLogFromPublic(log);
+    if (!privateValues) {
+      return undefined;
+    }
+
+    const decryptedLog = EncryptedLogPayload.decryptAsIncomingFromPublic(privateValues, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -149,25 +152,28 @@ export class L1NotePayload {
  * @param log - Log to be parsed.
  * @returns An object containing the public values and the encrypted log.
  */
-function parseLog(log: Buffer, isFromPublic: boolean) {
+function parseLogFromPublic(log: Buffer) {
   // First we remove padding bytes
-  const processedLog = isFromPublic ? removePaddingBytes(log) : log;
+  const processedLog = removePaddingBytes(log);
+  if (!processedLog) {
+    return {};
+  }
 
   const reader = new BufferReader(processedLog);
 
   // Then we extract public values from the log
-  const numPublicValues = isFromPublic ? reader.readUInt8() : 0;
+  const numPublicValues = reader.readUInt8();
 
   const publicValuesLength = numPublicValues * Fr.SIZE_IN_BYTES;
-  const encryptedLogLength = reader.remainingBytes() - publicValuesLength;
+  const privateValuesLength = reader.remainingBytes() - publicValuesLength;
 
-  // Now we get the buffer corresponding to the encrypted log
-  const encryptedLog = reader.readBytes(encryptedLogLength);
+  // Now we get the buffer corresponding to the values generated from private.
+  const privateValues = reader.readBytes(privateValuesLength);
 
   // At last we load the public values
   const publicValues = reader.readArray(numPublicValues, Fr);
 
-  return { publicValues, encryptedLog };
+  return { publicValues, privateValues };
 }
 
 /**
@@ -180,7 +186,7 @@ function removePaddingBytes(unprocessedLog: Buffer) {
   // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
   const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
   if (!is1FieldPerByte) {
-    return unprocessedLog;
+    return;
   }
 
   // We take every 32nd byte from the log and return the result

@@ -2,10 +2,7 @@ use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
 };
 
-use crate::context::{
-    gas::GasOpts, inputs::PrivateContextInputs, private_context::PrivateContext,
-    public_context::PublicContext,
-};
+use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 
 use crate::hash::hash_args;
 use crate::oracle::arguments::pack_arguments;
@@ -33,13 +30,13 @@ pub trait CallInterface<let N: u32> {
 }
 
 pub struct PrivateCallInterface<let N: u32, T> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    return_type: T,
-    is_static: bool,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
 }
 
 impl<let N: u32, T> PrivateCallInterface<N, T> {
@@ -76,13 +73,13 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
 impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {}
 
 pub struct PrivateVoidCallInterface<let N: u32> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    return_type: (),
-    is_static: bool,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
 }
 
 impl<let N: u32> PrivateVoidCallInterface<N> {
@@ -114,13 +111,13 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
 impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {}
 
 pub struct PrivateStaticCallInterface<let N: u32, T> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    return_type: T,
-    is_static: bool,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
 }
 
 impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
@@ -142,13 +139,13 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
 impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {}
 
 pub struct PrivateStaticVoidCallInterface<let N: u32> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args_hash: Field,
-    args: [Field],
-    return_type: (),
-    is_static: bool,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
 }
 
 impl<let N: u32> PrivateStaticVoidCallInterface<N> {
@@ -168,13 +165,13 @@ impl<let N: u32> PrivateStaticVoidCallInterface<N> {
 impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {}
 
 pub struct PublicCallInterface<let N: u32, T> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    gas_opts: GasOpts,
-    return_type: T,
-    is_static: bool,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub gas_opts: GasOpts,
+    pub return_type: T,
+    pub is_static: bool,
 }
 
 impl<let N: u32, T> PublicCallInterface<N, T> {
@@ -237,13 +234,13 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
 impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {}
 
 pub struct PublicVoidCallInterface<let N: u32> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    return_type: (),
-    is_static: bool,
-    gas_opts: GasOpts,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
+    pub gas_opts: GasOpts,
 }
 
 impl<let N: u32> PublicVoidCallInterface<N> {
@@ -300,13 +297,13 @@ impl<let N: u32> PublicVoidCallInterface<N> {
 impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {}
 
 pub struct PublicStaticCallInterface<let N: u32, T> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    return_type: T,
-    is_static: bool,
-    gas_opts: GasOpts,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
+    pub gas_opts: GasOpts,
 }
 
 impl<let N: u32, T> PublicStaticCallInterface<N, T> {

@@ -3,10 +3,10 @@ use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
 global NOTE_HEADER_LENGTH: u32 = 4;
 
 pub struct NoteHeader {
-    contract_address: AztecAddress,
-    nonce: Field,
-    storage_slot: Field,
-    note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
+    pub contract_address: AztecAddress,
+    pub nonce: Field,
+    pub storage_slot: Field,
+    pub note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
 }
 
 impl Empty for NoteHeader {

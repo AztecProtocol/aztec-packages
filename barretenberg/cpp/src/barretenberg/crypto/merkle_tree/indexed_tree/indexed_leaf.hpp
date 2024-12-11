@@ -59,6 +59,8 @@ struct NullifierLeafValue {
     static NullifierLeafValue empty() { return { fr::zero() }; }
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
+
+    static std::string name() { return std::string("NullifierLeafValue"); };
 };
 
 struct PublicDataLeafValue {
@@ -105,7 +107,7 @@ struct PublicDataLeafValue {
 
     fr get_key() const { return slot; }
 
-    bool is_empty() const { return slot == fr::zero(); }
+    bool is_empty() const { return slot == fr::zero() && value == fr::zero(); }
 
     std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
     {
@@ -117,6 +119,8 @@ struct PublicDataLeafValue {
     static PublicDataLeafValue empty() { return { fr::zero(), fr::zero() }; }
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
+
+    static std::string name() { return std::string("PublicDataLeafValue"); };
 };
 
 template <typename LeafType> struct IndexedLeaf {
@@ -128,7 +132,7 @@ template <typename LeafType> struct IndexedLeaf {
 
     IndexedLeaf() = default;
 
-    IndexedLeaf(const LeafType& val, index_t nextIdx, fr nextVal)
+    IndexedLeaf(const LeafType& val, const index_t& nextIdx, const fr& nextVal)
         : value(val)
         , nextIndex(nextIdx)
         , nextValue(nextVal)
@@ -139,6 +143,8 @@ template <typename LeafType> struct IndexedLeaf {
     ~IndexedLeaf() = default;
 
     static bool is_updateable() { return LeafType::is_updateable(); }
+
+    static std::string name() { return LeafType::name(); }
 
     bool operator==(IndexedLeaf<LeafType> const& other) const
     {

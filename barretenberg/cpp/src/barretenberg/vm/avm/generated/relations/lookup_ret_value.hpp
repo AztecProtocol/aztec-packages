@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class lookup_ret_value_lookup_settings {
   public:
@@ -65,4 +65,4 @@ class lookup_ret_value_relation : public GenericLookupRelation<lookup_ret_value_
 };
 template <typename FF_> using lookup_ret_value = GenericLookup<lookup_ret_value_lookup_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

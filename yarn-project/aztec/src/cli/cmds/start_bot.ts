@@ -1,6 +1,6 @@
-import { type BotConfig, BotRunner, botConfigMappings, createBotRunnerRpcServer } from '@aztec/bot';
+import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
 import { type AztecNode, type PXE } from '@aztec/circuit-types';
-import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { extractRelevantOptions } from '../util.js';
@@ -8,11 +8,9 @@ import { extractRelevantOptions } from '../util.js';
 export async function startBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
+  services: NamespacedApiHandlers,
   userLog: LogFn,
-): Promise<ServerList> {
-  // Services that will be started in a single multi-rpc server
-  const services: ServerList = [];
-
+) {
   const { proverNode, archiver, sequencer, p2pBootstrap, txe, prover } = options;
   if (proverNode || archiver || sequencer || p2pBootstrap || txe || prover) {
     userLog(
@@ -24,27 +22,25 @@ export async function startBot(
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    pxe = await addPXE(options, services, signalHandlers, userLog);
+    pxe = await addPXE(options, signalHandlers, services, userLog);
   }
 
-  await addBot(options, services, signalHandlers, { pxe });
-  return services;
+  await addBot(options, signalHandlers, services, { pxe });
 }
 
 export function addBot(
   options: any,
-  services: ServerList,
   signalHandlers: (() => Promise<void>)[],
+  services: NamespacedApiHandlers,
   deps: { pxe?: PXE; node?: AztecNode } = {},
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
 
   const botRunner = new BotRunner(config, deps);
-  const botServer = createBotRunnerRpcServer(botRunner);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }
-  services.push({ bot: botServer });
+  services.bot = getBotRunnerApiHandler(botRunner);
   signalHandlers.push(botRunner.stop);
   return Promise.resolve();
 }

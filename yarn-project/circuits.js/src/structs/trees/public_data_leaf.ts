@@ -1,7 +1,10 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+
+import { z } from 'zod';
 
 /**
  * Class containing the data of a preimage of a single leaf in the public data tree.
@@ -26,6 +29,19 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
      */
     public nextIndex: bigint,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        slot: schemas.Fr,
+        value: schemas.Fr,
+        nextSlot: schemas.Fr,
+        nextIndex: schemas.BigInt,
+      })
+      .transform(
+        ({ slot, value, nextSlot, nextIndex }) => new PublicDataTreeLeafPreimage(slot, value, nextSlot, nextIndex),
+      );
+  }
 
   getKey(): bigint {
     return this.slot.toBigInt();
@@ -58,6 +74,15 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
 
   clone(): PublicDataTreeLeafPreimage {
     return new PublicDataTreeLeafPreimage(this.slot, this.value, this.nextSlot, this.nextIndex);
+  }
+
+  static random() {
+    return new PublicDataTreeLeafPreimage(
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      BigInt(Math.floor(Math.random() * 1000)),
+    );
   }
 
   static empty(): PublicDataTreeLeafPreimage {

@@ -70,6 +70,14 @@ bool AvmCmpBuilder::constrained_gt(FF a, FF b, uint64_t clk, EventEmitter e)
     return uint256_t(a) > uint256_t(b);
 }
 
+bool AvmCmpBuilder::constrained_non_ff_gt(uint128_t a, uint128_t b, uint64_t clk, EventEmitter e)
+{
+    auto a_ff = FF(uint256_t::from_uint128(a));
+    auto b_ff = FF(uint256_t::from_uint128(b));
+    cmp_events.push_back({ clk, a_ff, b_ff, e, CmpOp::GT_NON_FF });
+    return a > b;
+}
+
 /**************************************************************************************************
  *                            FINALIZE
  **************************************************************************************************/
@@ -91,6 +99,13 @@ std::vector<AvmCmpBuilder::CmpEntry> AvmCmpBuilder::finalize()
             entry.result = diff == FF::zero() ? FF::one() : FF::zero();
             entry.op_eq_diff_inv = diff == FF::zero() ? FF::zero() : diff.invert();
             entry.is_eq = true;
+        } else if (CmpOp::GT_NON_FF == event.op) {
+            entry.result = input_a_u256 > input_b_u256;
+            FF diff =
+                (input_a_u256 > input_b_u256) ? input_a_u256 - input_b_u256 - FF::one() : input_b_u256 - input_a_u256;
+            entry.is_gt_non_ff = true;
+            auto range_chk_clk = (entry.clk * (static_cast<uint64_t>(1) << 8));
+            range_check_builder.assert_range(static_cast<uint128_t>(diff), 128, EventEmitter::NON_FF_GT, range_chk_clk);
         } else {
             entry.result = input_a_u256 > input_b_u256;
             auto range_chk_clk = (entry.clk * (uint64_t(1) << 8)) + 4; // 4 is the range check counter
@@ -144,6 +159,7 @@ std::vector<AvmCmpBuilder::CmpRow> AvmCmpBuilder::into_canonical(std::vector<Cmp
         row.op_eq_diff_inv = entry.op_eq_diff_inv;
         row.op_gt = FF(static_cast<uint8_t>(entry.is_gt));
         row.op_eq = FF(static_cast<uint8_t>(entry.is_eq));
+        row.op_non_ff_gt = FF(static_cast<uint8_t>(entry.is_gt_non_ff));
 
         row.a_lo = std::get<0>(entry.a_limbs);
         row.a_hi = std::get<1>(entry.a_limbs);
@@ -200,6 +216,11 @@ std::vector<AvmCmpBuilder::CmpRow> AvmCmpBuilder::into_canonical(std::vector<Cmp
                 rows.push_back(row);
             }
             dest_rows.insert(dest_rows.end(), rows.begin(), rows.end());
+        } else if (entry.is_gt_non_ff) {
+            row.range_chk_clk = row.clk * (static_cast<uint64_t>(1) << 8);
+            row.diff = uint256_t(row.input_a) > uint256_t(row.input_b) ? row.input_a - row.input_b - FF::one()
+                                                                       : row.input_b - row.input_a;
+            dest_rows.push_back(row);
         } else {
             // EQ operations just have the single row
             dest_rows.push_back(row);

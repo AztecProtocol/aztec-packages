@@ -1,15 +1,13 @@
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     note::note_emission::OuterNoteEmission,
-    protocol_types::{
-        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM,
-    },
+    protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
 
 pub struct BalanceSet<Context> {
-    set: PrivateSet<UintNote, Context>,
+    pub set: PrivateSet<UintNote, Context>,
 }
 
 impl<Context> BalanceSet<Context> {

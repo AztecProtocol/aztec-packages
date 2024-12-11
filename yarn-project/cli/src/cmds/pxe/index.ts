@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/circuits.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import {
   logJson,
+  makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
   parseField,
@@ -17,7 +18,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('add-contract')
     .description(
@@ -58,6 +59,15 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
       await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+    });
+
+  program
+    .command('get-current-base-fee')
+    .description('Gets the current base fee.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
+      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
     });
 
   program
@@ -133,11 +143,18 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
   program
     .command('get-node-info')
-    .description('Gets the information of an aztec node at a URL.')
-    .addOption(pxeOption)
+    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
+    .option('--node-url <string>', 'URL of the node.')
+    .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
-      await getNodeInfo(options.rpcUrl, debugLogger, log);
+      let url: string;
+      if (options.nodeUrl) {
+        url = options.nodeUrl;
+      } else {
+        url = options.rpcUrl;
+      }
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
     });
 
   program

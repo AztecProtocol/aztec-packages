@@ -29,8 +29,8 @@ describe('TxDataValidator', () => {
   it('rejects txs with mismatch non revertible execution requests', async () => {
     const goodTxs = mockTxs(3);
     const badTxs = mockTxs(2);
-    badTxs[0].data.forPublic!.endNonRevertibleData.publicCallStack[0].argsHash = Fr.random();
-    badTxs[1].data.forPublic!.endNonRevertibleData.publicCallStack[1].callContext.contractAddress =
+    badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[0].argsHash = Fr.random();
+    badTxs[1].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[1].contractAddress =
       AztecAddress.random();
 
     await expect(validator.validateTxs([...goodTxs, ...badTxs])).resolves.toEqual([goodTxs, badTxs]);
@@ -39,10 +39,11 @@ describe('TxDataValidator', () => {
   it('rejects txs with mismatch revertible execution requests', async () => {
     const goodTxs = mockTxs(3);
     const badTxs = mockTxs(4);
-    badTxs[0].data.forPublic!.end.publicCallStack[0].callContext.msgSender = AztecAddress.random();
-    badTxs[1].data.forPublic!.end.publicCallStack[1].callContext.contractAddress = AztecAddress.random();
-    badTxs[2].data.forPublic!.end.publicCallStack[0].callContext.functionSelector = FunctionSelector.random();
-    badTxs[3].data.forPublic!.end.publicCallStack[0].callContext.isStaticCall =
+    badTxs[0].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].msgSender = AztecAddress.random();
+    badTxs[1].data.forPublic!.revertibleAccumulatedData.publicCallRequests[1].contractAddress = AztecAddress.random();
+    badTxs[2].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].functionSelector =
+      FunctionSelector.random();
+    badTxs[3].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].isStaticCall =
       !badTxs[3].enqueuedPublicFunctionCalls[0].callContext.isStaticCall;
 
     await expect(validator.validateTxs([...badTxs, ...goodTxs])).resolves.toEqual([goodTxs, badTxs]);
@@ -51,8 +52,8 @@ describe('TxDataValidator', () => {
   it('rejects txs with mismatch teardown execution requests', async () => {
     const goodTxs = mockTxs(3);
     const badTxs = mockTxs(2);
-    badTxs[0].data.forPublic!.publicTeardownCallRequest.callContext.contractAddress = AztecAddress.random();
-    badTxs[1].data.forPublic!.publicTeardownCallRequest.callContext.msgSender = AztecAddress.random();
+    badTxs[0].data.forPublic!.publicTeardownCallRequest.contractAddress = AztecAddress.random();
+    badTxs[1].data.forPublic!.publicTeardownCallRequest.msgSender = AztecAddress.random();
 
     await expect(validator.validateTxs([...goodTxs, ...badTxs])).resolves.toEqual([goodTxs, badTxs]);
   });

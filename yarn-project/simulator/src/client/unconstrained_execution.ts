@@ -1,11 +1,11 @@
 import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack, toACVMWitness } from '../acvm/index.js';
-import { ExecutionError } from '../common/errors.js';
+import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
 import { type ViewDataOracle } from './view_data_oracle.js';
 
 // docs:start:execute_unconstrained_function
@@ -18,13 +18,14 @@ export async function executeUnconstrainedFunction(
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   args: Fr[],
-  log = createDebugLogger('aztec:simulator:unconstrained_execution'),
+  log = createLogger('simulator:unconstrained_execution'),
 ): Promise<AbiDecoded> {
   log.verbose(`Executing unconstrained function ${contractAddress}:${functionSelector}(${artifact.name})`);
 
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
   const acirExecutionResult = await acvm(acir, initialWitness, new Oracle(oracle)).catch((err: Error) => {
+    err.message = resolveAssertionMessageFromError(err, artifact);
     throw new ExecutionError(
       err.message,
       {

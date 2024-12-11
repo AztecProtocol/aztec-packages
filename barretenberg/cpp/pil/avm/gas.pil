@@ -94,13 +94,20 @@ namespace main(256);
 
     // ========= Initialize Range Check Gadget ===============================
     // We range check that the absolute value of the differences between each row of l2 and da gas are 32 bits.
-    #[PERM_RNG_GAS_L2]
-    range_check.gas_l2_rng_chk {range_check.clk, range_check.value}
-    is
-    is_gas_accounted {main.clk, main.abs_l2_rem_gas };
+    pol commit l2_gas_u16_r0;
+    pol commit l2_gas_u16_r1;
+    main.abs_l2_rem_gas = l2_gas_u16_r0 + l2_gas_u16_r1 * 2**16;
 
-    #[PERM_RNG_GAS_DA]
-    range_check.gas_da_rng_chk {range_check.clk, range_check.value}
-    is
-    is_gas_accounted {main.clk, main.abs_da_rem_gas };
+    #[LOOKUP_L2_GAS_RNG_CHK_0]
+    is_gas_accounted { l2_gas_u16_r0 } in main.sel_rng_16 { main.clk };
+    #[LOOKUP_L2_GAS_RNG_CHK_1]
+    is_gas_accounted { l2_gas_u16_r1 } in main.sel_rng_16 { main.clk };
 
+    pol commit da_gas_u16_r0;
+    pol commit da_gas_u16_r1;
+    main.abs_da_rem_gas = da_gas_u16_r0 + da_gas_u16_r1 * 2**16;
+
+    #[LOOKUP_DA_GAS_RNG_CHK_0]
+    is_gas_accounted { da_gas_u16_r0 } in main.sel_rng_16 { main.clk };
+    #[LOOKUP_DA_GAS_RNG_CHK_1]
+    is_gas_accounted { da_gas_u16_r1 } in main.sel_rng_16 { main.clk };

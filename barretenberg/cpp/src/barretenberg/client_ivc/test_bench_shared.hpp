@@ -14,9 +14,7 @@ namespace bb {
  */
 bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 {
-    auto verifier_inst =
-        std::make_shared<DeciderVerificationKey_<MegaFlavor>>(ivc.verification_queue[0].honk_verification_key);
-    bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
+    bool verified = ivc.verify(proof);
 
     // This is a benchmark, not a test, so just print success or failure to the log
     if (verified) {
@@ -48,7 +46,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 
-        ivc.accumulate(circuit, precomputed_vks[circuit_idx], mock_vk);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[circuit_idx], mock_vk);
     }
 }
 

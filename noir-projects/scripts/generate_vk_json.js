@@ -1,20 +1,17 @@
 const path = require("path");
 const fs = require("fs/promises");
-const fs_stream = require("fs");
 const child_process = require("child_process");
-
-const { fromIni } = require("@aws-sdk/credential-providers");
-const { S3 } = require("@aws-sdk/client-s3");
-
 const crypto = require("crypto");
 
 const megaHonkPatterns = require("../mega_honk_circuits.json");
-
-const BB_BIN_PATH =
-  process.env.BB_BIN ||
-  path.join(__dirname, "../../barretenberg/cpp/build/bin/bb");
-const BUCKET_NAME = "aztec-ci-artifacts";
-const PREFIX = "protocol";
+const ivcIntegrationPatterns = require("../ivc_integration_circuits.json");
+const {
+  readVKFromS3,
+  writeVKToS3,
+  getBarretenbergHash,
+  generateArtifactHash,
+  BB_BIN_PATH,
+} = require("./verification_keys");
 
 function vkBinaryFileNameForArtifactName(outputFolder, artifactName) {
   return path.join(outputFolder, `${artifactName}.vk`);
@@ -28,32 +25,6 @@ function vkDataFileNameForArtifactName(outputFolder, artifactName) {
   return path.join(outputFolder, `${artifactName}.vk.data.json`);
 }
 
-function getFunctionArtifactPath(outputFolder, functionName) {
-  return path.join(outputFolder, `${functionName}.tmp.json`);
-}
-
-async function createFunctionArtifact(
-  contractArtifactPath,
-  functionName,
-  outputFolder
-) {
-  const contractArtifact = JSON.parse(await fs.readFile(contractArtifactPath));
-  const artifact = contractArtifact.functions.find(
-    (fn) => fn.name === functionName
-  );
-  if (!artifact) {
-    throw new Error(`Cannot find artifact for function: ${functionName}.`);
-  }
-
-  const artifactPath = getFunctionArtifactPath(outputFolder, functionName);
-  await fs.writeFile(artifactPath, JSON.stringify(artifact, null, 2));
-  return artifactPath;
-}
-
-async function removeFunctionArtifact(artifactPath) {
-  await fs.unlink(artifactPath);
-}
-
 async function getBytecodeHash(artifactPath) {
   const { bytecode } = JSON.parse(await fs.readFile(artifactPath));
   if (!bytecode) {
@@ -62,44 +33,19 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-function getBarretenbergHash() {
-  if (process.env.BB_HASH) {
-    return Promise.resolve(process.env.BB_HASH);
-  }
-  return new Promise((res, rej) => {
-    const hash = crypto.createHash("md5");
-
-    const rStream = fs_stream.createReadStream(BB_BIN_PATH);
-    rStream.on("data", (data) => {
-      hash.update(data);
-    });
-    rStream.on("end", () => {
-      res(hash.digest("hex"));
-    });
-    rStream.on("error", (err) => {
-      rej(err);
-    });
-  });
-}
-
-function generateArtifactHash(
-  barretenbergHash,
-  bytecodeHash,
+async function getArtifactHash(
+  artifactPath,
   isMegaHonk,
+  isIvcIntegration,
   isRecursive
 ) {
-  return `${barretenbergHash}-${bytecodeHash}-${
-    isMegaHonk ? "mega-honk" : "ultra-honk"
-  }-${isRecursive}`;
-}
-
-async function getArtifactHash(artifactPath, isMegaHonk, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
   return generateArtifactHash(
     barretenbergHash,
     bytecodeHash,
     isMegaHonk,
+    isIvcIntegration,
     isRecursive
   );
 }
@@ -127,19 +73,21 @@ function isMegaHonkCircuit(artifactName) {
     artifactName.match(new RegExp(pattern))
   );
 }
+function isIvcIntegrationCircuit(artifactName) {
+  return ivcIntegrationPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
+}
 
-async function processArtifact(
-  artifactPath,
-  artifactName,
-  outputFolder,
-  syncWithS3
-) {
+async function processArtifact(artifactPath, artifactName, outputFolder) {
   const isMegaHonk = isMegaHonkCircuit(artifactName);
+  const isIvcIntegration = isIvcIntegrationCircuit(artifactName);
   const isRecursive = true;
 
   const artifactHash = await getArtifactHash(
     artifactPath,
     isMegaHonk,
+    isIvcIntegration,
     isRecursive
   );
 
@@ -151,9 +99,7 @@ async function processArtifact(
     return;
   }
 
-  let vkData = syncWithS3
-    ? await readVKFromS3(artifactName, artifactHash)
-    : undefined;
+  let vkData = await readVKFromS3(artifactName, artifactHash);
   if (!vkData) {
     vkData = await generateVKData(
       artifactName,
@@ -161,11 +107,10 @@ async function processArtifact(
       artifactPath,
       artifactHash,
       isMegaHonk,
+      isIvcIntegration,
       isRecursive
     );
-    if (syncWithS3) {
-      await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
-    }
+    await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
   } else {
     console.log("Using VK from remote cache for", artifactName);
   }
@@ -179,10 +124,13 @@ async function generateVKData(
   artifactPath,
   artifactHash,
   isMegaHonk,
+  isIvcIntegration,
   isRecursive
 ) {
   if (isMegaHonk) {
     console.log("Generating new mega honk vk for", artifactName);
+  } else if (isIvcIntegration) {
+    console.log("Generating new IVC vk for", artifactName);
   } else {
     console.log("Generating new vk for", artifactName);
   }
@@ -193,16 +141,22 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
-  } -h -b "${artifactPath}" -o "${binaryVkPath}" ${
+  function getVkCommand() {
+    if (isMegaHonk) return "write_vk_mega_honk";
+    if (isIvcIntegration) return "write_vk_for_ivc";
+    return "write_vk_ultra_honk";
+  }
+
+  const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
     isRecursive ? "--recursive" : ""
   }`;
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
+    isMegaHonk || isIvcIntegration
+      ? "vk_as_fields_mega_honk"
+      : "vk_as_fields_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
@@ -230,84 +184,19 @@ async function generateVKData(
 }
 
 async function main() {
-  let [artifactPath, outputFolder, functionName] = process.argv.slice(2);
+  let [artifactPath, outputFolder] = process.argv.slice(2);
   if (!artifactPath || !outputFolder) {
     console.log(
-      "Usage: node generate_vk_json.js <artifactPath> <outputFolder> [functionName]"
+      "Usage: node generate_vk_json.js <artifactPath> <outputFolder>"
     );
     return;
   }
-
-  const sourceArtifactPath = !functionName
-    ? artifactPath
-    : await createFunctionArtifact(artifactPath, functionName, outputFolder);
-
-  const artifactName = [
-    path.basename(artifactPath, ".json"),
-    functionName ? `-${functionName}` : "",
-  ].join("");
-
-  const syncWithS3 = true;
 
   await processArtifact(
-    sourceArtifactPath,
-    artifactName,
-    outputFolder,
-    syncWithS3
+    artifactPath,
+    path.basename(artifactPath, ".json"),
+    outputFolder
   );
-
-  if (sourceArtifactPath !== artifactPath) {
-    await removeFunctionArtifact(sourceArtifactPath);
-  }
-}
-
-function generateS3Client() {
-  return new S3({
-    credentials: fromIni({
-      profile: "default",
-    }),
-    region: "us-east-2",
-  });
-}
-
-async function writeVKToS3(artifactName, artifactHash, body) {
-  if (process.env.DISABLE_VK_S3_CACHE) {
-    return;
-  }
-  try {
-    const s3 = generateS3Client();
-    await s3.putObject({
-      Bucket: BUCKET_NAME,
-      Key: `${PREFIX}/${artifactName}-${artifactHash}.json`,
-      Body: body,
-    });
-  } catch (err) {
-    console.warn("Could not write to S3 VK remote cache", err.message);
-  }
-}
-
-async function readVKFromS3(artifactName, artifactHash) {
-  if (process.env.DISABLE_VK_S3_CACHE) {
-    return;
-  }
-  const key = `${PREFIX}/${artifactName}-${artifactHash}.json`;
-
-  try {
-    const s3 = generateS3Client();
-    const { Body: response } = await s3.getObject({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    });
-
-    const result = JSON.parse(await response.transformToString());
-    return result;
-  } catch (err) {
-    console.warn(
-      `Could not read VK from remote cache at s3://${BUCKET_NAME}/${key}`,
-      err.message
-    );
-    return undefined;
-  }
 }
 
 main().catch((err) => {

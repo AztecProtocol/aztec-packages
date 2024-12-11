@@ -8,6 +8,7 @@ import { CallContext } from './call_context.js';
 import { Gas } from './gas.js';
 import { RevertCode } from './revert_code.js';
 
+// TO BE REMOVED
 /**
  * Compressed call stack item on a public call.
  */

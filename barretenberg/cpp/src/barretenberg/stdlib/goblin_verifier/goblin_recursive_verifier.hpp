@@ -5,6 +5,16 @@
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
+
+struct GoblinRecursiveVerifierOutput {
+    using Builder = UltraCircuitBuilder;
+    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
+    using Curve = grumpkin<Builder>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    OpeningClaim<Curve> opening_claim;
+    std::shared_ptr<Transcript> ipa_transcript;
+};
+
 class GoblinRecursiveVerifier {
   public:
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
@@ -35,7 +45,7 @@ class GoblinRecursiveVerifier {
      *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
-    void verify(const GoblinProof&);
+    GoblinRecursiveVerifierOutput verify(const GoblinProof&);
 
   private:
     Builder* builder;

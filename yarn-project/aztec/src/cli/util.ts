@@ -1,6 +1,5 @@
 import { type AccountManager, type Fr } from '@aztec/aztec.js';
 import { type ConfigMappingsType } from '@aztec/foundation/config';
-import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { type PXEService } from '@aztec/pxe';
 
@@ -8,10 +7,6 @@ import chalk from 'chalk';
 import { type Command } from 'commander';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
-
-export interface ServiceStarter<T = any> {
-  (options: T, signalHandlers: (() => Promise<void>)[], logger: LogFn): Promise<ServerList>;
-}
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
   const shutdown = async () => {

@@ -1,9 +1,9 @@
 import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
+import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces';
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
-import { type WorldStateStatus } from '../native/message.js';
+import { type WorldStateStatusFull, type WorldStateStatusSummary } from '../native/message.js';
 
 /**
  *
@@ -32,13 +32,13 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-export interface MerkleTreeAdminDatabase {
+export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state
@@ -46,43 +46,31 @@ export interface MerkleTreeAdminDatabase {
   getCommitted(): MerkleTreeReadOperations;
 
   /**
-   * Gets a handle that allows reading the state as it was at the given block number
-   * @param blockNumber - The block number to get the snapshot for
-   */
-  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
-
-  /**
-   * Forks the database at its current state.
-   * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
-   */
-  fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
-
-  /**
    * Removes all historical snapshots up to but not including the given block number
    * @param toBlockNumber The block number of the new oldest historical block
    * @returns The new WorldStateStatus
    */
-  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
 
   /**
    * Removes all pending blocks down to but not including the given block number
    * @param toBlockNumber The block number of the new tip of the pending chain,
    * @returns The new WorldStateStatus
    */
-  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatus>;
+  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
 
   /**
    * Advances the finalised block number to be the number provided
    * @param toBlockNumber The block number that is now the tip of the finalised chain
    * @returns The new WorldStateStatus
    */
-  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatus>;
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
 
   /**
-   * Gets the current status of the database.
+   * Gets the current status summary of the database.
    * @returns The current WorldStateStatus.
    */
-  getStatus(): Promise<WorldStateStatus>;
+  getStatusSummary(): Promise<WorldStateStatusSummary>;
 
   /** Stops the database */
   close(): Promise<void>;

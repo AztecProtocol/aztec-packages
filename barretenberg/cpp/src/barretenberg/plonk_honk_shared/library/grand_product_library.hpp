@@ -13,7 +13,7 @@ namespace bb {
 // product. Update comments accordingly.
 /**
  * @brief Compute a permutation grand product polynomial Z_perm(X)
- * *
+ *
  * @details
  * Z_perm may be defined in terms of its values  on X_i = 0,1,...,n-1 as Z_perm[0] = 1 and for i = 1:n-1
  *                  relation::numerator(j)
@@ -46,39 +46,75 @@ namespace bb {
  * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i] (recall: Z_perm[0] = 1)
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
+ *
+ * @tparam Flavor
+ * @tparam GrandProdRelation
+ * @param full_polynomials
+ * @param relation_parameters
+ * @param size_override optional size of the domain; otherwise based on dyadic polynomial domain
  */
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
-                           bb::RelationParameters<typename Flavor::FF>& relation_parameters)
+                           bb::RelationParameters<typename Flavor::FF>& relation_parameters,
+                           size_t size_override = 0,
+                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
 {
+    PROFILE_THIS_NAME("compute_grand_product");
+
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
+    // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
+    // the permutation grand product does not need to be computed beyond the index of the last active wire
+    size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
+
+    const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
+    const size_t block_size = domain_size / num_threads;
+    const size_t final_idx = domain_size - 1;
+
+    // Cumpute the index bounds for each thread for reuse in the computations below
+    std::vector<std::pair<size_t, size_t>> idx_bounds;
+    idx_bounds.reserve(num_threads);
+    for (size_t thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
+        const size_t start = thread_idx * block_size;
+        const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
+        idx_bounds.push_back(std::make_pair(start, end));
+    }
+
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    size_t circuit_size = full_polynomials.get_polynomial_size();
-    Polynomial numerator{ circuit_size, circuit_size };
-    Polynomial denominator{ circuit_size, circuit_size };
+    Polynomial numerator{ domain_size, domain_size };
+    Polynomial denominator{ domain_size, domain_size };
+
+    auto check_is_active = [&](size_t idx) {
+        if (active_block_ranges.empty()) {
+            return true;
+        }
+        return std::any_of(active_block_ranges.begin(), active_block_ranges.end(), [idx](const auto& range) {
+            return idx >= range.first && idx < range.second;
+        });
+    };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
-    const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
-    const size_t block_size = circuit_size / num_threads;
+    FF gamma_fourth = relation_parameters.gamma.pow(4);
     parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx + 1) * block_size;
-        typename Flavor::AllValues evaluations;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): construction of evaluations is equivalent to
-        // calling get_row which creates full copies. avoid?
+        typename Flavor::AllValues row;
+        const size_t start = idx_bounds[thread_idx].first;
+        const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
-            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
-                eval = full_poly.size() > i ? full_poly[i] : 0;
+            if (check_is_active(i)) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+                row = full_polynomials.get_row(i);
+                numerator.at(i) =
+                    GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
+                denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+                    row, relation_parameters);
+            } else {
+                numerator.at(i) = gamma_fourth;
+                denominator.at(i) = gamma_fourth;
             }
-            numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
-                evaluations, relation_parameters);
-            denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                evaluations, relation_parameters);
         }
     });
 
@@ -101,8 +137,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     std::vector<FF> partial_denominators(num_threads);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx + 1) * block_size;
+        const size_t start = idx_bounds[thread_idx].first;
+        const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end - 1; ++i) {
             numerator.at(i + 1) *= numerator[i];
             denominator.at(i + 1) *= denominator[i];
@@ -115,8 +151,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx + 1) * block_size;
+        const size_t start = idx_bounds[thread_idx].first;
+        const size_t end = idx_bounds[thread_idx].second;
         if (thread_idx > 0) {
             FF numerator_scaling = 1;
             FF denominator_scaling = 1;
@@ -132,7 +168,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
 
         // Final step: invert denominator
-        FF::batch_invert(std::span{ &denominator.data()[start], block_size });
+        FF::batch_invert(std::span{ &denominator.data()[start], end - start });
     });
 
     DEBUG_LOG_ALL(numerator.coeffs());
@@ -142,9 +178,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
     ASSERT(grand_product_polynomial.start_index() == 1);
+
     parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx == num_threads - 1) ? circuit_size - 1 : (thread_idx + 1) * block_size;
+        const size_t start = idx_bounds[thread_idx].first;
+        const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
             grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
         }

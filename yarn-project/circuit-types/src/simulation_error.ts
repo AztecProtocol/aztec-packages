@@ -1,5 +1,8 @@
-import { type AztecAddress, type FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
 import { type OpcodeLocation } from '@aztec/foundation/abi';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 /**
  * Address and selector of a function that failed during simulation.
@@ -16,7 +19,7 @@ export interface FailingFunction {
   /**
    * The selector of the function that failed.
    */
-  functionSelector: FunctionSelector;
+  functionSelector?: FunctionSelector;
   /**
    * The name of the function that failed.
    */
@@ -49,10 +52,20 @@ export interface SourceCodeLocation {
   locationText: string;
 }
 
+const SourceCodeLocationSchema = z.object({
+  filePath: z.string(),
+  line: z.number(),
+  column: z.number(),
+  fileSource: z.string(),
+  locationText: z.string(),
+});
+
 /**
  * A stack of noir source code locations.
  */
 export type NoirCallStack = SourceCodeLocation[] | OpcodeLocation[];
+
+const NoirCallStackSchema: z.ZodType<NoirCallStack> = z.union([z.array(SourceCodeLocationSchema), z.array(z.string())]);
 
 /**
  * Checks if a call stack is unresolved.
@@ -65,9 +78,12 @@ export function isNoirCallStackUnresolved(callStack: NoirCallStack): callStack i
  * An error during the simulation of a function call.
  */
 export class SimulationError extends Error {
+  private aztecContext: string = '';
+
   constructor(
     private originalMessage: string,
     private functionErrorStack: FailingFunction[],
+    public revertData: Fr[] = [],
     private noirErrorStack?: NoirCallStack,
     options?: ErrorOptions,
   ) {
@@ -110,7 +126,9 @@ export class SimulationError extends Error {
 
   getMessage() {
     if (this.noirErrorStack && !isNoirCallStackUnresolved(this.noirErrorStack) && this.noirErrorStack.length) {
-      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'`;
+      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'${
+        this.aztecContext
+      }`;
     }
     return this.originalMessage;
   }
@@ -146,6 +164,7 @@ export class SimulationError extends Error {
     this.functionErrorStack.forEach(failingFunction => {
       if (
         failingFunction.contractAddress.equals(contractAddress) &&
+        !!failingFunction.functionSelector &&
         failingFunction.functionSelector.equals(functionSelector)
       ) {
         failingFunction.functionName = functionName;
@@ -161,7 +180,7 @@ export class SimulationError extends Error {
     const stackLines: string[] = [
       ...functionCallStack.map(failingFunction => {
         return `at ${failingFunction.contractName ?? failingFunction.contractAddress.toString()}.${
-          failingFunction.functionName ?? failingFunction.functionSelector.toString()
+          failingFunction.functionName ?? failingFunction.functionSelector?.toString() ?? 'unknown'
         }`;
       }),
       ...noirCallStack.map(errorLocation =>
@@ -197,15 +216,43 @@ export class SimulationError extends Error {
     this.noirErrorStack = callStack;
   }
 
+  setAztecContext(context: string) {
+    this.aztecContext = context;
+  }
+
   toJSON() {
     return {
       originalMessage: this.originalMessage,
       functionErrorStack: this.functionErrorStack,
       noirErrorStack: this.noirErrorStack,
+      revertData: this.revertData.map(fr => fr.toString()),
     };
   }
 
-  static fromJSON(obj: ReturnType<SimulationError['toJSON']>) {
-    return new SimulationError(obj.originalMessage, obj.functionErrorStack, obj.noirErrorStack);
+  static get schema() {
+    return z
+      .object({
+        originalMessage: z.string(),
+        functionErrorStack: z.array(
+          z.object({
+            contractAddress: schemas.AztecAddress,
+            contractName: z.string().optional(),
+            functionSelector: schemas.FunctionSelector,
+            functionName: z.string().optional(),
+          }),
+        ),
+        noirErrorStack: NoirCallStackSchema.optional(),
+        revertData: z.array(schemas.Fr),
+      })
+      .transform(
+        ({ originalMessage, functionErrorStack, noirErrorStack, revertData }) =>
+          new SimulationError(originalMessage, functionErrorStack, revertData, noirErrorStack),
+      );
+  }
+
+  static random() {
+    return new SimulationError('Random simulation error', [
+      { contractAddress: AztecAddress.random(), functionSelector: FunctionSelector.random() },
+    ]);
   }
 }

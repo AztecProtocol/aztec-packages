@@ -1,6 +1,15 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { RECURSIVE_PROOF_LENGTH, type RootParityInput } from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeRootParityInput } from '@aztec/circuits.js/testing';
+import {
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
+import {
+  type ParityPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
+  VerificationKeyData,
+  makeRecursiveProof,
+} from '@aztec/circuits.js';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -39,8 +48,13 @@ describe('Prover agent <-> queue integration', () => {
   });
 
   it('picks up jobs from the queue', async () => {
-    const { promise, resolve } = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-    const output = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 1);
+    const { promise, resolve } =
+      promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+    const output = makePublicInputsAndRecursiveProof(
+      makeParityPublicInputs(1),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
+    );
     prover.getBaseParityProof.mockResolvedValueOnce(promise);
     const proofPromise = queue.getBaseParityProof(makeBaseParityInputs());
 
@@ -50,8 +64,13 @@ describe('Prover agent <-> queue integration', () => {
   });
 
   it('keeps job alive', async () => {
-    const { promise, resolve } = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-    const output = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 1);
+    const { promise, resolve } =
+      promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+    const output = makePublicInputsAndRecursiveProof(
+      makeParityPublicInputs(1),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
+    );
     prover.getBaseParityProof.mockResolvedValueOnce(promise);
     const proofPromise = queue.getBaseParityProof(makeBaseParityInputs());
 
@@ -61,8 +80,13 @@ describe('Prover agent <-> queue integration', () => {
   });
 
   it('reports cancellations', async () => {
-    const { promise, resolve } = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-    const output = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 1);
+    const { promise, resolve } =
+      promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+    const output = makePublicInputsAndRecursiveProof(
+      makeParityPublicInputs(1),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
+    );
     prover.getBaseParityProof.mockResolvedValueOnce(promise);
     const controller = new AbortController();
     const proofPromise = queue.getBaseParityProof(makeBaseParityInputs(), controller.signal);
@@ -73,8 +97,14 @@ describe('Prover agent <-> queue integration', () => {
   });
 
   it('re-queues timed out jobs', async () => {
-    const firstRun = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-    const output = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 1);
+    const firstRun =
+      promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+
+    const output = makePublicInputsAndRecursiveProof(
+      makeParityPublicInputs(1),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
+    );
     prover.getBaseParityProof.mockResolvedValueOnce(firstRun.promise);
     const proofPromise = queue.getBaseParityProof(makeBaseParityInputs());
 
@@ -84,7 +114,9 @@ describe('Prover agent <-> queue integration', () => {
     // give the queue a chance to figure out the node is timed out and re-queue the job
     await sleep(queueJobTimeout);
     // reset the mock
-    const secondRun = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
+    const secondRun =
+      promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+
     prover.getBaseParityProof.mockResolvedValueOnce(secondRun.promise);
     const newAgent = new ProverAgent(prover, 1, agentPollInterval);
     newAgent.start(queue);

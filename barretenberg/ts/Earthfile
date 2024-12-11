@@ -25,10 +25,10 @@ deps:
     COPY --dir src *.json *.js *.cjs *.md .
 
     # copy over wasm builds from cpp folder
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz src/barretenberg_wasm/barretenberg-threads.wasm.gz
+    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm.gz src/barretenberg_wasm/barretenberg.wasm.gz
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
 
 esm:
     FROM +deps

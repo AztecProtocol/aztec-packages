@@ -136,6 +136,7 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.RETURN, makeCost(c.AVM_RETURN_DYN_L2_GAS, 0)],
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
+  [Opcode.DEBUGLOG, makeCost(c.AVM_DEBUGLOG_DYN_L2_GAS, 0)],
   [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
   [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
 ]);

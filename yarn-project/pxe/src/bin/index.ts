@@ -1,15 +1,15 @@
 #!/usr/bin/env -S node --no-warnings
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { init } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';
-import { createPXEService } from '../pxe_service/index.js';
+import { createPXEService } from '../utils/index.js';
 
 const { PXE_PORT = 8080, AZTEC_NODE_URL = 'http://localhost:8079' } = process.env;
 
-const logger = createDebugLogger('aztec:pxe_service');
+const logger = createLogger('pxe:service');
 
 /**
  * Create and start a new PXE HTTP Server

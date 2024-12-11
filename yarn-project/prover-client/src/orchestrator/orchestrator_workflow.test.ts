@@ -1,30 +1,33 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import {
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type ParityPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RootParityInput,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeRootParityInput } from '@aztec/circuits.js/testing';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-workflow');
+const logger = createLogger('prover-client:test:orchestrator-workflow');
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let actualDb: MerkleTreeReadOperations;
     let globalVariables: GlobalVariables;
     let context: TestContext;
 
@@ -33,8 +36,8 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
-        context = await TestContext.new(logger, 'native', 4, () => Promise.resolve(mockProver));
-        ({ actualDb, orchestrator, globalVariables } = context);
+        context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
+        ({ orchestrator, globalVariables } = context);
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -42,20 +45,37 @@ describe('prover/orchestrator', () => {
         const message = Fr.random();
 
         // and delay its proof
-        const pendingBaseParityResult = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-        const expectedBaseParityResult = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 0xff);
+        const pendingBaseParityResult =
+          promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+        const expectedBaseParityResult = makePublicInputsAndRecursiveProof(
+          makeParityPublicInputs(0xff),
+          makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+          ProtocolCircuitVks.BaseParityArtifact,
+        );
 
-        mockProver.getRootParityProof.mockResolvedValue(makeRootParityInput(NESTED_RECURSIVE_PROOF_LENGTH));
+        mockProver.getRootParityProof.mockResolvedValue(
+          makePublicInputsAndRecursiveProof(
+            makeParityPublicInputs(),
+            makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+            ProtocolCircuitVks.RootParityArtifact,
+          ),
+        );
 
         mockProver.getBaseParityProof.mockImplementation(inputs => {
           if (inputs.msgs[0].equals(message)) {
             return pendingBaseParityResult.promise;
           } else {
-            return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+            return Promise.resolve(
+              makePublicInputsAndRecursiveProof(
+                makeParityPublicInputs(),
+                makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+                ProtocolCircuitVks.BaseParityArtifact,
+              ),
+            );
           }
         });
 
-        orchestrator.startNewEpoch(1, 1);
+        orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(2, globalVariables, [message]);
 
         await sleep(10);
@@ -80,20 +100,20 @@ describe('prover/orchestrator', () => {
     describe('with simulated prover', () => {
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ actualDb, orchestrator, globalVariables } = context);
+        ({ orchestrator, globalVariables } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        orchestrator.startNewEpoch(1, 1);
+        orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 2));
+        await orchestrator.addNewTx(context.makeProcessedTx(1));
+        await orchestrator.addNewTx(context.makeProcessedTx(2));
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);
 
         // now finish the block
-        await orchestrator.setBlockCompleted();
+        await orchestrator.setBlockCompleted(context.blockNumber);
 
         const result = await orchestrator.finaliseEpoch();
         expect(result.proof).toBeDefined();

@@ -51,7 +51,7 @@ fn check_note_fields<let N: u32>(
     serialized_note: [Field; N],
     selects: BoundedVec<Option<Select>, N>,
 ) {
-    for i in 0..selects.len {
+    for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
             extract_property_value_from_selector(serialized_note, select.property_selector);
@@ -68,7 +68,7 @@ fn check_notes_order<let N: u32>(
     fields_1: [Field; N],
     sorts: BoundedVec<Option<Sort>, N>,
 ) {
-    for i in 0..sorts.len {
+    for i in 0..sorts.len() {
         let sort = sorts.get_unchecked(i).unwrap_unchecked();
         let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
         let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
@@ -141,7 +141,7 @@ where
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse_array(filtered_notes);
+    let notes = crate::utils::array::collapse(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
         BoundedVec::new();
 
@@ -293,7 +293,7 @@ unconstrained fn flatten_options<let N: u32>(
     let mut select_values = [0; N];
     let mut select_comparators = [0; N];
 
-    for i in 0..selects.len {
+    for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
             select_by_indexes[num_selects] = select.unwrap_unchecked().property_selector.index;
@@ -309,7 +309,7 @@ unconstrained fn flatten_options<let N: u32>(
     let mut sort_by_offsets = [0; N];
     let mut sort_by_lengths = [0; N];
     let mut sort_order = [0; N];
-    for i in 0..sorts.len {
+    for i in 0..sorts.len() {
         let sort = sorts.get(i);
         if sort.is_some() {
             sort_by_indexes[i] = sort.unwrap_unchecked().property_selector.index;

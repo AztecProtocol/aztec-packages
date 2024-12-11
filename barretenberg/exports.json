@@ -917,5 +917,21 @@
       }
     ],
     "isAsync": false
+  },
+  {
+    "functionName": "acir_vk_as_fields_mega_honk",
+    "inArgs": [
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out_vkey",
+        "type": "fr::vec_out_buf"
+      }
+    ],
+    "isAsync": false
   }
 ]

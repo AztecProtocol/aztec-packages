@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { createAccount } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
   type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
-  type DebugLogger,
   Fq,
   Fr,
+  L1EventPayload,
   L1NotePayload,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
@@ -17,26 +17,30 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
+import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
+  jest.setTimeout(20 * 60 * 1000); // 20 minutes
+
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let owner: Wallet;
   let minter: Wallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
+
+  const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
 
   describe('multi-txs block', () => {
     const artifact = StatefulTestContractArtifact;
@@ -62,11 +66,11 @@ describe('e2e_block_building', () => {
       const deployer = new ContractDeployer(artifact, owner);
 
       const ownerAddress = owner.getCompleteAddress().address;
-      const outgoingViewer = ownerAddress;
+      const sender = ownerAddress;
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, outgoingViewer, i + 1));
+      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, sender, i + 1));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
         provenTxs.push(
@@ -290,17 +294,17 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
-      const outgoingViewer = thisWallet.getAddress();
+      const sender = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), outgoingViewer);
+      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), sender);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const notePayload = L1NotePayload.decryptAsIncoming(l.data, thisWallet.getEncryptionSecret());
+      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
+        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
         // In this test we care only about the privately delivered values
         return notePayload?.privateNoteValues[0];
       });
@@ -316,33 +320,31 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
-      const outgoingViewer = thisWallet.getAddress();
+      const sender = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_array_as_encrypted_log(
-        [5, 4, 3, 2, 1],
-        thisWallet.getAddress(),
-        outgoingViewer,
-        true,
-      );
+      const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
+      const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
+      const action = testContract.methods.emit_array_as_encrypted_log(values, thisWallet.getAddress(), sender, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const encryptedLogs = tx.encryptedLogs.unrollLogs();
-      expect(encryptedLogs[0].maskedContractAddress).toEqual(
-        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
-      );
-      expect(encryptedLogs[1].maskedContractAddress).toEqual(
-        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
-      );
-      // Setting randomness = 0 in app means 'do not mask the address'
-      expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
+      const privateLogs = tx.data.getNonEmptyPrivateLogs();
+      expect(privateLogs.length).toBe(3);
 
-      // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
-      // will likely not be useful when complete.
-      // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
+      // The first two logs are encrypted.
+      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      expect(event0.event.items).toEqual(values);
+
+      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      expect(event1.event.items).toEqual(nestedValues);
+
+      // The last log is not encrypted.
+      // The first field is the first value and is siloed with contract address by the kernel circuit.
+      const expectedFirstField = poseidon2Hash([testContract.address, values[0]]);
+      expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
     }, 60_000);
   });
 
@@ -398,7 +400,7 @@ describe('e2e_block_building', () => {
       logger.info('Spamming the network with public txs');
       const txs = [];
       for (let i = 0; i < 30; i++) {
-        const tx = token.methods.mint_public(owner.getAddress(), 10n);
+        const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
         txs.push(tx.send({ skipPublicSimulation: false }));
       }
 
@@ -437,49 +439,63 @@ describe('e2e_block_building', () => {
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.markAsProven();
 
-      // Send a tx to the contract that updates the public data tree, this should take the first slot
+      // Send a tx to the contract that creates a note. This tx will be reorgd but re-included,
+      // since it is being built against a proven block number.
       logger.info('Sending initial tx');
-      const tx1 = await contract.methods.increment_public_value(ownerAddress, 20).send().wait();
+      const tx1 = await contract.methods.create_note(ownerAddress, ownerAddress, 20).send().wait();
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
-      expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(20n);
+      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
+
+      // And send a second one, which won't be re-included.
+      logger.info('Sending second tx');
+      const tx2 = await contract.methods.create_note(ownerAddress, ownerAddress, 30).send().wait();
+      expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
+      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
       // Now move to a new epoch and past the proof claim window to cause a reorg
       logger.info('Advancing past the proof claim window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 1); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(aztecEpochProofClaimWindowInL2Slots + 1); // off-by-one?
 
-      // Wait a bit before spawning a new pxe
-      await sleep(2000);
-
-      // tx1 is valid because it was build against a proven block number
-      // the sequencer will bring it back on chain
+      // Wait until the sequencer kicks out tx1
+      logger.info(`Waiting for node to prune tx1`);
       await retryUntil(
-        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.SUCCESS,
-        'wait for re-inclusion',
-        60,
+        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
+        'wait for pruning',
+        15,
         1,
       );
 
+      // And wait until it is brought back tx1
+      logger.info(`Waiting for node to re-include tx1`);
+      await retryUntil(
+        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.SUCCESS,
+        'wait for re-inclusion',
+        15,
+        1,
+      );
+
+      // Tx1 should have been mined in a block with the same number but different hash now
       const newTx1Receipt = await aztecNode.getTxReceipt(tx1.txHash);
       expect(newTx1Receipt.blockNumber).toEqual(tx1.blockNumber);
       expect(newTx1Receipt.blockHash).not.toEqual(tx1.blockHash);
 
-      // Send another tx which should be mined a block that is built on the reorg'd chain
-      // We need to send it from a new pxe since pxe doesn't detect reorgs (yet)
-      logger.info(`Creating new PXE service`);
-      const pxeServiceConfig = { ...getPXEServiceConfig() };
-      const newPxe = await createPXEService(aztecNode, pxeServiceConfig);
-      const newWallet = await createAccount(newPxe);
+      // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
+      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
 
-      // TODO: Contract.at should automatically register the instance in the pxe
-      logger.info(`Registering contract at ${contract.address} in new pxe`);
-      await newPxe.registerContract({ instance: contract.instance, artifact: StatefulTestContractArtifact });
-      const contractFromNewPxe = await StatefulTestContract.at(contract.address, newWallet);
+      // PXE should be synced to the block number on the new chain
+      await retryUntil(
+        async () => (await pxe.getSyncStatus()).blocks === newTx1Receipt.blockNumber,
+        'wait for pxe block header sync',
+        15,
+        1,
+      );
 
+      // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');
-      const tx2 = await contractFromNewPxe.methods.increment_public_value(ownerAddress, 10).send().wait();
-      expect(await contractFromNewPxe.methods.get_public_value(ownerAddress).simulate()).toEqual(30n);
-      expect(tx2.blockNumber).toEqual(initialBlockNumber + 3);
+      const tx3 = await contract.methods.create_note(ownerAddress, ownerAddress, 10).send().wait();
+      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(31n);
+      expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });
   });
 });

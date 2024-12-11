@@ -7,9 +7,12 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
-const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
-type BotFollowChain = (typeof botFollowChain)[number];
+import { z } from 'zod';
+
+const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+type BotFollowChain = (typeof BotFollowChain)[number];
 
 export enum SupportedTokenContracts {
   TokenContract = 'TokenContract',
@@ -58,6 +61,37 @@ export type BotConfig = {
   /** Stops the bot if service becomes unhealthy */
   stopWhenUnhealthy: boolean;
 };
+
+export const BotConfigSchema = z
+  .object({
+    nodeUrl: z.string().optional(),
+    pxeUrl: z.string().optional(),
+    senderPrivateKey: schemas.Fr,
+    recipientEncryptionSecret: schemas.Fr,
+    tokenSalt: schemas.Fr,
+    txIntervalSeconds: z.number(),
+    privateTransfersPerTx: z.number(),
+    publicTransfersPerTx: z.number(),
+    feePaymentMethod: z.union([z.literal('fee_juice'), z.literal('none')]),
+    noStart: z.boolean(),
+    txMinedWaitSeconds: z.number(),
+    followChain: z.enum(BotFollowChain),
+    maxPendingTxs: z.number(),
+    flushSetupTransactions: z.boolean(),
+    skipPublicSimulation: z.boolean(),
+    l2GasLimit: z.number().optional(),
+    daGasLimit: z.number().optional(),
+    contract: z.nativeEnum(SupportedTokenContracts),
+    maxConsecutiveErrors: z.number(),
+    stopWhenUnhealthy: z.boolean(),
+  })
+  .transform(config => ({
+    nodeUrl: undefined,
+    pxeUrl: undefined,
+    l2GasLimit: undefined,
+    daGasLimit: undefined,
+    ...config,
+  })) satisfies ZodFor<BotConfig>;
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeUrl: {
@@ -122,7 +156,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!(botFollowChain as readonly string[]).includes(val.toUpperCase())) {
+      if (!(BotFollowChain as readonly string[]).includes(val.toUpperCase())) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
       return val as BotFollowChain;

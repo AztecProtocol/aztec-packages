@@ -3,9 +3,9 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@noir-lang/noir_codegen';
 import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const circuits = [
   'parity_base',
@@ -15,9 +15,6 @@ const circuits = [
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
-  'public_kernel_inner_simulated',
-  'public_kernel_merge_simulated',
-  'public_kernel_tail_simulated',
   'rollup_base_private',
   'rollup_base_public',
   'rollup_merge',

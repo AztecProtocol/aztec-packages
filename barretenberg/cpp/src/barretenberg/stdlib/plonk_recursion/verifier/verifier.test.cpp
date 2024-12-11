@@ -285,9 +285,9 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
      * @return boolean result
      */
 
-    static bool check_recursive_proof_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
+    static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_recursive_proof) {
+        if (builder.contains_pairing_point_accumulator) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
                 [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
@@ -302,22 +302,22 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                     return outer_scalar_field(limb);
                 };
 
-            const auto x0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[0],
-                                                          builder.recursive_proof_public_input_indices[1],
-                                                          builder.recursive_proof_public_input_indices[2],
-                                                          builder.recursive_proof_public_input_indices[3]);
-            const auto y0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[4],
-                                                          builder.recursive_proof_public_input_indices[5],
-                                                          builder.recursive_proof_public_input_indices[6],
-                                                          builder.recursive_proof_public_input_indices[7]);
-            const auto x1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[8],
-                                                          builder.recursive_proof_public_input_indices[9],
-                                                          builder.recursive_proof_public_input_indices[10],
-                                                          builder.recursive_proof_public_input_indices[11]);
-            const auto y1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[12],
-                                                          builder.recursive_proof_public_input_indices[13],
-                                                          builder.recursive_proof_public_input_indices[14],
-                                                          builder.recursive_proof_public_input_indices[15]);
+            const auto x0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[0],
+                                                          builder.pairing_point_accumulator_public_input_indices[1],
+                                                          builder.pairing_point_accumulator_public_input_indices[2],
+                                                          builder.pairing_point_accumulator_public_input_indices[3]);
+            const auto y0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[4],
+                                                          builder.pairing_point_accumulator_public_input_indices[5],
+                                                          builder.pairing_point_accumulator_public_input_indices[6],
+                                                          builder.pairing_point_accumulator_public_input_indices[7]);
+            const auto x1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[8],
+                                                          builder.pairing_point_accumulator_public_input_indices[9],
+                                                          builder.pairing_point_accumulator_public_input_indices[10],
+                                                          builder.pairing_point_accumulator_public_input_indices[11]);
+            const auto y1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[12],
+                                                          builder.pairing_point_accumulator_public_input_indices[13],
+                                                          builder.pairing_point_accumulator_public_input_indices[14],
+                                                          builder.pairing_point_accumulator_public_input_indices[15]);
             g1::affine_element P_affine[2]{
                 { x0, y0 },
                 { x1, y1 },
@@ -345,16 +345,10 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     static void check_recursive_verification_circuit(OuterBuilder& outer_circuit, bool expected_result)
     {
         info("number of gates in recursive verification circuit = ", outer_circuit.get_estimated_num_finalized_gates());
-        OuterComposer outer_composer;
-        auto prover = outer_composer.create_prover(outer_circuit);
-        auto verifier = outer_composer.create_verifier(outer_circuit);
-        auto proof = prover.construct_proof();
-        auto result = verifier.verify_proof(proof);
-        // bool result = CircuitChecker::check(outer_circuit);
+        const bool result = CircuitChecker::check(outer_circuit);
         EXPECT_EQ(result, expected_result);
-        static_cast<void>(expected_result);
         auto g2_lines = srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
-        EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
+        EXPECT_EQ(check_pairing_point_accum_public_inputs(outer_circuit, g2_lines), true);
     }
 
   public:

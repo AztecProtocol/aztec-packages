@@ -1,10 +1,10 @@
-import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type IncomingNotesFilter } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type Header,
+  type IndexedTaggingSecret,
   type PublicKey,
-  type TaggingSecret,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -12,9 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type DeferredNoteDao } from './deferred_note_dao.js';
 import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -59,12 +57,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
 
   /**
-   * Gets outgoing notes.
-   * @returns The outgoing notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]>;
-
-  /**
    * Adds a note to DB.
    * @param note - The note to add.
    * @param scope - The scope to add the note under. Currently optional.
@@ -84,30 +76,10 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * which can improve performance when dealing with large numbers of transactions.
    *
    * @param incomingNotes - An array of notes which were decrypted as incoming.
-   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
-
-  /**
-   * Add notes to the database that are intended for us, but we don't yet have the contract.
-   * @param deferredNotes - An array of deferred notes.
-   */
-  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
-
-  /**
-   * Get deferred notes for a given contract address.
-   * @param contractAddress - The contract address to get the deferred notes for.
-   */
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
-
-  /**
-   * Remove deferred notes for a given contract address.
-   * @param contractAddress - The contract address to remove the deferred notes for.
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
+  addNotes(incomingNotes: IncomingNoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -116,13 +88,13 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<IncomingNoteDao[]>;
 
   /**
    * Gets the most recently processed block number.
    * @returns The most recently processed block number or undefined if never synched.
    */
-  getBlockNumber(): number | undefined;
+  getBlockNumber(): Promise<number | undefined>;
 
   /**
    * Retrieve the stored Block Header from the database.
@@ -135,7 +107,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getHeader(): Header;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Set the latest Block Header.
@@ -144,7 +116,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHeader(header: Header): Promise<void>;
+  setHeader(header: BlockHeader): Promise<void>;
 
   /**
    * Adds contact address to the database.
@@ -157,7 +129,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Retrieves the list of contact addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): AztecAddress[];
+  getContactAddresses(): Promise<AztecAddress[]>;
 
   /**
    * Removes a contact address from the database.
@@ -199,7 +171,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Get the synched block number for a given public key.
    * @param account - The account to get the synched block number for.
    */
-  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined;
+  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined>;
 
   /**
    * Returns the estimated size in bytes of this db.
@@ -209,18 +181,49 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been seen.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
    * @param appTaggingSecrets - The app siloed tagging secrets.
    * @returns The indexes for the provided secrets, 0 if they've never been seen.
    */
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]>;
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been used
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
+
+  /**
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void>;
+  setTaggingSecretsIndexesAsSender(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
+
+  /**
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a recipient
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
+
+  /**
+   * Deletes all notes synched after this block number.
+   * @param blockNumber - All notes strictly after this block number are removed.
+   */
+  removeNotesAfter(blockNumber: number): Promise<void>;
+
+  /**
+   * Restores notes nullified after the given block.
+   * @param blockNumber - All nullifiers strictly after this block are removed.
+   */
+  unnullifyNotesAfter(blockNumber: number): Promise<void>;
+
+  /**
+   * Resets the indexes used to sync notes to 0 for every sender and recipient, causing the next sync process to
+   * start from scratch, taking longer than usual.
+   * This can help fix desynchronization issues, including finding logs that had previously been overlooked, and
+   * is also required to deal with chain reorgs.
+   */
+  resetNoteSyncData(): Promise<void>;
 }

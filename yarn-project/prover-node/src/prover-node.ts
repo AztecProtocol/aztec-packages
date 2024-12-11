@@ -6,16 +6,21 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeWriteOperations,
+  type ProverCache,
   type ProverCoordination,
   type ProverNodeApi,
+  type Service,
   type WorldStateSynchronizer,
+  tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { sha256 } from '@aztec/foundation/crypto';
+import { createLogger } from '@aztec/foundation/log';
+import { type Maybe } from '@aztec/foundation/types';
+import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -23,12 +28,14 @@ import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-
 import { ProverNodeMetrics } from './metrics.js';
 import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims-monitor.js';
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import { type ProverCacheManager } from './prover-cache/cache_manager.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
+  maxParallelBlocksPerEpoch: number;
 };
 
 /**
@@ -38,7 +45,7 @@ export type ProverNodeOptions = {
  * proof for the epoch, and submits it to L1.
  */
 export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
-  private log = createDebugLogger('aztec:prover-node');
+  private log = createLogger('prover-node');
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
@@ -48,27 +55,36 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   constructor(
     private readonly prover: EpochProverManager,
     private readonly publisher: L1Publisher,
-    private readonly l2BlockSource: L2BlockSource,
+    private readonly l2BlockSource: L2BlockSource & Maybe<Service>,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly contractDataSource: ContractDataSource,
     private readonly worldState: WorldStateSynchronizer,
-    private readonly coordination: ProverCoordination,
-    private readonly simulator: SimulationProvider,
+    private readonly coordination: ProverCoordination & Maybe<Service>,
     private readonly quoteProvider: QuoteProvider,
     private readonly quoteSigner: QuoteSigner,
     private readonly claimsMonitor: ClaimsMonitor,
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
     private readonly telemetryClient: TelemetryClient,
+    private readonly proverCacheManager: ProverCacheManager,
     options: Partial<ProverNodeOptions> = {},
   ) {
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
+      maxParallelBlocksPerEpoch: 32,
       ...compact(options),
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+  }
+
+  public getP2P() {
+    const asP2PClient = this.coordination as P2P;
+    if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
+      return asP2PClient;
+    }
+    return undefined;
   }
 
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
@@ -121,9 +137,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       // Construct a quote for the epoch
       const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+      if (blocks.length === 0) {
+        this.log.info(`No blocks found for epoch ${epochNumber}`);
+        return;
+      }
+
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
-        this.log.verbose(`No quote produced for epoch ${epochNumber}`);
+        this.log.info(`No quote produced for epoch ${epochNumber}`);
         return;
       }
 
@@ -140,7 +161,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       const signed = await this.quoteSigner.sign(quote);
 
       // Send it to the coordinator
-      await this.sendEpochProofQuote(signed);
+      this.log.info(
+        `Sending quote for epoch ${epochNumber} with blocks ${blocks[0].number} to ${blocks.at(-1)!.number}`,
+        quote.toViemArgs(),
+      );
+      await this.doSendEpochProofQuote(signed);
     } catch (err) {
       this.log.error(`Error handling epoch completed`, err);
     }
@@ -166,19 +191,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await this.epochsMonitor.stop();
     await this.claimsMonitor.stop();
     await this.prover.stop();
-    await this.l2BlockSource.stop();
+    await tryStop(this.l2BlockSource);
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
-    await this.coordination.stop();
+    await tryStop(this.coordination);
+    await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
 
-  /**
-   * Sends an epoch proof quote to the coordinator.
-   */
+  /** Sends an epoch proof quote to the coordinator. */
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     this.log.info(`Sending quote for epoch`, quote.toViemArgs().quote);
+    return this.doSendEpochProofQuote(quote);
+  }
+
+  private doSendEpochProofQuote(quote: EpochProofQuote) {
     return this.coordination.addEpochProofQuote(quote);
   }
 
@@ -233,21 +261,20 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
     await this.worldState.syncImmediate(fromBlock - 1);
-    const db = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      this.simulator,
-      this.telemetryClient,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
+
+    const epochHash = sha256(Buffer.concat(blocks.map(block => block.hash().toBuffer())));
+    const proverCache = await this.proverCacheManager.openCache(epochNumber, epochHash);
 
     const cleanUp = async () => {
-      await db.close();
+      await proverCache.close();
+      await this.proverCacheManager.removeStaleCaches(epochNumber);
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, db, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, proverCache, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -256,21 +283,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    db: MerkleTreeWriteOperations,
+    proverCache: ProverCache,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
-      db,
+      this.worldState,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(db),
+      this.prover.createEpochProver(proverCache),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
       this.coordination,
       this.metrics,
+      { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,
     );
   }

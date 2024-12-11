@@ -9,6 +9,7 @@ export interface ContractArtifactDatabase {
    * Adds a new contract artifact to the database or updates an existing one.
    * @param id - Id of the corresponding contract class.
    * @param contract - Contract artifact to add.
+   * @throws - If there are duplicate private function selectors.
    */
   addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void>;
   /**
