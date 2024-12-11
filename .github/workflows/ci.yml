@@ -667,9 +667,9 @@ jobs:
           concurrency_key: network-test-${{ matrix.test }}
       - name: "Setup and Local Network Tests"
         timeout-minutes: 60
-        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
+        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./test-transfer.sh
 
-  network-test:
+  network-full-test:
     needs: [network-test-gate, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
@@ -717,8 +717,7 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-  # note: proving disabled
-  kind-network-test:
+  kind-network-full-test:
     needs: [build, configure]
     if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ${{ needs.configure.outputs.username }}-x86
