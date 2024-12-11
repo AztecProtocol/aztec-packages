@@ -70,9 +70,17 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
 }
 
 function typeOfCircuit(artifactName) {
-  return clientIvcPatterns.some((pattern) =>
+  if (clientIvcPatterns.some((pattern) =>
     artifactName.match(new RegExp(pattern))
-  );
+  )) {
+    return CircuitType.ClientIVCCircuit;
+  } else if (rollupHonkPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  )) {
+    return CircuitType.RollupHonkCircuit;
+  } else {
+    return CircuitType.HonkCircuit;
+  }
 }
 
 async function processArtifact(artifactPath, artifactName, outputFolder) {
