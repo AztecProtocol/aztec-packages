@@ -280,8 +280,8 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             [false, true],
         );
 
-        // linear_terms[0] == sum_out
-        sum = linear_terms[0];
+        // linear_terms[1] == sum_out
+        sum = linear_terms[1];
     }
 
     factor.mul(sum)
