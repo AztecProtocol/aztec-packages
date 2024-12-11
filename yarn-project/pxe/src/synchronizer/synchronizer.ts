@@ -12,9 +12,9 @@ import { type PXEConfig } from '../config/index.js';
 import { type PxeDatabase } from '../database/index.js';
 
 /**
- * The Synchronizer class manages the synchronization of note processors and interacts with the Aztec node
- * to obtain encrypted logs, blocks, and other necessary information for the accounts.
- * It provides methods to start or stop the synchronization process, add new accounts, retrieve account
+ * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
+ * latest block header and handle reorgs.
+ * It provides methods to trigger a sync and get the block number we are syncec to
  * details, and fetch transactions by hash.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
