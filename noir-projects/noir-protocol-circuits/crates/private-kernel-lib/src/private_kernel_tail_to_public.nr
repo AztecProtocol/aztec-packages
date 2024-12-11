@@ -156,8 +156,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let output_nullifiers =
-            builder.previous_kernel.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value);
+        let output_nullifiers = builder.previous_kernel.nullifiers.storage().map(
+            |n: ScopedNullifier| n.nullifier.value,
+        );
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.nullifiers,
@@ -190,8 +191,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let exposed_note_hashes =
-            builder.previous_kernel.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
+        let exposed_note_hashes = builder.previous_kernel.note_hashes.storage().map(
+            |n: ScopedNoteHash| n.note_hash.value,
+        );
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
