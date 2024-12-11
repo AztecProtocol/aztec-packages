@@ -195,7 +195,7 @@ export class Sequencer {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
-    this.log.info(`Sequencer started`);
+    this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
     return Promise.resolve();
   }
 
@@ -295,11 +295,6 @@ export class Sequencer {
       return;
     }
 
-    this.log.verbose(
-      `Retrieved ${pendingTxs.length} txs for block ${newBlockNumber} with global variables`,
-      newGlobalVariables.toInspect(),
-    );
-
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(
       new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
@@ -322,6 +317,10 @@ export class Sequencer {
     // exceeding max block size in bytes is contract class registration, which happens in private-land. This
     // may break if we start emitting lots of log data from public-land.
     const validTxs = this.takeTxsWithinMaxSize(allValidTxs);
+
+    this.log.verbose(
+      `Collected ${validTxs.length} txs out of ${allValidTxs.length} valid txs out of ${pendingTxs.length} total pending txs for block ${newBlockNumber}`,
+    );
 
     // Bail if we don't have enough valid txs
     if (!this.shouldProposeBlock(historicalHeader, { validTxsCount: validTxs.length })) {
@@ -519,12 +518,15 @@ export class Sequencer {
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
-    this.log.verbose(`Building block ${blockNumber}`, {
-      msgCount: l1ToL2Messages.length,
-      txCount: validTxs.length,
-      slot,
-      blockNumber,
-    });
+    this.log.verbose(
+      `Building block ${blockNumber} with ${validTxs.length} txs and ${l1ToL2Messages.length} messages`,
+      {
+        msgCount: l1ToL2Messages.length,
+        txCount: validTxs.length,
+        slot,
+        blockNumber,
+      },
+    );
 
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
@@ -562,7 +564,13 @@ export class Sequencer {
       // All real transactions have been added, set the block as full and complete the proving.
       const block = await blockBuilder.setBlockCompleted();
 
-      return { block, publicProcessorDuration, numProcessedTxs: processedTxs.length, blockBuildingTimer };
+      return {
+        block,
+        publicProcessorDuration,
+        numMsgs: l1ToL2Messages.length,
+        numProcessedTxs: processedTxs.length,
+        blockBuildingTimer,
+      };
     } finally {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       await publicProcessorFork.close();
@@ -619,12 +627,8 @@ export class Sequencer {
     };
 
     try {
-      const { block, publicProcessorDuration, numProcessedTxs, blockBuildingTimer } = await this.buildBlock(
-        validTxs,
-        newGlobalVariables,
-        historicalHeader,
-        interrupt,
-      );
+      const buildBlockRes = await this.buildBlock(validTxs, newGlobalVariables, historicalHeader, interrupt);
+      const { block, publicProcessorDuration, numProcessedTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
@@ -641,22 +645,27 @@ export class Sequencer {
         ...block.getStats(),
       };
 
-      this.log.verbose(`Built block ${block.number}`, {
+      const blockHash = block.hash();
+      const txHashes = validTxs.map(tx => tx.getTxHash());
+      this.log.info(`Built block ${block.number} with hash ${blockHash}`, {
         txEffectsHash: block.header.contentCommitment.txsEffectsHash.toString('hex'),
+        blockHash,
+        globalVariables: block.header.globalVariables.toInspect(),
+        txHashes,
         ...blockStats,
       });
 
       if (this.isFlushing) {
-        this.log.verbose(`Flushing completed`);
+        this.log.verbose(`Sequencer flushing completed`);
       }
-
-      const txHashes = validTxs.map(tx => tx.getTxHash());
 
       this.isFlushing = false;
       this.log.debug('Collecting attestations');
       const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, txHashes);
-      this.log.verbose(`Collected ${attestations?.length ?? 0} attestations`);
+      if (attestations !== undefined) {
+        this.log.verbose(`Collected ${attestations.length} attestations`);
+      }
       stopCollectingAttestationsTimer();
 
       this.log.debug('Collecting proof quotes');
@@ -665,12 +674,15 @@ export class Sequencer {
       await this.publishL2Block(block, attestations, txHashes, proofQuote);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
-        `Published rollup block ${block.number} with ${numProcessedTxs} transactions in ${Math.ceil(workDuration)}ms`,
+        `Published rollup block ${
+          block.number
+        } with ${numProcessedTxs} transactions and ${numMsgs} messages in ${Math.ceil(workDuration)}ms`,
         {
           blockNumber: block.number,
-          blockHash: block.hash(),
+          blockHash: blockHash,
           slot,
           txCount: numProcessedTxs,
+          msgCount: numMsgs,
           duration: Math.ceil(workDuration),
           submitter: this.publisher.getSenderAddress().toString(),
         },
@@ -696,10 +708,10 @@ export class Sequencer {
     const committee = await this.publisher.getCurrentEpochCommittee();
 
     if (committee.length === 0) {
-      this.log.verbose(`Attesting committee length is 0`);
+      this.log.verbose(`Attesting committee is empty`);
       return undefined;
     } else {
-      this.log.debug(`Attesting committee length ${committee.length}`);
+      this.log.debug(`Attesting committee length is ${committee.length}`);
     }
 
     if (!this.validatorClient) {
@@ -713,7 +725,7 @@ export class Sequencer {
     this.log.debug('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
     if (!proposal) {
-      this.log.verbose(`Failed to create block proposal, skipping collecting attestations`);
+      this.log.warn(`Failed to create block proposal, skipping collecting attestations`);
       return undefined;
     }
 
