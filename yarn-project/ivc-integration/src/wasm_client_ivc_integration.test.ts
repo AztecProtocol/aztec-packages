@@ -86,7 +86,7 @@ describe('Client IVC Integration', () => {
     const tx = {
       number_of_calls: '0x2',
     };
-    // Witness gen app and kernels
+    // Witness gen for app and kernels
     const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
     const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
 
