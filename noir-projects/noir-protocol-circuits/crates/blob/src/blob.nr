@@ -375,10 +375,8 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     fracs
 }
 
-// TODO: Clean me
-unconstrained fn __compute_partial_sums(
-    fracs: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB / 8] {
+// TODO: Clean me ... edit: Kill me
+unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
@@ -388,37 +386,54 @@ unconstrained fn __compute_partial_sums(
     //                   /____       z - omega^k
     //                    k=i*8 + 0
 
-    // Need to split off the first iteration.
     let mut partial_sum: F = BigNum::new();
-    for i in 0..8 {
-        // y_k * ( omega^k / (z - omega^k) )
-        let summand = ROOTS[i].__mul(fracs[i]);
+    unroll_loop_inner!(0 as u32);
+    partial_sums[0] = partial_sum;
 
-        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
-        partial_sum = partial_sum.__add(summand);
+    unroll_loop_outer!();
+
+    partial_sums
+}
+
+comptime fn unroll_loop_outer() -> Quoted {
+    let mut indices: [u32; 512] = [0; 512];
+    for i in 1..512 {
+        indices[i] = i;
     }
     partial_sums[0] = partial_sum;
 
-    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-    for i in 1..NUM_PARTIAL_SUMS {
-        let mut partial_sum: F = partial_sums[i - 1];
-        // Seeking:
-        //                    ___i*8 + 7
-        //                    \            omega^k
-        //      partial_sum = /   y_k . ---------
-        //                   /____       z - omega^k
-        //                    k=i*8 + 0
-        for j in 0..8 {
-            let k = i * 8 + j;
-            // y_k * ( omega^k / (z - omega^k) )
-            let summand = ROOTS[k].__mul(fracs[k]);
-            // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
-            partial_sum = partial_sum.__add(summand);
-        }
-        partial_sums[i] = partial_sum;
+    indices
+        .as_slice()
+        .map(|index: u32| {
+            quote {
+                let mut partial_sum: F = partial_sums[$index - (1 as u32)];
+
+                unroll_loop_inner!($index * (8 as u32));
+
+                partial_sums[$index] = partial_sum;
+            }
+        })
+        .join(quote { })
+}
+
+comptime fn unroll_loop_inner(loop_index: u32) -> Quoted {
+    let mut indices: [u32; 8] = [0; 8];
+    for i in 0..8 {
+        indices[i] = i;
     }
 
-    partial_sums
+    indices
+        .as_slice()
+        .map(|index: u32| {
+            let root = ROOTS[loop_index + index];
+            quote {
+                // y_k * ( omega^k / (z - omega^k) )
+                let summand = $root.__mul(fracs[$loop_index + $index]);
+                // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+                partial_sum = partial_sum.__add(summand);
+            }
+        })
+        .join(quote { })
 }
 
 mod tests {
