@@ -18,7 +18,7 @@ export class BarretenbergWasmBase {
     /* eslint-disable camelcase */
     const importObj = {
       // We need to implement a part of the wasi api:
-      // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
+      // https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md
       // We literally only need to support random_get, everything else is noop implementated in barretenberg.wasm.
       wasi_snapshot_preview1: {
         random_get: (out: any, length: number) => {
