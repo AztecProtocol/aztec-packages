@@ -5,7 +5,7 @@ use crate::{
 use super::verification_key::VerificationKey;
 
 pub struct VkData<let VK_LENGTH: u32> {
-    vk: VerificationKey<VK_LENGTH>,
+    pub vk: VerificationKey<VK_LENGTH>,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
 }

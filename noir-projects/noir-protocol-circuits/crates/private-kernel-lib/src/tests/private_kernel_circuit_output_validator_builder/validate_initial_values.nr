@@ -35,7 +35,9 @@ fn validate_initial_values_constants_mismatch_txs_effects_hash_fails() {
 fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.nullifiers.storage[0].nullifier.value += 1;
+    let mut nullifier = builder.output.nullifiers.get(0);
+    nullifier.nullifier.value += 1;
+    builder.output.nullifiers.set(0, nullifier);
 
     builder.validate_as_first_call();
 }

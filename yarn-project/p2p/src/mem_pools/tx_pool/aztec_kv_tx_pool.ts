@@ -125,7 +125,7 @@ export class AztecKVTxPool implements TxPool {
       let pendingCount = 0;
       for (const [i, tx] of txs.entries()) {
         const txHash = txHashes[i];
-        this.#log.info(`Adding tx with id ${txHash.toString()}`, {
+        this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
           eventName: 'tx-added-to-pool',
           ...tx.getStats(),
         } satisfies TxAddedToPoolStats);

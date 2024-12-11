@@ -174,7 +174,7 @@ export class Archiver implements ArchiveSource {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      new ArchiverInstrumentation(telemetry, () => archiverStore.estimateSize()),
+      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);

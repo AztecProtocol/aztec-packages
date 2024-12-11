@@ -12,5 +12,5 @@ export async function getPublicFunctionDebugName(
     calldata[0] !== undefined
       ? await db.getDebugFunctionName(contractAddress, FunctionSelector.fromField(calldata[0]))
       : `<calldata[0] undefined> (Contract Address: ${contractAddress})`;
-  return `${targetFunction} (via dispatch)`;
+  return `${targetFunction}`;
 }
