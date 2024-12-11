@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { SignerlessWallet } from '../wallet/signerless_wallet.js';
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -43,14 +44,18 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    */
   getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
+      // We user signer less wallet because this function would be triggered before the account is deployed if this
+      // payment method was used for the account deployment.
+      const signerlessWallet = new SignerlessWallet(this.wallet);
+
       const interaction = new ContractFunctionInteraction(
-        this.wallet,
+        signerlessWallet,
         this.paymentContract,
         {
           name: 'get_accepted_asset',
-          functionType: FunctionType.PUBLIC,
+          functionType: FunctionType.PRIVATE,
           isInternal: false,
-          isStatic: true,
+          isStatic: false,
           parameters: [],
           returnTypes: [
             {

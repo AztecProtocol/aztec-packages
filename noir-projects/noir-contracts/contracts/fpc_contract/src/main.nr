@@ -112,8 +112,9 @@ contract FPC {
             .call(&mut context);
     }
 
-    #[public]
-    #[view]
+    /// Note: Not marked as view as we need it to be callable as an entrypoint since in some places we need to obtain
+    /// this value before we have access to an account contract (kernels do not allow for static entrypoints).
+    #[private]
     fn get_accepted_asset() -> AztecAddress {
         storage.config.read().accepted_asset
     }
