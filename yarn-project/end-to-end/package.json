@@ -145,9 +145,9 @@
     },
     "reporters": [
       [
-        "default",
+        "summary",
         {
-          "summaryThreshold": 9999
+          "summaryThreshold": 0
         }
       ]
     ],
@@ -155,6 +155,10 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   }
 }

@@ -11,6 +11,14 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: boot-node
+  volumeClaimTemplates:
+    - metadata:
+        name: boot-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bootNode.storageSize }}
   template:
     metadata:
       labels:
@@ -121,6 +129,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: boot-node-data
+              mountPath: {{ .Values.bootNode.dataDir }}
             {{- if .Values.bootNode.deployContracts }}
             - name: scripts-output
               mountPath: /shared/contracts
@@ -194,6 +204,9 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+        - name: boot-node-data
+          persistentVolumeClaim:
+            claimName: boot-node-data
       {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:

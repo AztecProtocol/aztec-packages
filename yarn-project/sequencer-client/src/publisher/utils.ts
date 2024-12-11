@@ -14,6 +14,7 @@ export function prettyLogViemErrorMsg(err: any) {
   }
 }
 
+// TODO(palla/log): Review this method
 export function prettyLogViemError(err: any, logger: Logger) {
   const msg = prettyLogViemErrorMsg(err);
   if (msg) {

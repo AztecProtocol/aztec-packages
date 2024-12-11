@@ -1,6 +1,6 @@
 import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { type Fr, GasSettings } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -30,7 +30,7 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected log = createDebugLogger('aztec:js:contract_interaction');
+  protected log = createLogger('aztecjs:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 

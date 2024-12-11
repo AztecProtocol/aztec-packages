@@ -2,7 +2,7 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
+import { type SentTx, createLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
 
@@ -63,11 +63,11 @@ export async function createNode(
 ) {
   const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
 
-  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort, /*serviceName*/ `node:${tcpPort}`);
+  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort);
 
   return await AztecNodeService.createAndSync(validatorConfig, {
     telemetry: telemetryClient,
-    logger: createDebugLogger(`aztec:node-${tcpPort}`),
+    logger: createLogger(`node:${tcpPort}`),
   });
 }
 

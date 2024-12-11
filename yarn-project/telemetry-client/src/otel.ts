@@ -1,4 +1,4 @@
-import { type DebugLogger, type LogData, addLogDataHandler } from '@aztec/foundation/log';
+import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
 import {
   DiagConsoleLogger,
@@ -28,21 +28,33 @@ import { type Gauge, type TelemetryClient } from './telemetry.js';
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
   targetInfo: Gauge | undefined;
+  private meters: Map<string, Meter> = new Map<string, Meter>();
+  private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
   protected constructor(
     private resource: IResource,
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider,
-    private log: DebugLogger,
+    private log: Logger,
   ) {}
 
   getMeter(name: string): Meter {
-    return this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+    let meter = this.meters.get(name);
+    if (!meter) {
+      meter = this.meterProvider.getMeter(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      this.meters.set(name, meter);
+    }
+    return meter;
   }
 
   getTracer(name: string): Tracer {
-    return this.traceProvider.getTracer(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+    let tracer = this.tracers.get(name);
+    if (!tracer) {
+      tracer = this.traceProvider.getTracer(name, this.resource.attributes[ATTR_SERVICE_VERSION] as string);
+      this.tracers.set(name, tracer);
+    }
+    return tracer;
   }
 
   public start() {
@@ -83,6 +95,14 @@ export class OpenTelemetryClient implements TelemetryClient {
     return true;
   }
 
+  public async flush() {
+    await Promise.all([
+      this.meterProvider.forceFlush(),
+      this.loggerProvider.forceFlush(),
+      this.traceProvider instanceof NodeTracerProvider ? this.traceProvider.forceFlush() : Promise.resolve(),
+    ]);
+  }
+
   public async stop() {
     const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
       await provider.forceFlush();
@@ -96,7 +116,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     ]);
   }
 
-  public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
+  public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
     const resource = await getOtelResource();
 
     // TODO(palla/log): Should we show traces as logs in stdout when otel collection is disabled?

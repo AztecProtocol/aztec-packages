@@ -1,3 +1,5 @@
+use dep::protocol_types::debug_log::debug_log_format;
+
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     hash::{ArgsHasher, hash_args_array},
@@ -5,12 +7,12 @@ use crate::{
     messaging::process_l1_to_l2_message,
     oracle::{
         arguments,
+        block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
             enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
             set_public_teardown_function_call_internal,
         },
-        header::get_header_at,
         key_validation_request::get_key_validation_request,
         returns::pack_returns,
     },
@@ -33,6 +35,7 @@ use dep::protocol_types::{
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
+    block_header::BlockHeader,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -41,7 +44,6 @@ use dep::protocol_types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
-    header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
@@ -74,7 +76,7 @@ pub struct PrivateContext {
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
 
     pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
     pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
@@ -137,6 +139,12 @@ impl PrivateContext {
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+
+        // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
+        debug_log_format(
+            "Context.note_hashes, after pushing new note hash: {0}",
+            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
+        );
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
@@ -157,14 +165,14 @@ impl PrivateContext {
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
-    pub fn get_header(self) -> Header {
+    pub fn get_block_header(self) -> BlockHeader {
         self.historical_header
     }
 
     // Returns the header of an arbitrary block whose block number is less than or equal to the block number
     // of historical header.
-    pub fn get_header_at(self, block_number: u32) -> Header {
-        get_header_at(block_number, self)
+    pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {
+        get_block_header_at(block_number, self)
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
@@ -585,7 +593,7 @@ impl Empty for PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],

@@ -88,16 +88,16 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
-        name: Metrics.MEMPOOL_DB_MAP_SIZE,
         description: 'Database map size for the Tx mempool',
       },
       {
-        name: Metrics.MEMPOOL_DB_USED_SIZE,
         description: 'Database used size for the Tx mempool',
       },
       {
-        name: Metrics.MEMPOOL_DB_NUM_ITEMS,
         description: 'Num items in database for the Tx mempool',
+      },
+      {
+        [Attributes.DB_DATA_TYPE]: 'tx-pool',
       },
       dbStats,
     );

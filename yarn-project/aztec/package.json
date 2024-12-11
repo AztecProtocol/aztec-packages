@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.65.2",
+  "version": "0.66.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -109,6 +109,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "engines": {

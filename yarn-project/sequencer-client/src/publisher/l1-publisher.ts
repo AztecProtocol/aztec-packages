@@ -11,9 +11,9 @@ import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circu
 import {
   AGGREGATION_OBJECT_LENGTH,
   AZTEC_MAX_EPOCH_DURATION,
+  type BlockHeader,
   EthAddress,
   type FeeRecipient,
-  type Header,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -28,7 +28,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
@@ -149,7 +149,8 @@ export class L1Publisher {
   private payload: EthAddress = EthAddress.ZERO;
   private myLastVote: bigint = 0n;
 
-  protected log = createDebugLogger('aztec:sequencer:publisher');
+  protected log = createLogger('sequencer:publisher');
+  protected governanceLog = createLogger('sequencer:publisher:governance');
 
   protected rollupContract: GetContractReturnType<
     typeof RollupAbi,
@@ -342,7 +343,7 @@ export class L1Publisher {
       await this.rollupContract.read.validateEpochProofRightClaimAtTime(args, { account: this.account });
     } catch (err) {
       const errorName = tryGetCustomErrorName(err);
-      this.log.warn(`Proof quote validation failed: ${errorName}`);
+      this.log.warn(`Proof quote validation failed: ${errorName}`, quote);
       return undefined;
     }
     return quote;
@@ -358,7 +359,7 @@ export class L1Publisher {
    *
    */
   public async validateBlockForSubmission(
-    header: Header,
+    header: BlockHeader,
     attestationData: { digest: Buffer; signatures: Signature[] } = {
       digest: Buffer.alloc(32),
       signatures: [],
@@ -432,7 +433,7 @@ export class L1Publisher {
       this.governanceProposerContract.read.computeRound([slotNumber]),
     ]);
 
-    if (proposer != this.account.address) {
+    if (proposer.toLowerCase() !== this.account.address.toLowerCase()) {
       return false;
     }
 
@@ -450,14 +451,14 @@ export class L1Publisher {
     const cachedMyLastVote = this.myLastVote;
     this.myLastVote = slotNumber;
 
+    this.governanceLog.verbose(`Casting vote for ${this.payload}`);
+
     let txHash;
     try {
-      txHash = await this.governanceProposerContract.write.vote([this.payload.toString()], {
-        account: this.account,
-      });
+      txHash = await this.governanceProposerContract.write.vote([this.payload.toString()], { account: this.account });
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);
-      this.log.error(`Governance: Failed to vote`, msg);
+      this.governanceLog.error(`Failed to vote`, msg);
       this.myLastVote = cachedMyLastVote;
       return false;
     }
@@ -465,14 +466,13 @@ export class L1Publisher {
     if (txHash) {
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) {
-        this.log.info(`Failed to get receipt for tx ${txHash}`);
+        this.governanceLog.warn(`Failed to get receipt for tx ${txHash}`);
         this.myLastVote = cachedMyLastVote;
         return false;
       }
     }
 
-    this.log.info(`Governance: Cast vote for ${this.payload}`);
-
+    this.governanceLog.info(`Cast vote for ${this.payload}`);
     return true;
   }
 
@@ -522,7 +522,7 @@ export class L1Publisher {
       signatures: attestations ?? [],
     });
 
-    this.log.verbose(`Submitting propose transaction`);
+    this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
@@ -545,7 +545,7 @@ export class L1Publisher {
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
-      this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
+      this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
       return true;
     }
@@ -843,8 +843,7 @@ export class L1Publisher {
       };
     } catch (err) {
       prettyLogViemError(err, this.log);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      this.log.error(`Rollup publish failed`, errorMessage);
+      this.log.error(`Rollup publish failed`, err);
       return undefined;
     }
   }

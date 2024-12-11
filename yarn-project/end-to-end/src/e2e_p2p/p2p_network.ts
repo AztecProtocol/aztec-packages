@@ -2,7 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js';
 import { type BootstrapNode } from '@aztec/p2p';
@@ -36,7 +36,7 @@ export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
   private baseAccount;
 
-  public logger: DebugLogger;
+  public logger: Logger;
 
   public ctx!: SubsystemsContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
@@ -61,7 +61,7 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     metricsPort?: number,
   ) {
-    this.logger = createDebugLogger(`aztec:e2e_p2p:${testName}`);
+    this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
@@ -121,7 +121,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort, /*service name*/ `bootstrapnode`);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
     const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 

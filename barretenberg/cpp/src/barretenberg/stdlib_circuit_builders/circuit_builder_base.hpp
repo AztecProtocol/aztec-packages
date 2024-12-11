@@ -251,6 +251,7 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
                    vars_of_interest,

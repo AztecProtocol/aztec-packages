@@ -1,11 +1,11 @@
 import { mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-public-functions');
+const logger = createLogger('prover-client:test:orchestrator-public-functions');
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;
@@ -35,7 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });
-        tx.data.constants.historicalHeader = context.getHeader(0);
+        tx.data.constants.historicalHeader = context.getBlockHeader(0);
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 

@@ -187,6 +187,6 @@ if [ -n "$TEST" ]; then
     -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
     -e DEBUG=${DEBUG:-""} \
     -e LOG_JSON=1 \
-    -e LOG_LEVEL=verbose \
+    -e LOG_LEVEL=${LOG_LEVEL:-"verbose"} \
     aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
 fi

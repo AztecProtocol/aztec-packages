@@ -6,6 +6,7 @@ import {
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
   AztecAddress,
+  type ContractClassIdPreimage,
   EthAddress,
   L2ToL1Message,
   LogHash,
@@ -31,6 +32,7 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
 describe('Enqueued-call Side Effect Trace', () => {
   const address = AztecAddress.random();
+  const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
   const lowLeafIndex = Fr.random();
@@ -159,18 +161,53 @@ describe('Enqueued-call Side Effect Trace', () => {
   it('Should trace get contract instance', () => {
     const instance = SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
+    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
     const exists = true;
-    trace.traceGetContractInstance(address, exists, instance);
+    trace.traceGetContractInstance(address, exists, instance, lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
       {
         address,
         exists,
         ...instanceWithoutVersion,
+        membershipHint,
       },
     ]);
   });
+
+  it('Should trace get bytecode', () => {
+    const instance = SerializableContractInstance.random();
+    const contractClass: ContractClassIdPreimage = {
+      artifactHash: Fr.random(),
+      privateFunctionsRoot: Fr.random(),
+      publicBytecodeCommitment: Fr.random(),
+    };
+    const { version: _, ...instanceWithoutVersion } = instance;
+    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
+    const exists = true;
+    trace.traceGetBytecode(
+      address,
+      exists,
+      bytecode,
+      instance,
+      contractClass,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafSiblingPath,
+    );
+
+    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
+    expect(trace.getAvmCircuitHints().contractBytecodeHints.items).toEqual([
+      {
+        bytecode,
+        contractInstanceHint: { address, exists, ...instanceWithoutVersion, membershipHint: { ...membershipHint } },
+        contractClassHint: contractClass,
+      },
+    ]);
+  });
+
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of public storage writes', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
@@ -286,9 +323,9 @@ describe('Enqueued-call Side Effect Trace', () => {
       testCounter++;
       nestedTrace.traceUnencryptedLog(address, log);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
 
       trace.merge(nestedTrace, reverted);
@@ -314,11 +351,6 @@ describe('Enqueued-call Side Effect Trace', () => {
       const parentHints = trace.getAvmCircuitHints();
       const childHints = nestedTrace.getAvmCircuitHints();
       expect(parentHints.enqueuedCalls.items).toEqual(childHints.enqueuedCalls.items);
-      expect(parentHints.storageValues.items).toEqual(childHints.storageValues.items);
-      expect(parentHints.noteHashExists.items).toEqual(childHints.noteHashExists.items);
-      expect(parentHints.nullifierExists.items).toEqual(childHints.nullifierExists.items);
-      expect(parentHints.l1ToL2MessageExists.items).toEqual(childHints.l1ToL2MessageExists.items);
-      expect(parentHints.externalCalls.items).toEqual(childHints.externalCalls.items);
       expect(parentHints.contractInstances.items).toEqual(childHints.contractInstances.items);
       expect(parentHints.contractBytecodeHints.items).toEqual(childHints.contractBytecodeHints.items);
       expect(parentHints.publicDataReads.items).toEqual(childHints.publicDataReads.items);

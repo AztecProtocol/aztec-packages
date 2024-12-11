@@ -1,11 +1,11 @@
 import {
+  type BlockHeader,
   type Fr,
-  type Header,
   type NullifierLeaf,
   type PublicDataTreeLeaf,
   type StateReference,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MerkleTreeId } from '../merkle_tree_id.js';
@@ -133,7 +133,7 @@ export interface MerkleTreeReadOperations {
   /**
    * Gets the initial header.
    */
-  getInitialHeader(): Header;
+  getInitialHeader(): BlockHeader;
 
   /**
    * Gets sibling path for a leaf.
@@ -224,7 +224,7 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param header - The header to insert into the archive.
    */
-  updateArchive(header: Header): Promise<void>;
+  updateArchive(header: BlockHeader): Promise<void>;
 
   /**
    * Batch insert multiple leaves into the tree.
@@ -263,7 +263,7 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
 export async function inspectTree(
   db: MerkleTreeReadOperations,
   treeId: MerkleTreeId,
-  log = createDebugLogger('aztec:inspect-tree'),
+  log = createLogger('types:inspect-tree'),
 ) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];

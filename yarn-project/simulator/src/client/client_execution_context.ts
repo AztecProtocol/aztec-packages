@@ -11,9 +11,9 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   CallContext,
   FunctionSelector,
-  type Header,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
@@ -23,7 +23,7 @@ import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
@@ -66,7 +66,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly historicalHeader: Header,
+    protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     private readonly packedValuesCache: PackedValuesCache,
@@ -74,7 +74,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     db: DBOracle,
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
-    log = createDebugLogger('aztec:simulator:client_execution_context'),
+    log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
     super(callContext.contractAddress, authWitnesses, db, node, log, scopes);

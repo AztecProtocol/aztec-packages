@@ -492,6 +492,8 @@ class MegaFlavor {
          */
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
+            PROFILE_THIS_NAME("compute_logderivative_inverses");
+
             // Compute inverses for conventional lookups
             LogDerivLookupRelation<FF>::compute_logderivative_inverse(
                 this->polynomials, relation_parameters, this->circuit_size);
@@ -525,7 +527,7 @@ class MegaFlavor {
 
             // Compute permutation grand product polynomial
             compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override);
+                this->polynomials, relation_parameters, size_override, this->active_block_ranges);
         }
 
         uint64_t estimate_memory()

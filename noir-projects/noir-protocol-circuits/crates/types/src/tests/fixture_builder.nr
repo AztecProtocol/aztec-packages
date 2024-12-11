@@ -37,6 +37,7 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
@@ -52,7 +53,6 @@ use crate::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         silo_note_hash,
     },
-    header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
@@ -101,7 +101,7 @@ pub struct FixtureBuilder {
     pub end_gas_left: Gas,
 
     // Constant data.
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -267,6 +267,10 @@ impl FixtureBuilder {
     pub fn is_first_call(&mut self) -> Self {
         self.msg_sender = AztecAddress::from_field(MAX_FIELD_VALUE);
         *self
+    }
+
+    pub fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
     pub fn to_tx_constant_data(self) -> TxConstantData {
@@ -521,6 +525,38 @@ impl FixtureBuilder {
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
+    }
+
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
@@ -1012,42 +1048,6 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
-
-    fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
-    }
-
-    fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
-        result
-    }
-
-    fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
-        result
-    }
-
-    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
-        AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
-            public_data_writes: self.public_data_writes.storage(),
-        }
-    }
-
-    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
-        let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-
-        result
-    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1059,7 +1059,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),

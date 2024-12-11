@@ -1,12 +1,12 @@
 import { type AztecAddress } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 export async function getContractData(
   rpcUrl: string,
   contractAddress: AztecAddress,
   includeBytecode: boolean,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);

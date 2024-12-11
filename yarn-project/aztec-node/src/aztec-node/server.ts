@@ -34,13 +34,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   type GasFees,
-  type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
@@ -57,10 +57,10 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import {
   AggregateTxValidator,
@@ -105,7 +105,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient,
-    private log = createDebugLogger('aztec:node'),
+    private log = createLogger('node'),
   ) {
     this.packageVersion = getPackageInfo().version;
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
@@ -140,12 +140,12 @@ export class AztecNodeService implements AztecNode {
     config: AztecNodeConfig,
     deps: {
       telemetry?: TelemetryClient;
-      logger?: DebugLogger;
+      logger?: Logger;
       publisher?: L1Publisher;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-    const log = deps.logger ?? createDebugLogger('aztec:node');
+    const log = deps.logger ?? createLogger('node');
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -216,6 +216,10 @@ export class AztecNodeService implements AztecNode {
 
   public getBlockSource(): L2BlockSource {
     return this.blockSource;
+  }
+
+  public getP2P(): P2P {
+    return this.p2pClient;
   }
 
   /**
@@ -427,11 +431,12 @@ export class AztecNodeService implements AztecNode {
    * @returns - The pending txs.
    */
   public getPendingTxs() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending'));
+    return this.p2pClient!.getPendingTxs();
   }
 
-  public getPendingTxCount() {
-    return Promise.resolve(this.p2pClient!.getTxs('pending').length);
+  public async getPendingTxCount() {
+    const pendingTxs = await this.getPendingTxs();
+    return pendingTxs.length;
   }
 
   /**
@@ -767,7 +772,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<BlockHeader> {
     return (
       (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
       this.worldStateSynchronizer.getCommitted().getInitialHeader()
