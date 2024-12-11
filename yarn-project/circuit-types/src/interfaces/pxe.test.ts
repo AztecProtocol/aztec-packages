@@ -35,7 +35,7 @@ import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
-import { ExtendedNote, type OutgoingNotesFilter, UniqueNote } from '../notes/index.js';
+import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -85,6 +85,10 @@ describe('PXESchema', () => {
   afterAll(() => {
     const all = Object.keys(PXESchema);
     expect([...tested].sort()).toEqual(all.sort());
+  });
+
+  it('isL1ToL2MessageSynced', async () => {
+    await context.client.isL1ToL2MessageSynced(Fr.random());
   });
 
   it('addAuthWitness', async () => {
@@ -199,11 +203,6 @@ describe('PXESchema', () => {
   it('getL1ToL2MembershipWitness', async () => {
     const result = await context.client.getL1ToL2MembershipWitness(address, Fr.random(), Fr.random());
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('getOutgoingNotes', async () => {
-    const result = await context.client.getOutgoingNotes({ contractAddress: address });
-    expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
   it('addNote', async () => {
@@ -326,6 +325,11 @@ class MockPXE implements PXE {
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {}
+
+  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   addAuthWitness(authWitness: AuthWitness): Promise<void> {
     expect(authWitness).toBeInstanceOf(AuthWitness);
     return Promise.resolve();
@@ -432,10 +436,6 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
-  }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve([UniqueNote.random()]);
   }
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);

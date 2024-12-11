@@ -1,5 +1,5 @@
 use crate::{
-    abis::{gas::Gas, log_hash::ScopedLogHash, public_data_write::PublicDataWrite},
+    abis::{log_hash::ScopedLogHash, public_data_write::PublicDataWrite},
     constants::{
         AVM_ACCUMULATED_DATA_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -11,16 +11,16 @@ use crate::{
 
 pub struct AvmAccumulatedData {
     // The note hashes from private combining with those made in the AVM execution.
-    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     // The nullifiers from private combining with those made in the AVM execution.
-    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     // The L2 to L1 messages from private combining with those made in the AVM execution.
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
     // TODO(#9589): This should only contain logs emitted from public.
     // The unencrypted logs emitted from private combining with those made in the AVM execution.
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     // The public data writes made in the AVM execution.
-    public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    pub public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
 impl Empty for AvmAccumulatedData {

@@ -8,7 +8,7 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
@@ -24,7 +24,7 @@ export async function executePrivateFunction(
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createDebugLogger('aztec:simulator:private_execution'),
+  log = createLogger('simulator:private_execution'),
 ): Promise<PrivateExecutionResult> {
   const functionName = await context.getDebugFunctionName();
   log.verbose(`Executing external function ${functionName}@${contractAddress}`);
@@ -59,8 +59,6 @@ export async function executePrivateFunction(
     appCircuitName: functionName,
   } satisfies CircuitWitnessGenerationStats);
 
-  const noteEncryptedLogs = context.getNoteEncryptedLogs();
-  const encryptedLogs = context.getEncryptedLogs();
   const contractClassLogs = context.getContractClassLogs();
 
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
@@ -86,8 +84,6 @@ export async function executePrivateFunction(
     nestedExecutions,
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
-    noteEncryptedLogs,
-    encryptedLogs,
     contractClassLogs,
   );
 }

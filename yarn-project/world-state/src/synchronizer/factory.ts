@@ -1,7 +1,7 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -27,11 +27,14 @@ export async function createWorldState(
     dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
     dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
   } as DataStoreConfig;
+
+  if (!config.l1Contracts?.rollupAddress) {
+    throw new Error('Rollup address is required to create a world state synchronizer.');
+  }
+
+  // If a data directory is provided in config, then create a persistent store.
   const merkleTrees = ['true', '1'].includes(process.env.USE_LEGACY_WORLD_STATE ?? '')
-    ? await MerkleTrees.new(
-        await createStore('world-state', newConfig, createDebugLogger('aztec:world-state:lmdb')),
-        client,
-      )
+    ? await MerkleTrees.new(await createStore('world-state', newConfig, createLogger('world-state:lmdb')), client)
     : newConfig.dataDirectory
     ? await NativeWorldStateService.new(
         config.l1Contracts.rollupAddress,

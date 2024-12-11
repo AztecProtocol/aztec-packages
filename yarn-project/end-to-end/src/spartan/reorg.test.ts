@@ -1,5 +1,5 @@
 import { EthCheatCodes, sleep } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
@@ -8,19 +8,19 @@ import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from '
 import {
   applyProverFailure,
   deleteResourceByLabel,
-  getConfig,
   isK8sConfig,
+  setupEnvironment,
   startPortForward,
   waitForResourceByLabel,
 } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
 const { NAMESPACE, HOST_PXE_PORT, HOST_ETHEREUM_PORT, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR } =
   config;
-const debugLogger = createDebugLogger('aztec:spartan-test:reorg');
+const debugLogger = createLogger('e2e:spartan-test:reorg');
 
 async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
   testWallets.wallets.forEach(async w => {

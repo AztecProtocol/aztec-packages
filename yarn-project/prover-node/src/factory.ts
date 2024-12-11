@@ -2,7 +2,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
@@ -21,7 +21,7 @@ import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
-import { ProverNode } from './prover-node.js';
+import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
 import { QuoteSigner } from './quote-signer.js';
@@ -31,7 +31,7 @@ export async function createProverNode(
   config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
-    log?: DebugLogger;
+    log?: Logger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
     publisher?: L1Publisher;
@@ -39,16 +39,16 @@ export async function createProverNode(
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-  const log = deps.log ?? createDebugLogger('aztec:prover');
+  const log = deps.log ?? createLogger('prover-node');
   const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
-  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
+  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config));
-  const prover = await createProverClient(config, broker, telemetry);
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
+  const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
@@ -65,9 +65,10 @@ export async function createProverNode(
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
-  const proverNodeConfig = {
+  const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
+    maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
   };
 
   const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);

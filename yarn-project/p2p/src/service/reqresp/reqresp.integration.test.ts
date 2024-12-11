@@ -1,11 +1,11 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -20,9 +20,8 @@ import { type AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
-import { convertToMultiaddr } from '../../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
-import { createLibP2PPeerId } from '../index.js';
 import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
@@ -64,6 +63,7 @@ const makeMockPools = () => {
       addAttestations: jest.fn(),
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
+      deleteAttestationsOlderThan: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     },
     epochProofQuotePool: {
@@ -82,7 +82,7 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  const logger = createDebugLogger('p2p-client-integration-test');
+  const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
     ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());
@@ -98,7 +98,7 @@ describe('Req Resp p2p client integration', () => {
 
     const peerEnrs = await Promise.all(
       peerIdPrivateKeys.map(async (pk, i) => {
-        const peerId = await createLibP2PPeerId(pk);
+        const peerId = await createLibP2PPeerIdFromPrivateKey(pk);
         const enr = SignableENR.createFromPeerId(peerId);
 
         const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
@@ -223,7 +223,7 @@ describe('Req Resp p2p client integration', () => {
       // We want to create a set of nodes and request transaction from them
       const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/ false);
       const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
+      const client2PeerId = await client2.getEnr()!.peerId();
 
       // Give the nodes time to discover each other
       await sleep(6000);

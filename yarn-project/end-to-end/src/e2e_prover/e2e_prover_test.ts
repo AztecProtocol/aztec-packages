@@ -5,13 +5,13 @@ import {
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
   type Fq,
   Fr,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
 import {
@@ -67,7 +67,7 @@ export class FullProverTest {
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   keys: Array<[Fr, Fq]> = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
@@ -93,7 +93,7 @@ export class FullProverTest {
     coinbase: EthAddress,
     private realProofs = true,
   ) {
-    this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
+    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
@@ -269,6 +269,7 @@ export class FullProverTest {
       proverAgentCount: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
       quoteProviderBasisPointFee: 100,
       quoteProviderBondAmount: 1000n,

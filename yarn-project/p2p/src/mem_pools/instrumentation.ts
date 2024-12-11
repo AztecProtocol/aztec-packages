@@ -3,6 +3,7 @@ import {
   Attributes,
   type Histogram,
   LmdbMetrics,
+  type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
@@ -58,7 +59,7 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
   private defaultAttributes;
 
-  constructor(telemetry: TelemetryClient, name: PoolName) {
+  constructor(telemetry: TelemetryClient, name: PoolName, dbStats?: LmdbStatsCallback) {
     const meter = telemetry.getMeter(name);
     this.defaultAttributes = { [Attributes.POOL_NAME]: name };
 
@@ -87,22 +88,19 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
-        name: Metrics.MEMPOOL_DB_MAP_SIZE,
         description: 'Database map size for the Tx mempool',
       },
       {
-        name: Metrics.MEMPOOL_DB_USED_SIZE,
         description: 'Database used size for the Tx mempool',
       },
       {
-        name: Metrics.MEMPOOL_DB_NUM_ITEMS,
         description: 'Num items in database for the Tx mempool',
       },
+      {
+        [Attributes.DB_DATA_TYPE]: 'tx-pool',
+      },
+      dbStats,
     );
-  }
-
-  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
-    this.dbMetrics.recordDBMetrics(metrics);
   }
 
   public recordSize(poolObject: PoolObject) {

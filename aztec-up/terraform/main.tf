@@ -108,18 +108,6 @@ resource "null_resource" "upload_public_directory" {
   }
 }
 
-# resource "aws_route53_record" "subdomain_record" {
-#   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
-#   name    = "install.aztec.network"
-#   type    = "A"
-
-#   alias {
-#     name                   = aws_s3_bucket_website_configuration.website_bucket.website_domain
-#     zone_id                = aws_s3_bucket.install_bucket.hosted_zone_id
-#     evaluate_target_health = true
-#   }
-# }
-
 resource "aws_cloudfront_distribution" "install" {
   origin {
     domain_name = aws_s3_bucket.install_bucket.website_endpoint

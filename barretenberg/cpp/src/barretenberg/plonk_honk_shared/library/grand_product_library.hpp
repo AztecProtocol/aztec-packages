@@ -56,8 +56,11 @@ namespace bb {
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
-                           size_t size_override = 0)
+                           size_t size_override = 0,
+                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
 {
+    PROFILE_THIS_NAME("compute_grand_product");
+
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
@@ -84,22 +87,34 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     Polynomial numerator{ domain_size, domain_size };
     Polynomial denominator{ domain_size, domain_size };
 
+    auto check_is_active = [&](size_t idx) {
+        if (active_block_ranges.empty()) {
+            return true;
+        }
+        return std::any_of(active_block_ranges.begin(), active_block_ranges.end(), [idx](const auto& range) {
+            return idx >= range.first && idx < range.second;
+        });
+    };
+
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
+    FF gamma_fourth = relation_parameters.gamma.pow(4);
     parallel_for(num_threads, [&](size_t thread_idx) {
-        typename Flavor::AllValues evaluations;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): construction of evaluations is equivalent to
-        // calling get_row which creates full copies. avoid?
+        typename Flavor::AllValues row;
         const size_t start = idx_bounds[thread_idx].first;
         const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
-            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
-                eval = full_poly.size() > i ? full_poly[i] : 0;
+            if (check_is_active(i)) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+                row = full_polynomials.get_row(i);
+                numerator.at(i) =
+                    GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
+                denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+                    row, relation_parameters);
+            } else {
+                numerator.at(i) = gamma_fourth;
+                denominator.at(i) = gamma_fourth;
             }
-            numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
-                evaluations, relation_parameters);
-            denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                evaluations, relation_parameters);
         }
     });
 
@@ -163,6 +178,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
     ASSERT(grand_product_polynomial.start_index() == 1);
+
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = idx_bounds[thread_idx].first;
         const size_t end = idx_bounds[thread_idx].second;

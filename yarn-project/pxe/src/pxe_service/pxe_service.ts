@@ -12,7 +12,6 @@ import {
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -56,7 +55,7 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { Fr, type Point } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
@@ -65,9 +64,12 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { inspect } from 'util';
+
+import { type PXEServiceConfig } from '../config/index.js';
+import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -85,7 +87,7 @@ export class PXEService implements PXE {
   private synchronizer: Synchronizer;
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
-  private log: DebugLogger;
+  private log: Logger;
   private packageVersion: string;
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
@@ -100,7 +102,7 @@ export class PXEService implements PXE {
     config: PXEServiceConfig,
     logSuffix?: string,
   ) {
-    this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
+    this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
@@ -133,6 +135,10 @@ export class PXEService implements PXE {
     this.log.info('Cancelled Job Queue');
     await this.synchronizer.stop();
     this.log.info('Stopped Synchronizer');
+  }
+
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
   /** Returns an estimate of the db size in bytes. */
@@ -298,33 +304,6 @@ export class PXEService implements PXE {
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
-        }
-        owner = completeAddresses.address;
-      }
-      return new UniqueNote(
-        dao.note,
-        owner,
-        dao.contractAddress,
-        dao.storageSlot,
-        dao.noteTypeId,
-        dao.txHash,
-        dao.nonce,
-      );
-    });
-    return Promise.all(extendedNotes);
-  }
-
-  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getOutgoingNotes(filter);
-
-    const extendedNotes = noteDaos.map(async dao => {
-      let owner = filter.owner;
-      if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKeys.masterOutgoingViewingPublicKey.equals(dao.ovpkM),
-        );
-        if (completeAddresses === undefined) {
-          throw new Error(`Cannot find complete address for OvpkM ${dao.ovpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -519,8 +498,7 @@ export class PXEService implements PXE {
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       });
   }
 
@@ -576,8 +554,15 @@ export class PXEService implements PXE {
         );
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `simulatePublic=${simulatePublic}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `skipTxValidation=${skipTxValidation}`,
+          `profile=${profile}`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -588,8 +573,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
-      this.log.error(err);
-      throw err;
+      throw this.contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
@@ -613,8 +597,12 @@ export class PXEService implements PXE {
         return executionResult;
       })
       .catch(err => {
-        this.log.error(err);
-        throw err;
+        const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
+        throw this.contextualizeError(
+          err,
+          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       });
   }
 
@@ -896,13 +884,11 @@ export class PXEService implements PXE {
     const blocks = await this.node.getBlocks(from, limit);
 
     const txEffects = blocks.flatMap(block => block.body.txEffects);
-    const encryptedTxLogs = txEffects.flatMap(txEffect => txEffect.encryptedLogs);
-
-    const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
+    const privateLogs = txEffects.flatMap(txEffect => txEffect.privateLogs);
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
-        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
           const registeredAccount = await this.getRegisteredAccount(account);
@@ -919,10 +905,11 @@ export class PXEService implements PXE {
       }),
     );
 
-    const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
+    const visibleEvents = privateLogs.flatMap(log => {
       for (const sk of vsks) {
-        const decryptedEvent =
-          L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
+        // TODO: Verify that the first field of the log is the tag siloed with contract address.
+        // Or use tags to query logs, like we do with notes.
+        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk);
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];
         }
@@ -986,5 +973,19 @@ export class PXEService implements PXE {
 
   async resetNoteSyncData() {
     return await this.db.resetNoteSyncData();
+  }
+
+  private contextualizeError(err: Error, ...context: string[]): Error {
+    let contextStr = '';
+    if (context.length > 0) {
+      contextStr = `\nContext:\n${context.join('\n')}`;
+    }
+    if (err instanceof SimulationError) {
+      err.setAztecContext(contextStr);
+    } else {
+      this.log.error(err.name, err);
+      this.log.debug(contextStr);
+    }
+    return err;
   }
 }

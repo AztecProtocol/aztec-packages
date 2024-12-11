@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -82,7 +82,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(dataDir: string, dbMapSizeKb: number, private log = createLogger('world-state:database')) {
     log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
@@ -203,9 +203,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['publicDataWritesCount'] = body.publicDataWrites.length;
       }
 
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
     } else {
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
     const timer = new Timer();
@@ -248,14 +248,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
     const decodingDuration = timer.ms() - callDuration;
     const totalDuration = timer.ms();
-    this.log.debug(
-      `Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms) ${fmtLogData({
-        totalDuration,
-        encodingDuration,
-        callDuration,
-        decodingDuration,
-      })}`,
-    );
+    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
+      totalDuration,
+      encodingDuration,
+      callDuration,
+      decodingDuration,
+    });
 
     if (response.header.requestId !== request.header.messageId) {
       throw new Error(

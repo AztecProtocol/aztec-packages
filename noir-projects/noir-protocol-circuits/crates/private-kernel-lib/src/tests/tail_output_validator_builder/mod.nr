@@ -4,7 +4,7 @@ mod validate_propagated_sorted_values;
 mod validate_propagated_values;
 
 use crate::components::{
-    tail_output_composer::meter_gas_used::meter_gas_used,
+    tail_output_composer::meter_gas_used,
     tail_output_validator::{
         tail_output_hints::{generate_tail_output_hints, TailOutputHints},
         TailOutputValidator,
@@ -67,6 +67,6 @@ impl TailOutputValidatorBuilder {
     pub fn validate_with_hints(self, hints: TailOutputHints) {
         let output = self.export_output();
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator { output, previous_kernel, hints }.validate();
+        TailOutputValidator::new_with_hints(output, previous_kernel, hints).validate();
     }
 }

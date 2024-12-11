@@ -33,8 +33,11 @@ aztec:
   slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 16 # how many L2 slots in an epoch
   epochProofClaimWindow: 13 # in L2 slots
+  realProofs: false
+  l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
 
 bootNode:
+  peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
   service:
@@ -42,12 +45,11 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: ""
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
-  realProofs: false
   validator:
     disabled: true
   p2p:
@@ -69,7 +71,9 @@ bootNode:
     outboxAddress: ""
     feeJuiceAddress: ""
     feeJuicePortalAddress: ""
-  storage: "8Gi"
+    stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -86,7 +90,7 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: ""
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -106,6 +110,8 @@ validator:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  storageSize: "1Gi"
+  dataDir: "/data"
 
 proverNode:
   externalHost: ""
@@ -116,8 +122,7 @@ proverNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
+  debug: ""
   proverAgent:
     count: 0
     pollIntervalMs: 1000
@@ -135,10 +140,7 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  proverEnabled: false
   logLevel: "debug"
-  proverEnable: false
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   replicas: 1
   service:
     nodePort: 8081
@@ -157,7 +159,6 @@ bot:
   enabled: true
   nodeUrl: ""
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
   replicas: 1
   botPrivateKey: "0xcafe"
   txIntervalSeconds: 24
@@ -166,8 +167,6 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  pxeProverEnabled: false
-  proverRealProofs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -220,8 +219,6 @@ proverAgent:
   gke:
     spotEnabled: false
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
   bb:
     hardwareConcurrency: ""
   nodeSelector: {}
@@ -237,7 +234,6 @@ proverBroker:
   jobMaxRetries: 3
   dataDirectory: ""
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   nodeSelector: {}
   resources: {}
 

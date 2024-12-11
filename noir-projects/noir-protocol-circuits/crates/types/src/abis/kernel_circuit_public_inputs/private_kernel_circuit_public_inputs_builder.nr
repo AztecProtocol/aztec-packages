@@ -10,12 +10,12 @@ use crate::{
 };
 
 pub struct PrivateKernelCircuitPublicInputsBuilder {
-    constants: TxConstantData,
-    min_revertible_side_effect_counter: u32,
-    validation_requests: PrivateValidationRequestsBuilder,
-    end: PrivateAccumulatedDataBuilder,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub min_revertible_side_effect_counter: u32,
+    pub validation_requests: PrivateValidationRequestsBuilder,
+    pub end: PrivateAccumulatedDataBuilder,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {

@@ -1,18 +1,16 @@
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { timesAsync } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 
-import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-multi-blocks');
+const logger = createLogger('prover-client:test:orchestrator-multi-blocks');
 
 describe('prover/orchestrator/multi-block', () => {
   let context: TestContext;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
+    context.orchestrator.isVerifyBuiltBlockAgainstSyncedStateEnabled = true;
   });
 
   afterEach(async () => {
@@ -21,35 +19,74 @@ describe('prover/orchestrator/multi-block', () => {
 
   describe('multiple blocks', () => {
     it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
-      context.orchestrator.startNewEpoch(1, numBlocks);
-      let header = context.actualDb.getInitialHeader();
+      logger.info(`Seeding world state with ${numBlocks} blocks`);
+      const txCount = 2;
+      const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
 
-      for (let i = 0; i < numBlocks; i++) {
-        logger.info(`Creating block ${i + 1000}`);
-        const tx = makeBloatedProcessedTx({
-          header,
-          vkTreeRoot: getVKTreeRoot(),
-          protocolContractTreeRoot,
-          seed: i + 1,
-        });
-
-        const blockNum = i + 1000;
-        const globals = makeGlobals(blockNum);
-
-        // This will need to be a 2 tx block
-        await context.orchestrator.startNewBlock(2, globals, []);
-
-        await context.orchestrator.addNewTx(tx);
-
-        //  we need to complete the block as we have not added a full set of txs
-        const block = await context.orchestrator.setBlockCompleted();
-        header = block!.header;
+      logger.info(`Starting new epoch with ${numBlocks}`);
+      context.orchestrator.startNewEpoch(1, 1, numBlocks);
+      for (const { block, txs } of blocks) {
+        await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
+        for (const tx of txs) {
+          await context.orchestrator.addNewTx(tx);
+        }
+        await context.orchestrator.setBlockCompleted(block.number);
       }
 
       logger.info('Finalising epoch');
       const epoch = await context.orchestrator.finaliseEpoch();
-      expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(1000 + numBlocks - 1);
+      expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks);
       expect(epoch.proof).toBeDefined();
+    });
+
+    it.each([1, 4, 5])('builds an epoch with %s blocks in parallel', async (numBlocks: number) => {
+      logger.info(`Seeding world state with ${numBlocks} blocks`);
+      const txCount = 2;
+      const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
+
+      logger.info(`Starting new epoch with ${numBlocks}`);
+      context.orchestrator.startNewEpoch(1, 1, numBlocks);
+      await Promise.all(
+        blocks.map(async ({ block, txs }) => {
+          await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
+          for (const tx of txs) {
+            await context.orchestrator.addNewTx(tx);
+          }
+          await context.orchestrator.setBlockCompleted(block.number);
+        }),
+      );
+
+      logger.info('Finalising epoch');
+      const epoch = await context.orchestrator.finaliseEpoch();
+      expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks);
+      expect(epoch.proof).toBeDefined();
+    });
+
+    it('builds two consecutive epochs', async () => {
+      const numEpochs = 2;
+      const numBlocks = 4;
+      const txCount = 2;
+      logger.info(`Seeding world state with ${numBlocks * numEpochs} blocks`);
+      const blocks = await timesAsync(numBlocks * numEpochs, i => context.makePendingBlock(txCount, 0, i + 1));
+
+      for (let epochIndex = 0; epochIndex < numEpochs; epochIndex++) {
+        logger.info(`Starting epoch ${epochIndex + 1} with ${numBlocks} blocks`);
+        context.orchestrator.startNewEpoch(epochIndex + 1, epochIndex * numBlocks + 1, numBlocks);
+        await Promise.all(
+          blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks).map(async ({ block, txs }) => {
+            await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
+            for (const tx of txs) {
+              await context.orchestrator.addNewTx(tx);
+            }
+            await context.orchestrator.setBlockCompleted(block.number);
+          }),
+        );
+
+        logger.info('Finalising epoch');
+        const epoch = await context.orchestrator.finaliseEpoch();
+        expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(numBlocks + epochIndex * numBlocks);
+        expect(epoch.proof).toBeDefined();
+      }
     });
   });
 });

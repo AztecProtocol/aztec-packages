@@ -36,6 +36,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
+import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ValidatorClient } from '@aztec/validator-client';
@@ -43,7 +44,6 @@ import { type ValidatorClient } from '@aztec/validator-client';
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
@@ -208,7 +208,7 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
-    p2p.getTxs.mockReturnValueOnce([tx]);
+    p2p.getPendingTxs.mockResolvedValueOnce([tx]);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -240,7 +240,7 @@ describe('sequencer', () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
 
-    p2p.getTxs.mockReturnValueOnce([tx]);
+    p2p.getPendingTxs.mockResolvedValueOnce([tx]);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -262,7 +262,7 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
-    p2p.getTxs.mockReturnValue([tx]);
+    p2p.getPendingTxs.mockResolvedValue([tx]);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -307,7 +307,7 @@ describe('sequencer', () => {
 
     const doubleSpendTx = txs[doubleSpendTxIndex];
 
-    p2p.getTxs.mockReturnValueOnce(txs);
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -341,7 +341,7 @@ describe('sequencer', () => {
     const invalidChainTx = txs[invalidChainTxIndex];
     const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
 
-    p2p.getTxs.mockReturnValueOnce(txs);
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -370,7 +370,7 @@ describe('sequencer', () => {
     });
     const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
 
-    p2p.getTxs.mockReturnValueOnce(txs);
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -407,19 +407,19 @@ describe('sequencer', () => {
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
-    p2p.getTxs.mockReturnValueOnce([]);
-    //p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    p2p.getPendingTxs.mockResolvedValueOnce([]);
+    //p2p.getPendingTxs.mockResolvedValueOnce(txs.slice(0, 4));
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    p2p.getPendingTxs.mockResolvedValueOnce(txs.slice(0, 3));
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    p2p.getPendingTxs.mockResolvedValueOnce(txs.slice(0, 4));
     const txHashes = txs.slice(0, 4).map(tx => tx.getTxHash());
 
     await sequencer.doRealWork();
@@ -448,12 +448,12 @@ describe('sequencer', () => {
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
-    p2p.getTxs.mockReturnValueOnce([]);
+    p2p.getPendingTxs.mockResolvedValueOnce([]);
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    p2p.getPendingTxs.mockResolvedValueOnce(txs.slice(0, 3));
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
@@ -461,7 +461,7 @@ describe('sequencer', () => {
     sequencer.flush();
 
     // block is built with 0 txs
-    p2p.getTxs.mockReturnValueOnce([]);
+    p2p.getPendingTxs.mockResolvedValueOnce([]);
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -489,12 +489,12 @@ describe('sequencer', () => {
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
-    p2p.getTxs.mockReturnValueOnce([]);
+    p2p.getPendingTxs.mockResolvedValueOnce([]);
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    p2p.getPendingTxs.mockResolvedValueOnce(txs.slice(0, 3));
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
@@ -503,7 +503,7 @@ describe('sequencer', () => {
 
     // block is built with 3 txs
     const postFlushTxs = txs.slice(0, 3);
-    p2p.getTxs.mockReturnValueOnce(postFlushTxs);
+    p2p.getPendingTxs.mockResolvedValueOnce(postFlushTxs);
     const postFlushTxHashes = postFlushTxs.map(tx => tx.getTxHash());
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
@@ -521,7 +521,7 @@ describe('sequencer', () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
 
-    p2p.getTxs.mockReturnValueOnce([tx]);
+    p2p.getPendingTxs.mockResolvedValueOnce([tx]);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
@@ -597,7 +597,7 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
       txHash = tx.getTxHash();
 
-      p2p.getTxs.mockReturnValue([tx]);
+      p2p.getPendingTxs.mockResolvedValue([tx]);
       blockBuilder.setBlockCompleted.mockResolvedValue(block);
     };
 
@@ -843,7 +843,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, 0, true /** force */);
+    this.setState(SequencerState.IDLE, 0n, true /** force */);
     return super.doRealWork();
   }
 }

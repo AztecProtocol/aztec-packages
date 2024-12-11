@@ -1,5 +1,5 @@
 import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
+import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces';
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
@@ -32,7 +32,7 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-export interface MerkleTreeAdminDatabase {
+export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
@@ -44,18 +44,6 @@ export interface MerkleTreeAdminDatabase {
    * Gets a handle that allows reading the latest committed state
    */
   getCommitted(): MerkleTreeReadOperations;
-
-  /**
-   * Gets a handle that allows reading the state as it was at the given block number
-   * @param blockNumber - The block number to get the snapshot for
-   */
-  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
-
-  /**
-   * Forks the database at its current state.
-   * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
-   */
-  fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
 
   /**
    * Removes all historical snapshots up to but not including the given block number

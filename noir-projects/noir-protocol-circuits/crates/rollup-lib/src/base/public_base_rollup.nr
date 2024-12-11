@@ -14,14 +14,10 @@ use crate::{
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData,
-        constant_rollup_data::ConstantRollupData,
-        log_hash::{LogHash, ScopedLogHash},
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite,
-        tube::PublicTubeData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
+        combined_constant_data::CombinedConstantData, constant_rollup_data::ConstantRollupData,
+        log_hash::ScopedLogHash, nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_write::PublicDataWrite, tube::PublicTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -56,20 +52,12 @@ impl PublicBaseRollupInputs {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
 
-        let note_encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes
+        let private_logs = if reverted {
+            from_private.non_revertible_accumulated_data.private_logs
         } else {
             array_merge(
-                from_private.non_revertible_accumulated_data.note_encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.note_encrypted_logs_hashes,
-            )
-        };
-        let encrypted_logs_hashes = if reverted {
-            from_private.non_revertible_accumulated_data.encrypted_logs_hashes
-        } else {
-            array_merge(
-                from_private.non_revertible_accumulated_data.encrypted_logs_hashes,
-                from_private.revertible_accumulated_data.encrypted_logs_hashes,
+                from_private.non_revertible_accumulated_data.private_logs,
+                from_private.revertible_accumulated_data.private_logs,
             )
         };
         let contract_class_logs_hashes = if reverted {
@@ -80,10 +68,6 @@ impl PublicBaseRollupInputs {
                 from_private.revertible_accumulated_data.contract_class_logs_hashes,
             )
         };
-        let note_encrypted_log_preimages_length =
-            note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
-        let encrypted_log_preimages_length =
-            encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let contract_class_log_preimages_length =
             contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
         let unencrypted_log_preimages_length = from_public
@@ -95,12 +79,9 @@ impl PublicBaseRollupInputs {
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
             l2_to_l1_msgs: from_public.accumulated_data.l2_to_l1_msgs,
-            note_encrypted_logs_hashes,
-            encrypted_logs_hashes,
+            private_logs,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
             contract_class_logs_hashes,
-            note_encrypted_log_preimages_length,
-            encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             contract_class_log_preimages_length,
             public_data_writes: from_public.accumulated_data.public_data_writes,
@@ -111,6 +92,11 @@ impl PublicBaseRollupInputs {
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
         tube_data_validator.verify_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
+
+        // Warning: Fake verification! TODO(#8470)
+        if !dep::std::runtime::is_unconstrained() {
+            self.avm_proof_data.fake_verify();
+        }
 
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
@@ -388,7 +374,11 @@ mod tests {
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
-        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{
+            fixture_builder::FixtureBuilder,
+            fixtures::{self, merkle_tree::generate_full_sha_tree},
+            merkle_tree_utils::NonEmptyMerkleTree,
+        },
         traits::{Empty, is_empty},
         utils::{
             arrays::get_sorted_tuple::get_sorted_tuple,
@@ -555,7 +545,7 @@ mod tests {
 
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -688,8 +678,8 @@ mod tests {
 
             let mut final_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
                 BoundedVec::new();
-            final_public_data_writes.extend_from_array(self.public_data_writes.storage);
-            final_public_data_writes.extend_from_array(self.protocol_public_data_writes.storage);
+            final_public_data_writes.extend_from_array(self.public_data_writes.storage());
+            final_public_data_writes.extend_from_array(self.protocol_public_data_writes.storage());
             for i in 0..self.overwritten_public_data_writes.len() {
                 if self.overwritten_public_data_writes[i].is_some() {
                     final_public_data_writes.set(
@@ -994,9 +984,7 @@ mod tests {
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage(),
-        );
+        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

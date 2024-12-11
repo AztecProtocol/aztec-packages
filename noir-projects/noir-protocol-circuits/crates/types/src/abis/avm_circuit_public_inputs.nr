@@ -21,28 +21,30 @@ use crate::{
     utils::reader::Reader,
 };
 
+use std::hash::{poseidon2, poseidon2_permutation};
+
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
-    global_variables: GlobalVariables,
-    start_tree_snapshots: TreeSnapshots,
-    start_gas_used: Gas,
-    gas_settings: GasSettings,
-    public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    public_teardown_call_request: PublicCallRequest,
-    previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
-    previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub global_variables: GlobalVariables,
+    pub start_tree_snapshots: TreeSnapshots,
+    pub start_gas_used: Gas,
+    pub gas_settings: GasSettings,
+    pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_teardown_call_request: PublicCallRequest,
+    pub previous_non_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_revertible_accumulated_data_array_lengths: PrivateToAvmAccumulatedDataArrayLengths,
+    pub previous_non_revertible_accumulated_data: PrivateToAvmAccumulatedData,
+    pub previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
 
     ///////////////////////////////////
     // Outputs.
-    end_tree_snapshots: TreeSnapshots,
-    end_gas_used: Gas,
-    accumulated_data: AvmAccumulatedData,
-    transaction_fee: Field,
-    reverted: bool,
+    pub end_tree_snapshots: TreeSnapshots,
+    pub end_gas_used: Gas,
+    pub accumulated_data: AvmAccumulatedData,
+    pub transaction_fee: Field,
+    pub reverted: bool,
 }
 
 impl Empty for AvmCircuitPublicInputs {
@@ -178,6 +180,37 @@ pub struct AvmProofData {
     pub public_inputs: AvmCircuitPublicInputs,
     pub proof: AvmProof,
     pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+}
+
+// The number of columns for the AVM recursive verifier we want to fake, i.e., the resulting
+// verify() routine below will create a similar number of gates as a real AVM recursive verifier
+// with the number of columns set by this constant.
+pub global DUMMY_AVM_VERIFIER_NUM_COLUMNS: u32 = 2200;
+
+// Current AVM recursive verifier has 9500 gates per column.
+// Note that the addition of a single column in AVM recursive verifier incurs 8500 gates.
+// (some additional costs are due to lookups, relations, ...).
+// 78 gates per Poseidon permutation
+// 9500/78 = 121.8
+pub global DUMMY_AVM_VERIFIER_NUM_ITERATIONS: u32 = DUMMY_AVM_VERIFIER_NUM_COLUMNS * 122;
+
+// Warning: This is a fake avm recursive verification whose sole goal is to reproduce a similar
+// computational effort (number of gates) as the real recursive verifier.
+// TODO(#8470): Replace with the real AVM recursive verifier
+impl AvmProofData {
+    pub fn fake_verify(self) {
+        let mut input_hash = poseidon2::Poseidon2::hash(
+            [self.public_inputs.transaction_fee, self.proof.fields[0], self.vk_data.vk.key[0]],
+            3,
+        );
+
+        let mut result: [Field; 4] = [input_hash, 0, 0, 0];
+        for _i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
+            result = poseidon2_permutation(result, 4);
+        }
+
+        assert(!result[0].lt(1));
+    }
 }
 
 impl Verifiable for AvmProofData {

@@ -16,7 +16,7 @@ import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type BootstrapNode,
   InMemoryAttestationPool,
@@ -75,7 +75,6 @@ describe('prover-node', () => {
   let jobs: {
     job: MockProxy<EpochProvingJob>;
     cleanUp: (job: EpochProvingJob) => Promise<void>;
-    db: MerkleTreeWriteOperations;
     epochNumber: bigint;
   }[];
 
@@ -121,7 +120,7 @@ describe('prover-node', () => {
     bondManager = mock<BondManager>();
 
     telemetryClient = new NoopTelemetryClient();
-    config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
+    config = { maxPendingJobs: 3, pollingIntervalMs: 10, maxParallelBlocksPerEpoch: 32 };
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
@@ -174,6 +173,12 @@ describe('prover-node', () => {
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
 
       expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
+    });
+
+    it('does not send a quote if there are no blocks in the epoch', async () => {
+      l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
 
     it('does not send a quote on a finished epoch if the provider does not return one', async () => {
@@ -378,15 +383,13 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      publicDb: MerkleTreeWriteOperations,
-      _proverDb: MerkleTreeWriteOperations,
       _cache: ProverCache,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
       const job = mock<EpochProvingJob>({ getState: () => 'processing', run: () => Promise.resolve() });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job, cleanUp, db: publicDb });
+      jobs.push({ epochNumber, job, cleanUp });
       return job;
     }
 

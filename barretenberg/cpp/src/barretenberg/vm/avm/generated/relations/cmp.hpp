@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class cmpImpl {
   public:
@@ -265,6 +265,25 @@ template <typename FF> class cmp : public Relation<cmpImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_CMP_RES_IS_BOOL = 3;
+    static constexpr size_t SR_CMP_OP_EQ = 4;
+    static constexpr size_t SR_INPUT_DECOMP_1 = 5;
+    static constexpr size_t SR_INPUT_DECOMP_2 = 6;
+    static constexpr size_t SR_SUB_LO_1 = 8;
+    static constexpr size_t SR_SUB_HI_1 = 9;
+    static constexpr size_t SR_SUB_LO_2 = 11;
+    static constexpr size_t SR_SUB_HI_2 = 12;
+    static constexpr size_t SR_RES_LO = 13;
+    static constexpr size_t SR_RES_HI = 14;
+    static constexpr size_t SR_CMP_CTR_REL_1 = 17;
+    static constexpr size_t SR_CMP_CTR_REL_2 = 18;
+    static constexpr size_t SR_CTR_NON_ZERO_REL = 19;
+    static constexpr size_t SR_SHIFT_RELS_0 = 20;
+    static constexpr size_t SR_SHIFT_RELS_1 = 22;
+    static constexpr size_t SR_SHIFT_RELS_2 = 24;
+    static constexpr size_t SR_SHIFT_RELS_3 = 26;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

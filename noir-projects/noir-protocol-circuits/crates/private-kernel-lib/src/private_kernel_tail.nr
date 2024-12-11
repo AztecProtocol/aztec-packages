@@ -67,7 +67,8 @@ mod tests {
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -121,32 +122,15 @@ mod tests {
     fn measuring_of_log_lengths() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = 80;
-        let prev_encrypted_log_preimages_length = 13;
         let prev_contract_class_logs_hash = 956;
         let prev_contract_class_log_preimages_length = 24;
-        builder.previous_kernel.add_masked_encrypted_log_hash(
-            prev_encrypted_logs_hash,
-            prev_encrypted_log_preimages_length,
-        );
         builder.previous_kernel.add_contract_class_log_hash(
             prev_contract_class_logs_hash,
             prev_contract_class_log_preimages_length,
         );
-        // Logs for the current call stack.
-        let encrypted_logs_hash = 26;
-        let encrypted_log_preimages_length = 50;
-        builder.previous_kernel.add_masked_encrypted_log_hash(
-            encrypted_logs_hash,
-            encrypted_log_preimages_length,
-        );
 
         let public_inputs = builder.execute();
 
-        assert_eq(
-            public_inputs.end.encrypted_log_preimages_length,
-            prev_encrypted_log_preimages_length + encrypted_log_preimages_length,
-        );
         assert_eq(
             public_inputs.end.contract_class_log_preimages_length,
             prev_contract_class_log_preimages_length,
@@ -160,7 +144,7 @@ mod tests {
         builder.previous_kernel.append_l2_to_l1_msgs(2);
 
         // Reorder the msgs
-        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage;
+        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage();
         let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
         for i in 0..reversed_msgs.len() {
             reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();
@@ -264,7 +248,7 @@ mod tests {
             Gas::tx_overhead()
                 + Gas::new(
                     4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
-                    1 * L2_GAS_PER_NULLIFIER,
+                    1 * L2_GAS_PER_NULLIFIER + 3 * L2_GAS_PER_L2_TO_L1_MSG,
                 ),
             public_inputs.gas_used,
         );
@@ -273,22 +257,21 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_contract_class_log_hash(42, 12);
+        builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
+        builder.previous_kernel.add_contract_class_log_hash(999, 12);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
+        builder.previous_kernel.append_siloed_private_logs_for_note(2, 44);
 
         let public_inputs = builder.execute();
 
-        assert_eq(
-            Gas::tx_overhead()
-                + Gas::new(
-                    (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE,
-                    1 * L2_GAS_PER_NULLIFIER + 25 * L2_GAS_PER_LOG_BYTE,
-                ),
-            public_inputs.gas_used,
-        );
+        let num_private_logs = 1 + 2;
+        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
+        let l2_gas = 1 * L2_GAS_PER_NULLIFIER
+            + num_private_logs * L2_GAS_PER_PRIVATE_LOG
+            + 12 * L2_GAS_PER_LOG_BYTE;
+        assert_eq(Gas::tx_overhead() + Gas::new(da_gas, l2_gas), public_inputs.gas_used);
     }
 
     #[test(should_fail_with = "The gas used exceeds the gas limits")]

@@ -8,6 +8,7 @@ use crate::{
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
@@ -15,7 +16,6 @@ use types::{
         PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
     content_commitment::ContentCommitment,
-    header::Header,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
     state_reference::StateReference,
     traits::Empty,
@@ -26,26 +26,26 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 
 pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
-    previous_rollup_data: [PreviousRollupData; 2],
+    pub previous_rollup_data: [PreviousRollupData; 2],
 
-    l1_to_l2_roots: RootRollupParityInput,
+    pub l1_to_l2_roots: RootRollupParityInput,
 
     // inputs required to process l1 to l2 messages
-    l1_to_l2_messages: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
-    l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    pub l1_to_l2_messages: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+    pub l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
 
-    start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
+    pub start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
     // inputs required to add the block hash
     // TODO: Remove in favor of left.constants.last_archive
-    start_archive_snapshot: AppendOnlyTreeSnapshot,
-    new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    pub start_archive_snapshot: AppendOnlyTreeSnapshot,
+    pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     // Added previous_block_hash to be passed through to the final root, where it will be either:
     // - checked on L1 for first block in batch
     // - checked against previous block_root.end_block_hash in a block_merge
-    previous_block_hash: Field,
+    pub previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    prover_id: Field,
+    pub prover_id: Field,
 }
 
 impl BlockRootRollupInputs {
@@ -116,7 +116,7 @@ impl BlockRootRollupInputs {
         //     debug_log_format("header.total_fees={0}", [total_fees]);
         //     debug_log_format("header.total_mana_used={0}", [total_mana_used]);
         // }
-        let header = Header {
+        let header = BlockHeader {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,

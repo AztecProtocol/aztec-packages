@@ -40,6 +40,20 @@ uint32_t AvmGasTraceBuilder::get_da_gas_left() const
     return gas_trace.back().remaining_da_gas;
 }
 
+std::tuple<uint32_t, uint32_t> AvmGasTraceBuilder::unconstrained_compute_gas(OpCode opcode, uint32_t dyn_gas_multiplier)
+{
+    // Get the gas prices for this opcode
+    const auto& GAS_COST_TABLE = FixedGasTable::get();
+    const auto& gas_info = GAS_COST_TABLE.at(opcode);
+    auto base_l2_gas_cost = static_cast<uint32_t>(gas_info.base_l2_gas_fixed_table);
+    auto base_da_gas_cost = static_cast<uint32_t>(gas_info.base_da_gas_fixed_table);
+    auto dyn_l2_gas_cost = static_cast<uint32_t>(gas_info.dyn_l2_gas_fixed_table);
+    auto dyn_da_gas_cost = static_cast<uint32_t>(gas_info.dyn_da_gas_fixed_table);
+
+    return { base_l2_gas_cost + dyn_gas_multiplier * dyn_l2_gas_cost,
+             base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost };
+}
+
 void AvmGasTraceBuilder::constrain_gas(
     uint32_t clk, OpCode opcode, uint32_t dyn_gas_multiplier, uint32_t nested_l2_gas_cost, uint32_t nested_da_gas_cost)
 {

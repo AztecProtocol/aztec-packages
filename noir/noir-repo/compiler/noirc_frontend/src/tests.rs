@@ -1209,8 +1209,6 @@ fn resolve_fmt_strings() {
             let string = f"this is i: {i}";
             println(string);
 
-            println(f"I want to print {0}");
-
             let new_val = 10;
             println(f"random_string{new_val}{new_val}");
         }
@@ -1220,7 +1218,7 @@ fn resolve_fmt_strings() {
     "#;
 
     let errors = get_program_errors(src);
-    assert!(errors.len() == 5, "Expected 5 errors, got: {:?}", errors);
+    assert!(errors.len() == 3, "Expected 5 errors, got: {:?}", errors);
 
     for (err, _file_id) in errors {
         match &err {
@@ -1229,21 +1227,13 @@ fn resolve_fmt_strings() {
             }) => {
                 assert_eq!(name, "i");
             }
-            CompilationError::ResolverError(ResolverError::NumericConstantInFormatString {
-                name,
-                ..
-            }) => {
-                assert_eq!(name, "0");
-            }
             CompilationError::TypeError(TypeCheckError::UnusedResultError {
                 expr_type: _,
                 expr_span,
             }) => {
                 let a = src.get(expr_span.start() as usize..expr_span.end() as usize).unwrap();
                 assert!(
-                    a == "println(string)"
-                        || a == "println(f\"I want to print {0}\")"
-                        || a == "println(f\"random_string{new_val}{new_val}\")"
+                    a == "println(string)" || a == "println(f\"random_string{new_val}{new_val}\")"
                 );
             }
             _ => unimplemented!(),
@@ -3752,6 +3742,35 @@ fn allows_struct_with_generic_infix_type_as_main_input_3() {
     assert_no_errors(src);
 }
 
+#[test]
+fn errors_with_better_message_when_trying_to_invoke_struct_field_that_is_a_function() {
+    let src = r#"
+        pub struct Foo {
+            wrapped: fn(Field) -> bool,
+        }
+
+        impl Foo {
+            fn call(self) -> bool {
+                self.wrapped(1)
+            }
+        }
+
+        fn main() {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::CannotInvokeStructFieldFunctionType {
+        method_name,
+        ..
+    }) = &errors[0].0
+    else {
+        panic!("Expected a 'CannotInvokeStructFieldFunctionType' error, got {:?}", errors[0].0);
+    };
+
+    assert_eq!(method_name, "wrapped");
+}
+
 fn test_disallows_attribute_on_impl_method(
     attr: &str,
     check_error: impl FnOnce(&CompilationError),
@@ -3844,4 +3863,34 @@ fn disallows_export_attribute_on_trait_impl_method() {
             )
         ));
     });
+}
+
+#[test]
+fn allows_multiple_underscore_parameters() {
+    let src = r#"
+        pub fn foo(_: i32, _: i64) {}
+
+        fn main() {}
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn disallows_underscore_on_right_hand_side() {
+    let src = r#"
+        fn main() {
+            let _ = 1;
+            let _x = _;
+        }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ResolverError(ResolverError::VariableNotDeclared { name, .. }) =
+        &errors[0].0
+    else {
+        panic!("Expected a VariableNotDeclared error, got {:?}", errors[0].0);
+    };
+
+    assert_eq!(name, "_");
 }

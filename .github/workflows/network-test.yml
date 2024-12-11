@@ -1,0 +1,86 @@
+name: Aztec Network Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      namespace:
+        description: The namespace to deploy to, e.g. smoke
+        required: true
+      test:
+        description: The test to run, e.g. spartan/smoke.test.ts
+        required: true
+      aztec_e2e_docker_image:
+        description: The Aztec E2E Docker image to use, e.g. aztecprotocol/end-to-end:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
+        required: true
+
+jobs:
+  network_test:
+    runs-on: ubuntu-latest
+
+    env:
+      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image }}
+      NAMESPACE: ${{ inputs.namespace }}
+      TEST: ${{ inputs.test }}
+      CHART_PATH: ./spartan/aztec-network
+      CLUSTER_NAME: aztec-gke
+      REGION: us-west1-a
+      PROJECT_ID: testnet-440309
+      GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure kubectl with GKE cluster
+        run: |
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
+
+      - name: Run test
+        run: |
+
+          # Find 3 free ports between 9000 and 10000
+          FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
+
+          # Extract the free ports from the list
+          PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
+          ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
+          METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
+
+          export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+
+          gcloud config set project ${{ env.PROJECT_ID }}
+
+          GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
+
+          echo "gcloud config dir: [$GCLOUD_CONFIG_DIR]"
+
+          docker run --rm --network=host \
+            -v ~/.kube:/root/.kube \
+            -v $GCLOUD_CONFIG_DIR:/root/.config/gcloud \
+            -e K8S=gcloud \
+            -e CLUSTER_NAME=${{ env.CLUSTER_NAME }} \
+            -e REGION=${{ env.REGION }} \
+            -e INSTANCE_NAME=${{ env.NAMESPACE }} \
+            -e SPARTAN_DIR="/usr/src/spartan" \
+            -e NAMESPACE=${{ env.NAMESPACE }} \
+            -e HOST_PXE_PORT=$PXE_PORT \
+            -e CONTAINER_PXE_PORT=8081 \
+            -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
+            -e CONTAINER_ETHEREUM_PORT=8545 \
+            -e HOST_METRICS_PORT=$METRICS_PORT \
+            -e CONTAINER_METRICS_PORT=80 \
+            -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
+            -e DEBUG="aztec:*" \
+            -e LOG_JSON=1 \
+            -e LOG_LEVEL=debug \
+            ${{ env.TEST_DOCKER_IMAGE }} ${{ env.TEST }}

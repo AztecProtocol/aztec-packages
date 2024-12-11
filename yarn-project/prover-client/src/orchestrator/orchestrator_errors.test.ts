@@ -1,24 +1,19 @@
-import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { times } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 
-import { makeBloatedProcessedTxWithVKRoot } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
+import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-errors');
+const logger = createLogger('prover-client:test:orchestrator-errors');
 
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;
-
-  const makeEmptyProcessedTestTx = () => {
-    const header = context.actualDb.getInitialHeader();
-    return makeEmptyProcessedTx(header, Fr.ZERO, Fr.ZERO, getVKTreeRoot(), protocolContractTreeRoot);
-  };
+  let orchestrator: ProvingOrchestrator;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
+    orchestrator = context.orchestrator;
   });
 
   afterEach(async () => {
@@ -29,73 +24,68 @@ describe('prover/orchestrator/errors', () => {
 
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
-      const txs = [
-        makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
-        makeBloatedProcessedTxWithVKRoot(context.actualDb, 2),
-        makeBloatedProcessedTxWithVKRoot(context.actualDb, 3),
-        makeBloatedProcessedTxWithVKRoot(context.actualDb, 4),
-      ];
+      const txs = times(4, i => context.makeProcessedTx(i + 1));
 
-      context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
+      orchestrator.startNewEpoch(1, 1, 1);
+      await orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
-        await context.orchestrator.addNewTx(tx);
+        await orchestrator.addNewTx(tx);
       }
 
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
-        'Rollup not accepting further transactions',
+      await expect(async () => await orchestrator.addNewTx(context.makeProcessedTx())).rejects.toThrow(
+        /Rollup not accepting further transactions/,
       );
 
-      const block = await context.orchestrator.setBlockCompleted();
+      const block = await orchestrator.setBlockCompleted(context.blockNumber);
       expect(block.number).toEqual(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await orchestrator.finaliseEpoch();
     });
 
     it('throws if adding too many blocks', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-      await context.orchestrator.setBlockCompleted();
+      orchestrator.startNewEpoch(1, 1, 1);
+      await orchestrator.startNewBlock(2, context.globalVariables, []);
+      await orchestrator.setBlockCompleted(context.blockNumber);
 
-      await expect(
-        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
-      ).rejects.toThrow('Epoch not accepting further blocks');
+      await expect(async () => await orchestrator.startNewBlock(2, context.globalVariables, [])).rejects.toThrow(
+        'Epoch not accepting further blocks',
+      );
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
-        `Invalid proving state, call startNewBlock before adding transactions`,
+      await expect(async () => await orchestrator.addNewTx(context.makeProcessedTx())).rejects.toThrow(
+        /Block proving state for 1 not found/,
       );
     });
 
     it('throws if adding a transaction before starting block', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
-        `Invalid proving state, call startNewBlock before adding transactions`,
+      orchestrator.startNewEpoch(1, 1, 1);
+      await expect(async () => await orchestrator.addNewTx(context.makeProcessedTx())).rejects.toThrow(
+        /Block proving state for 1 not found/,
       );
     });
 
     it('throws if completing a block before start', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
-        'Invalid proving state, call startNewBlock before adding transactions or completing the block',
+      orchestrator.startNewEpoch(1, 1, 1);
+      await expect(async () => await orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
+        /Block proving state for 1 not found/,
       );
     });
 
     it('throws if setting an incomplete block as completed', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(3, context.globalVariables, []);
-      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
+      orchestrator.startNewEpoch(1, 1, 1);
+      await orchestrator.startNewBlock(3, context.globalVariables, []);
+      await expect(async () => await orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
         `Block not ready for completion: expecting ${3} more transactions.`,
       );
     });
 
     it('throws if adding to a cancelled block', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-      context.orchestrator.cancel();
+      orchestrator.startNewEpoch(1, 1, 1);
+      await orchestrator.startNewBlock(2, context.globalVariables, []);
+      orchestrator.cancel();
 
-      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await orchestrator.addNewTx(context.makeProcessedTx())).rejects.toThrow(
         'Invalid proving state when adding a tx',
       );
     });
@@ -103,25 +93,25 @@ describe('prover/orchestrator/errors', () => {
     it.each([[-4], [0], [1], [8.1]] as const)(
       'fails to start a block with %i transactions',
       async (blockSize: number) => {
-        context.orchestrator.startNewEpoch(1, 1);
+        orchestrator.startNewEpoch(1, 1, 1);
         await expect(
-          async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
+          async () => await orchestrator.startNewBlock(blockSize, context.globalVariables, []),
         ).rejects.toThrow(`Invalid number of txs for block (got ${blockSize})`);
       },
     );
 
     it.each([[-4], [0], [8.1]] as const)('fails to start an epoch with %i blocks', (epochSize: number) => {
-      context.orchestrator.startNewEpoch(1, 1);
-      expect(() => context.orchestrator.startNewEpoch(1, epochSize)).toThrow(
+      orchestrator.startNewEpoch(1, 1, 1);
+      expect(() => orchestrator.startNewEpoch(1, 1, epochSize)).toThrow(
         `Invalid number of blocks for epoch (got ${epochSize})`,
       );
     });
 
     it('rejects if too many l1 to l2 messages are provided', async () => {
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-      context.orchestrator.startNewEpoch(1, 1);
+      orchestrator.startNewEpoch(1, 1, 1);
       await expect(
-        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, l1ToL2Messages),
+        async () => await orchestrator.startNewBlock(2, context.globalVariables, l1ToL2Messages),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });

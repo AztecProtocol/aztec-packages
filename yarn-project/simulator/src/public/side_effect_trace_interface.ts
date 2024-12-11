@@ -10,7 +10,7 @@ import {
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
-import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
@@ -66,6 +66,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -73,20 +76,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
-  ): void;
-  traceNestedCall(
-    /** The trace of the nested call. */
-    nestedCallTrace: PublicSideEffectTraceInterface,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name */
-    functionName: string,
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */

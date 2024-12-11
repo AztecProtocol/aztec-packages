@@ -9,9 +9,7 @@ import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
   type ContractClassPublic,
-  ContractClassRegisteredEvent,
   type ContractDataSource,
-  ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
   Fr,
   type FunctionSelector,
@@ -22,9 +20,9 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ContractInstanceDeployedEvent } from '@aztec/protocol-contracts';
 import {
   type CommitmentsDB,
   MessageLoadOracleInputs,
@@ -41,7 +39,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   private classCache = new Map<string, ContractClassPublic>();
   private bytecodeCommitmentCache = new Map<string, Fr>();
 
-  private log = createDebugLogger('aztec:sequencer:contracts-data-source');
+  private log = createLogger('simulator:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
   /**
@@ -51,13 +49,20 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   public addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.contractClassLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e => {
-      this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
-      this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
-    });
-    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
-    const encLogs = tx.encryptedLogs.unrollLogs();
-    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => {
+    logs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      .forEach(log => {
+        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
+        this.classCache.set(event.contractClassId.toString(), event.toContractClassPublic());
+      });
+
+    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
+    const contractInstanceEvents = tx.data
+      .getNonEmptyPrivateLogs()
+      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
+      .map(ContractInstanceDeployedEvent.fromLog);
+    contractInstanceEvents.forEach(e => {
       this.log.debug(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
@@ -76,12 +81,20 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
     const logs = tx.contractClassLogs.unrollLogs();
-    ContractClassRegisteredEvent.fromLogs(logs, ProtocolContractAddress.ContractClassRegisterer).forEach(e =>
-      this.classCache.delete(e.contractClassId.toString()),
-    );
-    // We store the contract instance deployed event log in enc logs, contract_instance_deployer_contract/src/main.nr
-    const encLogs = tx.encryptedLogs.unrollLogs();
-    ContractInstanceDeployedEvent.fromLogs(encLogs).forEach(e => this.instanceCache.delete(e.address.toString()));
+    logs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      .forEach(log => {
+        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        this.classCache.delete(event.contractClassId.toString());
+      });
+
+    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
+    const contractInstanceEvents = tx.data
+      .getNonEmptyPrivateLogs()
+      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
+      .map(ContractInstanceDeployedEvent.fromLog);
+    contractInstanceEvents.forEach(e => this.instanceCache.delete(e.address.toString()));
+
     return Promise.resolve();
   }
 
@@ -139,7 +152,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
  * A public state DB that reads and writes to the world state.
  */
 export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, CommitmentsDB {
-  private logger = createDebugLogger('aztec:sequencer:world-state-db');
+  private logger = createLogger('simulator:world-state-db');
 
   private publicCommittedWriteCache: Map<bigint, Fr> = new Map();
   private publicCheckpointedWriteCache: Map<bigint, Fr> = new Map();

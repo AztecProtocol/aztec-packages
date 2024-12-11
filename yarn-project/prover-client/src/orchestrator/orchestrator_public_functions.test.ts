@@ -1,11 +1,11 @@
 import { mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createDebugLogger('aztec:orchestrator-public-functions');
+const logger = createLogger('prover-client:test:orchestrator-public-functions');
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;
@@ -35,21 +35,21 @@ describe('prover/orchestrator/public-functions', () => {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });
-        tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
+        tx.data.constants.historicalHeader = context.getBlockHeader(0);
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
-        context.orchestrator.startNewEpoch(1, 1);
+        context.orchestrator.startNewEpoch(1, 1, 1);
         await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
         for (const processedTx of processed) {
           await context.orchestrator.addNewTx(processedTx);
         }
 
-        const block = await context.orchestrator.setBlockCompleted();
+        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finaliseEpoch();
         expect(block.number).toEqual(context.blockNumber);
       },

@@ -8,7 +8,7 @@ import {
   PrivateTubeData,
   VkWitnessData,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -16,7 +16,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupHints } from '../orchestrator/block-building-helpers.js';
 
-const logger = createDebugLogger('aztec:bb-prover-base-rollup');
+const logger = createLogger('prover-client:test:bb-prover-base-rollup');
 
 describe('prover/bb_prover/base-rollup', () => {
   let context: TestContext;
@@ -27,7 +27,7 @@ describe('prover/bb_prover/base-rollup', () => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    context = await TestContext.new(logger, 'native', 1, buildProver);
+    context = await TestContext.new(logger, 1, buildProver);
   });
 
   afterAll(async () => {
@@ -35,7 +35,7 @@ describe('prover/bb_prover/base-rollup', () => {
   });
 
   it('proves the base rollup', async () => {
-    const header = context.actualDb.getInitialHeader();
+    const header = context.getBlockHeader(0);
     const chainId = context.globalVariables.chainId;
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();
@@ -59,7 +59,7 @@ describe('prover/bb_prover/base-rollup', () => {
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
-    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, context.actualDb);
+    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, await context.getFork());
     const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');

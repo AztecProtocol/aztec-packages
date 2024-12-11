@@ -10,18 +10,16 @@ import {
   BatchCall,
   CheatCodes,
   type ContractMethod,
-  type DebugLogger,
   type DeployL1Contracts,
-  EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
-  LogType,
+  type Logger,
   NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
   deployL1Contracts,
   makeFetch,
@@ -97,7 +95,7 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
+  logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
@@ -139,7 +137,7 @@ export async function setupPXEService(
   /**
    * Logger instance named as the current test.
    */
-  logger: DebugLogger;
+  logger: Logger;
   /**
    * Teardown function
    */
@@ -171,7 +169,7 @@ export async function setupPXEService(
 async function setupWithRemoteEnvironment(
   account: Account,
   config: AztecNodeConfig,
-  logger: DebugLogger,
+  logger: Logger,
   numberOfAccounts: number,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
@@ -278,7 +276,7 @@ export type EndToEndContext = {
   /** The wallets to be used. */
   wallets: AccountWalletWithSecretKey[];
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
   /** The anvil test watcher (undefined if connected to remove environment) */
@@ -379,7 +377,7 @@ export async function setup(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 
@@ -546,30 +544,10 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createDebugLogger('aztec:' + name);
+    return createLogger('e2e:' + name);
   }
-  return createDebugLogger('aztec:' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName);
 }
-
-/**
- * Checks the number of encrypted logs in the last block is as expected.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
- * @param numEncryptedLogs - The number of expected logs.
- */
-export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNode | undefined,
-  numEncryptedLogs: number,
-) => {
-  if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the PXE Service so we have to use the node
-    // This means we can't perform this check if there is no node
-    return;
-  }
-  const l2BlockNum = await aztecNode.getBlockNumber();
-  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
-  const unrolledLogs = EncryptedNoteL2BlockL2Logs.unrollLogs(encryptedLogs);
-  expect(unrolledLogs.length).toBe(numEncryptedLogs);
-};
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
@@ -704,6 +682,7 @@ export async function createAndSyncProverNode(
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 10,
+    proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
     quoteProviderBasisPointFee: 100,
     quoteProviderBondAmount: 1000n,

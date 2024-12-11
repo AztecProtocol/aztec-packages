@@ -3,6 +3,7 @@
  */
 import { TxHash, mockTx } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -27,11 +28,13 @@ describe('ValidationService', () => {
   let config: ValidatorClientConfig;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
+  let epochCache: MockProxy<EpochCache>;
   let validatorAccount: PrivateKeyAccount;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
+    epochCache = mock<EpochCache>();
 
     const validatorPrivateKey = generatePrivateKey();
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
@@ -43,12 +46,12 @@ describe('ValidationService', () => {
       disableValidator: false,
       validatorReexecute: false,
     };
-    validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient());
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, p2pClient, new NoopTelemetryClient())).toThrow(
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient())).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });
@@ -56,7 +59,7 @@ describe('ValidationService', () => {
   it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
     config.validatorReexecute = true;
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
-    const val = ValidatorClient.new(config, p2pClient);
+    const val = ValidatorClient.new(config, epochCache, p2pClient);
     await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
@@ -70,7 +73,7 @@ describe('ValidationService', () => {
     expect(blockProposal).toBeDefined();
 
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
-    expect(blockProposal.getSender()).toEqual(validatorAddress);
+    expect(blockProposal?.getSender()).toEqual(validatorAddress);
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
@@ -97,13 +100,76 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
+    );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
-    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    const val = ValidatorClient.new(config, epochCache, p2pClient);
     val.registerBlockBuilder(() => {
       throw new Error('Failed to build block');
     });
 
     const attestation = await val.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it('Should not return an attestation if the validator is not in the committee', async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
+    );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it('Should not return an attestation if the proposer is not the current proposer', async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve({
+        currentProposer: EthAddress.random(),
+        nextProposer: EthAddress.random(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
+    );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it('Should not return an attestation if the proposal is not for the current or next slot', async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt() + 20n,
+        nextSlot: proposal.slotNumber.toBigInt() + 21n,
+      }),
+    );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
     expect(attestation).toBeUndefined();
   });
 

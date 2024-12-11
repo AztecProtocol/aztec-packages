@@ -6,11 +6,11 @@ import {
   BatchCall,
   CheatCodes,
   type CompleteAddress,
-  type DebugLogger,
   type DeployL1Contracts,
   EthCheatCodes,
   Fr,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -18,12 +18,13 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
+import { type InstalledClock, install } from '@sinonjs/fake-timers';
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
@@ -49,6 +50,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
+  timer: InstalledClock;
 };
 
 type SnapshotEntry = {
@@ -87,14 +89,14 @@ export interface ISnapshotManager {
 /** Snapshot manager that does not perform snapshotting, it just applies transition and restoration functions as it receives them. */
 class MockSnapshotManager implements ISnapshotManager {
   private context?: SubsystemsContext;
-  private logger: DebugLogger;
+  private logger: Logger;
 
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
-    this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
+    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
 
@@ -134,7 +136,7 @@ class SnapshotManager implements ISnapshotManager {
   private snapshotStack: SnapshotEntry[] = [];
   private context?: SubsystemsContext;
   private livePath: string;
-  private logger: DebugLogger;
+  private logger: Logger;
 
   constructor(
     testName: string,
@@ -143,7 +145,7 @@ class SnapshotManager implements ISnapshotManager {
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
-    this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
+    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
   }
 
   public async snapshot<T>(
@@ -247,6 +249,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.acvmConfig?.cleanup();
   await context.anvil.stop();
   await context.watcher.stop();
+  context.timer?.uninstall();
 }
 
 /**
@@ -264,6 +267,9 @@ async function setupFromFresh(
   },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
+
+  // Use sinonjs fake timers
+  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
@@ -296,9 +302,9 @@ async function setupFromFresh(
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
     salt: opts.salt,
-    initialValidators: opts.initialValidators,
     ...deployL1ContractsArgs,
     ...getL1ContractsConfigEnvVars(),
+    initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
@@ -317,7 +323,7 @@ async function setupFromFresh(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 
@@ -345,7 +351,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort, /*serviceName*/ statePath);
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
@@ -382,6 +388,7 @@ async function setupFromFresh(
     proverNode,
     watcher,
     cheatCodes,
+    timer,
   };
 }
 
@@ -390,6 +397,9 @@ async function setupFromFresh(
  */
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
+
+  // TODO: make one function
+  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
@@ -463,6 +473,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     },
     watcher,
     cheatCodes,
+    timer,
   };
 }
 
@@ -471,7 +482,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
 export const addAccounts =
-  (numberOfAccounts: number, logger: DebugLogger, waitUntilProven = false) =>
+  (numberOfAccounts: number, logger: Logger, waitUntilProven = false) =>
   async ({ pxe }: { pxe: PXE }) => {
     // Generate account keys.
     const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [

@@ -159,6 +159,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
     const size_t num_challenges = CONST_ECCVM_LOG_N + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
