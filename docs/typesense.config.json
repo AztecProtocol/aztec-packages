@@ -1,10 +1,10 @@
 {
     "index_name": "aztec-docs",
     "start_urls": [
-        "http://host.docker.internal/"
+        "https://docs.aztec.network/"
       ],
       "sitemap_urls": [
-        "http://host.docker.internal/sitemap.xml"
+        "https://docs.aztec.network/sitemap.xml"
       ],
     "sitemap_alternate_links": true,
     "selectors": {
