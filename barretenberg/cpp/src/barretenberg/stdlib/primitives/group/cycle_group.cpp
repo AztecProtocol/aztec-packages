@@ -1271,7 +1271,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             }
             for (size_t j = 0; j < num_points; ++j) {
 
-                const Element point = native_straus_tables[j][scalar_slices[j].slices_native[num_rounds - i - 1]];
+                const Element point =
+                    native_straus_tables[j][static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1])];
 
                 accumulator += point;
 
