@@ -86,43 +86,6 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec,
     info("verified: ", *result);
 }
 
-WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
-                                                    bool const* recursive,
-                                                    uint8_t const* witness_vec,
-                                                    bool* result)
-{
-    using ProgramStack = acir_format::AcirProgramStack;
-    using Builder = MegaCircuitBuilder;
-
-    auto constraint_systems =
-        acir_format::program_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
-    auto witness_stack = acir_format::witness_buf_to_witness_stack(from_buffer<std::vector<uint8_t>>(witness_vec));
-
-    ProgramStack program_stack{ constraint_systems, witness_stack };
-
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc, *recursive };
-
-    bool is_kernel = false;
-    while (!program_stack.empty()) {
-        auto program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-        builder.databus_propagation_data.is_kernel = is_kernel;
-        is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
-
-        ivc->accumulate(builder);
-
-        program_stack.pop_back();
-    }
-    *result = ivc->prove_and_verify();
-    info("acir_fold_and_verify_program_stack result: ", *result);
-}
-
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec,
                                                  bool const* recursive,
                                                  uint8_t const* witness_vec,

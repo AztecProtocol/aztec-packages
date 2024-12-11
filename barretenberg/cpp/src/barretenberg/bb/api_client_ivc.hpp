@@ -3,6 +3,7 @@
 #include "barretenberg/bb/acir_format_getters.hpp"
 #include "barretenberg/bb/api.hpp"
 #include "barretenberg/bb/init_srs.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "libdeflate.h"
 
@@ -235,6 +236,51 @@ class ClientIVCAPI : public API {
         std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack);
         const bool verified = ivc->prove_and_verify();
         return verified;
+    };
+
+    /**
+     * @brief Write an arbitrary but valid ClientIVC proof and VK to files
+     * @details used to test the prove_tube flow
+     *
+     * @param flags
+     * @param output_dir
+     */
+    static void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
+                                                           const std::filesystem::path& output_dir)
+    {
+        if (!flags.output_type || *flags.output_type != "fields_msgpack") {
+            throw_or_abort("No output_type or output_type not supported");
+        }
+
+        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
+            throw_or_abort("No input_type or input_type not supported");
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        init_bn254_crs(1 << 20);
+        init_grumpkin_crs(1 << 15);
+
+        ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+
+        // Construct and accumulate a series of mocked private function execution circuits
+        PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+        size_t NUM_CIRCUITS = 2;
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc);
+            ivc.accumulate(circuit);
+        }
+
+        ClientIVC::Proof proof = ivc.prove();
+
+        // Write the proof and verification keys into the working directory in 'binary' format
+        vinfo("writing ClientIVC proof and vk...");
+        write_file(output_dir / "client_ivc_proof", to_buffer(proof));
+
+        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+        auto translator_vk =
+            std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+        write_file(output_dir / "client_ivc_vk",
+                   to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
     };
 
     void gates([[maybe_unused]] const API::Flags& flags,
