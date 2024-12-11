@@ -112,12 +112,12 @@ library Constants {
     14061769416655647708490531650437236735160113654556896985372298487345;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
-  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
+  uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 12000000;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant FIXED_L2_GAS = 512;
-  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 1024;
+  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 20000;
   uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
   uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
   uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;

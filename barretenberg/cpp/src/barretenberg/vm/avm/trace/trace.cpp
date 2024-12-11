@@ -401,9 +401,16 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
     , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
+    // Only allocate up to the maximum L2 gas for execution
+    // TODO: constrain this!
+    auto const l2_gas_left_after_private =
+        public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+    // TODO: think about cast
+    auto const allocated_l2_gas =
+        std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas),
+        static_cast<uint32_t>(allocated_l2_gas),
         static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
