@@ -98,6 +98,9 @@
         }
       ]
     ],
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   }
 }

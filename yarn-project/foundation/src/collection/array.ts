@@ -145,3 +145,13 @@ export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = 
 export function maxBy<T>(arr: T[], fn: (x: T) => number): T | undefined {
   return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
 }
+
+/** Computes the median of a numeric array. Returns undefined if array is empty. */
+export function median(arr: number[]) {
+  if (arr.length === 0) {
+    return undefined;
+  }
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}

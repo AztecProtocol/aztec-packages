@@ -37,8 +37,8 @@ describe('e2e_deploy_contract private initialization', () => {
     async kind => {
       const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
       const owner = await t.registerRandomAccount();
-      const outgoingViewer = owner;
-      const initArgs: StatefulContractCtorArgs = [owner, outgoingViewer, 42];
+      const sender = owner;
+      const initArgs: StatefulContractCtorArgs = [owner, sender, 42];
       const contract = await t.registerContract(testWallet, StatefulTestContract, { initArgs });
       logger.info(`Calling the constructor for ${contract.address}`);
       await contract.methods
@@ -48,7 +48,7 @@ describe('e2e_deploy_contract private initialization', () => {
       logger.info(`Checking if the constructor was run for ${contract.address}`);
       expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
       logger.info(`Calling a private function that requires initialization on ${contract.address}`);
-      await contract.methods.create_note(owner, outgoingViewer, 10).send().wait();
+      await contract.methods.create_note(owner, sender, 10).send().wait();
       expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
     },
   );
@@ -70,10 +70,10 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = await t.registerRandomAccount();
     const initArgs: StatefulContractCtorArgs = [owner, owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
-    const outgoingViewer = owner;
+    const sender = owner;
     const batch = new BatchCall(wallet, [
       contract.methods.constructor(...initArgs).request(),
-      contract.methods.create_note(owner, outgoingViewer, 10).request(),
+      contract.methods.create_note(owner, sender, 10).request(),
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send().wait();
@@ -101,29 +101,29 @@ describe('e2e_deploy_contract private initialization', () => {
     const initArgs: StatefulContractCtorArgs = [owner, owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
-    const outgoingViewer = owner;
-    await expect(contract.methods.create_note(owner, outgoingViewer, 10).send().wait()).rejects.toThrow(
+    const sender = owner;
+    await expect(contract.methods.create_note(owner, sender, 10).send().wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/i,
     );
   });
 
   it('refuses to initialize a contract with incorrect args', async () => {
     const owner = await t.registerRandomAccount();
-    const outgoingViewer = owner;
-    const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, outgoingViewer, 42] });
-    await expect(contract.methods.constructor(owner, outgoingViewer, 43).prove()).rejects.toThrow(
+    const sender = owner;
+    const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, sender, 42] });
+    await expect(contract.methods.constructor(owner, sender, 43).prove()).rejects.toThrow(
       /Initialization hash does not match/,
     );
   });
 
   it('refuses to initialize an instance from a different deployer', async () => {
     const owner = await t.registerRandomAccount();
-    const outgoingViewer = owner;
+    const sender = owner;
     const contract = await t.registerContract(wallet, StatefulTestContract, {
-      initArgs: [owner, outgoingViewer, 42],
+      initArgs: [owner, sender, 42],
       deployer: owner,
     });
-    await expect(contract.methods.constructor(owner, outgoingViewer, 42).prove()).rejects.toThrow(
+    await expect(contract.methods.constructor(owner, sender, 42).prove()).rejects.toThrow(
       /Initializer address is not the contract deployer/i,
     );
   });

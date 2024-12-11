@@ -740,6 +740,7 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_OPCODE_SELECTORS = 0;
     static constexpr size_t SR_OUTPUT_U1 = 75;
     static constexpr size_t SR_SUBOP_FDIV = 76;

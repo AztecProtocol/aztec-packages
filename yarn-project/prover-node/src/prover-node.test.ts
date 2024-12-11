@@ -175,6 +175,12 @@ describe('prover-node', () => {
       expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
     });
 
+    it('does not send a quote if there are no blocks in the epoch', async () => {
+      l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
+    });
+
     it('does not send a quote on a finished epoch if the provider does not return one', async () => {
       quoteProvider.getQuote.mockResolvedValue(undefined);
       await proverNode.handleEpochCompleted(10n);

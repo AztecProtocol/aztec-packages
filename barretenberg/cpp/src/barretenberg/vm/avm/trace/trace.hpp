@@ -235,6 +235,7 @@ class AvmTraceBuilder {
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
     std::unordered_set<FF> bytecode_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+    void pay_fee();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -325,21 +326,6 @@ class AvmTraceBuilder {
                                                            AvmMemoryTag data_r_tag,
                                                            uint32_t metadata_offset,
                                                            AvmMemoryTag metadata_r_tag);
-
-    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
-                                                                       uint32_t data_offset,
-                                                                       uint32_t address_offset,
-                                                                       uint32_t metadata_offset);
-
-    Row create_kernel_output_opcode_for_leaf_index(uint32_t clk,
-                                                   uint32_t data_offset,
-                                                   uint32_t leaf_index,
-                                                   uint32_t metadata_offset);
-
-    RowWithError create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                                      uint32_t clk,
-                                                                      uint32_t data_offset,
-                                                                      uint32_t metadata_offset);
 
     AvmError constrain_external_call(OpCode opcode,
                                      uint16_t indirect,
