@@ -22,7 +22,6 @@ key_dir=./target/keys
 megahonk_patterns=(
   "^private_kernel_init"
   "^private_kernel_inner"
-  "^private_kernel_reset.*"
   "^private_kernel_tail.*"
 )
 ivc_patterns=(
@@ -32,6 +31,7 @@ ivc_patterns=(
   "mock_private_kernel_tail.*"
   "app_creator"
   "app_reader"
+  "^private_kernel_reset.*"
 )
 megahonk_regex=$(IFS="|"; echo "${megahonk_patterns[*]}")
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
