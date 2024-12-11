@@ -171,7 +171,7 @@ pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
 // GAS DEFAULTS
 pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
-pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
+pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 12_000_000;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -179,7 +179,7 @@ pub global FIXED_DA_GAS: u32 = 512;
 // pays for fixed tx costs like validation, and updating state roots
 pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
-pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 1024;
+pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.
@@ -226,6 +226,9 @@ pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+
+// Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 
 // CANONICAL DEFAULT KEYS
 // This below are:
@@ -372,7 +375,7 @@ pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + 1 /* unencrypted_log_preimages_length */
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + 1 /* contract_class_log_preimages_length */
-    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
+    + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
@@ -409,7 +412,7 @@ pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
     + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
-    + (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
+    + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
     + ROLLUP_VALIDATION_REQUESTS_LENGTH
@@ -431,6 +434,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
+    + 1 /* fee_payer */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */

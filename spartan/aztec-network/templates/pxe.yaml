@@ -61,7 +61,7 @@ spec:
         {{- end }}
       containers:
         - name: pxe
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
