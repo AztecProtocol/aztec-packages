@@ -1,9 +1,9 @@
 import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_metadata');
+  #log = createLogger('p2p:tx_validator:tx_metadata');
 
   constructor(private chainId: Fr, private blockNumber: Fr) {}
 
@@ -45,11 +45,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   #isValidForBlockNumber(tx: T): boolean {
-    const target =
-      tx instanceof Tx
-        ? tx.data.forRollup?.rollupValidationRequests || tx.data.forPublic!.validationRequests.forRollup
-        : tx.data.rollupValidationRequests;
-    const maxBlockNumber = target.maxBlockNumber;
+    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
 
     if (maxBlockNumber.isSome && maxBlockNumber.value < this.blockNumber) {
       this.#log.warn(

@@ -131,7 +131,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     } else {
       // Siloing is only needed after processing all iterations.
       fns.push(
-        ...[() => this.needsSiloNoteHashes(), () => this.needsSiloNullifiers(), () => this.needsSiloLogHashes()],
+        ...[() => this.needsSiloNoteHashes(), () => this.needsSiloNullifiers(), () => this.needsSiloPrivateLogs()],
       );
       // If there's no next iteration, reset is needed when any of the dimension has non empty data.
       // All the fns should to be executed so that data in all dimensions will be reset.
@@ -424,7 +424,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNoteHashes`.');
     }
 
-    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isEmpty()).length;
+    const numNoteHashes = this.previousKernel.end.noteHashes.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNoteHashes - this.numTransientData);
     this.requestedDimensions.NOTE_HASH_SILOING_AMOUNT = numToSilo;
 
@@ -436,7 +436,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNullifiers`.');
     }
 
-    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.contractAddress.isEmpty()).length;
+    const numNullifiers = this.previousKernel.end.nullifiers.filter(n => !n.contractAddress.isZero()).length;
     const numToSilo = Math.max(0, numNullifiers - this.numTransientData);
     // Include the first nullifier if there's something to silo.
     // The reset circuit checks that capped_size must be greater than or equal to all non-empty nullifiers.
@@ -447,14 +447,22 @@ export class PrivateKernelResetPrivateInputsBuilder {
     return numToSilo > 0;
   }
 
-  private needsSiloLogHashes() {
+  private needsSiloPrivateLogs() {
     if (this.numTransientData === undefined) {
-      throw new Error('`needsResetTransientData` must be run before `needsSiloLogHashes`.');
+      throw new Error('`needsResetTransientData` must be run before `needsSiloPrivateLogs`.');
     }
 
-    const numLogs = this.previousKernel.end.encryptedLogsHashes.filter(l => !l.logHash.randomness.isZero()).length;
-    const numToSilo = Math.max(0, numLogs - this.numTransientData);
-    this.requestedDimensions.ENCRYPTED_LOG_SILOING_AMOUNT = numToSilo;
+    const privateLogs = this.previousKernel.end.privateLogs;
+    const numLogs = privateLogs.filter(l => !l.contractAddress.isZero()).length;
+
+    const noteHashes = this.previousKernel.end.noteHashes;
+    const squashedNoteHashCounters = this.transientDataIndexHints
+      .filter(h => h.noteHashIndex < noteHashes.length)
+      .map(h => noteHashes[h.noteHashIndex].counter);
+    const numSquashedLogs = privateLogs.filter(l => squashedNoteHashCounters.includes(l.inner.noteHashCounter)).length;
+
+    const numToSilo = numLogs - numSquashedLogs;
+    this.requestedDimensions.PRIVATE_LOG_SILOING_AMOUNT = numToSilo;
 
     return numToSilo > 0;
   }

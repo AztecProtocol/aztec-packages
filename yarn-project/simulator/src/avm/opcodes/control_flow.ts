@@ -7,9 +7,9 @@ import { Instruction } from './instruction.js';
 
 export class Jump extends Instruction {
   static type: string = 'JUMP';
-  static readonly opcode: Opcode = Opcode.JUMP_16;
+  static readonly opcode: Opcode = Opcode.JUMP_32;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private jumpOffset: number) {
     super();
@@ -22,21 +22,25 @@ export class Jump extends Instruction {
 
     context.machineState.memory.assert({});
   }
+
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
-  static readonly opcode: Opcode = Opcode.JUMPI_16;
+  static readonly opcode: Opcode = Opcode.JUMPI_32;
 
   // Instruction wire format with opcode.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
     OperandType.UINT16,
-    OperandType.UINT16,
+    OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private loc: number, private condOffset: number) {
+  constructor(private indirect: number, private condOffset: number, private loc: number) {
     super();
   }
 
@@ -50,12 +54,16 @@ export class JumpI extends Instruction {
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {
-      context.machineState.incrementPc();
+      context.machineState.pc = context.machineState.nextPc;
     } else {
       context.machineState.pc = this.loc;
     }
 
     memory.assert({ reads: 1, addressing });
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
@@ -63,7 +71,7 @@ export class InternalCall extends Instruction {
   static readonly type: string = 'INTERNALCALL';
   static readonly opcode: Opcode = Opcode.INTERNALCALL;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private loc: number) {
     super();
@@ -72,10 +80,17 @@ export class InternalCall extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.internalCallStack.push(context.machineState.pc + 1);
+    context.machineState.internalCallStack.push({
+      callPc: context.machineState.pc,
+      returnPc: context.machineState.nextPc,
+    });
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
@@ -92,12 +107,16 @@ export class InternalReturn extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    const jumpOffset = context.machineState.internalCallStack.pop();
-    if (jumpOffset === undefined) {
+    const stackEntry = context.machineState.internalCallStack.pop();
+    if (stackEntry === undefined) {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
-    context.machineState.pc = jumpOffset;
+    context.machineState.pc = stackEntry.returnPc;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }

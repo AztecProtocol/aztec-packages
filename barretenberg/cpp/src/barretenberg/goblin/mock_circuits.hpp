@@ -18,6 +18,22 @@
 
 namespace bb {
 
+/**
+ * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
+ * they overflow
+ */
+static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
+                                                                    .pub_inputs = 1 << 14,
+                                                                    .busread = 1 << 14,
+                                                                    .arithmetic = 1 << 15,
+                                                                    .delta_range = 1 << 14,
+                                                                    .elliptic = 1 << 14,
+                                                                    .aux = 1 << 14,
+                                                                    .poseidon2_external = 1 << 14,
+                                                                    .poseidon2_internal = 1 << 15,
+                                                                    .lookup = 1 << 14,
+                                                                    .overflow = 0 };
+
 class GoblinMockCircuits {
   public:
     using Curve = curve::BN254;
@@ -57,11 +73,11 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 12);
+            stdlib::generate_sha256_test_circuit(builder, 11);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 10);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
-            stdlib::generate_sha256_test_circuit(builder, 9);
+            stdlib::generate_sha256_test_circuit(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
@@ -121,7 +137,8 @@ class GoblinMockCircuits {
      *
      * @param op_queue
      */
-    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void perform_op_queue_interactions_for_mock_first_circuit(
+        std::shared_ptr<bb::ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
     {
         PROFILE_THIS();
 
@@ -134,11 +151,12 @@ class GoblinMockCircuits {
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
         bb::srs::init_crs_factory("../srs_db/ignition");
-        auto commitment_key = CommitmentKey(op_queue->get_current_size());
+        auto bn254_commitment_key =
+            commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = commitment_key.commit({ 0, entry });
+            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
         }
         // Store the commitment data for use by the prover of the next circuit
         op_queue->set_commitment_data(op_queue_commitments);
@@ -192,7 +210,7 @@ class GoblinMockCircuits {
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
-        const size_t NUM_MERKLE_CHECKS = 20;
+        const size_t NUM_MERKLE_CHECKS = 19;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
@@ -212,7 +230,7 @@ class GoblinMockCircuits {
 
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
-        auto proof = bb::convert_proof_to_witness(&builder, function_accum.proof);
+        auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
         RecursiveVerifier verifier1{ &builder, verification_key };
         verifier1.verify_proof(
             proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));
@@ -221,7 +239,7 @@ class GoblinMockCircuits {
         if (!prev_kernel_accum.proof.empty()) {
             auto verification_key =
                 std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
-            auto proof = bb::convert_proof_to_witness(&builder, prev_kernel_accum.proof);
+            auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
             RecursiveVerifier verifier2{ &builder, verification_key };
             verifier2.verify_proof(
                 proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));

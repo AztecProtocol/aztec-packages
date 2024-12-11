@@ -26,7 +26,7 @@ Along the way you will:
 
 ### Install tools
 
-Please ensure that the you already have [Installed the Sandbox](../../../guides/developer_guides/getting_started)
+Please ensure that you already have [Installed the Sandbox](../../../guides/getting_started)
 
 ### Create an Aztec project
 

@@ -20,7 +20,6 @@ use dep::aztec::{
 #[derive(Serialize)]
 pub struct AddressNote {
     address: AztecAddress,
-    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     owner: AztecAddress,
     randomness: Field,
 }

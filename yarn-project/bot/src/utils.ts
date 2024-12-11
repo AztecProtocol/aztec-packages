@@ -23,5 +23,5 @@ export async function getPrivateBalance(token: EasyPrivateTokenContract, who: Az
 }
 
 export function isStandardTokenContract(token: TokenContract | EasyPrivateTokenContract): token is TokenContract {
-  return 'mint_public' in token.methods;
+  return 'mint_to_public' in token.methods;
 }

@@ -577,12 +577,17 @@ TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_o
     Fr p_y_hi(0);
 
     // Split P.x and P.y into their representations in bn254 transcript
-    p_x_lo = Fr(uint256_t(ecc_op.base_point.x).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_x_hi = Fr(uint256_t(ecc_op.base_point.x)
-                    .slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS, 4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_y_lo = Fr(uint256_t(ecc_op.base_point.y).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_y_hi = Fr(uint256_t(ecc_op.base_point.y)
-                    .slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS, 4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+    // if we have a point at infinity, set x/y to zero
+    // in the biggroup_goblin class we use `assert_equal` statements to validate
+    // the original in-circuit coordinate values are also zero
+    const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
+
+    p_x_lo = Fr(uint256_t(x_256).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+    p_x_hi = Fr(uint256_t(x_256).slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS,
+                                       4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+    p_y_lo = Fr(uint256_t(y_256).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+    p_y_hi = Fr(uint256_t(y_256).slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS,
+                                       4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
 
     // Generate the full witness values
     return generate_witness_values(op,
@@ -614,9 +619,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
     for (size_t i = 0; i < raw_ops.size(); i++) {
         const auto& ecc_op = raw_ops[raw_ops.size() - 1 - i];
         current_accumulator *= x;
+        const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
         current_accumulator +=
-            (Fq(ecc_op.get_opcode_value()) +
-             v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.z1 + v * ecc_op.z2))));
+            (Fq(ecc_op.get_opcode_value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
         accumulator_trace.push_back(current_accumulator);
     }
 

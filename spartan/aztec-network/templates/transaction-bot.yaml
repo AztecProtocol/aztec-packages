@@ -17,33 +17,70 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: bot
     spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
       initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
             - /bin/sh
             - -c
             - |
-              until curl -s {{ include "aztec-network.bootNodeUrl" . }}/status; do echo waiting for aztec-node; sleep 2; done
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.bot.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
+              {{- else if .Values.network.public }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+              echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+              until curl -s ${AZTEC_NODE_URL}/status; do echo waiting for aztec-node; sleep 2; done
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
       containers:
         - name: transaction-bot
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
           command:
             - "/bin/bash"
             - "-c"
-            - >
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.bot.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
+              {{- else if .Values.network.public }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+              echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
-            - name: AZTEC_NODE_URL
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+            - name: AZTEC_PORT
+              value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.bot.debug }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
@@ -57,12 +94,16 @@ spec:
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bot.pxeProverEnabled }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bot.proverRealProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: BOT_MAX_CONSECUTIVE_ERRORS
+              value: "{{ .Values.bot.maxErrors }}"
+            - name: BOT_STOP_WHEN_UNHEALTHY
+              value: "{{ .Values.bot.stopIfUnhealthy }}"
           ports:
             - name: http
-              containerPort: {{ .Values.bot.service.port }}
+              containerPort: {{ .Values.bot.service.nodePort }}
               protocol: TCP
           readinessProbe:
             exec:
@@ -72,7 +113,7 @@ spec:
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.bot.service.port }} > /tmp/probe_output.txt && \
+                  127.0.0.1:{{ .Values.bot.service.nodePort }} > /tmp/probe_output.txt && \
                   cat /tmp/probe_output.txt && \
                   grep -q '"enr:-' /tmp/probe_output.txt
             initialDelaySeconds: {{ .Values.bot.readinessProbe.initialDelaySeconds }}
@@ -96,8 +137,8 @@ spec:
     app: bot
   ports:
     - protocol: TCP
-      port: {{ .Values.bot.service.port }}
-      targetPort: {{ .Values.bot.service.targetPort }}
+      port: {{ .Values.bot.service.nodePort }}
+      targetPort: {{ .Values.bot.service.nodePort }}
       {{- if and (eq .Values.bot.service.type "NodePort") .Values.bot.service.nodePort }}
       nodePort: {{ .Values.bot.service.nodePort }}
       {{- end }}

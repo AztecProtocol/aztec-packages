@@ -23,12 +23,13 @@ CONTRACTS=(
   "l1-contracts:IVerifier"
   "l1-contracts:IProofCommitmentEscrow"
   "l1-contracts:ProofCommitmentEscrow"
-  "l1-contracts:Nomismatokopio"
-  "l1-contracts:Sysstia"
-  "l1-contracts:Gerousia"
-  "l1-contracts:Apella"
-  "l1-contracts:NewGerousiaPayload"
-  "l1-contracts:TxsDecoder"
+  "l1-contracts:CoinIssuer"
+  "l1-contracts:RewardDistributor"
+  "l1-contracts:GovernanceProposer"
+  "l1-contracts:Governance"
+  "l1-contracts:NewGovernanceProposerPayload"
+  "l1-contracts:LeonidasLib"
+  "l1-contracts:ExtRollupLib"
 )
 
 

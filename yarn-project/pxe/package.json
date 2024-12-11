@@ -2,7 +2,13 @@
   "name": "@aztec/pxe",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./service": "./dest/pxe_service/index.js",
+    "./config": "./dest/config/index.js",
+    "./database": "./dest/database/index.js",
+    "./kernel_prover": "./dest/kernel_prover/index.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -12,16 +18,18 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest .tsbuildinfo",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
+    "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
+    "generate": "node ./scripts/generate_package_info.js"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -56,6 +64,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -87,9 +99,11 @@
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.omit": "^4.5.7",
+    "@types/lodash.times": "^4.3.9",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.3",
+    "lodash.times": "^4.3.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },

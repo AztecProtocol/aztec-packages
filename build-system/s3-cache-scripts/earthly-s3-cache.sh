@@ -19,7 +19,7 @@ function s3_upload() {
   if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
     return 0 # exit silently
   fi
-  /usr/src/build-system/s3-cache-scripts/cache-upload.sh "$FILE" $build_artifacts
+  /usr/src/build-system/s3-cache-scripts/cache-upload.sh "$FILE" $build_artifacts || echo "WARNING: S3 upload failed!" >&2
 }
 function minio_download() {
   if [ -z "$S3_BUILD_CACHE_MINIO_URL" ] ; then
@@ -35,7 +35,7 @@ function minio_upload() {
   fi
   # minio is S3-compatible
   S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url $S3_BUILD_CACHE_MINIO_URL" AWS_SECRET_ACCESS_KEY=minioadmin AWS_ACCESS_KEY_ID=minioadmin \
-    /usr/src/build-system/s3-cache-scripts/cache-upload.sh "$FILE" $build_artifacts
+    /usr/src/build-system/s3-cache-scripts/cache-upload.sh "$FILE" $build_artifacts || echo "WARNING Minio upload failed!" >&2
 }
 
 # commands
@@ -53,5 +53,5 @@ if ! bash -c "$command" ; then
   exit 1 # we have failed to build, don't continue
 fi
 
-minio_upload || echo "Minio upload failed!"
-s3_upload || echo "S3 upload failed!"
+minio_upload
+s3_upload

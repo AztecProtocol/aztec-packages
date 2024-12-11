@@ -4,6 +4,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { type AztecNode } from '../interfaces/aztec-node.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -55,7 +56,7 @@ export class L1ToL2Message {
   }
 
   toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(data: string): L1ToL2Message {
@@ -87,7 +88,7 @@ export async function getNonNullifiedL1ToL2MessageWitness(
 
   const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
 
-  const nullifierIndex = await node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, messageNullifier);
+  const [nullifierIndex] = await node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [messageNullifier]);
   if (nullifierIndex !== undefined) {
     throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
   }

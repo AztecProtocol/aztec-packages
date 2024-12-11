@@ -120,7 +120,7 @@ jobs:
     if: github.event.pull_request.draft == false
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ needs.configure.outputs.username }}-x86
+      username: ${{ needs.configure.outputs.username }}
       runner_type: builder-x86
     secrets: inherit
 
@@ -208,6 +208,7 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
@@ -258,7 +259,8 @@ jobs:
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ./scripts/e2e_test.sh ${{ matrix.test }}
 
-            earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
+            # TODO(#9692): disabled after refactoring - trying to call function as target
+            # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
     runs-on: ubuntu-20.04
@@ -384,7 +386,7 @@ jobs:
         run: earthly-ci --no-output ./+test
 
   noir-build-acir-tests:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -398,7 +400,7 @@ jobs:
         run: earthly-ci --no-output ./noir/+build-acir-tests
 
   bb-acir-tests-bb:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -413,7 +415,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
 
   bb-acir-tests-bb-ultra-plonk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -428,7 +430,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-plonk
 
   bb-acir-tests-bb-ultra-honk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -442,8 +444,8 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-ultra-honk
 
-  bb-acir-tests-bb-mega-honk:
-    needs: [noir-build-acir-tests, configure]
+  bb-acir-tests-bb-client-ivc:
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -451,14 +453,14 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: barretenberg-acir-tests-bb-mega-honk-x86
-      - name: "BB Native Acir Tests (Megahonk)"
+          concurrency_key: barretenberg-acir-tests-bb-client-ivc-x86
+      - name: "BB Native Acir Tests (ClientIVC)"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-mega-honk
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb-client-ivc
 
   bb-acir-tests-sol:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -473,7 +475,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
   bb-acir-tests-sol-honk:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -488,7 +490,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol-honk
 
   bb-acir-tests-bb-js:
-    needs: [noir-build-acir-tests, configure]
+    needs: [noir-build-acir-tests, build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
     steps:
@@ -503,7 +505,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   noir-format:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
@@ -523,7 +525,7 @@ jobs:
           earthly-ci --no-output ./+format
 
   noir-test:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
     steps:
@@ -536,6 +538,7 @@ jobs:
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
+    # We delay this job until after the `build` job has completed as it depends on bb being built.
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.noir == 'true'
@@ -549,6 +552,7 @@ jobs:
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
+    # We delay this job until after the `build` job has completed as it depends on bb.js being built.
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
@@ -656,25 +660,19 @@ jobs:
         if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
-  # note: proving disabled
-  kind-network-test:
+  kind-smoke-test:
     needs: [build, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    strategy:
-      fail-fast: false
-      matrix:
-        test: [smoke.test.ts, transfer.test.ts] # TODO reinstate: 4epochs.test.ts
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-smoke-test
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
-        if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
@@ -690,11 +688,76 @@ jobs:
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            test=${{ matrix.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+
+  # note: proving disabled
+  kind-network-test:
+    needs: [build, configure]
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # TODO: Enable this once stable
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          #   timeout: 90
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: gating-passive.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: kind-network-${{ matrix.config.test }}
+      - name: Setup and KIND Network Test
+        timeout-minutes: ${{ matrix.config.timeout }}
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: ${{ matrix.config.runner_type }}
+          spot_strategy: None # use on-demand machines
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: ${{ matrix.config.timeout }}
+          run: |
+            cd yarn-project/end-to-end
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            test=${{ matrix.config.test }}
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Copy Network Logs
+        if: always() # Run on failure too
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
+      - name: Upload Network Logs
+        if: always() # Run on failure too
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          path: network-test.log
 
   l1-contracts-test:
-    needs: [build, configure]
+    needs: [build-images, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.l1-contracts == 'true'
     steps:
@@ -717,8 +780,7 @@ jobs:
         with:
           concurrency_key: docs-preview-x86
       - name: "Docs Preview"
-        if: github.event.number
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           earthly-ci --no-output \
           ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} \
@@ -813,6 +875,19 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
 
+  rough-rhino-installer:
+    needs: [configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: rough-rhino-installer
+      - name: Rough Rhino Installer Helper Script
+        working-directory: ./spartan/releases/rough-rhino
+        run: earthly-ci +test-all
+
   protocol-circuits-gates-report:
     needs: [build, configure]
     if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
@@ -893,7 +968,6 @@ jobs:
   merge-check:
     runs-on: ubuntu-20.04
     needs:
-      # must be kept in sync with rerun-check
       - setup
       - configure
       - build
@@ -908,7 +982,7 @@ jobs:
       - bb-acir-tests-bb
       - bb-acir-tests-bb-ultra-plonk
       - bb-acir-tests-bb-ultra-honk
-      - bb-acir-tests-bb-mega-honk
+      - bb-acir-tests-bb-client-ivc
       - bb-acir-tests-sol
       - bb-acir-tests-sol-honk
       - bb-acir-tests-bb-js
@@ -922,6 +996,7 @@ jobs:
       - yarn-project-test
       - prover-client-test
       - network-test
+      - kind-smoke-test
       - kind-network-test
       - l1-contracts-test
       - docs-preview
@@ -930,7 +1005,22 @@ jobs:
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
     if: always()
+    outputs:
+      failure: ${{ steps.set_failed_jobs.outputs.failure }}
+      failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
     steps:
+      - name: Check for Failures and Set Output
+        id: set_failed_jobs
+        env:
+          # Collect needed jobs
+          NEEDS_JOBS_JSON: ${{ toJson(needs) }}
+        run: |
+          echo "Processing failed jobs..."
+          failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
+          echo "$failed_jobs" > .failed
+          echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
+          echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
+
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
         env:
@@ -938,7 +1028,7 @@ jobs:
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
           if [[ $FAIL == true ]]; then
-              echo "At least one job failed (or cancelled), merging not allowed."
+              echo "Jobs failed: $(cat .failed), merging not allowed."
               exit 1
           else
               echo "All jobs succeeded, merge allowed."
@@ -953,69 +1043,44 @@ jobs:
     permissions:
       actions: write
     needs:
-      # must be kept in sync with merge-check
-      - setup
-      - configure
-      - build
-      - e2e
-      # - bench-e2e # non-blocking
-      # - acir-bench # non-blocking
-      # - bench-summary # non-blocking
-      - bb-gcc
-      - bb-native-tests
-      - bb-js-test
-      - noir-build-acir-tests
-      - bb-acir-tests-bb
-      - bb-acir-tests-bb-ultra-plonk
-      - bb-acir-tests-bb-ultra-honk
-      - bb-acir-tests-bb-mega-honk
-      - bb-acir-tests-sol
-      - bb-acir-tests-sol-honk
-      - bb-acir-tests-bb-js
-      - noir-format
-      - noir-test
-      - noir-examples
-      - noir-packages-test
-      - noir-projects
-      - avm-format
-      - yarn-project-formatting
-      - yarn-project-test
-      - prover-client-test
-      - network-test
-      - kind-network-test
-      - l1-contracts-test
-      - docs-preview
-      # - bb-bench # non-blocking
-      - boxes
-      - boxes-test
-      # - protocol-circuits-gates-report # non-blocking
+      - merge-check
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
-          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
-          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+          if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           fi
 
-  # NOTE: we only notify failures after a rerun has occurred
   notify:
+    runs-on: ubuntu-20.04
     needs:
       - merge-check
-    runs-on: ubuntu-20.04
     if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get Authors of Recent Commit
+        id: get_authors
+        run: |
+          git fetch --depth=1 origin ${{ github.sha }}
+          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
+
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Master Github Actions failure",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_authors.outputs.authors }}",
+              "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

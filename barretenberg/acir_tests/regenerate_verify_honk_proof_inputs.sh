@@ -17,7 +17,7 @@ fi
 export BRANCH
 
 # the program for which a proof will be recursively verified
-PROGRAM=assert_statement_recursive
+PROGRAM=assert_statement
 # the program containing the recursive verifier
 RECURSIVE_PROGRAM=verify_honk_proof
 

@@ -1,0 +1,8 @@
+VERSION 0.8
+
+charts:
+    ARG EARTHLY_GIT_HASH
+    FROM ubuntu:noble
+    WORKDIR /usr/src
+    COPY . ./spartan
+    SAVE ARTIFACT /usr/src /usr/src

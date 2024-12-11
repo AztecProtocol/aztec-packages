@@ -13,7 +13,7 @@ set(DSL_DEPENDENCIES
     stdlib_schnorr
     stdlib_honk_verifier)
 
-if (NOT WASM)
+if (NOT WASM AND NOT DISABLE_AZTEC_VM)
     list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm)
 endif()
 

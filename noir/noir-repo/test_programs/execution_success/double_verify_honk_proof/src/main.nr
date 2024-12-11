@@ -1,4 +1,4 @@
-// This circuit aggregates two Honk proof from `assert_statement_recursive`.
+// This circuit aggregates two Honk proof from `assert_statement`.
 global SIZE_OF_PROOF_IF_LOGN_IS_28: u32 = 463;
 global HONK_IDENTIFIER: u32 = 1;
 fn main(

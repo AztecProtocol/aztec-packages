@@ -40,12 +40,14 @@ esac
 # This value may be too low.
 # If vk generation fail with an amount of free memory greater than this value then it should be increased.
 MIN_PARALLEL_VK_GENERATION_MEMORY=500000000
-PARALLEL_VK=${PARALLEL_VK:-true}
+PARALLEL_VK=${PARALLEL_VK:-false}
 
 if [[ AVAILABLE_MEMORY -gt MIN_PARALLEL_VK_GENERATION_MEMORY ]] && [[ $PARALLEL_VK == "true" ]]; then
   echo "Generating vks in parallel..."
   for pathname in "./target"/*.json; do
-      BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
+      if [[ $pathname != *"_simulated"* ]]; then
+        BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
+      fi
   done
 
   for job in $(jobs -p); do
@@ -53,9 +55,11 @@ if [[ AVAILABLE_MEMORY -gt MIN_PARALLEL_VK_GENERATION_MEMORY ]] && [[ $PARALLEL_
   done
 
 else
-  echo "System does not have enough memory for parallel vk generation, falling back to sequential"
+  echo "Generating VKs sequentially..."
 
   for pathname in "./target"/*.json; do
+    if [[ $pathname != *"_simulated"* ]]; then
       BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys"
+    fi
   done
 fi

@@ -6,6 +6,7 @@ import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
+import getPort from 'get-port';
 import { type Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
@@ -51,7 +52,7 @@ export const browserTestSuite = (
      */
     pxeURL: string;
   }>,
-  pageLogger: AztecJs.DebugLogger,
+  pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
@@ -77,16 +78,18 @@ export const browserTestSuite = (
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
 
+      const debuggingPort = await getPort({ port: 9222 });
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
         headless: true,
+        debuggingPort,
         args: [
           '--no-sandbox',
           '--headless',
           '--disable-gpu',
           '--disable-dev-shm-usage',
           '--disable-software-rasterizer',
-          '--remote-debugging-port=9222',
+          `--remote-debugging-port=${debuggingPort}`,
         ],
       });
       page = await browser.newPage();
@@ -94,7 +97,7 @@ export const browserTestSuite = (
         pageLogger.info(msg.text());
       });
       page.on('pageerror', err => {
-        pageLogger.error(err.toString());
+        pageLogger.error(`Error on web page`, err);
       });
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
@@ -251,9 +254,9 @@ export const browserTestSuite = (
 
           console.log(`Contract Deployed: ${token.address}`);
 
-          // We don't use the `mintTokensToPrivate` util as it is not available here
-          await token.methods.mint_public(owner.getAddress(), initialBalance).send().wait();
-          await token.methods.transfer_to_private(owner.getAddress(), initialBalance).send().wait();
+          // We mint tokens to the owner
+          const from = owner.getAddress(); // we are setting from to owner here because of TODO(#9887)
+          await token.methods.mint_to_private(from, owner.getAddress(), initialBalance).send().wait();
 
           return [txHash.toString(), token.address.toString()];
         },

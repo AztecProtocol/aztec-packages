@@ -1,6 +1,6 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 import { NativeACVMSimulator } from './acvm_native.js';
 import { WASMSimulator } from './acvm_wasm.js';
@@ -21,7 +21,7 @@ export function getSimulationProviderConfigFromEnv() {
 
 export async function createSimulationProvider(
   config: SimulationProviderConfig,
-  logger: DebugLogger = createDebugLogger('aztec:simulator'),
+  logger: Logger = createLogger('simulator'),
 ): Promise<SimulationProvider> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {

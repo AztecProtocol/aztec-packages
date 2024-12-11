@@ -116,7 +116,7 @@ describe('e2e_token_contract burn', () => {
       const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      await asset.methods.burn(accounts[0].address, amount, 0).send().wait();
+      await asset.methods.burn_private(accounts[0].address, amount, 0).send().wait();
       tokenSim.burnPrivate(accounts[0].address, amount);
     });
 
@@ -127,7 +127,7 @@ describe('e2e_token_contract burn', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+      const action = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
@@ -137,11 +137,11 @@ describe('e2e_token_contract burn', () => {
       // We give wallets[1] access to wallets[0]'s notes to burn the note.
       wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
-      await asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send().wait();
+      await asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce).send().wait();
       tokenSim.burnPrivate(accounts[0].address, amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
+      const txReplay = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce).send();
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -150,7 +150,7 @@ describe('e2e_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 + 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(accounts[0].address, amount, 0).simulate()).rejects.toThrow(
+        await expect(asset.methods.burn_private(accounts[0].address, amount, 0).simulate()).rejects.toThrow(
           'Assertion failed: Balance too low',
         );
       });
@@ -159,7 +159,7 @@ describe('e2e_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(accounts[0].address, amount, 1).simulate()).rejects.toThrow(
+        await expect(asset.methods.burn_private(accounts[0].address, amount, 1).simulate()).rejects.toThrow(
           'Assertion failed: invalid nonce',
         );
       });
@@ -171,7 +171,7 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce);
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
@@ -188,7 +188,7 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce);
         const messageHash = computeAuthWitMessageHash(
           { caller: accounts[1].address, action: action.request() },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
@@ -209,7 +209,7 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
+        const action = asset.withWallet(wallets[2]).methods.burn_private(accounts[0].address, amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
           { caller: accounts[2].address, action: action.request() },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },

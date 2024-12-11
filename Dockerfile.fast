@@ -20,99 +20,83 @@ RUN git init -b master \
     && git config user.email 'tech@aztecprotocol.com'
 
 # ---------- EXTRACT BUILD-SYSTEM ----------
-COPY build-system.tar.gz .
-RUN tar -xzf build-system.tar.gz \
-    && rm build-system.tar.gz && git add . \
+COPY build-system build-system
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # ---------- BUILD BARRETENBERG ----------
-COPY barretenberg.tar.gz .
-RUN tar -xzf barretenberg.tar.gz \
-    && rm barretenberg.tar.gz && git add . \
+COPY barretenberg barretenberg
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for barretenberg/cpp
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd barretenberg/cpp \
+    bash -c 'cd barretenberg \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
-    && echo "barretenberg/cpp: Success"
-
-# Bootstrap cache for barretenberg/ts
-RUN --mount=type=secret,id=aws_access_key_id \
-    --mount=type=secret,id=aws_secret_access_key \
-    cd barretenberg/ts \
-    && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
-    AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
-    && echo "barretenberg/ts: Success"
+    ./bootstrap_cache.sh' \
+    && echo "barretenberg: Success"
 
 # ---------- BUILD NOIR ----------
-COPY noir.tar.gz .
-RUN tar -xzf noir.tar.gz \
-    && rm noir.tar.gz && git add . \
+ADD noir noir
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for Noir
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd noir \
+    bash -c 'cd noir \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
+    ./bootstrap_cache.sh' \
     && echo "noir: Success"
 
 # ---------- BUILD L1 CONTRACTS ----------
-COPY l1-contracts.tar.gz .
-RUN tar -xzf l1-contracts.tar.gz \
-    && rm l1-contracts.tar.gz && git add . \
+ADD l1-contracts l1-contracts
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for L1 Contracts
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd l1-contracts \
+    bash -c 'cd l1-contracts \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
+    ./bootstrap_cache.sh' \
     && echo "l1-contracts: Success"
 
 # ---------- BUILD AVM TRANSPILER ----------
-COPY avm-transpiler.tar.gz .
-RUN tar -xzf avm-transpiler.tar.gz \
-    && rm avm-transpiler.tar.gz && git add . \
+ADD avm-transpiler avm-transpiler
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for AVM Transpiler
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd avm-transpiler \
+    bash -c 'cd avm-transpiler \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
+    ./bootstrap_cache.sh' \
     && echo "avm-transpiler: Success"
 
 # ---------- BUILD NOIR PROJECTS ----------
-COPY noir-projects.tar.gz .
-RUN tar -xzf noir-projects.tar.gz \
-    && rm noir-projects.tar.gz && git add . \
+ADD noir-projects noir-projects
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Bootstrap cache for Noir Projects
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    cd noir-projects \
+    bash -c 'cd noir-projects \
     && AWS_ACCESS_KEY_ID=$(cat /run/secrets/aws_access_key_id) \
     AWS_SECRET_ACCESS_KEY=$(cat /run/secrets/aws_secret_access_key) \
-    ./bootstrap_cache.sh \
+    ./bootstrap_cache.sh' \
     && echo "noir-projects: Success"
 
 # ---------- BUILD YARN PROJECT ----------
-COPY yarn-project.tar.gz .
-RUN tar -xzf yarn-project.tar.gz \
-    && rm yarn-project.tar.gz && git add . \
+ADD yarn-project yarn-project
+RUN git add . \
     && git commit -m "Update git metadata" >/dev/null
 
 # Build yarn-project directly (no cache script)

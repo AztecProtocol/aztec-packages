@@ -17,8 +17,17 @@ function on_exit() {
 # Run on any exit
 trap on_exit EXIT
 
+# Extract endpoint URL if S3_BUILD_CACHE_AWS_PARAMS is set
+if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
+  # Extract URL from S3_BUILD_CACHE_AWS_PARAMS (assumes the format "--endpoint-url <URL>")
+  # TODO stop passing with endpoint url
+  S3_ENDPOINT=$(echo "$S3_BUILD_CACHE_AWS_PARAMS" | sed -n 's/--endpoint-url \([^ ]*\)/\1/p')
+else
+  # Default to AWS S3 URL if no custom endpoint is set
+  S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
+fi
 # Attempt to download the cache file
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet --no-sign-request || (echo "Cache download of $TAR_FILE failed." && exit 1)
+curl -s -f -O "${S3_ENDPOINT}/build-cache/$TAR_FILE" || (echo "Cache download of $TAR_FILE failed." && exit 1)
 
 # Extract the cache file
 mkdir -p "$OUT_DIR"

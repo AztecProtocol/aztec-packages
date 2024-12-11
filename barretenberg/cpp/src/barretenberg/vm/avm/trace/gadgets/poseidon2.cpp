@@ -159,6 +159,7 @@ void AvmPoseidon2TraceBuilder::finalize_full(std::vector<AvmFullRow<FF>>& main_t
             }
 
             switch (src.caller) {
+            case Poseidon2Caller::SILO:
             case Poseidon2Caller::NONE:
             case Poseidon2Caller::BYTECODE_HASHING:
                 break;

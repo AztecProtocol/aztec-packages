@@ -6,8 +6,159 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.X.X
+## TBD
+
+### [aztec.nr] Renamed `Header` and associated helpers
+
+The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` family of functions have been similarly renamed to `get_block_header()`.
+
+```diff
+- let header = context.get_header_at(block_number);
++ let header = context.get_block_header_at(block_number);
+```
+
+### Outgoing Events removed
+
+Previously, every event which was emitted included:
+- Incoming Header (to convey the app contract address to the recipient)
+- Incoming Ciphertext (to convey the note contents to the recipient)
+- Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
+- Outgoing Ciphertext (served as a backup, encrypting the summetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
+
+The latter two have been removed from the `.emit()` functions, so now only an Incoming Header and Incoming Ciphertext will be emitted.
+
+The interface for emitting a note has therefore changed, slightly. No more ovpk's need to be derived and passed into `.emit()` functions.
+
+```diff
+- nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, from_ovpk_m, to, from));
++ nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+```
+
+The `getOutgoingNotes` function is removed from the PXE interface.
+
+Some aztec.nr library methods' arguments are simplified to remove an `outgoing_viewer` parameter. E.g. `ValueNote::increment`, `ValueNote::decrement`, `ValueNote::decrement_by_at_most`, `EasyPrivateUint::add`, `EasyPrivateUint::sub`.
+
+Further changes are planned, so that:
+- Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
+- Headers will be removed, due to the new tagging scheme.
+
+## 0.66
+
+### DEBUG env var is removed
+
+The `DEBUG` variable is no longer used. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
+
+### `tty` resolve fallback required for browser bundling
+
+When bundling `aztec.js` for web, the `tty` package now needs to be specified as an empty fallback:
+
+```diff
+resolve: {
+  plugins: [new ResolveTypeScriptPlugin()],
+  alias: { './node/index.js': false },
+  fallback: {
+    crypto: false,
+    os: false,
+    fs: false,
+    path: false,
+    url: false,
++   tty: false,
+    worker_threads: false,
+    buffer: require.resolve('buffer/'),
+    util: require.resolve('util/'),
+    stream: require.resolve('stream-browserify'),
+  },
+},
+```
+
+## 0.65
+
+### [aztec.nr] Removed SharedImmutable
+
+The `SharedImmutable` state variable has been removed, since it was essentially the exact same as `PublicImmutable`, which now contains functions for reading from private:
+
+```diff
+-   foo: SharedImmutable<T, Context>.
++   foo: PublicImmutable<T, Context>.
+```
+
+### [aztec.nr] SharedImmutable renamings
+
+`SharedImmutable::read_private` and `SharedImmutable::read_public` were renamed to simply `read`, since only one of these versions is ever available depending on the current context.
+
+```diff
+// In private
+- let value = storage.my_var.read_private();
++ let value = storage.my_var.read();
+
+// In public
+- let value = storage.my_var.read_public();
++ let value = storage.my_var.read();
+```
+
+### [aztec.nr] SharedMutable renamings
+
+`SharedMutable` getters (`get_current_value_in_public`, etc.) were renamed by dropping the `_in<public|private|unconstrained>` suffix, since only one of these versions is ever available depending on the current context.
+
+```diff
+// In private
+- let value = storage.my_var.get_current_value_in_private();
++ let value = storage.my_var.get_current_value();
+
+// In public
+- let value = storage.my_var.get_current_value_in_public();
++ let value = storage.my_var.get_current_value();
+```
+
+### [aztec.js] Random addresses are now valid
+
+The `AztecAddress.random()` function now returns valid addresses, i.e. addresses that can receive encrypted messages and therefore have notes be sent to them. `AztecAddress.isValid()` was also added to check for validity of an address.
+
+## 0.63.0
+
+### [PXE] Note tagging and discovery
+
+PXE's trial decryption of notes has been replaced in favor of a tagging and discovery approach. It is much more efficient and should scale a lot better as the network size increases, since
+notes can now be discovered on-demand. For the time being, this means that accounts residing _on different PXE instances_ should add senders to their contact list, so notes can be discovered
+(accounts created on the same PXE instance will be added as senders for each other by default)
+
+```diff
++pxe.registerContact(senderAddress)
+```
+
+The note discovery process is triggered automatically whenever a contract invokes the `get_notes` oracle, meaning no contract changes are expected. Just in case, every contract has now a utility method
+`sync_notes` that can trigger the process manually if necessary. This can be useful since now the `DebugInfo` object that can be obtained when sending a tx with the `debug` flag set to true
+no longer contains the notes that were generated in the transaction:
+
+```diff
+const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
+-const { visibleIncomingNotes } = receipt.debugInfo!;
+-expect(visibleIncomingNotes.length).toEqual(1);
++await inclusionsProofsContract.methods.sync_notes().simulate();
++const incomingNotes = await wallet.getIncomingNotes({ txHash: receipt.txHash });
++expect(incomingNotes.length).toEqual(1);
+```
+
+### [Token contract] Partial notes related refactor
+
+We've decided to replace the old "shield" flow with one leveraging partial notes.
+This led to a removal of `shield` and `redeem_shield` functions and an introduction of `transfer_to_private`.
+An advantage of the new approach is that only 1 tx is required and the API of partial notes is generally nicer.
+For more information on partial notes refer to docs.
+
+### [Token contract] Function naming changes
+
+There have been a few naming changes done for improved consistency.
+These are the renamings:
+`transfer_public` --> `transfer_in_public`
+`transfer_from` --> `transfer_in_private`
+`mint_public` --> `mint_to_public`
+`burn` --> `burn_private`
+
+## 0.62.0
+
 ### [TXE] Single execution environment
+
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
 This ensures every single test runs in a consistent environment and allows for clearer test syntax:
 
@@ -16,20 +167,74 @@ This ensures every single test runs in a consistent environment and allows for c
 -env.call_private(my_contract_interface)
 +MyContract::at(address).my_function(args).call(&mut env.private());
 ```
+
 This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
 
+### Uniqueness of L1 to L2 messages
+
+L1 to L2 messages have been updated to guarantee their uniqueness. This means that the hash of an L1 to L2 message cannot be precomputed, and must be obtained from the `MessageSent` event emitted by the `Inbox` contract, found in the L1 transaction receipt that inserted the message:
+
+```solidity
+event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
+```
+
+This event now also includes an `index`. This index was previously required to consume an L1 to L2 message in a public function, and now it is also required for doing so in a private function, since it is part of the message hash preimage. The `PrivateContext` in aztec-nr has been updated to reflect this:
+
+```diff
+pub fn consume_l1_to_l2_message(
+    &mut self,
+    content: Field,
+    secret: Field,
+    sender: EthAddress,
++   leaf_index: Field,
+) {
+```
+
+This change has also modified the internal structure of the archiver database, making it incompatible with previous ones. Last, the API for obtaining an L1 to L2 message membership witness has been simplified to leverage message uniqueness:
+
+```diff
+getL1ToL2MessageMembershipWitness(
+  blockNumber: L2BlockNumber,
+  l1ToL2Message: Fr,
+- startIndex: bigint,
+): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
+```
+
+### Address is now a point
+
+The address now serves as someone's public key to encrypt incoming notes. An address point has a corresponding address secret, which is used to decrypt the notes encrypted with the address point.
+
+### Notes no longer store a hash of the nullifier public keys, and now store addresses
+
+Because of removing key rotation, we can now store addresses as the owner of a note. Because of this and the above change, we can and have removed the process of registering a recipient, because now we do not need any keys of the recipient.
+
+example_note.nr
+
+```diff
+-npk_m_hash: Field
++owner: AztecAddress
+```
+
+PXE Interface
+
+```diff
+-registerRecipient(completeAddress: CompleteAddress)
+```
+
 ## 0.58.0
+
 ### [l1-contracts] Inbox's MessageSent event emits global tree index
+
 Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.
 
 ## 0.57.0
 
 ### Changes to PXE API and `ContractFunctionInteraction``
 
-PXE APIs have been refactored to better reflext the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
+PXE APIs have been refactored to better reflect the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
 
-* `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
-* `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
+- `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
+- `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
 
 Thanks to this refactor, `ContractFunctionInteraction` has been updated to remove its internal cache and avoid bugs due to its mutable nature. As a result our type-safe interfaces now have to be used as follows:
 
@@ -45,7 +250,6 @@ Thanks to this refactor, `ContractFunctionInteraction` has been updated to remov
 It's still possible to use `.send()` as before, which will perform proving under the hood.
 
 More changes are coming to these APIs to better support gas estimation mechanisms and advanced features.
-
 
 ### Changes to public calling convention
 

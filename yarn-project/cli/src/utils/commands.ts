@@ -29,10 +29,14 @@ export function addOptions(program: Command, options: Option[]) {
   return program;
 }
 
-export const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
-  .env('PXE_URL')
-  .default(`http://${LOCALHOST}:8080`)
-  .makeOptionMandatory(true);
+export const makePxeOption = (mandatory: boolean) =>
+  new Option('-u, --rpc-url <string>', 'URL of the PXE')
+    .env('PXE_URL')
+    .default(`http://${LOCALHOST}:8080`)
+    .conflicts('remote-pxe')
+    .makeOptionMandatory(mandatory);
+
+export const pxeOption = makePxeOption(true);
 
 export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
   .env('L1_CHAIN_ID')

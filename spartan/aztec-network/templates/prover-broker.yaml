@@ -1,0 +1,99 @@
+{{- if .Values.proverBroker.enabled }}
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-broker
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.proverBroker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: prover-broker
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: prover-broker
+    spec:
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+      initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        - name: wait-for-prover-node
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+      containers:
+        - name: prover-broker
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
+          env:
+            - name: AZTEC_PORT
+              value: "{{ .Values.proverBroker.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.proverBroker.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: PROVER_BROKER_POLL_INTERVAL_MS
+              value: "{{ .Values.proverBroker.pollIntervalMs }}"
+            - name: PROVER_BROKER_JOB_TIMEOUT_MS
+              value: "{{ .Values.proverBroker.jobTimeoutMs }}"
+            - name: PROVER_BROKER_JOB_MAX_RETRIES
+              value: "{{ .Values.proverBroker.jobMaxRetries }}"
+            - name: PROVER_BROKER_DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDirectory }}"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+          resources:
+            {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+{{- end }}
+---
+# Headless service for StatefulSet DNS entries
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-broker
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-broker
+  ports:
+    - port: {{ .Values.proverBroker.service.nodePort }}
+      name: node

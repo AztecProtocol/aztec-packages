@@ -8,7 +8,6 @@ import { type AccountInterface } from '../account/interface.js';
 import { type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
-import { waitForAccountSynch } from '../utils/account.js';
 import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
@@ -18,7 +17,7 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
  */
 export type DeployAccountOptions = Pick<
   DeployOptions,
-  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'estimateGas' | 'skipInitialization'
+  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'skipInitialization'
 >;
 
 /**
@@ -105,7 +104,7 @@ export class AccountManager {
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
-  public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+  public async register(): Promise<AccountWalletWithSecretKey> {
     await this.pxe.registerContract({
       artifact: this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
@@ -113,7 +112,6 @@ export class AccountManager {
 
     await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
 
-    await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
   }
 
@@ -168,7 +166,6 @@ export class AccountManager {
           skipInitialization: opts?.skipInitialization ?? false,
           universalDeploy: true,
           fee: opts?.fee,
-          estimateGas: opts?.estimateGas,
         }),
       )
       .then(tx => tx.getTxHash());

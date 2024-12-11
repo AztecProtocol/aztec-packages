@@ -66,7 +66,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         } else {
             quote {
                 let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                dep::aztec::context::public_context::avm_return(return_value);
+                dep::aztec::context::public_context::avm_return(return_value.as_slice());
             }
         };
 

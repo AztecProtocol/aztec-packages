@@ -1,33 +1,84 @@
 #!/usr/bin/env bash
 set -eu
 
-EXAMPLE_CMD="$0 private_kernel_init"
+EXAMPLE_CMD="$0 private_kernel_init rollup_merge"
 
-# First arg is the circuit name.
-if [[ $# -eq 0 || ($1 == -* && $1 != "-h") ]]; then
-    echo "Please specify the name of the circuit."
-    echo "e.g.: $EXAMPLE_CMD"
-    exit 1
-fi
-
-CIRCUIT_NAME=$1
+# Parse global options.
+CIRCUIT_NAMES=()
 SERVE=false
 PORT=5000
+ALLOW_NO_CIRCUIT_NAMES=false
+
+# Get the directory of the script.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# and of the artifact
+ARTIFACT_DIR="$SCRIPT_DIR/../target"
+
+# Function to get filenames from a directory
+get_filenames() {
+    local dir="$1"
+    # Return filenames (without extensions) from the directory
+    for file in "$dir"/*; do
+        if [[ -f "$file" ]]; then
+            filename="$(basename "$file" .${file##*.})"
+            echo "$filename"
+        fi
+    done
+}
+
+NAUGHTY_LIST=("empty_nested") # files with no opcodes, which break the flamegraph tool.
+
+get_valid_circuit_names() {
+    # Capture the output of function call in an array:
+    ALL_CIRCUIT_NAMES=($(get_filenames "$ARTIFACT_DIR"))
+    for circuit_name in "${ALL_CIRCUIT_NAMES[@]}"; do
+        # Skip files that include the substring "simulated"
+        if [[ "$circuit_name" == *"simulated"* ]]; then
+            continue
+        fi
+        # Skip the file if it's on the naughty list:
+        if [[ " ${NAUGHTY_LIST[@]} " =~ " ${circuit_name} " ]]; then
+            continue
+        fi
+        CIRCUIT_NAMES+=("$circuit_name")
+    done
+}
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
-            echo "Generates a flamegraph for the specified protocol circuit."
+            echo "Generates flamegraphs for the specified protocol circuits."
             echo ""
             echo "Usage:"
-            echo "    $0 <CIRCUIT_NAME>"
+            echo "    $0 <CIRCUIT_NAME> [<CIRCUIT_NAME> ...] [options]"
             echo ""
-            echo "    e.g.: $EXAMPLE_CMD"
+            echo "    e.g.: $EXAMPLE_CMD -s -p 8080"
             echo ""
-            echo "Arguments:"
-            echo "    -s    Serve the file over http"
+            echo "Options:"
+            echo "    -s    Serve the file(s) over http"
             echo "    -p    Specify custom port. Default: ${PORT}"
             echo ""
+            echo "If you're feeling lazy, you can also just list available (compiled) circuit names with:"
+            echo "    $0 -l"
             exit 0
+            ;;
+        -l|--list)
+            echo "Available circuits (that have been compiled):"
+            get_valid_circuit_names
+            for circuit_name in "${CIRCUIT_NAMES[@]}"; do
+                echo "$circuit_name"
+            done
+            exit 0
+            ;;
+        -a|--all)
+            echo "This will probably take a while..."
+            get_valid_circuit_names
+            shift
+            ;;
+        -n|--allow-no-circuit-names)
+            # Enables the existing flamegraphs to be served quickly.
+            ALLOW_NO_CIRCUIT_NAMES=true
+            shift
             ;;
         -s|--serve)
             SERVE=true
@@ -43,22 +94,23 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         *)
+            # Treat any argument not matching an option as a CIRCUIT_NAME.
+            CIRCUIT_NAMES+=("$1")
             shift
-        ;;
+            ;;
     esac
 done
 
-# Get the directory of the script.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Check if the artifact exists.
-ARTIFACT="$SCRIPT_DIR/../target/$CIRCUIT_NAME.json"
-if [[ ! -f $ARTIFACT ]]; then
-    echo "Cannot find artifact: ${ARTIFACT}"
-    exit 1
+# Ensure at least one CIRCUIT_NAME was specified.
+if [[ ! $ALLOW_NO_CIRCUIT_NAMES ]]; then
+    if [[ ${#CIRCUIT_NAMES[@]} -eq 0 ]]; then
+        echo "Please specify at least one circuit name."
+        echo "e.g.: $EXAMPLE_CMD"
+        exit 1
+    fi
 fi
 
-# Build profier if it's not available.
+# Build profiler if it's not available.
 PROFILER="$SCRIPT_DIR/../../../noir/noir-repo/target/release/noir-profiler"
 if [ ! -f $PROFILER ]; then
     echo "Profiler not found, building profiler"
@@ -67,33 +119,49 @@ if [ ! -f $PROFILER ]; then
     cd "$SCRIPT_DIR"
 fi
 
-# We create dest directory and use it as an output for the generated main.svg file.
+# Create the output directory.
 DEST="$SCRIPT_DIR/../dest"
 mkdir -p $DEST
 
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../mega_honk_circuits.json")
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../client_ivc_circuits.json")
 
-# Check if the target circuit is a mega honk circuit.
-ARTIFACT_FILE_NAME=$(basename -s .json "$ARTIFACT")
+# Process each CIRCUIT_NAME.
+for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
+    (
+        echo ""
+        echo "Doing $CIRCUIT_NAME..."
+        # Check if the artifact exists.
+        ARTIFACT="$ARTIFACT_DIR/$CIRCUIT_NAME.json"
+        if [[ ! -f $ARTIFACT ]]; then
+            artifact_error="Cannot find artifact: ${ARTIFACT}"
+            echo "$artifact_error"
+        fi
 
-IS_MEGA_HONK_CIRCUIT="false"
-for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
-    if echo "$ARTIFACT_FILE_NAME" | grep -qE "$pattern"; then
-        IS_MEGA_HONK_CIRCUIT="true"
-        break
-    fi
+        ARTIFACT_FILE_NAME=$(basename -s .json "$ARTIFACT")
+
+        # Determine if the circuit is a mega honk circuit.
+        IS_MEGA_HONK_CIRCUIT="false"
+        for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
+            if echo "$ARTIFACT_FILE_NAME" | grep -qE "$pattern"; then
+                IS_MEGA_HONK_CIRCUIT="true"
+                break
+            fi
+        done
+
+        # Generate the flamegraph.
+        if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_mega_honk" -- -h
+        else
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h
+        fi
+
+        echo "Flamegraph generated for circuit: $CIRCUIT_NAME"
+    ) & # These parenthesis `( stuff ) &` mean "do all this in parallel"
 done
+wait # wait for parallel processes to finish
 
-# At last, generate the flamegraph.
-# If it's a mega honk circuit, we need to set the backend_gates_command argument to "gates_mega_honk".
-if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-    $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" --backend-gates-command "gates_mega_honk" -- -h
-else
-    $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" -- -h
-fi
-
-# Serve the file over http if -s is set.
+# Serve the files over HTTP if -s is set.
 if $SERVE; then
-    echo "Serving flamegraph at http://0.0.0.0:${PORT}/main.svg"
-    python3 -m http.server --directory "$SCRIPT_DIR/../dest" $PORT
+    echo "Serving flamegraphs at http://0.0.0.0:${PORT}/"
+    python3 -m http.server --directory "$DEST" $PORT
 fi

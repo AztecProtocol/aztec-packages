@@ -1,11 +1,12 @@
-import { type AztecNode, type PXE, createAztecNodeClient, createDebugLogger } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
+import { type BotRunnerApi } from './interface.js';
 
-export class BotRunner {
-  private log = createDebugLogger('aztec:bot');
+export class BotRunner implements BotRunnerApi {
+  private log = createLogger('bot');
   private bot?: Promise<Bot>;
   private pxe?: PXE;
   private node: AztecNode;
@@ -112,7 +113,7 @@ export class BotRunner {
 
   /** Returns the current configuration for the bot. */
   public getConfig() {
-    return this.config;
+    return Promise.resolve(this.config);
   }
 
   async #createBot() {

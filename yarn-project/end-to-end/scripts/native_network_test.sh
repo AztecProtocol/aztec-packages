@@ -45,6 +45,8 @@ function run_parallel() {
   fi
 }
 
+export K8S=false
+
 # We exit with the return code of the first command
 # While the others are ran in the background, either in tmux or just interleaved
 run_parallel "$@"

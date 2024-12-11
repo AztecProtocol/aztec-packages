@@ -23,3 +23,21 @@ export class TransactionsNotAvailableError extends ValidatorError {
     super(`Transactions not available: ${txHashes.join(', ')}`);
   }
 }
+
+export class FailedToReExecuteTransactionsError extends ValidatorError {
+  constructor(txHashes: TxHash[]) {
+    super(`Failed to re-execute transactions: ${txHashes.join(', ')}`);
+  }
+}
+
+export class ReExStateMismatchError extends ValidatorError {
+  constructor() {
+    super('Re-execution state mismatch');
+  }
+}
+
+export class BlockBuilderNotProvidedError extends ValidatorError {
+  constructor() {
+    super('Block builder not provided');
+  }
+}

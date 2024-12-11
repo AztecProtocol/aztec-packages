@@ -1,1 +1,3 @@
 acir_tests
+**/.yarn/*
+!**/.yarn/releases

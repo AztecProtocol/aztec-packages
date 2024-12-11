@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <ostream>
 #include <string>
+#include <utility>
 
 namespace bb::crypto::merkle_tree {
 
@@ -16,9 +17,9 @@ struct TreeMeta {
     bb::fr root;
     index_t initialSize;
     bb::fr initialRoot;
-    uint64_t oldestHistoricBlock;
-    uint64_t unfinalisedBlockHeight;
-    uint64_t finalisedBlockHeight;
+    block_number_t oldestHistoricBlock;
+    block_number_t unfinalisedBlockHeight;
+    block_number_t finalisedBlockHeight;
 
     MSGPACK_FIELDS(name,
                    depth,
@@ -30,6 +31,34 @@ struct TreeMeta {
                    oldestHistoricBlock,
                    unfinalisedBlockHeight,
                    finalisedBlockHeight)
+
+    TreeMeta(std::string n,
+             uint32_t d,
+             const index_t& s,
+             const index_t& c,
+             const bb::fr& r,
+             const index_t& is,
+             const bb::fr& ir,
+             const block_number_t& o,
+             const block_number_t& u,
+             const block_number_t& f)
+        : name(std::move(n))
+        , depth(d)
+        , size(s)
+        , committedSize(c)
+        , root(r)
+        , initialSize(is)
+        , initialRoot(ir)
+        , oldestHistoricBlock(o)
+        , unfinalisedBlockHeight(u)
+        , finalisedBlockHeight(f)
+    {}
+    TreeMeta() = default;
+    ~TreeMeta() = default;
+    TreeMeta(const TreeMeta& other) = default;
+    TreeMeta(TreeMeta&& other) noexcept { *this = std::move(other); }
+    TreeMeta& operator=(const TreeMeta& other) = default;
+    TreeMeta& operator=(TreeMeta&& other) noexcept = default;
 
     bool operator==(const TreeMeta& other) const
     {
@@ -49,13 +78,5 @@ inline std::ostream& operator<<(std::ostream& os, const TreeMeta& meta)
        << meta.finalisedBlockHeight << ", unfinalisedBlockHeight: " << std::dec << meta.unfinalisedBlockHeight << "}";
     return os;
 }
-
-struct LeavesMeta {
-    index_t size;
-
-    MSGPACK_FIELDS(size)
-
-    bool operator==(const LeavesMeta& other) const { return size == other.size; }
-};
 
 } // namespace bb::crypto::merkle_tree

@@ -4,7 +4,7 @@ sidebar_position: 1
 tags: [accounts]
 ---
 
-In this page we will cover the main responsibilities of a wallet in the Aztec network.
+On this page we will cover the main responsibilities of a wallet in the Aztec network.
 
 Refer to [writing an account contract](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
 

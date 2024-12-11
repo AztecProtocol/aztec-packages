@@ -6,8 +6,6 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract SchnorrAccount {
-    use dep::std;
-
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
@@ -15,7 +13,7 @@ contract SchnorrAccount {
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_public_keys};
+    use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
         functions::{initializer, noinitcheck, private, view},
         storage::storage,
@@ -35,14 +33,10 @@ contract SchnorrAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
-        // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
-        // important.
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        let this_ovpk_m = get_public_keys(this).ovpk_m;
         storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
-            this_ovpk_m,
+            this,
             this,
         ));
     }
@@ -76,13 +70,13 @@ contract SchnorrAccount {
             signature[i] = witness[i] as u8;
         }
 
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
+            x: public_key.x,
+            y: public_key.y,
+            is_infinite: false,
+        };
         // Verify signature of the payload bytes
-        std::schnorr::verify_signature(
-            public_key.x,
-            public_key.y,
-            signature,
-            outer_hash.to_be_bytes::<32>(),
-        )
+        schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
     }
 
@@ -107,12 +101,13 @@ contract SchnorrAccount {
         for i in 0..64 {
             signature[i] = witness[i] as u8;
         }
-        let valid_in_private = std::schnorr::verify_signature(
-            public_key.x,
-            public_key.y,
-            signature,
-            message_hash.to_be_bytes::<32>(),
-        );
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
+            x: public_key.x,
+            y: public_key.y,
+            is_infinite: false,
+        };
+        let valid_in_private =
+            std::schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and

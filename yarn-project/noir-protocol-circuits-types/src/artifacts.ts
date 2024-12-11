@@ -14,9 +14,6 @@ import PrivateKernelTailJson from '../artifacts/private_kernel_tail.json' assert
 import PrivateKernelTailSimulatedJson from '../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from '../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
 import PrivateKernelTailToPublicSimulatedJson from '../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
-import PublicKernelInnerSimulatedJson from '../artifacts/public_kernel_inner_simulated.json' assert { type: 'json' };
-import PublicKernelMergeSimulatedJson from '../artifacts/public_kernel_merge_simulated.json' assert { type: 'json' };
-import PublicKernelTailSimulatedJson from '../artifacts/public_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateBaseRollupJson from '../artifacts/rollup_base_private.json' assert { type: 'json' };
 import PrivateBaseRollupSimulatedJson from '../artifacts/rollup_base_private_simulated.json' assert { type: 'json' };
 import PublicBaseRollupJson from '../artifacts/rollup_base_public.json' assert { type: 'json' };
@@ -32,11 +29,7 @@ import {
   type PrivateResetArtifact,
 } from './private_kernel_reset_data.js';
 
-// To be deprecated.
-export const SimulatedPublicKernelInnerArtifact = PublicKernelInnerSimulatedJson as NoirCompiledCircuit;
-export const SimulatedPublicKernelMergeArtifact = PublicKernelMergeSimulatedJson as NoirCompiledCircuit;
-export const SimulatedPublicKernelTailArtifact = PublicKernelTailSimulatedJson as NoirCompiledCircuit;
-
+// These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'

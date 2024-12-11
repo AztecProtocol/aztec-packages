@@ -91,8 +91,8 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.CALLDATACOPY]: makeCost(c.AVM_CALLDATACOPY_BASE_L2_GAS, 0),
   [Opcode.RETURNDATASIZE]: makeCost(c.AVM_RETURNDATASIZE_BASE_L2_GAS, 0),
   [Opcode.RETURNDATACOPY]: makeCost(c.AVM_RETURNDATACOPY_BASE_L2_GAS, 0),
-  [Opcode.JUMP_16]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),
-  [Opcode.JUMPI_16]: makeCost(c.AVM_JUMPI_BASE_L2_GAS, 0),
+  [Opcode.JUMP_32]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),
+  [Opcode.JUMPI_32]: makeCost(c.AVM_JUMPI_BASE_L2_GAS, 0),
   [Opcode.INTERNALCALL]: makeCost(c.AVM_INTERNALCALL_BASE_L2_GAS, 0),
   [Opcode.INTERNALRETURN]: makeCost(c.AVM_INTERNALRETURN_BASE_L2_GAS, 0),
   [Opcode.SET_8]: makeCost(c.AVM_SET_BASE_L2_GAS, 0),
@@ -136,6 +136,7 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.RETURN, makeCost(c.AVM_RETURN_DYN_L2_GAS, 0)],
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
+  [Opcode.DEBUGLOG, makeCost(c.AVM_DEBUGLOG_DYN_L2_GAS, 0)],
   [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
   [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
 ]);

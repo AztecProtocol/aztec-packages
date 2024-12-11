@@ -1,20 +1,18 @@
 // docs:start:cross_chain_test_harness
 import {
+  type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
-  ExtendedNote,
   type FieldsOf,
   Fr,
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
-  type L2RedeemableAmountClaim,
-  Note,
+  type L2AmountClaimWithRecipient,
+  type Logger,
   type PXE,
   type SiblingPath,
-  type TxHash,
   type TxReceipt,
   type Wallet,
   deployL1Contract,
@@ -78,15 +76,20 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   underlyingERC20: any;
 }> {
   if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode).then(
-      ({ address }) => address,
-    );
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
+      'Underlying',
+      'UND',
+      walletClient.account.address,
+    ]).then(({ address }) => address);
   }
   const underlyingERC20 = getContract({
     address: underlyingERC20Address!.toString(),
     abi: TestERC20Abi,
     client: walletClient,
   });
+
+  // allow anyone to mint
+  await underlyingERC20.write.setFreeForAll([true], {} as any);
 
   // deploy the token portal
   const { address: tokenPortalAddress } = await deployL1Contract(
@@ -141,8 +144,8 @@ export class CrossChainTestHarness {
     pxeService: PXE,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
-    wallet: Wallet,
-    logger: DebugLogger,
+    wallet: AccountWallet,
+    logger: Logger,
     underlyingERC20Address?: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
@@ -187,7 +190,7 @@ export class CrossChainTestHarness {
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
-    public logger: DebugLogger,
+    public logger: Logger,
 
     /** L2 Token contract. */
     public l2Token: TokenContract,
@@ -210,7 +213,7 @@ export class CrossChainTestHarness {
     public readonly l1ContractAddresses: L1ContractAddresses,
 
     /** Wallet of the owner. */
-    public readonly ownerWallet: Wallet,
+    public readonly ownerWallet: AccountWallet,
   ) {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
@@ -243,7 +246,7 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_public(this.ownerAddress, amount).send().wait();
+    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send().wait();
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
@@ -252,20 +255,18 @@ export class CrossChainTestHarness {
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
-    await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
+    await this.l2Token.methods.transfer_in_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
   async consumeMessageOnAztecAndMintPrivately(
-    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'redeemSecretHash'>,
+    claim: Pick<L2AmountClaimWithRecipient, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'recipient'>,
   ) {
     this.logger.info('Consuming messages on L2 privately');
-    const { claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex, redeemSecretHash } = claim;
-    const consumptionReceipt = await this.l2Bridge.methods
-      .claim_private(redeemSecretHash, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
+    const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
+    await this.l2Bridge.methods
+      .claim_private(recipient, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
       .send()
       .wait();
-
-    await this.addPendingShieldNoteToPXE(claimAmount.toBigInt(), redeemSecretHash, consumptionReceipt.txHash);
   }
 
   async consumeMessageOnAztecAndMintPublicly(
@@ -340,38 +341,14 @@ export class CrossChainTestHarness {
     );
   }
 
-  async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
-    this.logger.info('Shielding funds on L2');
-    const shieldReceipt = await this.l2Token.methods
-      .shield(this.ownerAddress, shieldAmount, secretHash, 0)
-      .send()
-      .wait();
-
-    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
+  async transferToPrivateOnL2(shieldAmount: bigint) {
+    this.logger.info('Transferring to private on L2');
+    await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
   }
 
-  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
-    this.logger.info('Adding note to PXE');
-    const note = new Note([new Fr(shieldAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.ownerAddress,
-      this.l2Token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.ownerWallet.addNote(extendedNote);
-  }
-
-  async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger.info('Spending note in private call');
-    await this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send().wait();
-  }
-
-  async unshieldTokensOnL2(unshieldAmount: bigint, nonce = Fr.ZERO) {
-    this.logger.info('Unshielding tokens');
-    await this.l2Token.methods.unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce).send().wait();
+  async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {
+    this.logger.info('Transferring tokens to public');
+    await this.l2Token.methods.transfer_to_public(this.ownerAddress, this.ownerAddress, amount, nonce).send().wait();
   }
 
   /**
@@ -383,13 +360,8 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
-    const currentL2BlockNumber = await this.aztecNode.getBlockNumber();
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(
-      async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash, currentL2BlockNumber),
-      'message sync',
-      10,
-    );
+    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

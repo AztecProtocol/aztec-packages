@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 use std::test::OracleMock;
 
-/// Internal orchestration means that the calls to `prepare_transfer_to_private`
+/// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
 /// In this test's case this is done by the `NFT::transfer_to_private(...)` function called
 /// in `utils::setup_mint_and_transfer_to_private`.
@@ -40,7 +40,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 
     // We prepare the transfer
     let hiding_point_slot: Field = NFT::at(nft_contract_address)
-        .prepare_transfer_to_private(recipient)
+        .prepare_private_balance_increase(recipient)
         .call(&mut env.private());
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
@@ -96,7 +96,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // as the NFT owner check is before we use the value but that would made the test less robust against changes
     // in the contract.)
     let hiding_point_slot: Field = NFT::at(nft_contract_address)
-        .prepare_transfer_to_private(not_owner)
+        .prepare_private_balance_increase(not_owner)
         .call(&mut env.private());
 
     // Try transferring someone else's public NFT

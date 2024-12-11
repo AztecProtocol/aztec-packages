@@ -1,7 +1,0 @@
-ProposeTest
-├── when caller is not gerousia
-│   └── it revert
-└── when caller is gerousia
-    ├── it creates a new proposal with current config
-    ├── it emits a {ProposalCreated} event
-    └── it returns true

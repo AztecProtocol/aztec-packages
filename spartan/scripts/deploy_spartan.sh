@@ -1,10 +1,15 @@
 #!/bin/bash
-set -eux
+set -eu
 set -o pipefail
 
 TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
+PROD=${4:-true}
+PROD_ARGS=""
+if [ "$PROD" = "true" ] ; then
+  PROD_ARGS="--set network.public=true"
+fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$TAG" ]; then
@@ -46,16 +51,14 @@ function upgrade() {
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
-          --set images.aztec.image="$IMAGE" \
-          --set network.public=true
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
+          --set images.aztec.image="$IMAGE"
   else
     helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
           --set images.aztec.image="$IMAGE" \
-          --set network.public=true \
           --wait \
           --wait-for-jobs=true \
           --timeout=30m 2>&1
@@ -66,6 +69,12 @@ function upgrade() {
 if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
   if grep 'cannot patch "'$NAMESPACE'-aztec-network-setup-l2-contracts"' "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
     kubectl delete job $NAMESPACE-aztec-network-setup-l2-contracts -n $NAMESPACE
-    upgrade
   fi
+
+  if grep 'cannot patch "'$NAMESPACE'-aztec-network-deploy-l1-verifier"' "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
+    kubectl delete job $NAMESPACE-aztec-network-deploy-l1-verifier -n $NAMESPACE
+  fi
+
+  upgrade
 fi
+

@@ -6,7 +6,6 @@ import {
   Note,
   type TxHash,
   computeSecretHash,
-  waitForAccountSynch,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
 import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
@@ -200,17 +199,11 @@ describe('Aztec persistence', () => {
       await context.teardown();
     });
 
-    it('pxe does not have the owner account', async () => {
-      await expect(context.pxe.getRecipient(ownerAddress.address)).resolves.toBeUndefined();
-    });
-
     it('the node has the contract', async () => {
       await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
     });
 
     it('pxe does not know of the deployed contract', async () => {
-      await context.pxe.registerRecipient(ownerAddress);
-
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
       await expect(TokenBlacklistContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
@@ -220,7 +213,6 @@ describe('Aztec persistence', () => {
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
-      await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
@@ -249,8 +241,6 @@ describe('Aztec persistence', () => {
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
-
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 1, timeout: 10 });
 
       // check that notes total more than 0 so that this test isn't dependent on run order
       await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toBeGreaterThan(0n);
@@ -304,8 +294,6 @@ describe('Aztec persistence', () => {
       const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
-
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 0.1, timeout: 5 });
     });
 
     afterEach(async () => {

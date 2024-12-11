@@ -3,7 +3,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -31,7 +30,7 @@ template <typename Flavor> class MergeVerifier_ {
 
   private:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 };
 
 } // namespace bb

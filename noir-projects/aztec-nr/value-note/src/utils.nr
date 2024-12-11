@@ -1,6 +1,5 @@
 use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-use dep::aztec::keys::getters::get_public_keys;
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
 
@@ -21,18 +20,12 @@ pub fn increment(
     // docs:start:increment_args
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    recipient: AztecAddress,
-    outgoing_viewer: AztecAddress, // docs:end:increment_args
+    recipient: AztecAddress, // docs:end:increment_args
+    sender: AztecAddress,
 ) {
-    let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
-
     let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note).emit(encode_and_encrypt_note(
-        balance.context,
-        outgoing_viewer_ovpk_m,
-        recipient,
-    ));
+    balance.insert(&mut note).emit(encode_and_encrypt_note(balance.context, recipient, sender));
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -43,9 +36,9 @@ pub fn decrement(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     owner: AztecAddress,
-    outgoing_viewer: AztecAddress,
+    sender: AztecAddress,
 ) {
-    let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer);
+    let sum = decrement_by_at_most(balance, amount, owner, sender);
     assert(sum == amount, "Balance too low");
 }
 
@@ -61,7 +54,7 @@ pub fn decrement_by_at_most(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
     owner: AztecAddress,
-    outgoing_viewer: AztecAddress,
+    sender: AztecAddress,
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let notes = balance.pop_notes(options);
@@ -80,7 +73,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(balance, change_value, owner, outgoing_viewer);
+    increment(balance, change_value, owner, sender);
 
     decremented
 }

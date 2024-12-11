@@ -43,3 +43,27 @@ export function mapProtocolArtifactNameToCircuitName(
     }
   }
 }
+
+export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | ClientProtocolArtifact): boolean {
+  switch (artifact) {
+    case 'EmptyNestedArtifact':
+    case 'PrivateKernelEmptyArtifact':
+    case 'BaseParityArtifact':
+    case 'RootParityArtifact':
+    case 'PrivateBaseRollupArtifact':
+    case 'PublicBaseRollupArtifact':
+    case 'MergeRollupArtifact':
+    case 'BlockRootRollupArtifact':
+    case 'EmptyBlockRootRollupArtifact':
+    case 'BlockMergeRollupArtifact':
+    case 'RootRollupArtifact':
+      return true;
+    default: {
+      if (artifact.startsWith('PrivateKernel')) {
+        // The kernel prover, where these are used, eventually calls `createClientIvcProof`, which is recursive.
+        return true;
+      }
+      throw new Error(`Unknown circuit type: ${artifact}`);
+    }
+  }
+}

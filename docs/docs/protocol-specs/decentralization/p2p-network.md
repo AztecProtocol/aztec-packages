@@ -61,7 +61,7 @@ When new participants join the network for the first time, they will need to loc
 
 Whilst the DiscV5 specification is still under development, the protocol is currently in use by Ethereum's consensus layer with 100,000s of participants. Nodes maintain a DHT routing table of Ethereum Node Records (ENRs), periodically flushing nodes that are no longer responsive and searching for new nodes by requesting records from their neighbours.
 
-Neighbours in this sense are not necessarily in geographical proximity. Node distance is defined as the bitwise XOR of the nodes 32 bit IDs.
+Neighbours in this sense are not necessarily in geographical proximity. Node distance is defined as the bitwise XOR of the nodes 32-bit IDs.
 
 ```
 distance(Id1, Id2) = Id1 XOR Id2

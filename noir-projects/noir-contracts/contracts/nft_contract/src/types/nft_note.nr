@@ -5,10 +5,8 @@ use dep::aztec::{
     oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
-        address::AztecAddress,
-        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         hash::poseidon2_hash_with_separator,
-        traits::{Empty, Eq},
     },
 };
 
@@ -16,7 +14,7 @@ use dep::aztec::{
 pub struct NFTNote {
     // ID of the token
     token_id: Field,
-    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    // The owner of the note
     owner: AztecAddress,
     // Randomness of the note to hide its contents
     randomness: Field,

@@ -74,9 +74,9 @@ function check_toolchains {
     if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.75)"
+      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -b 25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done
@@ -104,7 +104,7 @@ if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
   echo -n "Continue? [y/n] "
   read user_input
-  if [ "$user_input" != "y" ] && [ "$user_input" != "yes" ] && [ "$user_input" != "Y" ] && [ "$user_input" != "YES" ]; then
+  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
     echo "Exiting without cleaning"
     exit 1
   fi

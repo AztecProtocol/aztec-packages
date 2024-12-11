@@ -10,6 +10,8 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 export BOOTNODE_URL=${BOOTNODE_URL:-http://127.0.0.1:8080}
 export PXE_URL=${PXE_URL:-http://127.0.0.1:8079}
+export ETHEREUM_HOST=${ETHEREUM_HOST:-http://127.0.0.1:8545}
+export K8S=${K8S:-false}
 
 REPO=$(git rev-parse --show-toplevel)
 # Run our test assuming the port in pxe.sh
@@ -30,7 +32,6 @@ until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contr
 done
 echo "Done waiting."
 
-export DEBUG="aztec:*"
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
-DEBUG=aztec:* yarn test src/spartan/transfer.test.ts
+yarn test src/spartan/transfer.test.ts

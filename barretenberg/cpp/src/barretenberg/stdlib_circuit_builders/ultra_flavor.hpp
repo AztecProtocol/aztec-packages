@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -47,12 +48,22 @@ class UltraFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    // The number of shifted witness entities including derived witness entities
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+    // The number of shifted tables
+    static constexpr size_t NUM_SHIFTED_TABLES = 4;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
+                                NUM_SHIFTED_WITNESSES);
+
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
@@ -194,6 +205,7 @@ class UltraFlavor {
 
     /**
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
      */
     template <typename DataType> class ShiftedTables {
       public:
@@ -272,7 +284,6 @@ class UltraFlavor {
         };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -317,7 +328,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            PROFILE_THIS();
+            PROFILE_THIS_NAME("UltraFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];
@@ -330,6 +341,13 @@ class UltraFlavor {
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
+            }
+        }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
             }
         }
     };
@@ -401,18 +419,19 @@ class UltraFlavor {
          * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
+         * @param size_override override the size of the domain over which to compute the grand product
          */
-        void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
-            auto public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
-                                                                              relation_parameters.beta,
-                                                                              relation_parameters.gamma,
-                                                                              this->circuit_size,
-                                                                              this->pub_inputs_offset);
-            relation_parameters.public_input_delta = public_input_delta;
+            relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
+                                                                                             relation_parameters.beta,
+                                                                                             relation_parameters.gamma,
+                                                                                             this->circuit_size,
+                                                                                             this->pub_inputs_offset);
 
-            // Compute permutation and lookup grand product polynomials
-            compute_grand_products<UltraFlavor>(this->polynomials, relation_parameters);
+            // Compute permutation grand product polynomial
+            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override);
         }
     };
 
@@ -438,8 +457,9 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_recursive_proof = proving_key.contains_recursive_proof;
-            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                proving_key.pairing_point_accumulator_public_input_indices;
 
             if (proving_key.commitment_key == nullptr) {
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
@@ -453,8 +473,8 @@ class UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const bool contains_recursive_proof,
-                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const bool contains_pairing_point_accumulator,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -487,8 +507,8 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_recursive_proof = contains_recursive_proof;
-            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -523,8 +543,8 @@ class UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_recursive_proof,
-                       recursive_proof_public_input_indices,
+                       contains_pairing_point_accumulator,
+                       pairing_point_accumulator_public_input_indices,
                        q_m,
                        q_c,
                        q_l,

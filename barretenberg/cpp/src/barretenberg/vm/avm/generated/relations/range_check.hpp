@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class range_checkImpl {
   public:
@@ -221,31 +221,31 @@ template <typename FF_> class range_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_mem_rng_chk * (new_term.range_check_rng_chk_bits - FF(40)));
+            auto tmp = (new_term.range_check_gas_l2_rng_chk * (new_term.range_check_rng_chk_bits - FF(32)));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_gas_l2_rng_chk * (new_term.range_check_rng_chk_bits - FF(32)));
+            auto tmp = (new_term.range_check_gas_da_rng_chk * (new_term.range_check_rng_chk_bits - FF(32)));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_gas_da_rng_chk * (new_term.range_check_rng_chk_bits - FF(32)));
+            auto tmp = (new_term.range_check_cmp_lo_bits_rng_chk * (new_term.range_check_rng_chk_bits - FF(128)));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_cmp_lo_bits_rng_chk * (new_term.range_check_rng_chk_bits - FF(128)));
+            auto tmp = (new_term.range_check_cmp_hi_bits_rng_chk * (new_term.range_check_rng_chk_bits - FF(128)));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_cmp_hi_bits_rng_chk * (new_term.range_check_rng_chk_bits - FF(128)));
+            auto tmp = (new_term.range_check_cmp_non_ff_rng_chk * (new_term.range_check_rng_chk_bits - FF(128)));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
@@ -264,6 +264,9 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
         }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

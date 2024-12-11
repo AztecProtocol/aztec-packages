@@ -57,6 +57,15 @@ output "fee_juice_contract_address" {
   value = var.FEE_JUICE_CONTRACT_ADDRESS
 }
 
+variable "STAKING_ASSET_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "staking_asset_contract_address" {
+  value = var.STAKING_ASSET_CONTRACT_ADDRESS
+}
+
 variable "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   type    = string
   default = ""
@@ -66,38 +75,38 @@ output "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   value = var.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 }
 
-variable "NOMISMATOKOPIO_CONTRACT_ADDRESS" {
+variable "COIN_ISSUER_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "NOMISMATOKOPIO_CONTRACT_ADDRESS" {
-  value = var.NOMISMATOKOPIO_CONTRACT_ADDRESS
+output "COIN_ISSUER_CONTRACT_ADDRESS" {
+  value = var.COIN_ISSUER_CONTRACT_ADDRESS
 }
 
-variable "SYSSTIA_CONTRACT_ADDRESS" {
+variable "REWARD_DISTRIBUTOR_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "SYSSTIA_CONTRACT_ADDRESS" {
-  value = var.SYSSTIA_CONTRACT_ADDRESS
+output "REWARD_DISTRIBUTOR_CONTRACT_ADDRESS" {
+  value = var.REWARD_DISTRIBUTOR_CONTRACT_ADDRESS
 }
 
-variable "GEROUSIA_CONTRACT_ADDRESS" {
+variable "GOVERNANCE_PROPOSER_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "GEROUSIA_CONTRACT_ADDRESS" {
-  value = var.GEROUSIA_CONTRACT_ADDRESS
+output "GOVERNANCE_PROPOSER_CONTRACT_ADDRESS" {
+  value = var.GOVERNANCE_PROPOSER_CONTRACT_ADDRESS
 }
 
-variable "APELLA_CONTRACT_ADDRESS" {
+variable "GOVERNANCE_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "APELLA_CONTRACT_ADDRESS" {
-  value = var.APELLA_CONTRACT_ADDRESS
+output "GOVERNANCE_CONTRACT_ADDRESS" {
+  value = var.GOVERNANCE_CONTRACT_ADDRESS
 }

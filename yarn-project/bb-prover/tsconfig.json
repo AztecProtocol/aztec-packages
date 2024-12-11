@@ -25,7 +25,13 @@
       "path": "../telemetry-client"
     },
     {
+      "path": "../world-state"
+    },
+    {
       "path": "../ethereum"
+    },
+    {
+      "path": "../kv-store"
     },
     {
       "path": "../types"

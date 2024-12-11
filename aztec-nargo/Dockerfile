@@ -4,16 +4,21 @@ FROM aztecprotocol/noir AS built-noir
 # to get built avm-transpiler binary
 FROM aztecprotocol/avm-transpiler AS built-transpiler
 
+# to get built barretenberg binary
+FROM --platform=linux/amd64 aztecprotocol/barretenberg-x86_64-linux-clang as barretenberg
+
 
 FROM ubuntu:noble
 # Install Tini as nargo doesn't handle signals properly.
 # Install git as nargo needs it to clone.
-RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/* && apt-get clean
+RUN apt-get update && apt-get install -y git tini jq curl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Copy binaries to /usr/bin
 COPY --from=built-noir /usr/src/noir/noir-repo/target/release/nargo /usr/bin/nargo
 COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/bin/avm-transpiler
-# Copy in script that calls both binaries
-COPY ./avm-transpiler/scripts/compile_then_transpile.sh /usr/src/avm-transpiler/scripts/compile_then_transpile.sh
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/bin/bb
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_transpile.sh"]
+# Copy in script that calls both binaries
+COPY ./aztec-nargo/compile_then_postprocess.sh /usr/src/aztec-nargo/compile_then_postprocess.sh
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/aztec-nargo/compile_then_postprocess.sh"]

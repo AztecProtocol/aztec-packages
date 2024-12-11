@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../epoch-cache"
+    },
+    {
       "path": "../ethereum"
     },
     {

@@ -1,18 +1,19 @@
 use crate::utils::point::point_to_bytes;
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY, point::Point, scalar::Scalar, utils::arr_copy_slice,
-};
+use dep::protocol_types::{constants::GENERATOR_INDEX__SYMMETRIC_KEY, point::Point, scalar::Scalar};
 use std::{embedded_curve_ops::multi_scalar_mul, hash::sha256};
 
 // TODO(#5726): This function is called deriveAESSecret in TS. I don't like point_to_symmetric_key name much since
 // point is not the only input of the function. Unify naming with TS once we have a better name.
 pub fn point_to_symmetric_key(secret: Scalar, point: Point) -> [u8; 32] {
-    let shared_secret: Point = multi_scalar_mul([point], [secret]);
-    let shared_secret = point_to_bytes(shared_secret);
-    let mut shared_secret_bytes_with_separator = [0 as u8; 33];
-    shared_secret_bytes_with_separator =
-        arr_copy_slice(shared_secret, shared_secret_bytes_with_separator, 0);
+    let shared_secret = point_to_bytes(multi_scalar_mul([point], [secret]));
+
+    let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
+    for i in 0..shared_secret.len() {
+        shared_secret_bytes_with_separator[i] = shared_secret[i];
+    }
+
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
+
     sha256(shared_secret_bytes_with_separator)
 }
 

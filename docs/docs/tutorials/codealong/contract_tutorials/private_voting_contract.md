@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../guides/developer_guides/getting_started) to install `aztec-nargo` and `aztec`.
+- You have followed the [quickstart](../../../guides/getting_started) to install `aztec-nargo` and `aztec`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -74,7 +74,7 @@ We are using various utils within the Aztec `prelude` library:
 - `PrivateContext` - exposes things such as the contract address, msg_sender, etc
 - `Map` - A data storage type for storing candidates with the number of votes they have
 - `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `SharedImmutable` - an immutable storage value that is accessible in private and public execution.
+- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
 
 ## Set up storage
 

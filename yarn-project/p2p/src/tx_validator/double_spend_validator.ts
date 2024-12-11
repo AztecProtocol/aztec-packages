@@ -1,13 +1,13 @@
 import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 export interface NullifierSource {
   getNullifierIndex: (nullifier: Fr) => Promise<bigint | undefined>;
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_double_spend');
+  #log = createLogger('p2p:tx_validator:tx_double_spend');
   #nullifierSource: NullifierSource;
 
   constructor(nullifierSource: NullifierSource, private readonly isValidatingBlock: boolean = true) {
@@ -36,7 +36,9 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async #uniqueNullifiers(tx: AnyTx, thisBlockNullifiers: Set<bigint>): Promise<boolean> {
-    const nullifiers = tx.data.getNonEmptyNullifiers().map(x => x.toBigInt());
+    const nullifiers = (tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers).map(x =>
+      x.toBigInt(),
+    );
 
     // Ditch this tx if it has repeated nullifiers
     const uniqueNullifiers = new Set(nullifiers);

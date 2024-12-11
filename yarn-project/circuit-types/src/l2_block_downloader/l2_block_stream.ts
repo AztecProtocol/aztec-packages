@@ -1,25 +1,26 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type L2Block } from '../l2_block.js';
 import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
 
-/** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver. */
+/** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
-  private readonly log = createDebugLogger('aztec:l2_block_stream');
+  private readonly log = createLogger('types:l2_block_stream');
 
   constructor(
-    private l2BlockSource: L2BlockSource,
+    private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private opts: {
       proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
-    },
+      startingBlock?: number;
+    } = {},
   ) {
     this.runningPromise = new RunningPromise(() => this.work(), this.opts.pollIntervalMS ?? 1000);
   }
@@ -45,7 +46,7 @@ export class L2BlockStream {
     try {
       const sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
-      this.log.debug(`Running L2 block stream`, {
+      this.log.trace(`Running L2 block stream`, {
         sourceLatest: sourceTips.latest.number,
         localLatest: localTips.latest.number,
         sourceFinalized: sourceTips.finalized.number,
@@ -70,11 +71,16 @@ export class L2BlockStream {
         await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
       }
 
+      // If we are just starting, use the starting block number from the options.
+      if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
+        latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+      }
+
       // Request new blocks from the source.
       while (latestBlockNumber < sourceTips.latest.number) {
         const from = latestBlockNumber + 1;
         const limit = Math.min(this.opts.batchSize ?? 20, sourceTips.latest.number - from + 1);
-        this.log.debug(`Requesting blocks from ${from} limit ${limit} proven=${this.opts.proven}`);
+        this.log.trace(`Requesting blocks from ${from} limit ${limit} proven=${this.opts.proven}`);
         const blocks = await this.l2BlockSource.getBlocks(from, limit, this.opts.proven);
         if (blocks.length === 0) {
           break;
@@ -113,7 +119,12 @@ export class L2BlockStream {
     const sourceBlockHash =
       args.sourceCache.find(id => id.number === blockNumber && id.hash)?.hash ??
       (await this.l2BlockSource.getBlockHeader(blockNumber).then(h => h?.hash().toString()));
-    this.log.debug(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
+    this.log.trace(`Comparing block hashes for block ${blockNumber}`, {
+      localBlockHash,
+      sourceBlockHash,
+      sourceCacheNumber: args.sourceCache[0]?.number,
+      sourceCacheHash: args.sourceCache[0]?.hash,
+    });
     return localBlockHash === sourceBlockHash;
   }
 

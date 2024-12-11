@@ -15,7 +15,7 @@ pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
 }
 
 impl<let N: u32> MerkleTree<N> {
-    fn update_leaf<let K: u32>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
+    pub fn update_leaf<let K: u32>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
         self.leaves[index] = value;
 
         let mut sibling_index = merkle_tree::sibling_index(index);

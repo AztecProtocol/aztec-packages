@@ -6,7 +6,7 @@ contract Claim {
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
         protocol_types::address::AztecAddress,
-        state_vars::SharedImmutable,
+        state_vars::PublicImmutable,
     };
     use dep::value_note::value_note::ValueNote;
     use token::Token;
@@ -14,9 +14,9 @@ contract Claim {
     #[storage]
     struct Storage<Context> {
         // Address of a contract based on whose notes we distribute the rewards
-        target_contract: SharedImmutable<AztecAddress, Context>,
+        target_contract: PublicImmutable<AztecAddress, Context>,
         // Token to be distributed as a reward when claiming
-        reward_token: SharedImmutable<AztecAddress, Context>,
+        reward_token: PublicImmutable<AztecAddress, Context>,
     }
 
     #[public]
@@ -29,14 +29,14 @@ contract Claim {
     #[private]
     fn claim(proof_note: ValueNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
-        let target_address = storage.target_contract.read_private();
+        let target_address = storage.target_contract.read();
         assert(
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
         );
 
         // 2) Prove that the note hash exists in the note hash tree
-        let header = context.get_header();
+        let header = context.get_block_header();
         header.prove_note_inclusion(proof_note);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
@@ -51,8 +51,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read_private())
-            .mint_public(recipient, proof_note.value)
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }

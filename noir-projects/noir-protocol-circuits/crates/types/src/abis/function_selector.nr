@@ -2,7 +2,7 @@ use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 
 pub struct FunctionSelector {
     // 1st 4-bytes of abi-encoding of function.
-    inner: u32,
+    pub inner: u32,
 }
 
 impl Eq for FunctionSelector {

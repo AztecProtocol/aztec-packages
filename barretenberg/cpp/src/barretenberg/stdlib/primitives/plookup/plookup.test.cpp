@@ -555,8 +555,8 @@ TEST(stdlib_plookup, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, index);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, index);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, index);
-        curve::fq_ct x = curve::fq_ct(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct(ylo.first, ylo.second, yhi.first, yhi.second);
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
 
         const auto res = curve::g1_ct(x, y).get_value();
         curve::fr scalar(i);
@@ -573,8 +573,8 @@ TEST(stdlib_plookup, secp256k1_generator)
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[0]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[0]);
 
-        curve::fq_ct x = curve::fq_ct(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct(ylo.first, ylo.second, yhi.first, yhi.second);
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
         accumulator = curve::g1_ct(x, y);
     }
     for (size_t i = 1; i < circuit_naf_values.size(); ++i) {
@@ -590,8 +590,8 @@ TEST(stdlib_plookup, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[i]);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[i]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[i]);
-        curve::fq_ct x = curve::fq_ct(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct(ylo.first, ylo.second, yhi.first, yhi.second);
+        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
         accumulator = accumulator.montgomery_ladder(curve::g1_ct(x, y));
     }
 

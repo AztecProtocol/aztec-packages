@@ -5,9 +5,9 @@ use crate::{
 };
 
 pub struct PartialStateReference {
-    note_hash_tree: AppendOnlyTreeSnapshot,
-    nullifier_tree: AppendOnlyTreeSnapshot,
-    public_data_tree: AppendOnlyTreeSnapshot,
+    pub note_hash_tree: AppendOnlyTreeSnapshot,
+    pub nullifier_tree: AppendOnlyTreeSnapshot,
+    pub public_data_tree: AppendOnlyTreeSnapshot,
 }
 
 impl Eq for PartialStateReference {

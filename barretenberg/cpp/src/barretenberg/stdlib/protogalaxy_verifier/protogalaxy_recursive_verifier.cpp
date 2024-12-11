@@ -77,32 +77,122 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     const FF vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     const std::vector<FF> lagranges = { FF(1) - combiner_challenge, combiner_challenge };
 
+    /*
+        Fold the commitments
+        Note: we use additional challenges to reduce the amount of elliptic curve work performed by the ECCVM
+
+        For an accumulator commitment [P'] and an instance commitment [P] , we compute folded commitment [P''] where
+        [P''] = L0(gamma).[P'] + L1(gamma).[P]
+        For the size-2 case this becomes:
+        P'' = (1 - gamma).[P'] + gamma.[P] = gamma.[P - P'] + [P']
+
+        This requires a large number of size-1 scalar muls (about 53)
+        The ECCVM can perform a size-k MSM in 32 + roundup((k/4)) rows, if each scalar multiplier is <128 bits
+        i.e. number of ECCVM rows = 53 * 64 = painful
+
+        To optimize, we generate challenges `c_i` for each commitment and evaluate the relation:
+
+        [A] = \sum c_i.[P_i]
+        [B] = \sum c_i.[P'_i]
+        [C] = \sum c_i.[P''_i]
+        and validate
+        (1 - gamma).[A] + gamma.[B] == [C]
+
+
+        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
+        For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
+
+        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of scalar
+       muls, however we must also consider the number of ECCVM operations being executed, as each operation incurs a
+       cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
+       equivalent to 9 ECCVM rows. Something to pay attention to
+    */
+    std::vector<Commitment> accumulator_commitments;
+    std::vector<Commitment> instance_commitments;
+    for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
+        ASSERT(precomputed.size() == 2);
+        accumulator_commitments.emplace_back(precomputed[0]);
+        instance_commitments.emplace_back(precomputed[1]);
+    }
+    for (const auto& witness : keys_to_fold.get_witness_commitments()) {
+        ASSERT(witness.size() == 2);
+        accumulator_commitments.emplace_back(witness[0]);
+        instance_commitments.emplace_back(witness[1]);
+    }
+
+    // derive output commitment witnesses
+    std::vector<Commitment> output_commitments;
+    for (size_t i = 0; i < accumulator_commitments.size(); ++i) {
+        const auto lhs_scalar = (FF(1) - combiner_challenge).get_value();
+        const auto rhs_scalar = combiner_challenge.get_value();
+
+        const auto lhs = accumulator_commitments[i].get_value();
+
+        const auto rhs = instance_commitments[i].get_value();
+        const auto output = lhs * lhs_scalar + rhs * rhs_scalar;
+        output_commitments.emplace_back(Commitment::from_witness(builder, output));
+    }
+
+    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
+    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
+        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
+    }
+    std::array<FF, Flavor::NUM_FOLDED_ENTITIES> folding_challenges = transcript->template get_challenges<FF>(args);
+    std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
+
+    Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
+                                                       scalars,
+                                                       /*max_num_bits=*/0,
+                                                       /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment instance_sum = Commitment::batch_mul(instance_commitments,
+                                                    scalars,
+                                                    /*max_num_bits=*/0,
+                                                    /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment output_sum = Commitment::batch_mul(output_commitments,
+                                                  scalars,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    Commitment folded_sum = Commitment::batch_mul({ accumulator_sum, instance_sum },
+                                                  lagranges,
+                                                  /*max_num_bits=*/0,
+                                                  /*handle_edge_cases=*/IsUltraBuilder<Builder>);
+
+    output_sum.x.assert_equal(folded_sum.x);
+    output_sum.y.assert_equal(folded_sum.y);
+
     // Compute next folding parameters
     accumulator->is_accumulator = true;
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Fold the commitments
-    for (auto [combination, to_combine] :
-         zip_view(accumulator->verification_key->get_all(), keys_to_fold.get_precomputed_commitments())) {
-        combination = Commitment::batch_mul(
-            to_combine, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
-    }
-
-    for (auto [combination, to_combine] :
-         zip_view(accumulator->witness_commitments.get_all(), keys_to_fold.get_witness_commitments())) {
-        combination = Commitment::batch_mul(
-            to_combine, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
-    }
+    // Set the accumulator circuit size data based on the max of the keys being accumulated
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
+    accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
         combination = linear_combination(to_combine, lagranges);
     }
+
     for (auto [combination, to_combine] :
          zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
+    }
+
+    auto accumulator_vkey = accumulator->verification_key->get_all();
+    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
+        accumulator_vkey[i] = output_commitments[i];
+    }
+
+    auto accumulator_witnesses = accumulator->witness_commitments.get_all();
+    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
+        accumulator_witnesses[i] = output_commitments[i + accumulator_vkey.size()];
     }
 
     return accumulator;

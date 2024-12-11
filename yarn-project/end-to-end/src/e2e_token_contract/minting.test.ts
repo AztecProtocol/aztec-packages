@@ -22,7 +22,7 @@ describe('e2e_token_contract minting', () => {
   describe('Public', () => {
     it('as minter', async () => {
       const amount = 10000n;
-      await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+      await asset.methods.mint_to_public(accounts[0].address, amount).send().wait();
 
       tokenSim.mintPublic(accounts[0].address, amount);
       expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(
@@ -35,27 +35,27 @@ describe('e2e_token_contract minting', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
-          asset.withWallet(wallets[1]).methods.mint_public(accounts[0].address, amount).simulate(),
+          asset.withWallet(wallets[1]).methods.mint_to_public(accounts[0].address, amount).simulate(),
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
       it('mint >u128 tokens to overflow', async () => {
         const amount = 2n ** 128n; // U128::max() + 1;
-        await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+        await expect(asset.methods.mint_to_public(accounts[0].address, amount).simulate()).rejects.toThrow(
           BITSIZE_TOO_BIG_ERROR,
         );
       });
 
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-        await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+        await expect(asset.methods.mint_to_public(accounts[0].address, amount).simulate()).rejects.toThrow(
           U128_OVERFLOW_ERROR,
         );
       });
 
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-        await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrow(
+        await expect(asset.methods.mint_to_public(accounts[1].address, amount).simulate()).rejects.toThrow(
           U128_OVERFLOW_ERROR,
         );
       });

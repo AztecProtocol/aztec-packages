@@ -1,2 +1,2 @@
 ^l1-contracts/src/.*\.sol$
-^l1-contracts/test/governance/scenario/NewGerousiaPayload.sol$
+^l1-contracts/test/.*\.sol$

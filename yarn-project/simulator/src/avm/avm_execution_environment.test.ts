@@ -1,16 +1,15 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { allSameExcept, initExecutionEnvironment } from './fixtures/index.js';
 
 describe('Execution Environment', () => {
-  const newAddress = new Fr(123456n);
+  const newAddress = AztecAddress.fromNumber(123456);
   const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-  const selector = FunctionSelector.empty();
 
   it('New call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(newAddress, calldata, selector);
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(newAddress, calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
@@ -21,13 +20,9 @@ describe('Execution Environment', () => {
     );
   });
 
-  it('New static call call should fork execution environment correctly', () => {
+  it('New static call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(
-      newAddress,
-      calldata,
-      selector,
-    );
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(newAddress, calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {

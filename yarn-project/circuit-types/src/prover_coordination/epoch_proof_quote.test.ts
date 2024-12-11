@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/circuits.js';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { EpochProofQuote } from './epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
@@ -30,7 +31,7 @@ describe('epoch proof quote', () => {
   });
 
   it('should serialize and deserialize from JSON', () => {
-    const deserialised = EpochProofQuote.fromJSON(quote.toJSON());
+    const deserialised = jsonParseWithSchema(jsonStringify(quote), EpochProofQuote.schema);
     checkEquivalence(quote, deserialised);
   });
 });

@@ -3,7 +3,7 @@ title: Wallet Architecture
 tags: [protocol, accounts]
 ---
 
-This page talks about the architecture of a wallet in Aztec. Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions. Bear mind that, as in Ethereum, wallets should require user confirmation whenever carrying out a potentially sensitive action requested by a dapp.
+This page talks about the architecture of a wallet in Aztec. Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions. Bear in mind that, as in Ethereum, wallets should require user confirmation whenever carrying out a potentially sensitive action requested by a dapp.
 
 ## Overview
 
@@ -23,6 +23,6 @@ The account interface is used for creating an _execution request_ out of one or 
 
 ## PXE interface
 
-A wallet exposes the PXE interface to dapps by running an PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
+A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
 #include_code pxe-interface /yarn-project/circuit-types/src/interfaces/pxe.ts typescript

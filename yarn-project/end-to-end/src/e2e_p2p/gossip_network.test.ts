@@ -3,9 +3,13 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
+
+const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -14,14 +18,31 @@ const BOOT_NODE_UDP_PORT = 40600;
 
 const DATA_DIR = './data/gossip';
 
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
+
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_network', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_network',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+      metricsPort: shouldCollectMetrics(),
+    });
+
     await t.applyBaseSnapshots();
     await t.setup();
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -32,12 +53,21 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
-  it.skip('should rollup txs from all peers', async () => {
+  afterAll(async () => {
+    if (CHECK_ALERTS) {
+      const checker = new AlertChecker(t.logger);
+      await checker.runAlertCheck(qosAlerts);
+    }
+  });
+
+  it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
+
+    t.ctx.aztecNodeConfig.validatorReexecute = true;
+
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
@@ -46,11 +76,12 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other

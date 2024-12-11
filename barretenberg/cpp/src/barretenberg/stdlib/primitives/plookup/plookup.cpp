@@ -48,6 +48,7 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
         if (rhs_index == IS_CONSTANT) {
             key_b_witness = std::nullopt;
         }
+
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
 

@@ -1,14 +1,16 @@
 import {
   type L2Block,
+  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
@@ -136,7 +138,7 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @returns A Promise that resolves to a Header object.
    */
-  getHeader(): Promise<Header>;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetch the index of the leaf in the respective tree
@@ -145,7 +147,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param leafValue - The leaf value buffer.
    * @returns - The index of the leaf. Undefined if it does not exist in the tree.
    */
-  findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
    * Fetch the sibling path of the leaf in the respective tree
@@ -197,26 +199,47 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
-   * Includes the last known index used for tagging with this secret.
+   * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  getAppTaggingSecret(
+  getAppTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret>;
 
   /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
    * @param contractAddress - The contract address to silo the secret for
-   * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
    */
-  getAppTaggingSecretsForSenders(
+  incrementAppTaggingSecretIndexAsSender(
     contractAddress: AztecAddress,
+    sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret[]>;
+  ): Promise<void>;
+
+  /**
+   * Synchronizes the logs tagged with the recipient's address and all the senders in the addressbook.
+   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * @param contractAddress - The address of the contract that the logs are tagged for
+   * @param recipient - The address of the recipient
+   * @returns A list of encrypted logs tagged with the recipient's address
+   */
+  syncTaggedLogs(
+    contractAddress: AztecAddress,
+    maxBlockNumber: number,
+    scopes?: AztecAddress[],
+  ): Promise<Map<string, TxScopedL2Log[]>>;
+
+  /**
+   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param logs - The logs to process.
+   * @param recipient - The recipient of the logs.
+   */
+  processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 }

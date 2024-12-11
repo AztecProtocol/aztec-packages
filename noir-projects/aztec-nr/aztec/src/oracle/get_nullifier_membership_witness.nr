@@ -1,29 +1,25 @@
+use crate::utils::array;
 use dep::protocol_types::{
-    abis::nullifier_leaf_preimage::{NULLIFIER_LEAF_PREIMAGE_LENGTH, NullifierLeafPreimage},
-    constants::NULLIFIER_TREE_HEIGHT,
-    utils::arr_copy_slice,
+    abis::nullifier_leaf_preimage::NullifierLeafPreimage, constants::NULLIFIER_TREE_HEIGHT,
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
-global NULLIFIER_MEMBERSHIP_WITNESS: u32 = 24;
+global NULLIFIER_MEMBERSHIP_WITNESS: u32 = 44;
 
 pub struct NullifierMembershipWitness {
-    index: Field,
-    leaf_preimage: NullifierLeafPreimage,
-    path: [Field; NULLIFIER_TREE_HEIGHT],
+    pub index: Field,
+    pub leaf_preimage: NullifierLeafPreimage,
+    pub path: [Field; NULLIFIER_TREE_HEIGHT],
 }
 
 impl NullifierMembershipWitness {
     pub fn deserialize(fields: [Field; NULLIFIER_MEMBERSHIP_WITNESS]) -> Self {
-        let leaf_preimage_fields = arr_copy_slice(fields, [0; NULLIFIER_LEAF_PREIMAGE_LENGTH], 1);
+        let serialized_leaf_preimage = array::subarray(fields, 1);
+
         Self {
             index: fields[0],
-            leaf_preimage: NullifierLeafPreimage::deserialize(leaf_preimage_fields),
-            path: arr_copy_slice(
-                fields,
-                [0; NULLIFIER_TREE_HEIGHT],
-                1 + NULLIFIER_LEAF_PREIMAGE_LENGTH,
-            ),
+            leaf_preimage: NullifierLeafPreimage::deserialize(serialized_leaf_preimage),
+            path: array::subarray(fields, 1 + serialized_leaf_preimage.len()),
         }
     }
 }

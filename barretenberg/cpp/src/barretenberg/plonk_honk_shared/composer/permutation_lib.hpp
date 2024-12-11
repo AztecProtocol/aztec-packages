@@ -154,7 +154,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
     size_t pub_inputs_offset = 0;
-    if constexpr (IsHonkFlavor<Flavor>) {
+    if constexpr (IsUltraFlavor<Flavor>) {
         pub_inputs_offset = proving_key->pub_inputs_offset;
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -374,7 +374,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               typename Flavor::ProvingKey* key,
                                               const std::vector<CyclicPermutation>& copy_cycles)
 {
-    constexpr bool generalized = IsUltraPlonkFlavor<Flavor> || IsUltraFlavor<Flavor>;
+    constexpr bool generalized = IsUltraPlonkOrHonk<Flavor>;
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
 
     if constexpr (IsPlonkFlavor<Flavor>) { // any Plonk flavor
