@@ -337,10 +337,10 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [tooMuchFee, asset.toField(), nonce],
+        args: [tooMuchFee, nonce],
         returnTypes: [],
       },
     ]);
