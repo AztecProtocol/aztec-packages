@@ -293,7 +293,7 @@ unconstrained fn __compute_factor(z_pow_d: F) -> F {
     z_pow_d.__sub(one).__mul(D_INV)
 }
 
- fn compute_factor(z_pow_d: F) -> F {
+fn compute_factor(z_pow_d: F) -> F {
     let factor = unsafe {
         // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
         __compute_factor(z_pow_d)
