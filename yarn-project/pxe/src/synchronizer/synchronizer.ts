@@ -64,7 +64,10 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
   }
 
-  /** Triggers a single run. */
+  /**
+   * Syncs PXE and the node by dowloading the metadata of the latest blocks, allowing simulations to use
+   * recent data (e.g. notes), and handling any reorgs that might have occurred.
+   */
   public async trigger() {
     this.running = true;
 

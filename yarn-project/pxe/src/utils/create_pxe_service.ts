@@ -9,7 +9,7 @@ import { L2TipsStore } from '@aztec/kv-store/stores';
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
-import { PXEService } from './pxe_service.js';
+import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.

@@ -821,16 +821,13 @@ export class PXEService implements PXE {
 
   /**
    * Generate a kernel proof, and create a private kernel output.
-   * The function takes in a transaction execution request, and the result of private simulation
+   * The function takes in a transaction execution request, and the result of private execution
    * and then generates a kernel proof.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param proofCreator - The proof creator to use for proving the execution.
-   * @param msgSender - (Optional) The message sender to use for the simulation.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns An object that contains:
-   * A private transaction object containing the proof, public inputs, and encrypted logs.
-   * The return values of the private execution
+   * @param privateExecutionResult - The result of the private execution
+   * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
    */
   async #prove(
     txExecutionRequest: TxExecutionRequest,
