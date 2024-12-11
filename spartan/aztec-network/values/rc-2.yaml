@@ -12,7 +12,6 @@ images:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 48
