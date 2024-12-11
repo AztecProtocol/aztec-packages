@@ -8,6 +8,8 @@ export interface TelemetryClientConfig {
   networkName: string;
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
+  k8sPodUid?: string;
+  k8sPodName?: string;
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -47,6 +49,14 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
     description: 'The timeout for exporting metrics',
     defaultValue: 30000, // Default extracted from otel client
     parseEnv: (val: string) => parseInt(val),
+  },
+  k8sPodUid: {
+    env: 'K8S_POD_UID',
+    description: 'The UID of the Kubernetes pod (injected automatically by k8s)',
+  },
+  k8sPodName: {
+    env: 'K8S_POD_NAME',
+    description: 'The name of the Kubernetes pod (injected automatically by k8s)',
   },
 };
 

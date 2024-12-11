@@ -5,6 +5,7 @@ on:
       - master
       - provernet ./bootstrap.sh
       - "*/ci-push*"
+  merge_group:
   pull_request:
     types:
       - opened
@@ -17,8 +18,8 @@ on:
     inputs: {}
 
 concurrency:
-  # force parallelism in master
-  group: ci-${{ github.ref_name == 'master' && github.run_id || github.event.pull_request.head.ref || github.ref_name }}
+  # allow parallelism in master and merge queue
+  group: ci-${{ (contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master') && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -199,6 +200,8 @@ jobs:
           run: ./bootstrap.sh image-e2e
       - name: Create Job Lists
         id: e2e_list
+        env:
+          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
           set -eu
           LABELS=""
@@ -209,6 +212,27 @@ jobs:
           set -x
           echo "e2e_list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
           echo "bench_list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+
+  bench-test-gate:
+    needs: [images-e2e, configure]
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full bench tests enabled."
+
+  e2e-test-gate:
+    needs: [images-e2e, configure]
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full E2E tests enabled."
+
+  network-test-gate:
+    needs: [images-e2e, configure]
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full network tests enabled."
 
   docs:
     needs: [ci-rest, configure]
@@ -233,7 +257,7 @@ jobs:
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   e2e:
-    needs: [images-e2e, configure]
+    needs: [images-e2e, e2e-test-gate, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     strategy:
@@ -266,7 +290,7 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [images-e2e, configure]
+    needs: [images-e2e, bench-test-gate, configure]
     if: needs.images-e2e.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
     runs-on: ubuntu-latest
     strategy:
@@ -305,7 +329,7 @@ jobs:
 
   acir-bench:
     runs-on: ubuntu-latest
-    needs: [ci-noir-bb, configure]
+    needs: [bench-test-gate, ci-noir-bb, configure]
     if: needs.configure.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -438,9 +462,8 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-  kind-network-test:
-    needs: [images-e2e, configure]
-    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
+  kind-network-full-test:
+    needs: [images-e2e, network-test-gate, configure]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -538,7 +561,7 @@ jobs:
           max-items-in-chart: 50
 
   boxes-test:
-    needs: [ci-rest, configure]
+    needs: [ci-rest, e2e-test-gate, configure]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -561,6 +584,19 @@ jobs:
             if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
               ./bootstrap.sh test-boxes
             fi
+
+  rough-rhino-installer:
+    needs: [e2e-test-gate, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: rough-rhino-installer
+      - name: Rough Rhino Installer Helper Script
+        working-directory: ./spartan/releases/rough-rhino
+        run: earthly-ci +test-all
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
@@ -663,7 +699,7 @@ jobs:
       - bb-native-tests
       - network-4epochs-test
       - kind-smoke-test
-      - kind-network-test
+      - kind-network-full-test
       - boxes-test
     if: always()
     outputs:
@@ -703,7 +739,7 @@ jobs:
       actions: write
     needs:
       - merge-check
-    if: github.event.pull_request.draft == false && !cancelled()
+    if: github.event.pull_request.draft == false && !cancelled() && !true
     steps:
       - name: Check for Rerun
         env:
