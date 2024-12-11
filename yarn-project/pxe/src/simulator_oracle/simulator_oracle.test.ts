@@ -482,8 +482,8 @@ describe('Simulator oracle', () => {
       simulator.computeNoteHashAndOptionallyANullifier.mockImplementation((...args: any) =>
         Promise.resolve({
           noteHash: Fr.random(),
-          uniqueNoteHash: Fr.random(),
-          siloedNoteHash: pedersenHash(args[5].items), // args[5] is note
+          uniqueNoteHash: pedersenHash(args[5].items), // args[5] is note
+          siloedNoteHash: Fr.random(),
           innerNullifier: Fr.random(),
         }),
       );

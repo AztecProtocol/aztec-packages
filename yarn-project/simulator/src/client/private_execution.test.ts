@@ -399,7 +399,7 @@ describe('Private Execution test suite', () => {
           note,
         ),
       );
-      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
+      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
       const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, artifact, msgSender: owner });
@@ -457,7 +457,7 @@ describe('Private Execution test suite', () => {
           note,
         ),
       );
-      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
+      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
       const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, artifact, msgSender: owner });
