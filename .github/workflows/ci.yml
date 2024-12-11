@@ -18,8 +18,8 @@ on:
     inputs: {}
 
 concurrency:
-  # force parallelism in master
-  group: ci-${{ (true || github.ref_name == 'master') && github.run_id || github.ref_name }}
+  # allow parallelism in master and merge queue
+  group: ci-${{ (contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master') && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -159,7 +159,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
-        if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || env.RUN_FULL_TESTS == 'true'
+        if: needs.configure.outputs.non-docs == 'true'
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
