@@ -92,8 +92,6 @@ export class PublicBaseRollupHints {
     public start: PartialStateReference,
     /** Hints used while proving state diff validity. */
     public stateDiffHints: PublicBaseStateDiffHints,
-    /** Public data read hint for accessing the balance of the fee payer. */
-    public feePayerFeeJuiceBalanceReadHint: PublicDataHint,
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
@@ -109,13 +107,7 @@ export class PublicBaseRollupHints {
   }
 
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
-    return [
-      fields.start,
-      fields.stateDiffHints,
-      fields.feePayerFeeJuiceBalanceReadHint,
-      fields.archiveRootMembershipWitness,
-      fields.constants,
-    ] as const;
+    return [fields.start, fields.stateDiffHints, fields.archiveRootMembershipWitness, fields.constants] as const;
   }
 
   /**
@@ -139,7 +131,6 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       reader.readObject(PartialStateReference),
       reader.readObject(PublicBaseStateDiffHints),
-      reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       reader.readObject(ConstantRollupData),
     );
@@ -153,7 +144,6 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       PartialStateReference.empty(),
       PublicBaseStateDiffHints.empty(),
-      PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       ConstantRollupData.empty(),
     );
