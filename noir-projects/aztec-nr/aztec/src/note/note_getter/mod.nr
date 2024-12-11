@@ -141,7 +141,7 @@ where
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse_array(filtered_notes);
+    let notes = crate::utils::array::collapse(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
         BoundedVec::new();
 

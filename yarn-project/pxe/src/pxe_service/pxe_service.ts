@@ -12,7 +12,6 @@ import {
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -305,33 +304,6 @@ export class PXEService implements PXE {
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
-        }
-        owner = completeAddresses.address;
-      }
-      return new UniqueNote(
-        dao.note,
-        owner,
-        dao.contractAddress,
-        dao.storageSlot,
-        dao.noteTypeId,
-        dao.txHash,
-        dao.nonce,
-      );
-    });
-    return Promise.all(extendedNotes);
-  }
-
-  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getOutgoingNotes(filter);
-
-    const extendedNotes = noteDaos.map(async dao => {
-      let owner = filter.owner;
-      if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKeys.masterOutgoingViewingPublicKey.equals(dao.ovpkM),
-        );
-        if (completeAddresses === undefined) {
-          throw new Error(`Cannot find complete address for OvpkM ${dao.ovpkM.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -937,7 +909,7 @@ export class PXEService implements PXE {
       for (const sk of vsks) {
         // TODO: Verify that the first field of the log is the tag siloed with contract address.
         // Or use tags to query logs, like we do with notes.
-        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk) ?? L1EventPayload.decryptAsOutgoing(log, sk);
+        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk);
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];
         }
@@ -1004,10 +976,15 @@ export class PXEService implements PXE {
   }
 
   private contextualizeError(err: Error, ...context: string[]): Error {
-    this.log.error(err.name, err);
-    this.log.debug('Context:');
-    for (const c of context) {
-      this.log.debug(c);
+    let contextStr = '';
+    if (context.length > 0) {
+      contextStr = `\nContext:\n${context.join('\n')}`;
+    }
+    if (err instanceof SimulationError) {
+      err.setAztecContext(contextStr);
+    } else {
+      this.log.error(err.name, err);
+      this.log.debug(contextStr);
     }
     return err;
   }

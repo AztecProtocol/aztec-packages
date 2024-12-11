@@ -266,6 +266,7 @@ template <typename FF> class cmp : public Relation<cmpImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_CMP_RES_IS_BOOL = 3;
     static constexpr size_t SR_CMP_OP_EQ = 4;
     static constexpr size_t SR_INPUT_DECOMP_1 = 5;

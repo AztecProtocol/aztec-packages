@@ -1,4 +1,4 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}, utils};
+use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}};
 
 pub struct EthAddress {
     inner: Field,
@@ -50,10 +50,5 @@ impl EthAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }

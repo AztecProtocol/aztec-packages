@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_main_sha256_permutation_settings {
   public:
@@ -58,4 +58,4 @@ class perm_main_sha256_relation : public GenericPermutationRelation<perm_main_sh
 };
 template <typename FF_> using perm_main_sha256 = GenericPermutation<perm_main_sha256_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

@@ -6,7 +6,7 @@
 #include "prover.hpp"
 #include "verifier.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 class AvmComposer {
   public:
@@ -63,4 +63,4 @@ class AvmComposer {
     };
 };
 
-} // namespace bb
+} // namespace bb::avm

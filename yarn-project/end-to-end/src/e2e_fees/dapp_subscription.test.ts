@@ -174,7 +174,6 @@ describe('e2e_fees dapp_subscription', () => {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
 
-    // Emitting the outgoing logs to Alice below
     const { transactionFee } = await counterContractViaDappEntrypoint.methods
       .increment(bobAddress, aliceAddress)
       .send()

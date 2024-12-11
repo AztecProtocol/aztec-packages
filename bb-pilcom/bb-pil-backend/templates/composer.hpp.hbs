@@ -6,12 +6,12 @@
 #include "prover.hpp"
 #include "verifier.hpp"
 
-namespace bb {
+namespace bb::{{snakeCase name}} {
 
-class {{name}}Composer {
+class AvmComposer {
   public:
-    using Flavor = {{name}}Flavor;
-    using CircuitConstructor = {{name}}CircuitBuilder;
+    using Flavor = AvmFlavor;
+    using CircuitConstructor = AvmCircuitBuilder;
     using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using PCS = Flavor::PCS;
@@ -19,7 +19,7 @@ class {{name}}Composer {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
 
     // TODO: which of these will we really need
-    static constexpr std::string_view NAME_STRING = "{{name}}";
+    static constexpr std::string_view NAME_STRING = "Avm";
     static constexpr size_t NUM_RESERVED_GATES = 0;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
@@ -34,26 +34,26 @@ class {{name}}Composer {
 
     bool computed_witness = false;
 
-    {{name}}Composer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
+    AvmComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
 
-    {{name}}Composer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    AvmComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    {{name}}Composer({{name}}Composer&& other) noexcept = default;
-    {{name}}Composer({{name}}Composer const& other) noexcept = default;
-    {{name}}Composer& operator=({{name}}Composer&& other) noexcept = default;
-    {{name}}Composer& operator=({{name}}Composer const& other) noexcept = default;
-    ~{{name}}Composer() = default;
+    AvmComposer(AvmComposer&& other) noexcept = default;
+    AvmComposer(AvmComposer const& other) noexcept = default;
+    AvmComposer& operator=(AvmComposer&& other) noexcept = default;
+    AvmComposer& operator=(AvmComposer const& other) noexcept = default;
+    ~AvmComposer() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
 
     void compute_witness(CircuitConstructor& circuit_constructor);
 
-    {{name}}Prover create_prover(CircuitConstructor& circuit_constructor);
-    {{name}}Verifier create_verifier(CircuitConstructor& circuit_constructor);
+    AvmProver create_prover(CircuitConstructor& circuit_constructor);
+    AvmVerifier create_verifier(CircuitConstructor& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 
@@ -63,4 +63,4 @@ class {{name}}Composer {
     };
 };
 
-} // namespace bb
+} // namespace bb::{{snakeCase name}}
