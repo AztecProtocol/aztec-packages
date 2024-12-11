@@ -45,7 +45,7 @@ use crate::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
@@ -114,7 +114,7 @@ pub struct FixtureBuilder {
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
-    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
@@ -267,10 +267,6 @@ impl FixtureBuilder {
     pub fn is_first_call(&mut self) -> Self {
         self.msg_sender = AztecAddress::from_field(MAX_FIELD_VALUE);
         *self
-    }
-
-    pub fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
     pub fn to_tx_constant_data(self) -> TxConstantData {
@@ -525,38 +521,6 @@ impl FixtureBuilder {
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
-    }
-
-    pub fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
-        result
-    }
-
-    pub fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
-        result
-    }
-
-    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
-        AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
-            public_data_writes: self.public_data_writes.storage(),
-        }
-    }
-
-    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
-        let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-
-        result
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
@@ -1047,6 +1011,42 @@ impl FixtureBuilder {
         let counter = self.counter;
         self.counter += 1;
         counter
+    }
+
+    fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
+
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 }
 

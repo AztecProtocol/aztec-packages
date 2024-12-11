@@ -61,7 +61,7 @@ spec:
         {{- end }}
       containers:
         - name: pxe
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -101,7 +101,7 @@ spec:
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"pxe_isGlobalStateSynchronized","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"result":true'
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"protocolVersion":1'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}

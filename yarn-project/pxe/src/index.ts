@@ -10,6 +10,5 @@ export * from '@aztec/foundation/eth-address';
 export * from '@aztec/foundation/aztec-address';
 export * from '@aztec/key-store';
 export * from './database/index.js';
-export * from './utils/index.js';
 export { ContractDataOracle } from './contract_data_oracle/index.js';
 export { PrivateFunctionsTree } from './contract_data_oracle/private_functions_tree.js';
