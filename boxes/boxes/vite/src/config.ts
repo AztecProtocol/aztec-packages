@@ -48,6 +48,7 @@ export class PrivateEnv {
       this.secretKey,
       this.accountContract,
     );
+    await this.account.deploy().wait();
   }
 
   async createPXEService(
