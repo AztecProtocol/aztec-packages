@@ -53,6 +53,7 @@ function build_wasm {
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
     cmake --build --preset wasm
+    /opt/wasi-sdk/bin/llvm-strip ./build-wasm/bin/barretenberg.wasm
     cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
   fi
   (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
@@ -63,6 +64,7 @@ function build_wasm_threads {
     rm -f build-wasm-threads/CMakeCache.txt
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
+    /opt/wasi-sdk/bin/llvm-strip ./build-wasm-threads/bin/barretenberg.wasm
     cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
   fi
   (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
@@ -83,6 +85,7 @@ function test {
     denoise cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert "&&" cmake --build --preset $preset
 
     # Download ignition transcripts.
+    # TODO: Use the flattened crs. These old transcripts are a pain.
     echo "Downloading srs..."
     denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
     if [ ! -d ./srs_db/grumpkin ]; then

@@ -430,6 +430,7 @@ template <typename FF> class mem : public Relation<memImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MEM_CONTIGUOUS = 15;
     static constexpr size_t SR_MEM_FIRST_EMPTY = 16;
     static constexpr size_t SR_MEM_LAST = 17;

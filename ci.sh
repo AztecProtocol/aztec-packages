@@ -1,32 +1,37 @@
 #!/bin/bash
-# Use ci3 script base.
+# Argument 1 is the command to run.
+# Argument 2 is the unique name of the target instance. Defaults to the branch name.
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-}
-shift
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
+function echo_cmd {
+  local name=$1
+  shift
+  printf "${blue}${bold}%10s${reset}: %s\n" $name "$(echo $@ | sed 's/\. /.\n            /g')"
+}
+
 if [ -z "$cmd" ]; then
-  echo "usage: $0 <cmd>"
+  echo "usage: $(basename $0) <cmd>"
   echo
-  echo "The following commands all set CI=1 before bootstrapping."
-  echo
-  echo "      ec2: Launch an ec2 instance and bootstrap on it."
-  echo "           Exactly what Github action does, but doesn't touch GA."
-  echo "    local: Clone your last commit into the ci container and bootstrap on local hardware."
-  echo "  trigger: Trigger the GA workflow on the PR associated with the current branch."
-  echo "           Effectively the same as ec2, only the results will be tracked on your PR."
-  echo "      log: Will tail the logs of the current GA run, or dump log if already completed."
-  echo "      run: Same as calling trigger, then log."
-  echo "       wt: Runs bootstrap in current working tree on local hardware."
-  echo "    shell: Jump into a new shell on the current running build."
-  echo "   attach: Attach to terminal of the current running build."
-  echo " ssh-host: Connect to host instance of the current running build."
-  echo "    draft: Mark current PR as draft (no automatic CI runs when pushing)."
-  echo "    ready: Mark current PR as ready (enable automatic CI runs when pushing)."
+  echo_cmd "ec2"      "Launch an ec2 instance and bootstrap on it. Exactly what Github action does, but doesn't touch GA."
+  echo_cmd "local"    "Clone your last commit into the ci container and bootstrap on local hardware."
+  echo_cmd "trigger"  "Trigger the GA workflow on the PR associated with the current branch." \
+                      "Effectively the same as ec2, only the results will be tracked on your PR."
+  echo_cmd "log"      "Will tail the logs of the current GA run, or dump log if already completed."
+  echo_cmd "run"      "Same as calling trigger, then log."
+  echo_cmd "wt"       "Runs bootstrap in current working tree on local hardware."
+  echo_cmd "shell"    "Jump into a new shell on the current running build."
+  echo_cmd "attach"   "Attach to terminal of the current running build."
+  echo_cmd "ssh-host" "Connect to host instance of the current running build."
+  echo_cmd "draft"    "Mark current PR as draft (no automatic CI runs when pushing)."
+  echo_cmd "ready"    "Mark current PR as ready (enable automatic CI runs when pushing)."
   exit 0
 fi
+
+shift
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -38,21 +43,27 @@ fi
 instance_name="${BRANCH//\//_}"
 
 function get_ip_for_instance {
+  local name=$instance_name
+  [ -n "${1:-}" ] && name+="_$1"
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$name" \
     --query "Reservations[].Instances[].PublicIpAddress" \
     --output text)
 }
 
 case "$cmd" in
   "ec2")
-    # Spin up ec2 instance and execute given command or default (fast bootstrap with shell on failure).
-    bootstrap_ec2 "${1:-}" ${2:-}
+    # Spin up ec2 instance and ci bootstrap with shell on failure.
+    bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-full")
-    # Spin up ec2 instance and full bootstrap.
+    # Spin up ec2 instance and full bootstrap with shell on failure.
     bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
+    ;;
+  "ec2-full-test")
+    # Spin up ec2 instance and full bootstrap with tests and shell on failure.
+    bootstrap_ec2 "USE_CACHE=0 ./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance and drop into shell.
@@ -129,19 +140,19 @@ case "$cmd" in
     exit 0
     ;;
   "shell")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
       exit 0
     ;;
   "attach")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
   "shell-host")
-      get_ip_for_instance
+      get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip
       exit 0

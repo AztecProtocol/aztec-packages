@@ -23,8 +23,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
     "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
+    "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
     "generate": "node ./scripts/generate_package_info.js"
   },
   "inherits": [
@@ -59,13 +59,16 @@
     ],
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   },
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",

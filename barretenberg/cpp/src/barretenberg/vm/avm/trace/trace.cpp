@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
@@ -32,6 +33,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/cmp.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
@@ -225,6 +227,63 @@ void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifi
     }
 }
 
+void AvmTraceBuilder::pay_fee()
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto tx_fee = (public_inputs.global_variables.gas_fees.fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
+                  (public_inputs.global_variables.gas_fees.fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
+
+    if (public_inputs.fee_payer == 0) {
+        vinfo("No one is paying the fee of ", tx_fee);
+        return;
+    }
+
+    // ** Compute the storage slot **
+    // using the base slot of the balances map and the fee payer address (map key)
+    // TS equivalent:
+    // computeFeePayerBalanceStorageSlot(fee_payer);
+    std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
+    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+
+    // ** Read the balance before fee payment **
+    // TS equivalent:
+    // current_balance = readStorage(FEE_JUICE_ADDRESS, balance_slot);
+    PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, FEE_JUICE_ADDRESS, balance_slot);
+    // Sanity check that the computed slot using the value read from slot_offset should match the read hint
+    ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
+
+    // ** Write the updated balance after fee payment **
+    // TS equivalent:
+    // Check that the leaf is a member of the public data tree
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    ASSERT(is_member);
+    FF current_balance = read_hint.leaf_preimage.value;
+
+    const auto updated_balance = current_balance - tx_fee;
+    if (current_balance < tx_fee) {
+        info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
+        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+    }
+
+    // writeStorage(FEE_JUICE_ADDRESS, balance_slot, updated_balance);
+    PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
+    ASSERT(write_hint.new_leaf_preimage.value == updated_balance);
+    merkle_tree_trace_builder.perform_storage_write(clk,
+                                                    write_hint.low_leaf_membership.leaf_preimage,
+                                                    write_hint.low_leaf_membership.leaf_index,
+                                                    write_hint.low_leaf_membership.sibling_path,
+                                                    write_hint.new_leaf_preimage.slot,
+                                                    write_hint.new_leaf_preimage.value,
+                                                    write_hint.insertion_path);
+
+    debug("pay fee side-effect cnt: ", side_effect_counter);
+    side_effect_counter++;
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
@@ -401,9 +460,16 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
     , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
+    // Only allocate up to the maximum L2 gas for execution
+    // TODO: constrain this!
+    auto const l2_gas_left_after_private =
+        public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+    // TODO: think about cast
+    auto const allocated_l2_gas =
+        std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas),
+        static_cast<uint32_t>(allocated_l2_gas),
         static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
@@ -2448,155 +2514,6 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
                          .error = error };
 }
 
-/**
- * @brief Create a kernel output opcode with set metadata output object
- *
- * Used for writing output opcode where one metadata value is written and comes from a hint
- * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
- *
- * @param indirect - Perform indirect memory resolution
- * @param clk - The trace clk
- * @param data_offset - The offset of the main value to output
- * @param metadata_offset - The offset of the metadata (slot in the sload example)
- * @return Row
- */
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(
-    uint32_t clk, uint32_t data_offset, [[maybe_unused]] uint32_t address_offset, uint32_t metadata_offset)
-{
-    FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
-
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
-
-    auto write_b = constrained_write_to_memory(
-        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && write_b.tag_match;
-
-    return Row{
-        .main_clk = clk,
-        .main_ia = read_a.val,
-        .main_ib = write_b.val,
-        .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(write_b.indirect_address),
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc,
-        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_rwa = 0,
-        .main_rwb = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_q_kernel_output_lookup = 1,
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
-    };
-}
-
-// Specifically for handling the L1TOL2MSGEXISTS and NOTEHASHEXISTS opcodes
-Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(uint32_t clk,
-                                                                uint32_t data_offset,
-                                                                uint32_t leaf_index,
-                                                                uint32_t metadata_offset)
-{
-    // If doesnt exist, should not read_a, but instead get from public inputs
-    FF exists = execution_hints.get_leaf_index_hints().at(leaf_index);
-
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
-
-    auto write_b = constrained_write_to_memory(
-        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && write_b.tag_match;
-
-    return Row{
-        .main_clk = clk,
-        .main_ia = read_a.val,
-        .main_ib = write_b.val,
-        .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(write_b.indirect_address),
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc,
-        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_rwa = 0,
-        .main_rwb = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_q_kernel_output_lookup = 1,
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
-    };
-}
-
-/**
- * @brief Create a kernel output opcode with set metadata output object
- *
- * Used for writing output opcode where one value is written and comes from a hint
- * {sload}
- *
- * @param indirect - Perform indirect memory resolution
- * @param clk - The trace clk
- * @param data_offset - The offset of the main value to output
- * @param metadata_offset - The offset of the metadata (slot in the sload example)
- * @return Row
- */
-RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                                                   uint32_t clk,
-                                                                                   uint32_t data_offset,
-                                                                                   uint32_t metadata_offset)
-{
-    FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
-    // TODO: throw error if incorrect
-
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
-    auto [resolved_addrs, res_error] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
-    auto [resolved_data, resolved_metadata] = resolved_addrs;
-    error = res_error;
-
-    auto write_a = constrained_write_to_memory(
-        call_ptr, clk, resolved_data, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_metadata, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB);
-    bool tag_match = write_a.tag_match && read_b.tag_match;
-
-    if (is_ok(error) && !tag_match) {
-        error = AvmError::CHECK_TAG_ERROR;
-    }
-
-    return RowWithError{ .row =
-                             Row{
-                                 .main_clk = clk,
-                                 .main_ia = write_a.val,
-                                 .main_ib = read_b.val,
-                                 .main_ind_addr_a = FF(write_a.indirect_address),
-                                 .main_ind_addr_b = FF(read_b.indirect_address),
-                                 .main_internal_return_ptr = internal_return_ptr,
-                                 .main_mem_addr_a = FF(write_a.direct_address),
-                                 .main_mem_addr_b = FF(read_b.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
-                                 .main_pc = pc, // No PC increment here since we do it in the specific ops
-                                 .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-                                 .main_rwa = 1,
-                                 .main_rwb = 0,
-                                 .main_sel_mem_op_a = 1,
-                                 .main_sel_mem_op_b = 1,
-                                 .main_sel_q_kernel_output_lookup = 1,
-                                 .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_a.is_indirect)),
-                                 .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
-                                 .main_tag_err = static_cast<uint32_t>(!tag_match),
-                                 .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-                             },
-                         .error = error };
-}
-
 /**************************************************************************************************
  *                              WORLD STATE
  **************************************************************************************************/
@@ -2677,6 +2594,9 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     if (storage_write_counter >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        // NOTE: the circuit constraint for this limit should only be applied
+        // for the storage writes performed by this opcode. An exception should before
+        // made for the fee juice storage write made after teardown.
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,

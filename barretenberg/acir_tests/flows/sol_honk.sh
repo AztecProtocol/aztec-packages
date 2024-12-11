@@ -12,8 +12,8 @@ export VK="$PWD/sol_honk_vk"
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove_ultra_keccak_honk -o $PROOF $FLAGS $BFLAG
 $BIN write_vk_ultra_keccak_honk -o $VK $FLAGS $BFLAG
-$BIN verify_ultra_keccak_honk -k $VK -p $PROOF $FLAGS $BFLAG
-$BIN proof_as_fields_honk -k $VK $FLAGS -p $PROOF
+$BIN verify_ultra_keccak_honk -k vk -p $PROOF $FLAGS
+$BIN proof_as_fields_honk $FLAGS -p $PROOF -o proof_fields.json
 $BIN contract_ultra_honk -k $VK $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner

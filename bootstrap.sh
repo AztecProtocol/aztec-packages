@@ -9,6 +9,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output.
 export DENOISE=1
+# We always want color.
+export FORCE_COLOR=true
 
 cmd=${1:-}
 
@@ -204,6 +206,7 @@ esac
 # Install pre-commit git hooks.
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
+echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"

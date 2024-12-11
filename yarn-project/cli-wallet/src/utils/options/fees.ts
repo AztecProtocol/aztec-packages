@@ -15,7 +15,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { Option } from 'commander';
 
 import { type WalletDB } from '../../storage/wallet_db.js';
-import { aliasedAddressParser } from './index.js';
+import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
   estimateGasOnly: boolean;

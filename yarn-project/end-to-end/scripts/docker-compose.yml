@@ -9,6 +9,7 @@ services:
     image: aztecprotocol/build:2.0
     volumes:
       - ../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
     working_dir: /root/aztec-packages/yarn-project/aztec
     command: 'node ./dest/bin start --sandbox'
     environment:

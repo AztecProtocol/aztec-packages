@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-export CRS_PATH=$PWD/crs
+export CRS_PATH=$HOME/.bb-crs
 
 function build {
   if [ ! -d acir_tests ]; then
@@ -27,20 +27,6 @@ function build {
   # local bb=$(realpath ../cpp/build/bin/bb)
   # (cd ./acir_tests/assert_statement && \
   #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
-
-  # Download ignition up front to ensure no race conditions at runtime.
-  # 2^22 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
-  # We make the file write only to ensure no test can attempt to grow it any larger. 2^22 is already huge...
-  # TODO: Make bb just download and append/overwrite required range, then it becomes idempotent.
-  # TODO: Predownload this into AMI and mount into container.
-  # TODO: Grumpkin.
-  local crs_size=$((2**22+1))
-  echo "Downloading crs of size: ${crs_size} ($((crs_size*64/(1024*1024)))MB)"
-  rm -rf $CRS_PATH && mkdir -p $CRS_PATH
-  curl -s -H "Range: bytes=0-$((crs_size*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat \
-    -o $CRS_PATH/bn254_g1.dat
-  chmod a-w $CRS_PATH/bn254_g1.dat
-  curl -s https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat -o $CRS_PATH/bn254_g2.dat
 
   github_group "acir_tests updating yarn"
   # Update yarn.lock so it can be committed.

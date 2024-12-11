@@ -1,19 +1,6 @@
 {
   "scripts": {
     "build": "yarn clean && tsc -b && webpack",
-    "formatting": "run -T prettier --check ./src \"!src/web/main.js\" && run -T eslint ./src",
-    "test:e2e": "./scripts/test.sh simple",
-    "test:compose": "./scripts/test.sh compose",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest src/fixtures"
-  },
-  "jest": {
-    "reporters": [
-      [
-        "summary",
-        {
-          "summaryThreshold": 0
-        }
-      ]
-    ]
   }
 }

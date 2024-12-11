@@ -88,3 +88,9 @@ export const SIMULATOR_PHASE = 'aztec.simulator.phase';
 export const TARGET_ADDRESS = 'aztec.address.target';
 export const SENDER_ADDRESS = 'aztec.address.sender';
 export const MANA_USED = 'aztec.mana.used';
+
+/** Identifier for the tables in a world state DB */
+export const WS_DB_DATA_TYPE = 'aztec.world_state.db_type';
+
+/** Identifier for component database (e.g. archiver, tx pool) */
+export const DB_DATA_TYPE = 'aztec.db_type';

@@ -13,6 +13,7 @@ case "$TYPE" in
   "simple")
     container=$(docker run -d --rm \
       -v$PWD/../..:/root/aztec-packages \
+      -v$HOME/.bb-crs:/root/.bb-crs \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST)
     trap "docker kill $container &> /dev/null" SIGINT SIGTERM

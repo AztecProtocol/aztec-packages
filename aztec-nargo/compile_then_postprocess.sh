@@ -42,7 +42,7 @@ for artifact in $artifacts_to_process; do
 
     echo "Generating verification key for function $fn_name"
     # BB outputs the verification key to stdout as raw bytes, however, we need to base64 encode it before storing it in the artifact
-    verification_key=$($BB write_vk_mega_honk -h -b ${fn_artifact_path} -o - | base64)
+    verification_key=$($BB write_vk_for_ivc -h -b ${fn_artifact_path} -o - | base64)
     rm $fn_artifact_path
     jq ".functions[$fn_index].verification_key = \"$verification_key\"" $artifact > $artifact.tmp
     mv $artifact.tmp $artifact

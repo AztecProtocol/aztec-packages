@@ -13,7 +13,7 @@
     "build:dev": "tsc -b --watch",
     "build:web": "webpack",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src \"!src/web/main.js\" && run -T eslint ./src",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:e2e": "./scripts/test.sh simple",
     "test:profile": "LOG_LEVEL=${LOG_LEVEL:-verbose} NODE_NO_WARNINGS=1 0x --output-dir \"flame_graph/{pid}.0x\" -- node --experimental-vm-modules ../node_modules/jest/bin/jest.js --runInBand --testTimeout=300000 --forceExit",
@@ -145,9 +145,9 @@
     },
     "reporters": [
       [
-        "summary",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 0
+          "useDots": true
         }
       ]
     ],
@@ -156,6 +156,9 @@
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   }
 }
