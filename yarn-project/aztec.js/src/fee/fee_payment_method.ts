@@ -7,7 +7,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
  */
 export interface FeePaymentMethod {
   /** The asset used to pay the fee. */
-  getAsset(): AztecAddress;
+  getAsset(): Promise<AztecAddress>;
   /**
    * Creates a function call to pay the fee in the given asset.
    * @param gasSettings - The gas limits and max fees.

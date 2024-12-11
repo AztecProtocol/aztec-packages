@@ -56,12 +56,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(
-              bananaCoin.address,
-              bananaFPC.address,
-              aliceWallet,
-              t.sequencerAddress,
-            ),
+            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, t.sequencerAddress),
           },
         })
         .wait(),
@@ -85,12 +80,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(
-            bananaCoin.address,
-            bananaFPC.address,
-            aliceWallet,
-            t.sequencerAddress,
-          ),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, t.sequencerAddress),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -152,7 +142,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -182,7 +172,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -218,7 +208,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -232,7 +222,7 @@ describe('e2e_fees failures', () => {
           skipPublicSimulation: true,
           fee: {
             gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -273,7 +263,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings: badGas,
-            paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -285,7 +275,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings: badGas,
-          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({
@@ -318,11 +308,13 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
+
+    const asset = await this.getAsset();
 
     return Promise.resolve([
       this.wallet
@@ -335,7 +327,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
               selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
-              to: this.asset,
+              to: asset,
               returnTypes: [],
             },
           },
@@ -348,7 +340,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [tooMuchFee, this.asset.toField(), nonce],
+        args: [tooMuchFee, asset.toField(), nonce],
         returnTypes: [],
       },
     ]);

@@ -4,6 +4,7 @@ import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type AccountWallet } from '../wallet/account_wallet.js';
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
@@ -11,11 +12,9 @@ import { type FeePaymentMethod } from './fee_payment_method.js';
  * Holds information about how the fee for a transaction is to be paid.
  */
 export class PublicFeePaymentMethod implements FeePaymentMethod {
+  private assetPromise: Promise<AztecAddress> | null = null;
+
   constructor(
-    /**
-     * The asset used to pay the fee.
-     */
-    protected asset: AztecAddress,
     /**
      * Address which will hold the fee payment.
      */
@@ -30,8 +29,40 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
-  getAsset() {
-    return this.asset;
+  getAsset(): Promise<AztecAddress> {
+    if (!this.assetPromise) {
+      const interaction = new ContractFunctionInteraction(
+        this.wallet,
+        this.paymentContract,
+        {
+          name: 'get_accepted_asset',
+          functionType: FunctionType.PUBLIC,
+          isInternal: false,
+          isStatic: true,
+          parameters: [],
+          returnTypes: [
+            {
+              kind: 'struct',
+              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+              fields: [
+                {
+                  name: 'inner',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+              ],
+            },
+          ],
+          errorTypes: {},
+          isInitializer: false,
+        },
+        [],
+      );
+
+      this.assetPromise = interaction.simulate();
+    }
+    return this.assetPromise!;
   }
 
   getFeePayer(): Promise<AztecAddress> {
@@ -43,7 +74,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
@@ -58,7 +89,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
               selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
-              to: this.asset,
+              to: await this.getAsset(),
               returnTypes: [],
             },
           },
