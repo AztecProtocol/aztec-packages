@@ -186,15 +186,6 @@ pub fn evaluate_blobs(
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
     let ROOTS = unsafe { compute_roots_of_unity() };
-    // z ^ D:
-    let mut t = z.mul(z);
-
-    for _ in 0..LOG_FIELDS_PER_BLOB - 1 {
-        t = t.mul(t);
-    }
-
-    let z_pow_d = t;
-    let factor = compute_factor(z_pow_d);
 
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
@@ -281,6 +272,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         sum = linear_terms[1];
     }
 
+    let factor = compute_factor(z);
     factor.mul(sum)
 }
 
@@ -289,7 +281,16 @@ unconstrained fn __compute_factor(z_pow_d: F) -> F {
     z_pow_d.__sub(one).__mul(D_INV)
 }
 
-fn compute_factor(z_pow_d: F) -> F {
+fn compute_factor(z: F) -> F {
+    // z ^ D:
+    let mut t = z.mul(z);
+
+    for _ in 0..LOG_FIELDS_PER_BLOB - 1 {
+        t = t.mul(t);
+    }
+
+    let z_pow_d = t;
+
     let factor = unsafe {
         // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
         __compute_factor(z_pow_d)
