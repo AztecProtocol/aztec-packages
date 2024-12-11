@@ -105,7 +105,7 @@ export class InMemoryTxPool implements TxPool {
     let pending = 0;
     for (const tx of txs) {
       const txHash = tx.getTxHash();
-      this.log.debug(`Adding tx with id ${txHash.toString()}`, {
+      this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
         eventName: 'tx-added-to-pool',
         ...tx.getStats(),
       } satisfies TxAddedToPoolStats);

@@ -1,5 +1,3 @@
-import { Gas } from '@aztec/circuits.js';
-
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
@@ -96,14 +94,6 @@ abstract class ExternalCall extends Instruction {
     } else {
       context.persistableState.reject(nestedContext.persistableState);
     }
-    await context.persistableState.traceNestedCall(
-      /*nestedState=*/ nestedContext.persistableState,
-      /*nestedEnvironment=*/ nestedContext.environment,
-      /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*bytecode=*/ simulator.getBytecode()!,
-      /*avmCallResults=*/ nestedCallResults,
-    );
-
     memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
   }
 

@@ -32,7 +32,9 @@ fn validate_propagated_sorted_values_l2_to_l1_msgs_mismatch_hash_fails() {
     builder.previous_kernel.append_l2_to_l1_msgs(2);
     builder.output.append_exposed_l2_to_l1_msgs(2);
     // Tweak the content in the output.
-    builder.output.l2_to_l1_msgs.storage[0].message.content += 1;
+    let mut msg = builder.output.l2_to_l1_msgs.get(0);
+    msg.message.content += 1;
+    builder.output.l2_to_l1_msgs.set(0, msg);
 
     builder.validate();
 }
@@ -57,7 +59,9 @@ fn validate_propagated_sorted_values_contract_class_log_hashes_mismatch_fails() 
     builder.previous_kernel.add_contract_class_log_hash(3, 2);
     builder.output.add_contract_class_log_hash(3, 2);
     // Tweak the content in the output.
-    builder.output.contract_class_logs_hashes.storage[0].log_hash.value += 1;
+    let mut log_hash = builder.output.contract_class_logs_hashes.get(0);
+    log_hash.log_hash.value += 1;
+    builder.output.contract_class_logs_hashes.set(0, log_hash);
 
     builder.validate();
 }
