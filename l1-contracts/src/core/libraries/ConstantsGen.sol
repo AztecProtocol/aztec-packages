@@ -251,9 +251,8 @@ library Constants {
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
-  uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
-  uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 12000000;
-  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
+  uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 6000000;
+  uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 6000000;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant DA_GAS_PER_BYTE = 16;
   uint256 internal constant FIXED_DA_GAS = 512;
