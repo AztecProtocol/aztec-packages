@@ -122,6 +122,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         id: job.id,
         type: job.type,
         inputsUri: job.inputsUri,
+        epochNumber: job.epochNumber,
       };
     } catch (err) {
       if (err instanceof TimeoutError) {
@@ -246,7 +247,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
       reject,
       attempts: 1,
       heartbeat: 0,
-      epochNumber,
+      epochNumber: epochNumber ?? 0,
     };
 
     if (signal) {
