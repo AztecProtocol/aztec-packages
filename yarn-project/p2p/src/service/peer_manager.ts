@@ -221,7 +221,7 @@ export class PeerManager {
     const id = peer.peerId.toString();
     await this.libP2PNode.peerStore.merge(peer.peerId, { multiaddrs: [peer.multiaddrTcp] });
 
-    this.logger.debug(`Dialing peer ${id}`);
+    this.logger.trace(`Dialing peer ${id}`);
     try {
       await this.libP2PNode.dial(peer.multiaddrTcp);
     } catch (error) {

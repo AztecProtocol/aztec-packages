@@ -1,4 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
+use dep::types::tests::utils::swap_items;
 
 #[test]
 fn validate_propagated_from_private_call_empty_data_succeeds() {
@@ -25,9 +26,11 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_mismatch
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
-    builder.output.append_note_hash_read_requests(1);
+    builder.output.append_note_hash_read_requests(2);
     // Tweak the value in the output.
-    builder.output.note_hash_read_requests.storage[1].read_request.value += 1;
+    let mut read_request = builder.output.note_hash_read_requests.get(1);
+    read_request.read_request.value += 1;
+    builder.output.note_hash_read_requests.set(1, read_request);
 
     builder.validate_as_inner_call();
 }
@@ -39,7 +42,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_mismatch_contra
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Tweak the contract address in the output.
-    builder.output.note_hash_read_requests.storage[1].contract_address.inner += 1;
+    let mut read_request = builder.output.note_hash_read_requests.get(1);
+    read_request.contract_address.inner += 1;
+    builder.output.note_hash_read_requests.set(1, read_request);
 
     builder.validate_as_inner_call();
 }
@@ -73,9 +78,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_no
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Add a non-empty item to the end of the output.
-    let len = builder.output.note_hash_read_requests.storage.len();
-    builder.output.note_hash_read_requests.storage[len - 1] =
-        builder.output.note_hash_read_requests.storage[0];
+    let mut read_requests = builder.output.note_hash_read_requests.storage();
+    read_requests[read_requests.len() - 1] = read_requests[0];
+    builder.output.note_hash_read_requests = BoundedVec::from_array(read_requests);
 
     builder.validate_as_inner_call();
 }
@@ -112,7 +117,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Tweak the value in the output.
-    builder.output.note_hash_read_requests.storage[3].read_request.value += 1;
+    let mut read_request = builder.output.note_hash_read_requests.get(3);
+    read_request.read_request.value += 1;
+    builder.output.note_hash_read_requests.set(3, read_request);
 
     builder.validate_as_inner_call();
 }
@@ -125,7 +132,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Tweak the contract address in the output.
-    builder.output.note_hash_read_requests.storage[3].contract_address.inner += 1;
+    let mut read_request = builder.output.note_hash_read_requests.get(3);
+    read_request.contract_address.inner += 1;
+    builder.output.note_hash_read_requests.set(3, read_request);
 
     builder.validate_as_inner_call();
 }
@@ -162,9 +171,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Add a non-empty item to the end of the output.
-    let len = builder.output.note_hash_read_requests.storage.len();
-    builder.output.note_hash_read_requests.storage[len - 1] =
-        builder.output.note_hash_read_requests.storage[0];
+    let mut read_requests = builder.output.note_hash_read_requests.storage();
+    read_requests[read_requests.len() - 1] = read_requests[0];
+    builder.output.note_hash_read_requests = BoundedVec::from_array(read_requests);
 
     builder.validate_as_inner_call();
 }
@@ -387,10 +396,7 @@ fn validate_propagated_from_private_call_private_call_requests_not_reversed_fail
     builder.private_call.append_private_call_requests(2);
     builder.output.append_private_call_requests(2);
     // Swap the call requests.
-    let first_call_request = builder.output.private_call_requests.storage[0];
-    builder.output.private_call_requests.storage[0] =
-        builder.output.private_call_requests.storage[1];
-    builder.output.private_call_requests.storage[1] = first_call_request;
+    swap_items(&mut builder.output.private_call_requests, 0, 1);
 
     builder.validate_as_inner_call();
 }
@@ -400,7 +406,7 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.output.append_private_call_requests(5);
-    let requests = builder.output.private_call_requests.storage;
+    let requests = builder.output.private_call_requests.storage();
     // The private_call_stack in the output will be: [requests[4], requests[3], requests[2], requests[1], requests[0]].
     // First 2 are propagated from the previous kernel.
     builder.previous_kernel.private_call_requests.push(requests[3]);
