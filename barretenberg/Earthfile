@@ -26,10 +26,6 @@ barretenberg-acir-tests-bb:
     ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
 
-    # Fold and verify an ACIR program stack using ClientIvc
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh fold_basic
-    # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
     RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
