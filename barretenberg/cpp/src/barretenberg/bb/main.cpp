@@ -1153,6 +1153,12 @@ int main(int argc, char* argv[])
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
             }
 
+            if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
+                return 1;
+            }
+
             throw_or_abort("Invalid command passed to execute_command in bb");
             return 1;
         };

@@ -245,8 +245,8 @@ class ClientIVCAPI : public API {
      * @param flags
      * @param output_dir
      */
-    static void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
-                                                           const std::filesystem::path& output_dir)
+    void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
+                                                    const std::filesystem::path& output_dir) override
     {
         if (!flags.output_type || *flags.output_type != "fields_msgpack") {
             throw_or_abort("No output_type or output_type not supported");
