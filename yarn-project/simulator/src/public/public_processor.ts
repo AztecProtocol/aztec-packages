@@ -239,6 +239,13 @@ export class PublicProcessor {
       feePaymentPublicDataWrite,
       this.globalVariables,
     );
+
+    this.metrics.recordClassRegistration(
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
+    );
     return [processedTx];
   }
 
