@@ -54,6 +54,7 @@ spec:
       containers:
         - name: transaction-bot
           image: "{{ .Values.images.aztec.image }}"
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           volumeMounts:
             - name: config
               mountPath: /shared/config

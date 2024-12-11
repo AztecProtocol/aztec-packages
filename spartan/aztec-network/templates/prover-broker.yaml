@@ -32,7 +32,7 @@ spec:
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c

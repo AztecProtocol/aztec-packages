@@ -36,7 +36,7 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-services
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c

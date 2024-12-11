@@ -62,6 +62,7 @@ spec:
       containers:
         - name: pxe
           image: "{{ .Values.images.aztec.image }}"
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
