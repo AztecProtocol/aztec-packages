@@ -298,7 +298,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
 
