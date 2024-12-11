@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "docs": "yarn preprocess && yarn typedoc && docusaurus start",
+    "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn docs",
     "dev:local": "ENV=dev yarn docs",
     "build": "./scripts/build.sh",
