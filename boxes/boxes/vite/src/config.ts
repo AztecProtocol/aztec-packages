@@ -6,7 +6,7 @@ import {
 } from "@aztec/aztec.js";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 import { AccountManager } from "@aztec/aztec.js/account";
-import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
+import { SchnorrAccountContract } from "@aztec/accounts/schnorr";
 import { createAztecNodeClient } from "@aztec/aztec.js";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
@@ -42,7 +42,7 @@ export class PrivateEnv {
     const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
       this.secretKey,
     );
-    this.accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
+    this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
     this.account = new AccountManager(
       this.pxe,
       this.secretKey,
@@ -80,7 +80,7 @@ export class PrivateEnv {
       proofCreator,
       config,
     );
-    await server.start();
+    await server.init();
     return server;
   }
 
