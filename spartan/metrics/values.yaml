@@ -31,20 +31,6 @@ opentelemetry-collector:
     kubernetesAttributes:
       enabled: true
   config:
-    exporters:
-      # debug:
-      #   verbosity: detailed
-      otlphttp/logs:
-        endpoint: http://metrics-loki.metrics:3100/otlp
-      otlp/tempo:
-        endpoint: http://metrics-tempo.metrics:4317
-        tls:
-          insecure: true
-      prometheus:
-        endpoint: ${env:MY_POD_IP}:8889
-        metric_expiration: 5m
-        resource_to_telemetry_conversion:
-          enabled: true
     extensions:
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
@@ -91,7 +77,7 @@ opentelemetry-collector:
             # - debug
 
 # Enable and configure the Loki subchart
-# https://artifacthub.io/packages/helm/grafana/loki-simple-scalable
+# https://artifacthub.io/packages/helm/grafana/loki
 # loki:
 # Nothing set here, because we need to use values from the values directory;
 # otherwise, things don't get overridden correctly.
