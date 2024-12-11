@@ -1,6 +1,6 @@
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
-    constants::{PROOF_TYPE_ROLLUP_HONK, ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
+    constants::{PROOF_TYPE_HONK, ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     proof::{
         recursive_proof::NestedRecursiveProof,
@@ -36,7 +36,7 @@ impl Verifiable for RootRollupParityInput {
             self.proof.fields,
             inputs,
             self.verification_key.hash,
-            PROOF_TYPE_ROLLUP_HONK,
+            PROOF_TYPE_HONK,
         );
     }
 }

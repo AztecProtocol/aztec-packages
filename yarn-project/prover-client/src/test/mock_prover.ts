@@ -137,7 +137,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -153,7 +153,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -169,7 +169,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -179,7 +179,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -195,7 +195,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -211,7 +211,7 @@ export class MockProver implements ServerCircuitProver {
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }

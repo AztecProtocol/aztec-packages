@@ -1,7 +1,7 @@
 use crate::{
     constants::{
         AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
     },
     traits::{Deserialize, Empty, Serialize},
 };
@@ -51,7 +51,8 @@ impl<let N: u32> Eq for VerificationKey<N> {
     }
 }
 
-pub type HonkVerificationKey = VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+pub type RollupHonkVerificationKey = VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+pub type HonkVerificationKey = VerificationKey<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type ClientIVCVerificationKey = VerificationKey<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 

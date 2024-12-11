@@ -33,7 +33,6 @@ import {
   GlobalVariables,
   GrumpkinScalar,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  Header,
   KernelCircuitPublicInputs,
   type KeyValidationHint,
   KeyValidationRequest,
@@ -1745,10 +1744,7 @@ export function mapRootRollupParityInputToNoir(
 ): RootRollupParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(
-      rootParityInput.verificationKey,
-      ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-    ),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -1819,10 +1815,7 @@ export function mapRootParityInputToNoir(
 ): ParityRootParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(
-      rootParityInput.verificationKey,
-      ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-    ),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -2204,6 +2197,6 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
 function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
   return {
     proof: mapRecursiveProofToNoir(inputs.proof),
-    vk: mapVerificationKeyToNoir(inputs.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(inputs.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }

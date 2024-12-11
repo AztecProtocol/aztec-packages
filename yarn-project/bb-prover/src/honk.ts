@@ -25,7 +25,7 @@ export function getUltraHonkFlavorForCircuit(artifact: ProtocolArtifact): UltraH
   if (isUltraKeccakHonkCircuit(artifact)) {
     return 'ultra_keccak_honk';
   } else if (UltraHonkCircuits.includes(artifact as UltraHonkProtocolArtifact)) {
-    return 'ultra_rollup_honk'; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+    return 'ultra_rollup_honk';
   }
   return 'ultra_honk';
 }

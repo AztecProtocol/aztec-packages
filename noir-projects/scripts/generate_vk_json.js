@@ -147,7 +147,7 @@ async function generateVKData(
     if (circuitType == CircuitType.ClientIVCCircuit) {
       return "write_vk_for_ivc";
     } else if (circuitType == CircuitType.RollupHonkCircuit) {
-      return "write_vk_ultra_rollup_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+      return "write_vk_ultra_rollup_honk";
     } else {
       return "write_vk_ultra_honk";
     }
@@ -162,7 +162,7 @@ async function generateVKData(
   if (circuitType == CircuitType.ClientIVCCircuit) {
     vk_as_fields_flow = "vk_as_fields_mega_honk";
   } else if (circuitType == CircuitType.RollupHonkCircuit) {
-    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
   } else {
     vk_as_fields_flow = "vk_as_fields_ultra_honk";
   }
