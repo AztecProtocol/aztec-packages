@@ -67,11 +67,11 @@ function generateS3Client() {
 function generateArtifactHash(
   barretenbergHash,
   bytecodeHash,
-  isMegaHonk,
+  isClientIvc,
   isRecursive
 ) {
   return `${barretenbergHash}-${bytecodeHash}-${
-    isMegaHonk ? "mega-honk" : "ultra-honk"
+    isClientIvc ? "client-ivc" : "ultra-honk"
   }-${isRecursive}`;
 }
 
