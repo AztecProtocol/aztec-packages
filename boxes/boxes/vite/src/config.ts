@@ -64,7 +64,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("aztec:pxe:data:indexeddb"),
+      createLogger("pxe:data:indexeddb"),
     );
 
     const keyStore = new KeyStore(store);

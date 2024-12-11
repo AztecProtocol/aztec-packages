@@ -76,6 +76,7 @@ export const pinoPrettyOpts = {
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
+  singleLine: !['1', 'true'].includes(process.env.LOG_MULTILINE ?? ''),
 };
 
 const prettyTransport: pino.TransportSingleOptions = {

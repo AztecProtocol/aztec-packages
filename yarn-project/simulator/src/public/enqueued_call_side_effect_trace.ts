@@ -7,7 +7,6 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
-  AvmExternalCallHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -53,7 +52,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
-import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
@@ -168,13 +167,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   private mergeHints(forkedTrace: this) {
     this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
-
-    this.avmCircuitHints.storageValues.items.push(...forkedTrace.avmCircuitHints.storageValues.items);
-    this.avmCircuitHints.noteHashExists.items.push(...forkedTrace.avmCircuitHints.noteHashExists.items);
-    this.avmCircuitHints.nullifierExists.items.push(...forkedTrace.avmCircuitHints.nullifierExists.items);
-    this.avmCircuitHints.l1ToL2MessageExists.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageExists.items);
-
-    this.avmCircuitHints.externalCalls.items.push(...forkedTrace.avmCircuitHints.externalCalls.items);
 
     this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
     this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
@@ -413,45 +405,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
     this.log.debug(
       `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
-    );
-  }
-
-  /**
-   * Trace a nested call.
-   * Accept some results from a finished nested call's trace into this one.
-   */
-  public traceNestedCall(
-    /** The trace of the nested call. */
-    _nestedCallTrace: this,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    _bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name for logging */
-    _functionName: string = 'unknown',
-  ) {
-    // TODO(4805): check if some threshold is reached for max nested calls (to unique contracts?)
-    //
-    // Store end side effect counter before it gets updated by absorbing nested call trace
-    const endSideEffectCounter = new Fr(this.sideEffectCounter);
-
-    const gasUsed = new Gas(
-      startGasLeft.daGas - avmCallResults.gasLeft.daGas,
-      startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
-    );
-
-    this.avmCircuitHints.externalCalls.items.push(
-      new AvmExternalCallHint(
-        /*success=*/ new Fr(avmCallResults.reverted ? 0 : 1),
-        avmCallResults.output,
-        gasUsed,
-        endSideEffectCounter,
-        nestedEnvironment.address,
-      ),
     );
   }
 

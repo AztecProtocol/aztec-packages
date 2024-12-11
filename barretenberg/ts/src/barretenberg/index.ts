@@ -69,7 +69,7 @@ export class Barretenberg extends BarretenbergApi {
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, this.options.crsPath);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, this.options.crsPath);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
