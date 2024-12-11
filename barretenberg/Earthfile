@@ -95,7 +95,7 @@ barretenberg-acir-tests-bb-client-ivc:
     # Construct and verify a ClientIVC proof for a single arbitrary program
     RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
     # Construct and separately verify a ClientIVC proof for all acir programs
-    RUN FLOW=prove_then_verify_client_ivc CLIENT_IVC_SKIPS=true ./run_acir_tests.sh
+    RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh 6_array databus databus_two_calldata
 
 barretenberg-acir-tests-sol:
     FROM ../build-images/+from-registry
