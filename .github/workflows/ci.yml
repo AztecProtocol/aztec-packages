@@ -1020,9 +1020,10 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
-      - network-test
+      - network-transfer-test
+      - network-full-test # OK if skipped
       - kind-smoke-test
-      - kind-network-test
+      - kind-network-full-test # OK if skipped
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
