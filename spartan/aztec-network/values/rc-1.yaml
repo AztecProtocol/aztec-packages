@@ -133,7 +133,7 @@ proverAgent:
   bb:
     hardwareConcurrency: 31
   gke:
-    spotEnabled: true
+    spotEnabled: false
   resources:
     requests:
       memory: "116Gi"
