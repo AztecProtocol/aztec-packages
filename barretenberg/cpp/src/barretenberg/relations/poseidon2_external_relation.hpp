@@ -65,20 +65,20 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     {
         PROFILE_THIS_NAME("PoseidonExt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        auto w_l = MonomialAccumulator(in.w_l);
-        auto w_r = MonomialAccumulator(in.w_r);
-        auto w_o = MonomialAccumulator(in.w_o);
-        auto w_4 = MonomialAccumulator(in.w_4);
-        auto w_l_shift = MonomialAccumulator(in.w_l_shift);
-        auto w_r_shift = MonomialAccumulator(in.w_r_shift);
-        auto w_o_shift = MonomialAccumulator(in.w_o_shift);
-        auto w_4_shift = MonomialAccumulator(in.w_4_shift);
-        auto q_l = MonomialAccumulator(in.q_l);
-        auto q_r = MonomialAccumulator(in.q_r);
-        auto q_o = MonomialAccumulator(in.q_o);
-        auto q_4 = MonomialAccumulator(in.q_4);
-        auto q_poseidon2_external = MonomialAccumulator(in.q_poseidon2_external);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        auto w_l = CoefficientAccumulator(in.w_l);
+        auto w_r = CoefficientAccumulator(in.w_r);
+        auto w_o = CoefficientAccumulator(in.w_o);
+        auto w_4 = CoefficientAccumulator(in.w_4);
+        auto w_l_shift = CoefficientAccumulator(in.w_l_shift);
+        auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
+        auto w_o_shift = CoefficientAccumulator(in.w_o_shift);
+        auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        auto q_l = CoefficientAccumulator(in.q_l);
+        auto q_r = CoefficientAccumulator(in.q_r);
+        auto q_o = CoefficientAccumulator(in.q_o);
+        auto q_4 = CoefficientAccumulator(in.q_4);
+        auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
         auto s1 = Accumulator(w_l + q_l);

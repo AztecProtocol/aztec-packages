@@ -57,14 +57,14 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
     {
         PROFILE_THIS_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_1 = MonomialAccumulator(in.w_l);
-        auto w_2 = MonomialAccumulator(in.w_r);
-        auto w_3 = MonomialAccumulator(in.w_o);
-        auto w_4 = MonomialAccumulator(in.w_4);
-        auto w_1_shift = MonomialAccumulator(in.w_l_shift);
-        auto q_delta_range_m = MonomialAccumulator(in.q_delta_range);
+        auto w_1 = CoefficientAccumulator(in.w_l);
+        auto w_2 = CoefficientAccumulator(in.w_r);
+        auto w_3 = CoefficientAccumulator(in.w_o);
+        auto w_4 = CoefficientAccumulator(in.w_4);
+        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        auto q_delta_range_m = CoefficientAccumulator(in.q_delta_range);
 
         auto q_delta_range_scaled_m = q_delta_range_m * scaling_factor;
         Accumulator q_delta_range_scaled(q_delta_range_scaled_m);

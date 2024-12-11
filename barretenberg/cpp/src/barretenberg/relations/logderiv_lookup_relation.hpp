@@ -69,18 +69,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto row_has_write = MonomialAccumulator(in.lookup_read_tags);
-        const auto row_has_read = MonomialAccumulator(in.q_lookup);
+        const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
+        const auto row_has_read = CoefficientAccumulator(in.q_lookup);
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        return Accumulator(MonomialAccumulator(in.lookup_read_counts));
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        return Accumulator(CoefficientAccumulator(in.lookup_read_counts));
     }
 
     // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
@@ -89,20 +89,20 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto gamma = ParameterMonomialAccumulator(params.gamma);
-        const auto eta = ParameterMonomialAccumulator(params.eta);
-        const auto eta_two = ParameterMonomialAccumulator(params.eta_two);
-        const auto eta_three = ParameterMonomialAccumulator(params.eta_three);
+        const auto gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto eta = ParameterCoefficientAccumulator(params.eta);
+        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
+        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto table_1 = MonomialAccumulator(in.table_1);
-        auto table_2 = MonomialAccumulator(in.table_2);
-        auto table_3 = MonomialAccumulator(in.table_3);
-        auto table_4 = MonomialAccumulator(in.table_4);
+        auto table_1 = CoefficientAccumulator(in.table_1);
+        auto table_2 = CoefficientAccumulator(in.table_2);
+        auto table_3 = CoefficientAccumulator(in.table_3);
+        auto table_4 = CoefficientAccumulator(in.table_4);
 
         auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
         result += table_1;
@@ -115,26 +115,26 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto gamma = ParameterMonomialAccumulator(params.gamma);
-        const auto eta = ParameterMonomialAccumulator(params.eta);
-        const auto eta_two = ParameterMonomialAccumulator(params.eta_two);
-        const auto eta_three = ParameterMonomialAccumulator(params.eta_three);
+        const auto gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto eta = ParameterCoefficientAccumulator(params.eta);
+        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
+        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1 = MonomialAccumulator(in.w_l);
-        auto w_2 = MonomialAccumulator(in.w_r);
-        auto w_3 = MonomialAccumulator(in.w_o);
+        auto w_1 = CoefficientAccumulator(in.w_l);
+        auto w_2 = CoefficientAccumulator(in.w_r);
+        auto w_3 = CoefficientAccumulator(in.w_o);
 
-        auto w_1_shift = MonomialAccumulator(in.w_l_shift);
-        auto w_2_shift = MonomialAccumulator(in.w_r_shift);
-        auto w_3_shift = MonomialAccumulator(in.w_o_shift);
+        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
+        auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
 
-        auto table_index = MonomialAccumulator(in.q_o);
-        auto negative_column_1_step_size = MonomialAccumulator(in.q_r);
-        auto negative_column_2_step_size = MonomialAccumulator(in.q_m);
-        auto negative_column_3_step_size = MonomialAccumulator(in.q_c);
+        auto table_index = CoefficientAccumulator(in.q_o);
+        auto negative_column_1_step_size = CoefficientAccumulator(in.q_r);
+        auto negative_column_2_step_size = CoefficientAccumulator(in.q_m);
+        auto negative_column_3_step_size = CoefficientAccumulator(in.q_c);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
@@ -231,15 +231,15 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using ShortView = typename ShortAccumulator::View;
 
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         // allows to re-use the values accumulated by the accumulator of the size smaller than
         // the size of Accumulator declared above
 
-        const auto inverses_m = MonomialAccumulator(in.lookup_inverses); // Degree 1
+        const auto inverses_m = CoefficientAccumulator(in.lookup_inverses); // Degree 1
         const Accumulator inverses(inverses_m);
-        const auto read_counts_m = MonomialAccumulator(in.lookup_read_counts); // Degree 1
-        const auto read_selector_m = MonomialAccumulator(in.q_lookup);         // Degree 1
+        const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
+        const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
 
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)

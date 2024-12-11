@@ -132,25 +132,25 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // Contribution (1)
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
-        const MonomialAccumulator w_1_m(in.w_l);
-        const MonomialAccumulator w_2_m(in.w_r);
-        const MonomialAccumulator w_3_m(in.w_o);
-        const MonomialAccumulator w_4_m(in.w_4);
-        const MonomialAccumulator id_1_m(in.id_1);
-        const MonomialAccumulator id_2_m(in.id_2);
-        const MonomialAccumulator id_3_m(in.id_3);
-        const MonomialAccumulator id_4_m(in.id_4);
-        const MonomialAccumulator sigma_1_m(in.sigma_1);
-        const MonomialAccumulator sigma_2_m(in.sigma_2);
-        const MonomialAccumulator sigma_3_m(in.sigma_3);
-        const MonomialAccumulator sigma_4_m(in.sigma_4);
+        const CoefficientAccumulator w_1_m(in.w_l);
+        const CoefficientAccumulator w_2_m(in.w_r);
+        const CoefficientAccumulator w_3_m(in.w_o);
+        const CoefficientAccumulator w_4_m(in.w_4);
+        const CoefficientAccumulator id_1_m(in.id_1);
+        const CoefficientAccumulator id_2_m(in.id_2);
+        const CoefficientAccumulator id_3_m(in.id_3);
+        const CoefficientAccumulator id_4_m(in.id_4);
+        const CoefficientAccumulator sigma_1_m(in.sigma_1);
+        const CoefficientAccumulator sigma_2_m(in.sigma_2);
+        const CoefficientAccumulator sigma_3_m(in.sigma_3);
+        const CoefficientAccumulator sigma_4_m(in.sigma_4);
 
-        const ParameterMonomialAccumulator gamma_m(params.gamma);
-        const ParameterMonomialAccumulator beta_m(params.beta);
+        const ParameterCoefficientAccumulator gamma_m(params.gamma);
+        const ParameterCoefficientAccumulator beta_m(params.beta);
 
         const auto w_1_plus_gamma = w_1_m + gamma_m;
         const auto w_2_plus_gamma = w_2_m + gamma_m;
@@ -187,11 +187,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
         denominator *= Accumulator(t7);
         denominator *= Accumulator(t8);
 
-        const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
-        const auto z_perm_m = MonomialAccumulator(in.z_perm);
-        const auto z_perm_shift_m = MonomialAccumulator(in.z_perm_shift);
-        const auto lagrange_first_m = MonomialAccumulator(in.lagrange_first);
-        const auto lagrange_last_m = MonomialAccumulator(in.lagrange_last);
+        const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
+        const auto z_perm_m = CoefficientAccumulator(in.z_perm);
+        const auto z_perm_shift_m = CoefficientAccumulator(in.z_perm_shift);
+        const auto lagrange_first_m = CoefficientAccumulator(in.lagrange_first);
+        const auto lagrange_last_m = CoefficientAccumulator(in.lagrange_last);
 
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
         public_input_term_m += z_perm_shift_m;

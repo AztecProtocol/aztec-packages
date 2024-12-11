@@ -19,17 +19,18 @@ namespace bb {
  * memory efficiency purposes, we store the coefficients in an array starting from 0 and make the mapping to the right
  * domain under the hood.
  *
- * @details We represent a UnivariateMonomial as a polynomial P(X) = a0 + a1.X + a2.X^2
+ * @details We represent a UnivariateCoefficientBasis as a polynomial P(X) = a0 + a1.X + a2.X^2
  * @tparam has_a0_plus_a1: This is true if we know the sum of the above coefficients `a0 + a1`
  *         This is an optimisation to improve the performance of Karatsuba polynomial multiplication, which requires
- * this term. When converting from a degree-1 Monomial in the Lagrange basis, into a UnivariateMonomial, we can get `a0
+ * this term. When converting from a degree-1 Monomial in the Lagrange basis, into a UnivariateCoefficientBasis, we can
+ * get `a0
  * + a1` for free. i.e. for a Lagrange-basis poly, we have P(X) = v0.L0(X) + v1.L1(X) = v0.(1 - X) + v1.X = v0 + (v1 -
  * v0).X From this we can see that a0 = v0, a1 = v1 - v0 and therefore (a0 + a1) = v1
  * @note `has_a0_plus_a1` should only be true in the case where `LENGTH == 2` as this is the only case where we can
  *        acquire this term for free
  * @note After performing any arithmetic operation on UnivaraiteMonomial, the output will have `has_a0_plus_a1 = false`
  */
-template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMonomial {
+template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoefficientBasis {
   public:
     static constexpr size_t LENGTH = domain_end;
     static_assert(LENGTH == 2 || LENGTH == 3);
@@ -44,9 +45,9 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
      */
     std::array<Fr, 3> coefficients;
 
-    UnivariateMonomial() = default;
+    UnivariateCoefficientBasis() = default;
 
-    UnivariateMonomial(const UnivariateMonomial<Fr, domain_end, true>& other)
+    UnivariateCoefficientBasis(const UnivariateCoefficientBasis<Fr, domain_end, true>& other)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] = other.coefficients[0];
@@ -56,14 +57,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         }
     }
 
-    ~UnivariateMonomial() = default;
-    UnivariateMonomial(const UnivariateMonomial& other) = default;
-    UnivariateMonomial(UnivariateMonomial&& other) noexcept = default;
-    UnivariateMonomial& operator=(const UnivariateMonomial& other) = default;
-    UnivariateMonomial& operator=(UnivariateMonomial&& other) noexcept = default;
+    ~UnivariateCoefficientBasis() = default;
+    UnivariateCoefficientBasis(const UnivariateCoefficientBasis& other) = default;
+    UnivariateCoefficientBasis(UnivariateCoefficientBasis&& other) noexcept = default;
+    UnivariateCoefficientBasis& operator=(const UnivariateCoefficientBasis& other) = default;
+    UnivariateCoefficientBasis& operator=(UnivariateCoefficientBasis&& other) noexcept = default;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1 = true>
-    UnivariateMonomial(const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
+    UnivariateCoefficientBasis(const UnivariateCoefficientBasis<Fr, other_domain_end, other_has_a0_plus_a1>& other)
         requires(domain_end > other_domain_end)
     {
         coefficients[0] = other.coefficients[0];
@@ -75,14 +76,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
 
     size_t size() { return coefficients.size(); };
 
-    // Check if the UnivariateMonomial is identically zero
+    // Check if the UnivariateCoefficientBasis is identically zero
     bool is_zero() const
         requires(LENGTH == 2)
     {
         return coefficients[0].is_zero() || coefficients[1].is_zero();
     }
 
-    // Check if the UnivariateMonomial is identically zero
+    // Check if the UnivariateCoefficientBasis is identically zero
     bool is_zero() const
         requires(LENGTH == 3)
     {
@@ -95,39 +96,39 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     // Static method for creating a Univariate from a buffer
     // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
     // unnecessary ::from_buffer call
-    static UnivariateMonomial serialize_from_buffer(uint8_t const* buffer)
+    static UnivariateCoefficientBasis serialize_from_buffer(uint8_t const* buffer)
     {
-        UnivariateMonomial result;
+        UnivariateCoefficientBasis result;
         std::read(buffer, result.coefficients);
         return result;
     }
 
-    static UnivariateMonomial get_random()
+    static UnivariateCoefficientBasis get_random()
     {
-        auto output = UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>();
+        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
         for (size_t i = 0; i < LENGTH; ++i) {
             output.value_at(i) = Fr::random_element();
         }
         return output;
     };
 
-    static UnivariateMonomial zero()
+    static UnivariateCoefficientBasis zero()
     {
-        auto output = UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>();
+        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
         for (size_t i = 0; i != LENGTH; ++i) {
             output.coefficients[i] = Fr::zero();
         }
         return output;
     }
 
-    static UnivariateMonomial random_element() { return get_random(); };
+    static UnivariateCoefficientBasis random_element() { return get_random(); };
 
-    // Operations between UnivariateMonomial and other UnivariateMonomial
-    bool operator==(const UnivariateMonomial& other) const = default;
+    // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
+    bool operator==(const UnivariateCoefficientBasis& other) const = default;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    UnivariateMonomial<Fr, domain_end, false>& operator+=(
-        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
+    UnivariateCoefficientBasis<Fr, domain_end, false>& operator+=(
+        const UnivariateCoefficientBasis<Fr, other_domain_end, other_has_a0_plus_a1>& other)
     {
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
         // the output object therefore must have `other_has_a0_plus_a1` set to false.
@@ -141,8 +142,8 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    UnivariateMonomial<Fr, domain_end, false>& operator-=(
-        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
+    UnivariateCoefficientBasis<Fr, domain_end, false>& operator-=(
+        const UnivariateCoefficientBasis<Fr, other_domain_end, other_has_a0_plus_a1>& other)
     {
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
         // the output object therefore must have `other_has_a0_plus_a1` set to false.
@@ -156,11 +157,11 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <bool other_has_a0_plus_a1>
-    UnivariateMonomial<Fr, 3, false> operator*(
-        const UnivariateMonomial<Fr, domain_end, other_has_a0_plus_a1>& other) const
+    UnivariateCoefficientBasis<Fr, 3, false> operator*(
+        const UnivariateCoefficientBasis<Fr, domain_end, other_has_a0_plus_a1>& other) const
         requires(LENGTH == 2)
     {
-        UnivariateMonomial<Fr, 3, false> result;
+        UnivariateCoefficientBasis<Fr, 3, false> result;
         // result.coefficients[0] = a0 * a0;
         // result.coefficients[1] = a1 * a1
         result.coefficients[0] = coefficients[0] * other.coefficients[0];
@@ -189,10 +190,10 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    UnivariateMonomial<Fr, domain_end, false> operator+(
-        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator+(
+        const UnivariateCoefficientBasis<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
     {
-        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        UnivariateCoefficientBasis<Fr, domain_end, false> res(*this);
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
         // the output object therefore must have `other_has_a0_plus_a1` set to false.
         // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
@@ -205,10 +206,10 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
-    UnivariateMonomial<Fr, domain_end, false> operator-(
-        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator-(
+        const UnivariateCoefficientBasis<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
     {
-        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        UnivariateCoefficientBasis<Fr, domain_end, false> res(*this);
         // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
         // the output object therefore must have `other_has_a0_plus_a1` set to false.
         // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
@@ -220,9 +221,9 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return res;
     }
 
-    UnivariateMonomial<Fr, domain_end, false> operator-() const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator-() const
     {
-        UnivariateMonomial res;
+        UnivariateCoefficientBasis res;
         res.coefficients[0] = -coefficients[0];
         res.coefficients[1] = -coefficients[1];
         if constexpr (domain_end == 3) {
@@ -232,10 +233,10 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return res;
     }
 
-    UnivariateMonomial<Fr, 3, false> sqr() const
+    UnivariateCoefficientBasis<Fr, 3, false> sqr() const
         requires(LENGTH == 2)
     {
-        UnivariateMonomial<Fr, 3, false> result;
+        UnivariateCoefficientBasis<Fr, 3, false> result;
         result.coefficients[0] = coefficients[0].sqr();
         result.coefficients[2] = coefficients[1].sqr();
 
@@ -255,20 +256,20 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     // Operations between Univariate and scalar
-    UnivariateMonomial& operator+=(const Fr& scalar)
+    UnivariateCoefficientBasis& operator+=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] += scalar;
         return *this;
     }
 
-    UnivariateMonomial& operator-=(const Fr& scalar)
+    UnivariateCoefficientBasis& operator-=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] -= scalar;
         return *this;
     }
-    UnivariateMonomial<Fr, domain_end, false>& operator*=(const Fr& scalar)
+    UnivariateCoefficientBasis<Fr, domain_end, false>& operator*=(const Fr& scalar)
         requires(!has_a0_plus_a1)
     {
         coefficients[0] *= scalar;
@@ -279,23 +280,23 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return *this;
     }
 
-    UnivariateMonomial<Fr, domain_end, false> operator+(const Fr& scalar) const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator+(const Fr& scalar) const
     {
-        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        UnivariateCoefficientBasis<Fr, domain_end, false> res(*this);
         res += scalar;
         return res;
     }
 
-    UnivariateMonomial<Fr, domain_end, false> operator-(const Fr& scalar) const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator-(const Fr& scalar) const
     {
-        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        UnivariateCoefficientBasis<Fr, domain_end, false> res(*this);
         res -= scalar;
         return res;
     }
 
-    UnivariateMonomial<Fr, domain_end, false> operator*(const Fr& scalar) const
+    UnivariateCoefficientBasis<Fr, domain_end, false> operator*(const Fr& scalar) const
     {
-        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        UnivariateCoefficientBasis<Fr, domain_end, false> res(*this);
         res.coefficients[0] *= scalar;
         res.coefficients[1] *= scalar;
         if constexpr (domain_end == 3) {
@@ -305,7 +306,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
     }
 
     // Output is immediately parsable as a list of integers by Python.
-    friend std::ostream& operator<<(std::ostream& os, const UnivariateMonomial& u)
+    friend std::ostream& operator<<(std::ostream& os, const UnivariateCoefficientBasis& u)
     {
         os << "[";
         os << u.coefficients[0] << "," << std::endl;
@@ -329,14 +330,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
 };
 
 template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>
-inline void read(B& it, UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>& univariate)
+inline void read(B& it, UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>& univariate)
 {
     using serialize::read;
     read(it, univariate.coefficients);
 }
 
 template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>
-inline void write(B& it, UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> const& univariate)
+inline void write(B& it, UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1> const& univariate)
 {
     using serialize::write;
     write(it, univariate.coefficients);
@@ -346,6 +347,6 @@ inline void write(B& it, UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> cons
 
 namespace std {
 template <typename T, size_t N, bool X>
-struct tuple_size<bb::UnivariateMonomial<T, N, X>> : std::integral_constant<std::size_t, N> {};
+struct tuple_size<bb::UnivariateCoefficientBasis<T, N, X>> : std::integral_constant<std::size_t, N> {};
 
 } // namespace std

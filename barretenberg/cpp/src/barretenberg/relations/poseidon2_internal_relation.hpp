@@ -62,15 +62,15 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     {
         PROFILE_THIS_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_l_m = MonomialAccumulator(in.w_l);
-        auto w_l_shift_m = MonomialAccumulator(in.w_l_shift);
-        auto w_r_shift_m = MonomialAccumulator(in.w_r_shift);
-        auto w_o_shift_m = MonomialAccumulator(in.w_o_shift);
-        auto w_4_shift_m = MonomialAccumulator(in.w_4_shift);
-        auto q_l_m = MonomialAccumulator(in.q_l);
-        auto q_poseidon2_internal_m = MonomialAccumulator(in.q_poseidon2_internal);
+        auto w_l_m = CoefficientAccumulator(in.w_l);
+        auto w_l_shift_m = CoefficientAccumulator(in.w_l_shift);
+        auto w_r_shift_m = CoefficientAccumulator(in.w_r_shift);
+        auto w_o_shift_m = CoefficientAccumulator(in.w_o_shift);
+        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto q_l_m = CoefficientAccumulator(in.q_l);
+        auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
 
         // add round constants
         auto s1 = Accumulator(w_l_m + q_l_m);
@@ -79,9 +79,9 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto u1 = s1.sqr();
         u1 = u1.sqr();
         u1 *= s1;
-        auto u2_m = MonomialAccumulator(in.w_r);
-        auto u3_m = MonomialAccumulator(in.w_o);
-        auto u4_m = MonomialAccumulator(in.w_4);
+        auto u2_m = CoefficientAccumulator(in.w_r);
+        auto u3_m = CoefficientAccumulator(in.w_o);
+        auto u4_m = CoefficientAccumulator(in.w_4);
 
         auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
         auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);

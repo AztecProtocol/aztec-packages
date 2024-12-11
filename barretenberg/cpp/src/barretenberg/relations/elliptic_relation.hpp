@@ -60,17 +60,17 @@ template <typename FF_> class EllipticRelationImpl {
         PROFILE_THIS_NAME("Elliptic::accumulate");
 
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        auto x_3_m = MonomialAccumulator(in.w_r_shift);
-        auto y_1_m = MonomialAccumulator(in.w_o);
-        auto y_2_m = MonomialAccumulator(in.w_4_shift);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        auto x_3_m = CoefficientAccumulator(in.w_r_shift);
+        auto y_1_m = CoefficientAccumulator(in.w_o);
+        auto y_2_m = CoefficientAccumulator(in.w_4_shift);
 
-        auto x_1_m = MonomialAccumulator(in.w_r);
-        auto x_2_m = MonomialAccumulator(in.w_l_shift);
-        auto y_3_m = MonomialAccumulator(in.w_o_shift);
-        auto q_elliptic_m = MonomialAccumulator(in.q_elliptic);
-        auto q_is_double_m = MonomialAccumulator(in.q_m);
-        auto q_sign_m = MonomialAccumulator(in.q_l);
+        auto x_1_m = CoefficientAccumulator(in.w_r);
+        auto x_2_m = CoefficientAccumulator(in.w_l_shift);
+        auto y_3_m = CoefficientAccumulator(in.w_o_shift);
+        auto q_elliptic_m = CoefficientAccumulator(in.q_elliptic);
+        auto q_is_double_m = CoefficientAccumulator(in.q_m);
+        auto q_sign_m = CoefficientAccumulator(in.q_l);
 
         // we need to efficiently construct the following:
         // 1. (x2 - x1)

@@ -115,37 +115,37 @@ template <typename FF_> class AuxiliaryRelationImpl {
         // whereas in ZK Flavors, the accumulator corresponding to RAM consistency sub-relation 1 is the longest
         using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         // allows to re-use the values accumulated by accumulators of the sizes smaller or equal to
         // the size of Accumulator declared above
         using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
-        const auto& eta_m = ParameterMonomialAccumulator(params.eta);
-        const auto& eta_two_m = ParameterMonomialAccumulator(params.eta_two);
-        const auto& eta_three_m = ParameterMonomialAccumulator(params.eta_three);
+        const auto& eta_m = ParameterCoefficientAccumulator(params.eta);
+        const auto& eta_two_m = ParameterCoefficientAccumulator(params.eta_two);
+        const auto& eta_three_m = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1_m = MonomialAccumulator(in.w_l);
-        auto w_2_m = MonomialAccumulator(in.w_r);
-        auto w_3_m = MonomialAccumulator(in.w_o);
-        auto w_4_m = MonomialAccumulator(in.w_4);
-        auto w_1_shift_m = MonomialAccumulator(in.w_l_shift);
-        auto w_2_shift_m = MonomialAccumulator(in.w_r_shift);
-        auto w_3_shift_m = MonomialAccumulator(in.w_o_shift);
-        auto w_4_shift_m = MonomialAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(in.w_l);
+        auto w_2_m = CoefficientAccumulator(in.w_r);
+        auto w_3_m = CoefficientAccumulator(in.w_o);
+        auto w_4_m = CoefficientAccumulator(in.w_4);
+        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
+        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
+        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
+        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
 
-        auto q_1_m = MonomialAccumulator(in.q_l);
-        auto q_2_m = MonomialAccumulator(in.q_r);
-        auto q_3_m = MonomialAccumulator(in.q_o);
-        auto q_4_m = MonomialAccumulator(in.q_4);
-        auto q_m_m = MonomialAccumulator(in.q_m);
-        auto q_c_m = MonomialAccumulator(in.q_c);
-        auto q_arith_m = MonomialAccumulator(in.q_arith);
+        auto q_1_m = CoefficientAccumulator(in.q_l);
+        auto q_2_m = CoefficientAccumulator(in.q_r);
+        auto q_3_m = CoefficientAccumulator(in.q_o);
+        auto q_4_m = CoefficientAccumulator(in.q_4);
+        auto q_m_m = CoefficientAccumulator(in.q_m);
+        auto q_c_m = CoefficientAccumulator(in.q_c);
+        auto q_arith_m = CoefficientAccumulator(in.q_arith);
 
-        auto q_aux_m = MonomialAccumulator(in.q_aux);
+        auto q_aux_m = CoefficientAccumulator(in.q_aux);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
@@ -171,11 +171,10 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto non_native_field_gate_1_m = limb_subproduct;
         non_native_field_gate_1_m -= (w_3_m + w_4_m);
         // We transform into ShortAccumulator to extend the degree of `non_native_field_gate_1` beyond degree-2
-        // (MonomialAccumulator only supports Monomials of up to degree 2 as it is not efficient to peform higher-degree
-        // computations in the coefficient basis)
-        // We use ShortAccumulator instead of Accumulator, because this term is only used in subrelations that have the
-        // same degree as subrelation `0` (which can be lower than the degree of subrelation `3`, which is how
-        // `Accumulator` is defined)
+        // (CoefficientAccumulator only supports Monomials of up to degree 2 as it is not efficient to peform
+        // higher-degree computations in the coefficient basis) We use ShortAccumulator instead of Accumulator, because
+        // this term is only used in subrelations that have the same degree as subrelation `0` (which can be lower than
+        // the degree of subrelation `3`, which is how `Accumulator` is defined)
         auto non_native_field_gate_1 = ShortAccumulator(non_native_field_gate_1_m) * ShortAccumulator(q_3_m);
 
         auto non_native_field_gate_3_m = limb_subproduct;

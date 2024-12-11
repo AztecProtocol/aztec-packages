@@ -153,11 +153,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in); // is this a read gate
         const auto read_tag_m =
-            MonomialAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
+            CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
         const Accumulator read_tag(read_tag_m);
         return is_read_gate + read_tag - (is_read_gate * read_tag);
     }
@@ -170,10 +170,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator get_read_selector(const AllEntities& in)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto q_busread = MonomialAccumulator(in.q_busread);
-        auto column_selector = MonomialAccumulator(BusData<bus_idx, AllEntities>::selector(in));
+        auto q_busread = CoefficientAccumulator(in.q_busread);
+        auto column_selector = CoefficientAccumulator(BusData<bus_idx, AllEntities>::selector(in));
 
         return Accumulator(q_busread * column_selector);
     }
@@ -185,14 +185,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-        using ParameterMonomialAccumulator =
-            typename GetParameterView<Parameters, typename Accumulator::View>::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator =
+            typename GetParameterView<Parameters, typename Accumulator::View>::CoefficientAccumulator;
 
-        const auto& id = MonomialAccumulator(in.databus_id);
-        const auto& value = MonomialAccumulator(BusData<bus_idx, AllEntities>::values(in));
-        const auto& gamma = ParameterMonomialAccumulator(params.gamma);
-        const auto& beta = ParameterMonomialAccumulator(params.beta);
+        const auto& id = CoefficientAccumulator(in.databus_id);
+        const auto& value = CoefficientAccumulator(BusData<bus_idx, AllEntities>::values(in));
+        const auto& gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value_i + idx_i*\beta + \gamma
         return Accumulator(id * beta + value + gamma); // degree 1
@@ -206,16 +206,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
         // Bus value stored in w_1, index into bus column stored in w_2
-        const auto& w_1 = MonomialAccumulator(in.w_l);
-        const auto& w_2 = MonomialAccumulator(in.w_r);
-        const auto& gamma = ParameterMonomialAccumulator(params.gamma);
-        const auto& beta = ParameterMonomialAccumulator(params.beta);
+        const auto& w_1 = CoefficientAccumulator(in.w_l);
+        const auto& w_2 = CoefficientAccumulator(in.w_r);
+        const auto& gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value + index*\beta + \gamma
         return Accumulator((w_2 * beta) + w_1 + gamma);
@@ -288,15 +288,15 @@ template <typename FF_> class DatabusLookupRelationImpl {
     {
         PROFILE_THIS_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto inverses_m = MonomialAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
+        const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
         Accumulator inverses(inverses_m);
-        const auto read_counts_m = MonomialAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
-        const auto read_term = compute_read_term<Accumulator>(in, params);                              // Degree 1 (2)
-        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params);                   // Degree 1 (2)
-        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in);                   // Degree 2
-        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);                         // Degree 2
+        const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
+        const auto read_term = compute_read_term<Accumulator>(in, params);            // Degree 1 (2)
+        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1 (2)
+        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 2
+        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
 
         // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = 2 * bus_idx;
