@@ -192,21 +192,21 @@ jobs:
 
   bench-test-gate:
     needs: [build, configure]
-    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') }}
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all')
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full bench tests enabled."
 
   e2e-test-gate:
     needs: [build, configure]
-    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
     needs: [build, configure]
-    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full network tests enabled."
