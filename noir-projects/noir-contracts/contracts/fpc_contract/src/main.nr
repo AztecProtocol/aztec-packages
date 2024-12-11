@@ -77,12 +77,7 @@ contract FPC {
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
-            [
-                context.msg_sender().to_field(),
-                config.fee_recipient.to_field(),
-                max_fee,
-                config.accepted_asset.to_field(),
-            ],
+            [context.msg_sender().to_field(), max_fee, config.accepted_asset.to_field()],
         );
     }
 
