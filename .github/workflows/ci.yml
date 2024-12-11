@@ -5,6 +5,7 @@ on:
       - master
       - provernet
       - "*/ci-push*"
+  merge_group:
   pull_request:
     types:
       - opened
@@ -18,7 +19,7 @@ on:
 
 concurrency:
   # force parallelism in master
-  group: ci-${{ (contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master') && github.run_id || github.ref_name }}
+  group: ci-${{ (true || github.ref_name == 'master') && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -187,21 +188,21 @@ jobs:
 
   bench-test-gate:
     needs: [build, configure]
-    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') }}
+    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full bench tests enabled."
 
   e2e-test-gate:
     needs: [build, configure]
-    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
+    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
     needs: [build, configure]
-    if: ${{ contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') }}
+    if: ${{ true || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
     runs-on: ubuntu-20.04
     steps:
       - run: "echo Full network tests enabled."
@@ -1069,7 +1070,7 @@ jobs:
       actions: write
     needs:
       - merge-check
-    if: github.event.pull_request.draft == false && !cancelled() && !contains(github.ref_name, 'gh-readonly-queue')
+    if: github.event.pull_request.draft == false && !cancelled() && !true
     steps:
       - name: Check for Rerun
         env:
