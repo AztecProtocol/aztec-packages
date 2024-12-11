@@ -226,7 +226,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
         __compute_partial_sums(fracs, ROOTS)
     };
-    for i in 0..NUM_PARTIAL_SUMS-1 {
+    for i in 0..NUM_PARTIAL_SUMS - 1 {
         // Seeking:
         //                    ___i*8 - 1              ___i*8 + 7
         //                    \            omega^i        \            /    y_k    \
@@ -367,7 +367,10 @@ fn compute_fracs(
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB], ROOTS: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
+unconstrained fn __compute_partial_sums(
+    fracs: [F; FIELDS_PER_BLOB],
+    ROOTS: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
