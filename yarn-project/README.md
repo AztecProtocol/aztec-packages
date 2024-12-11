@@ -4,7 +4,7 @@ All the Typescript packages that make up [Aztec](https://docs.aztec.network/azte
 
 ## Development
 
-All scripts are run in the `yarn-project` workspace root:
+All scripts are run in the `yarn-project` workspace root.
 
 - To install dependencies run
 ```
