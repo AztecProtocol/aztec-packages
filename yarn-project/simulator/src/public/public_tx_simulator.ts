@@ -13,6 +13,7 @@ import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
@@ -22,6 +23,7 @@ import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
+import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -99,11 +101,14 @@ export class PublicTxSimulator {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
     }
+
     if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
       const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
       processedPhases.push(teardownResult);
     }
+
     context.halt();
+    await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
 
@@ -386,5 +391,31 @@ export class PublicTxSimulator {
         );
       }
     }
+  }
+
+  private async payFee(context: PublicTxContext) {
+    const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
+
+    if (context.feePayer.isZero()) {
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      return;
+    }
+
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
+    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
+    const stateManager = context.state.getActiveStateManager();
+
+    const currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+
+    if (currentBalance.lt(txFee)) {
+      throw new Error(
+        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+      );
+    }
+
+    const updatedBalance = currentBalance.sub(txFee);
+    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
   }
 }
