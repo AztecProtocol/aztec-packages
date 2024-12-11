@@ -95,6 +95,14 @@ export class OpenTelemetryClient implements TelemetryClient {
     return true;
   }
 
+  public async flush() {
+    await Promise.all([
+      this.meterProvider.forceFlush(),
+      this.loggerProvider.forceFlush(),
+      this.traceProvider instanceof NodeTracerProvider ? this.traceProvider.forceFlush() : Promise.resolve(),
+    ]);
+  }
+
   public async stop() {
     const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
       await provider.forceFlush();

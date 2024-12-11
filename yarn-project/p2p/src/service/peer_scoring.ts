@@ -82,7 +82,7 @@ export class PeerScoring {
     return this.scores.get(peerId) || 0;
   }
 
-  getStats(): { median: number } {
-    return { median: median(Array.from(this.scores.values())) ?? 0 };
+  getStats(): { medianScore: number } {
+    return { medianScore: median(Array.from(this.scores.values())) ?? 0 };
   }
 }

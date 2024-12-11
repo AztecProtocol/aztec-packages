@@ -5,7 +5,6 @@ use dep::aztec::macros::aztec;
 contract EcdsaRAccount {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
     };
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
@@ -28,14 +27,9 @@ contract EcdsaRAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
-        // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
-        // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
-        // important.
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        let this_ovpk_m = get_public_keys(this).ovpk_m;
         storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
-            this_ovpk_m,
             this,
             this,
         ));

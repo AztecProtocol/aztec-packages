@@ -16,10 +16,8 @@ import {
   GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
   IndexedTaggingSecret,
-  KeyValidationRequest,
   MAX_NOTE_HASHES_PER_TX,
   computeAddress,
-  computeOvskApp,
   computeTaggingSecret,
   deriveKeys,
 } from '@aztec/circuits.js';
@@ -35,7 +33,6 @@ import times from 'lodash.times';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';
 
@@ -61,8 +58,6 @@ class MockNoteRequest {
     public readonly noteHashIndex: number,
     /** Address point we use when encrypting a note. */
     public readonly recipient: AztecAddress,
-    /** ovKeys we use when encrypting a note. */
-    public readonly ovKeys: KeyValidationRequest,
   ) {
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Block number should be greater than or equal to ${INITIAL_L2_BLOCK_NUM}.`);
@@ -77,7 +72,7 @@ class MockNoteRequest {
 
   encrypt(): Buffer {
     const ephSk = GrumpkinScalar.random();
-    const log = this.logPayload.generatePayload(ephSk, this.recipient, this.ovKeys);
+    const log = this.logPayload.generatePayload(ephSk, this.recipient);
     return log.toBuffer();
   }
 
@@ -122,7 +117,6 @@ describe('Simulator oracle', () => {
   let keyStore: KeyStore;
 
   let recipient: CompleteAddress;
-  let recipientOvKeys: KeyValidationRequest;
   let contractAddress: AztecAddress;
 
   beforeEach(async () => {
@@ -137,9 +131,7 @@ describe('Simulator oracle', () => {
     contractAddress = AztecAddress.random();
     // Set up recipient account
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
-    const recipientOvskApp = await keyStore.getAppOutgoingViewingSecretKey(recipient.address, contractAddress);
     await database.addCompleteAddress(recipient);
-    recipientOvKeys = new KeyValidationRequest(recipient.publicKeys.masterOutgoingViewingPublicKey, recipientOvskApp);
   });
 
   describe('sync tagged logs', () => {
@@ -161,7 +153,6 @@ describe('Simulator oracle', () => {
           1,
           1,
           recipient.address,
-          recipientOvKeys,
         );
         const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
@@ -173,7 +164,7 @@ describe('Simulator oracle', () => {
       const firstSender = senders[0];
       const tag = computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
       const payload = getRandomNoteLogPayload(tag, contractAddress);
-      const logData = payload.generatePayload(GrumpkinScalar.random(), recipient.address, recipientOvKeys).toBuffer();
+      const logData = payload.generatePayload(GrumpkinScalar.random(), recipient.address).toBuffer();
       const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, logData);
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
@@ -190,7 +181,6 @@ describe('Simulator oracle', () => {
           1,
           1,
           recipient.address,
-          recipientOvKeys,
         );
         const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
@@ -211,10 +201,6 @@ describe('Simulator oracle', () => {
           1,
           1,
           randomRecipient,
-          new KeyValidationRequest(
-            keys.publicKeys.masterOutgoingViewingPublicKey,
-            computeOvskApp(keys.masterOutgoingViewingSecretKey, contractAddress),
-          ),
         );
         const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt());
         logs[tag.toString()] = [log];
@@ -557,7 +543,6 @@ describe('Simulator oracle', () => {
         0,
         2,
         recipient.address,
-        KeyValidationRequest.random(),
       );
       const taggedLogs = mockTaggedLogs([request]);
 
@@ -571,76 +556,29 @@ describe('Simulator oracle', () => {
             index: request.indexWithinNoteHashTree,
           }),
         ],
-        [],
-        recipient.address,
-      );
-    }, 25_000);
-
-    it('should store an outgoing note that belongs to us', async () => {
-      const request = new MockNoteRequest(
-        getRandomNoteLogPayload(Fr.random(), contractAddress),
-        4,
-        0,
-        2,
-        CompleteAddress.random().address,
-        recipientOvKeys,
-      );
-
-      const taggedLogs = mockTaggedLogs([request]);
-
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      expect(addNotesSpy).toHaveBeenCalledTimes(1);
-      // For outgoing notes, the resulting DAO does not contain index.
-      expect(addNotesSpy).toHaveBeenCalledWith(
-        [],
-        [expect.objectContaining(request.snippetOfNoteDao)],
         recipient.address,
       );
     }, 25_000);
 
     it('should store multiple notes that belong to us', async () => {
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          1,
-          1,
-          1,
-          recipient.address,
-          recipientOvKeys,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
         new MockNoteRequest(
           getRandomNoteLogPayload(Fr.random(), contractAddress),
           2,
           3,
           0,
           CompleteAddress.random().address,
-          recipientOvKeys,
         ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          6,
-          3,
-          2,
-          recipient.address,
-          KeyValidationRequest.random(),
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
         new MockNoteRequest(
           getRandomNoteLogPayload(Fr.random(), contractAddress),
           9,
           3,
           2,
           CompleteAddress.random().address,
-          KeyValidationRequest.random(),
         ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          12,
-          3,
-          2,
-          recipient.address,
-          recipientOvKeys,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests);
@@ -664,12 +602,6 @@ describe('Simulator oracle', () => {
             index: requests[4].indexWithinNoteHashTree,
           }),
         ],
-        // Outgoing should contain notes from requests 0, 1, 4 because in those requests we set owner ovKeys.
-        [
-          expect.objectContaining(requests[0].snippetOfNoteDao),
-          expect.objectContaining(requests[1].snippetOfNoteDao),
-          expect.objectContaining(requests[4].snippetOfNoteDao),
-        ],
         recipient.address,
       );
     }, 30_000);
@@ -677,22 +609,8 @@ describe('Simulator oracle', () => {
     it('should not store notes that do not belong to us', async () => {
       // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(),
-          2,
-          1,
-          1,
-          CompleteAddress.random().address,
-          KeyValidationRequest.random(),
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(),
-          2,
-          3,
-          0,
-          CompleteAddress.random().address,
-          KeyValidationRequest.random(),
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(), 2, 1, 1, CompleteAddress.random().address),
+        new MockNoteRequest(getRandomNoteLogPayload(), 2, 3, 0, CompleteAddress.random().address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests);
@@ -707,18 +625,18 @@ describe('Simulator oracle', () => {
       const note2 = getRandomNoteLogPayload(Fr.random(), contractAddress);
       // All note payloads except one have the same contract address, storage slot, and the actual note.
       const requests = [
-        new MockNoteRequest(note, 3, 0, 0, recipient.address, recipientOvKeys),
-        new MockNoteRequest(note, 4, 0, 2, recipient.address, recipientOvKeys),
-        new MockNoteRequest(note, 4, 2, 0, recipient.address, recipientOvKeys),
-        new MockNoteRequest(note2, 5, 2, 1, recipient.address, recipientOvKeys),
-        new MockNoteRequest(note, 6, 2, 3, recipient.address, recipientOvKeys),
+        new MockNoteRequest(note, 3, 0, 0, recipient.address),
+        new MockNoteRequest(note, 4, 0, 2, recipient.address),
+        new MockNoteRequest(note, 4, 2, 0, recipient.address),
+        new MockNoteRequest(note2, 5, 2, 1, recipient.address),
+        new MockNoteRequest(note, 6, 2, 3, recipient.address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests);
 
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
-      // First we check incoming
+      // Check incoming
       {
         const addedIncoming: IncomingNoteDao[] = addNotesSpy.mock.calls[0][0];
         expect(addedIncoming.map(dao => dao)).toEqual([
@@ -734,48 +652,13 @@ describe('Simulator oracle', () => {
         addedIncoming.forEach(info => nonceSet.add(info.nonce.value));
         expect(nonceSet.size).toBe(requests.length);
       }
-
-      // Then we check outgoing
-      {
-        const addedOutgoing: OutgoingNoteDao[] = addNotesSpy.mock.calls[0][1];
-        expect(addedOutgoing.map(dao => dao)).toEqual([
-          expect.objectContaining(requests[0].snippetOfNoteDao),
-          expect.objectContaining(requests[1].snippetOfNoteDao),
-          expect.objectContaining(requests[2].snippetOfNoteDao),
-          expect.objectContaining(requests[3].snippetOfNoteDao),
-          expect.objectContaining(requests[4].snippetOfNoteDao),
-        ]);
-
-        // Outgoing note daos do not have a nonce so we don't check it.
-      }
     });
 
     it('should not store nullified notes', async () => {
       const requests = [
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          1,
-          1,
-          1,
-          recipient.address,
-          recipientOvKeys,
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          6,
-          3,
-          2,
-          recipient.address,
-          recipientOvKeys,
-        ),
-        new MockNoteRequest(
-          getRandomNoteLogPayload(Fr.random(), contractAddress),
-          12,
-          3,
-          2,
-          recipient.address,
-          recipientOvKeys,
-        ),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
+        new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
       const taggedLogs = mockTaggedLogs(requests, 2);
@@ -800,12 +683,6 @@ describe('Simulator oracle', () => {
             ...requests[2].snippetOfNoteDao,
             index: requests[2].indexWithinNoteHashTree,
           }),
-        ],
-        // Outgoing should contain notes from requests 0, 1, 2 because in those requests we set owner ovKeys.
-        [
-          expect.objectContaining(requests[0].snippetOfNoteDao),
-          expect.objectContaining(requests[1].snippetOfNoteDao),
-          expect.objectContaining(requests[2].snippetOfNoteDao),
         ],
         recipient.address,
       );

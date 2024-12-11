@@ -1,11 +1,11 @@
 mod previous_kernel_validator_hints;
 
-use crate::components::previous_kernel_validator::previous_kernel_validator_hints::{
-    generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
-};
 use dep::types::{
     abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
     utils::arrays::array_length,
+};
+use previous_kernel_validator_hints::{
+    generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
 };
 
 pub struct PreviousKernelValidator {

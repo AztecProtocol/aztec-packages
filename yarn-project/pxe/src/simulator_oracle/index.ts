@@ -28,7 +28,6 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
@@ -37,7 +36,6 @@ import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 
@@ -402,7 +400,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the addressbook.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book.
    * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
@@ -428,7 +426,7 @@ export class SimulatorOracle implements DBOracle {
       const appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
 
       // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
-      // and inadvertedly incremented their index without use getting any logs (for example, in case
+      // and inadvertently incremented their index without use getting any logs (for example, in case
       // of a revert). If we stopped looking for logs the first time
       // we receive 0 for a tag, we might never receive anything from that sender again.
       // Also there's a possibility that we have advanced our index, but the sender has reused it, so
@@ -539,14 +537,11 @@ export class SimulatorOracle implements DBOracle {
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
-    const ovskM = await this.keyStore.getMasterSecretKey(
-      recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-    );
+
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
     const incomingNotes: IncomingNoteDao[] = [];
-    const outgoingNotes: OutgoingNoteDao[] = [];
 
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
@@ -554,21 +549,9 @@ export class SimulatorOracle implements DBOracle {
       const incomingNotePayload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
-      const outgoingNotePayload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsOutgoingFromPublic(scopedLog.logData, ovskM)
-        : L1NotePayload.decryptAsOutgoing(PrivateLog.fromBuffer(scopedLog.logData), ovskM);
 
-      if (incomingNotePayload || outgoingNotePayload) {
-        if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
-          this.log.warn(
-            `Incoming and outgoing note payloads do not match. Incoming: ${tryJsonStringify(
-              incomingNotePayload,
-            )}, Outgoing: ${tryJsonStringify(outgoingNotePayload)}`,
-          );
-          continue;
-        }
-
-        const payload = incomingNotePayload || outgoingNotePayload;
+      if (incomingNotePayload) {
+        const payload = incomingNotePayload;
 
         const txEffect =
           txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
@@ -583,14 +566,13 @@ export class SimulatorOracle implements DBOracle {
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
-        const { incomingNote, outgoingNote } = await produceNoteDaos(
+        const { incomingNote } = await produceNoteDaos(
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
           incomingNotePayload ? recipient.toAddressPoint() : undefined,
-          outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
           txEffect.data.txHash,
           txEffect.l2BlockNumber,
@@ -604,12 +586,9 @@ export class SimulatorOracle implements DBOracle {
         if (incomingNote) {
           incomingNotes.push(incomingNote);
         }
-        if (outgoingNote) {
-          outgoingNotes.push(outgoingNote);
-        }
       }
     }
-    return { incomingNotes, outgoingNotes };
+    return { incomingNotes };
   }
 
   /**
@@ -622,18 +601,15 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
-    if (incomingNotes.length || outgoingNotes.length) {
-      await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
+    const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    if (incomingNotes.length) {
+      await this.db.addNotes(incomingNotes, recipient);
       incomingNotes.forEach(noteDao => {
         this.log.verbose(
           `Added incoming note for contract ${noteDao.contractAddress} at slot ${
             noteDao.storageSlot
           } with nullifier ${noteDao.siloedNullifier.toString()}`,
         );
-      });
-      outgoingNotes.forEach(noteDao => {
-        this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
       });
     }
     const nullifiedNotes: IncomingNoteDao[] = [];

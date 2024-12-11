@@ -145,7 +145,7 @@ mod tests {
         builder.previous_kernel.append_l2_to_l1_msgs(2);
 
         // Reorder the msgs
-        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage;
+        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage();
         let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
         for i in 0..reversed_msgs.len() {
             reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();

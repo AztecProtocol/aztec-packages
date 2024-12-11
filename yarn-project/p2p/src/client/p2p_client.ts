@@ -434,9 +434,11 @@ export class P2PClient extends WithTracer implements P2P {
   public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const tx = await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
 
-    this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
+      this.log.debug(`Received tx ${txHash.toString()} from peer`);
       await this.txPool.addTxs([tx]);
+    } else {
+      this.log.debug(`Failed to receive tx ${txHash.toString()} from peer`);
     }
 
     return tx;
