@@ -228,10 +228,18 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     };
 
     // We split off the first term to check the initial sum
+    let lhs = [
+        [ROOTS[0]], [ROOTS[1]], [ROOTS[2]], [ROOTS[3]], [ROOTS[4]], [ROOTS[5]], [ROOTS[6]],
+        [ROOTS[7]],
+    ];
+    let rhs = [
+        [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
+        [fracs[7]],
+    ];
     BigNum::evaluate_quadratic_expression(
-        [[ROOTS[0]], [ROOTS[1]]], [ROOTS[2]], [ROOTS[3]], [ROOTS[4]], [ROOTS[5]], [ROOTS[6]], [ROOTS[7]],
+        lhs,
         [[false], [false], [false], [false], [false], [false], [false], [false]],
-        [[fracs[0]], [fracs[1]]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]], [fracs[7]],
+        rhs,
         [[false], [false], [false], [false], [false], [false], [false], [false]],
         [partial_sums[0]],
         [true],
@@ -265,7 +273,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
         }
 
-        let linear_terms = [partial_sums[i-1], partial_sums[i]];
+        let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
         //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
         // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
