@@ -118,6 +118,7 @@ describe('e2e_fees account_init', () => {
 
       // Bob deploys his account through the private FPC
       const paymentMethod = new PrivateFeePaymentMethod(
+        bananaCoin.address,
         bananaFPC.address,
         await bobsAccountManager.getWallet(),
         t.sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
@@ -143,7 +144,7 @@ describe('e2e_fees account_init', () => {
       const mintedBananas = FEE_FUNDING_FOR_TESTER_ACCOUNT;
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
 
-      const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsWallet);
+      const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, bobsWallet);
       const tx = await bobsAccountManager
         .deploy({
           skipPublicDeployment: false,

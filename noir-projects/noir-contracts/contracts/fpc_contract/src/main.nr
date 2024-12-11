@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 contract FPC {
     use crate::config::Config;
     use dep::aztec::{
-        macros::{functions::{initializer, internal, private, public, view}, storage::storage},
+        macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::PublicImmutable,
     };
@@ -110,11 +110,5 @@ contract FPC {
         Token::at(accepted_asset)
             .transfer_in_public(context.this_address(), refund_recipient, refund, 0)
             .call(&mut context);
-    }
-
-    #[public]
-    #[view]
-    fn get_accepted_asset() -> AztecAddress {
-        storage.config.read().accepted_asset
     }
 }

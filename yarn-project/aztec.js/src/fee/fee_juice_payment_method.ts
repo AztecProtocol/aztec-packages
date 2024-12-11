@@ -11,7 +11,7 @@ export class FeeJuicePaymentMethod implements FeePaymentMethod {
   constructor(protected sender: AztecAddress) {}
 
   getAsset() {
-    return Promise.resolve(ProtocolContractAddress.FeeJuice);
+    return ProtocolContractAddress.FeeJuice;
   }
 
   getFunctionCalls(): Promise<FunctionCall[]> {

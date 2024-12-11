@@ -64,7 +64,7 @@ describe('e2e_fees public_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
         },
       })
       .wait();

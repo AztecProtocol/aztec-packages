@@ -91,7 +91,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'public fee',
-      () => new PublicFeePaymentMethod(fpc.address, aliceWallet),
+      () => new PublicFeePaymentMethod(token.address, fpc.address, aliceWallet),
       // DA:
       // non-rev: 1 nullifiers, overhead; rev: 2 note hashes, 1 nullifier, 1168 B enc note logs, 0 B enc logs,0 B unenc logs, teardown
       // L2:
@@ -100,7 +100,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(fpc.address, aliceWallet, sequencerAddress),
+      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet, sequencerAddress),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:

@@ -94,7 +94,12 @@ describe('e2e_fees private_payment', () => {
     const settings = {
       fee: {
         gasSettings,
-        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+        paymentMethod: new PrivateFeePaymentMethod(
+          bananaCoin.address,
+          bananaFPC.address,
+          aliceWallet,
+          sequencerAddress,
+        ),
       },
     };
     const localTx = await interaction.prove(settings);
@@ -176,7 +181,12 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            aliceWallet,
+            sequencerAddress,
+          ),
         },
       })
       .wait();
@@ -220,7 +230,12 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            aliceWallet,
+            sequencerAddress,
+          ),
         },
       })
       .wait();
@@ -278,7 +293,12 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            aliceWallet,
+            sequencerAddress,
+          ),
         },
       })
       .wait();
@@ -322,7 +342,12 @@ describe('e2e_fees private_payment', () => {
           skipPublicSimulation: true,
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet, aliceAddress),
+            paymentMethod: new PrivateFeePaymentMethod(
+              bananaCoin.address,
+              bankruptFPC.address,
+              aliceWallet,
+              aliceAddress,
+            ),
           },
         })
         .wait(),
@@ -337,6 +362,7 @@ describe('e2e_fees private_payment', () => {
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
             sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
