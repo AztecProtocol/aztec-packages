@@ -81,7 +81,7 @@ export class SequencerClient {
       telemetryClient,
       config,
     );
-
+    await validatorClient?.start();
     await sequencer.start();
     return new SequencerClient(sequencer);
   }
