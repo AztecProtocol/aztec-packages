@@ -158,7 +158,7 @@ export class AztecNodeService implements AztecNode {
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
-      log.warn(`Aztec node is accepting test proofs`);
+      log.warn(`Aztec node is accepting fake proofs`);
     }
 
     // create the tx pool and the p2p client, which will need the l2 block source
