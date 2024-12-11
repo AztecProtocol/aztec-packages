@@ -214,7 +214,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
     // which implies...we can accommodate up to EIGHT additions of product terms before we risk overflowing
     // (this is really messy! I never considered the case of giant linear sequences of products)
-    let mut sum: F = BigNum::new();
 
     // Seeking:
     //                    ___d-1
@@ -223,6 +222,10 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //                   /____       z - omega^i
     //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
+        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+        __compute_partial_sums(fracs, ROOTS)
+    };
     for i in 0..NUM_PARTIAL_SUMS {
         // Seeking:
         //                    ___i*8 - 1              ___i*8 + 7
@@ -244,11 +247,6 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                          sum                   partial_sum
         //
 
-        let linear_terms = unsafe {
-            // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` call.
-            __compute_partial_sum(sum, fracs, ROOTS, i * 8)
-        };
-
         let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
         let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
         for j in 0..8 {
@@ -256,6 +254,8 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             lhs[j] = [ROOTS[k]]; // omega^k
             rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
         }
+
+        let linear_terms = [partial_sums[i], partial_sums[i + 1]];
 
         //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
         // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
@@ -267,12 +267,10 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             linear_terms,
             [false, true],
         );
-
-        // linear_terms[1] == sum_out
-        sum = linear_terms[1];
     }
 
     let factor = compute_factor(z);
+    let sum = partial_sums[FIELDS_PER_BLOB / 8 - 1];
     factor.mul(sum)
 }
 
@@ -368,13 +366,9 @@ fn compute_fracs(
     fracs
 }
 
-unconstrained fn __compute_partial_sum(
-    accumulator: F,
-    fracs: [F; FIELDS_PER_BLOB],
-    ROOTS: [F; FIELDS_PER_BLOB],
-    offset: u32,
-) -> [F; 2] {
-    let mut partial_sum: F = BigNum::new();
+// TODO: Clean me
+unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB], ROOTS: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
+    let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
     //                    ___i*8 + 7
@@ -383,8 +377,10 @@ unconstrained fn __compute_partial_sum(
     //                   /____       z - omega^k
     //                    k=i*8 + 0
 
+    // Need to split off the first iteration.
+    let mut partial_sum: F = BigNum::new();
     for j in 0..8 {
-        let k = offset * 8 + j;
+        let k = 8 + j;
 
         // y_k * ( omega^k / (z - omega^k) )
         let summand = ROOTS[k].__mul(fracs[k]);
@@ -392,8 +388,28 @@ unconstrained fn __compute_partial_sum(
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
     }
+    partial_sums[0] = partial_sum;
 
-    [partial_sum, accumulator.__add(partial_sum)]
+    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    for i in 1..NUM_PARTIAL_SUMS {
+        let mut partial_sum: F = partial_sums[i - 1];
+        // Seeking:
+        //                    ___i*8 + 7
+        //                    \            omega^k
+        //      partial_sum = /   y_k . ---------
+        //                   /____       z - omega^k
+        //                    k=i*8 + 0
+        for j in 0..8 {
+            let k = i * 8 + j;
+            // y_k * ( omega^k / (z - omega^k) )
+            let summand = ROOTS[k].__mul(fracs[k]);
+            // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+            partial_sum = partial_sum.__add(summand);
+        }
+        partial_sums[i] = partial_sum;
+    }
+
+    partial_sums
 }
 
 mod tests {
