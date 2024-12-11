@@ -267,12 +267,14 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                 };
                 if (q_3 == 1) {
                     // bigfield product 1
+                    assert(q_4 == 0 && q_m == 0);
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { block.w_o()[index], block.w_4()[index] });
                 }
                 if (q_4 == 1) {
                     // bigfield product 2
+                    assert(q_3 == 0 && q_m == 0);
                     std::vector<uint32_t> non_native_field_gate_2 = { block.w_l()[index],
                                                                       block.w_4()[index],
                                                                       block.w_r()[index],
@@ -286,6 +288,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                 }
                 if (q_m == 1) {
                     // bigfield product 3
+                    assert(q_4 == 0 && q_3 == 0);
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(),
@@ -404,10 +407,10 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     auto internal_gates = poseidon2_internal_block;
     if (internal_gates.size() > 0) {
         for (size_t i = 0; i < internal_gates.size(); i++) {
-            std::vector<uint32_t> variabled_indices =
+            std::vector<uint32_t> variable_indices =
                 this->get_poseido2s_gate_connected_component(ultra_circuit_constructor, i);
             this->connect_all_variables_in_vector(
-                ultra_circuit_constructor, variabled_indices, /*is_sorted_variables=*/false);
+                ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
     }
 
@@ -417,6 +420,15 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
         for (size_t i = 0; i < external_gates.size(); i++) {
             std::vector<uint32_t> variable_indices =
                 this->get_poseido2s_gate_connected_component(ultra_circuit_constructor, i, /*is_internal_block=*/false);
+            this->connect_all_variables_in_vector(
+                ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
+        }
+    }
+    const auto& aux_block = ultra_circuit_constructor.blocks.aux;
+    if (aux_block.size() > 0) {
+        for (size_t i = 0; i < aux_block.size(); i++) {
+            std::vector<uint32_t> variable_indices =
+                this->get_auxiliary_gate_connected_component(ultra_circuit_constructor, i);
             this->connect_all_variables_in_vector(
                 ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
