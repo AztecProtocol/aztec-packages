@@ -265,7 +265,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
         }
 
-        let linear_terms = [partial_sums[i], partial_sums[i + 1]];
+        let linear_terms = [partial_sums[i-1], partial_sums[i]];
 
         //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
         // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
