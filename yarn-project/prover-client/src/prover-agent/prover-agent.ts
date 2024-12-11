@@ -11,25 +11,28 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { InlineProofStore } from '../proving_broker/proof_store.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
+type InFlightPromise = {
+  id: string;
+  type: ProvingRequestType;
+  promise: Promise<any>;
+};
+
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
-export class ProverAgent implements ProverAgentApi {
-  private inFlightPromises = new Map<
-    string,
-    {
-      id: string;
-      type: ProvingRequestType;
-      promise: Promise<any>;
-    }
-  >();
+export class ProverAgent implements ProverAgentApi, Traceable {
+  private inFlightPromises = new Map<string, InFlightPromise>();
   private runningPromise?: RunningPromise;
   private proofInputsDatabase = new InlineProofStore();
+
+  public readonly tracer: Tracer;
 
   constructor(
     /** The prover implementation to defer jobs to */
@@ -38,8 +41,13 @@ export class ProverAgent implements ProverAgentApi {
     private maxConcurrency = 1,
     /** How long to wait between jobs */
     private pollIntervalMs = 100,
+    /** Telemetry client */
+    private telemetry: TelemetryClient = new NoopTelemetryClient(),
+    /** Logger */
     private log = createLogger('prover-client:prover-agent'),
-  ) {}
+  ) {
+    this.tracer = telemetry.getTracer('ProverAgent');
+  }
 
   setMaxConcurrency(maxConcurrency: number): Promise<void> {
     if (maxConcurrency < 1) {
@@ -74,49 +82,53 @@ export class ProverAgent implements ProverAgentApi {
 
     let lastPrint = process.hrtime.bigint();
 
-    this.runningPromise = new RunningPromise(async () => {
-      for (const jobId of this.inFlightPromises.keys()) {
-        await jobSource.heartbeat(jobId);
-      }
-
-      const now = process.hrtime.bigint();
-
-      if (now - lastPrint >= PRINT_THRESHOLD_NS) {
-        // only log if we're actually doing work
-        if (this.inFlightPromises.size > 0) {
-          const jobs = Array.from(this.inFlightPromises.values())
-            .map(job => `id=${job.id},type=${ProvingRequestType[job.type]}`)
-            .join(' ');
-          this.log.info(`Agent is running with ${this.inFlightPromises.size} in-flight jobs: ${jobs}`);
+    this.runningPromise = new RunningPromise(
+      async () => {
+        for (const jobId of this.inFlightPromises.keys()) {
+          await jobSource.heartbeat(jobId);
         }
-        lastPrint = now;
-      }
 
-      while (this.inFlightPromises.size < this.maxConcurrency) {
-        try {
-          const job = await jobSource.getProvingJob();
-          if (!job) {
-            // job source is fully drained, sleep for a bit and try again
-            return;
+        const now = process.hrtime.bigint();
+
+        if (now - lastPrint >= PRINT_THRESHOLD_NS) {
+          // only log if we're actually doing work
+          if (this.inFlightPromises.size > 0) {
+            const jobs = Array.from(this.inFlightPromises.values())
+              .map(job => `id=${job.id},type=${ProvingRequestType[job.type]}`)
+              .join(' ');
+            this.log.info(`Agent is running with ${this.inFlightPromises.size} in-flight jobs: ${jobs}`);
           }
+          lastPrint = now;
+        }
 
+        while (this.inFlightPromises.size < this.maxConcurrency) {
           try {
-            const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
-            this.inFlightPromises.set(job.id, {
-              id: job.id,
-              type: job.type,
-              promise,
-            });
+            const job = await jobSource.getProvingJob();
+            if (!job) {
+              // job source is fully drained, sleep for a bit and try again
+              return;
+            }
+
+            try {
+              const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
+              this.inFlightPromises.set(job.id, {
+                id: job.id,
+                type: job.type,
+                promise,
+              });
+            } catch (err) {
+              this.log.warn(
+                `Error processing job! type=${ProvingRequestType[job.type]}: ${err}. ${(err as Error).stack}`,
+              );
+            }
           } catch (err) {
-            this.log.warn(
-              `Error processing job! type=${ProvingRequestType[job.type]}: ${err}. ${(err as Error).stack}`,
-            );
+            this.log.error(`Error fetching job`, err);
           }
-        } catch (err) {
-          this.log.error(`Error fetching job`, err);
         }
-      }
-    }, this.pollIntervalMs);
+      },
+      this.log,
+      this.pollIntervalMs,
+    );
 
     this.runningPromise.start();
     this.log.info(`Agent started with concurrency=${this.maxConcurrency}`);
@@ -133,9 +145,16 @@ export class ProverAgent implements ProverAgentApi {
     this.log.info('Agent stopped');
   }
 
+  @trackSpan('ProverAgent.work', (_jobSoure, job) => ({
+    [Attributes.PROVING_JOB_ID]: job.id,
+    [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[job.type],
+  }))
   private async work(jobSource: ProvingJobSource, job: ProvingJob): Promise<void> {
     try {
-      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
+      this.log.debug(`Picked up proving job ${job.id} ${ProvingRequestType[job.type]}`, {
+        jobId: job.id,
+        jobType: ProvingRequestType[job.type],
+      });
       const type = job.type;
       const inputs = await this.proofInputsDatabase.getProofInput(job.inputsUri);
       const [time, result] = await elapsed(this.getProof(inputs));

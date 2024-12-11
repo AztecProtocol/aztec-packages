@@ -93,7 +93,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, this.tracer, logger);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
@@ -144,9 +144,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
 
     // Start running promise for peer discovery
-    this.discoveryRunningPromise = new RunningPromise(() => {
-      this.peerManager.heartbeat();
-    }, this.config.peerCheckIntervalMS);
+    this.discoveryRunningPromise = new RunningPromise(
+      () => this.peerManager.heartbeat(),
+      this.logger,
+      this.config.peerCheckIntervalMS,
+    );
     this.discoveryRunningPromise.start();
 
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
