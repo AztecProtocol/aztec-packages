@@ -14,12 +14,6 @@ variable "VALUES_FILE" {
   type        = string
 }
 
-variable "VALUES_INLINE" {
-  description = "Inline values to set in a cluster"
-  type        = string
-  default     = ""
-}
-
 variable "AZTEC_DOCKER_IMAGE" {
   description = "Docker image to use for the aztec network"
   type        = string

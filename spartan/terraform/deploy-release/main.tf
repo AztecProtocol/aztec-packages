@@ -40,7 +40,7 @@ resource "helm_release" "aztec-gke-cluster" {
   upgrade_install  = true
 
   # base values file
-  values = [file("../../aztec-network/values/${var.VALUES_FILE}"), "${var.VALUES_INLINE}"]
+  values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
 
   set {
     name  = "images.aztec.image"

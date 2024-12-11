@@ -5,6 +5,7 @@ import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 import cors from '@koa/cors';
 import { createServer } from 'http';
 import Koa from 'koa';
+import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 import { z } from 'zod';
 
@@ -17,10 +18,33 @@ export function createFaucetHttpServer(faucet: Faucet, apiPrefix = '', logger = 
     const { asset } = ctx.query;
 
     if (typeof asset !== 'string') {
-      throw new Error(`Bad asset: ${asset}`);
+      throw new Error(`Bad asset: [${asset}]`);
     }
 
     await faucet.send(EthAddress.fromString(address), asset);
+
+    ctx.status = 200;
+  });
+
+  const L1AssetRequestSchema = z.object({
+    address: z.string().transform(str => EthAddress.fromString(str)),
+    amount: z.string().transform(str => BigInt(str)),
+  });
+
+  router.post('/l1-asset', async ctx => {
+    if (!ctx.request.body) {
+      throw new Error('Invalid request body');
+    }
+
+    const result = L1AssetRequestSchema.safeParse(ctx.request.body);
+
+    if (!result.success) {
+      throw new Error(`Invalid request: ${result.error.message}`);
+    }
+
+    const { address, amount } = result.data;
+
+    await faucet.addL1Asset({ address, amount });
 
     ctx.status = 200;
   });
@@ -42,6 +66,7 @@ export function createFaucetHttpServer(faucet: Faucet, apiPrefix = '', logger = 
   });
 
   app.use(cors());
+  app.use(bodyParser());
   app.use(router.routes());
   app.use(router.allowedMethods());
 
