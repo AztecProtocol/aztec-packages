@@ -158,11 +158,11 @@ async function generateVKData(
   console.log("WRITE VK CMD: ", writeVkCommand);
 
   if (circuitType == CircuitType.ClientIVCCircuit) {
-    vk_as_fields_flow = "prove_and_verify_client_ivc";
+    vk_as_fields_flow = "vk_as_fields_mega_honk";
   } else if (circuitType == CircuitType.RollupHonkCircuit) {
-    vk_as_fields_flow = "prove_and_verify_ultra_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+    vk_as_fields_flow = "vk_as_fields_ultra_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
   } else {
-    vk_as_fields_flow = "prove_and_verify_ultra_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_honk";
   }
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${vk_as_fields_flow} -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
