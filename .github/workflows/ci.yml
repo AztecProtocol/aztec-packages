@@ -663,13 +663,11 @@ jobs:
   kind-smoke-test:
     needs: [build, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
-    runs-on: ${{ needs.configure.outputs.username }}-x86
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: kind-smoke-test
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
@@ -694,7 +692,7 @@ jobs:
   kind-network-test:
     needs: [build, configure]
     if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
-    runs-on: ${{ needs.configure.outputs.username }}-x86
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -724,8 +722,6 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
         timeout-minutes: ${{ matrix.config.timeout }}
         uses: ./.github/ensure-tester-with-images
