@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733934141682,
+  "lastUpdate": 1733947993692,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2478d1909db2d79cc0cdd3063dc2ac4e1eaedce3",
-          "message": "feat: add total mana used to header (#9868)",
-          "timestamp": "2024-11-27T12:07:49Z",
-          "tree_id": "b3c11e6f0fb9738613f2b83ab18af2bfddbf0515",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2478d1909db2d79cc0cdd3063dc2ac4e1eaedce3"
-        },
-        "date": 1732711856728,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27952.32514700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26364.348791 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5070.9309070000045,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4691.0921960000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83981.92701,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83981927000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15207.205348000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15207207000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3071058241,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3071058241 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140635164,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140635164 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 132999361,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132999361 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc729ef3af7ec33f48dbb9fae3820a59a4a26479",
+          "message": "chore(avm): Gas constants adjustment based on trace rows accounting (#10614)\n\nResolves #10368",
+          "timestamp": "2024-12-11T19:40:24Z",
+          "tree_id": "225ce297ac40c1bb343c8073532b9d9f8b1cd9a3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc729ef3af7ec33f48dbb9fae3820a59a4a26479"
+        },
+        "date": 1733947986683,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24587.800087000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22541.924446 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4528.183127999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4256.803812 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89456.425646,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89456425000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16535.653199000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16535653000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2777904570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2777904570 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132148528,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132148528 ns\nthreads: 1"
           }
         ]
       }
