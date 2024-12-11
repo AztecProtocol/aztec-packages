@@ -36,7 +36,10 @@ export function createLogger(module: string): Logger {
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
+    /** Whether the given level is enabled for this logger. */
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
+    /** Module name for the logger. */
+    module,
   };
 }
 
@@ -183,6 +186,7 @@ type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
 export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & {
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
+  module: string;
 };
 
 /**
