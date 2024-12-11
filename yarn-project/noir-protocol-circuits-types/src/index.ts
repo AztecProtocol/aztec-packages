@@ -237,6 +237,7 @@ export function convertPrivateKernelInitInputsToWitnessMap(
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
