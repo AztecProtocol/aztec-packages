@@ -47,6 +47,14 @@ describe('NativeWorldState', () => {
     let block: L2Block;
     let messages: Fr[];
 
+    const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
+      if (indices.length === 0) {
+        return undefined;
+      }
+      return indices[0];
+    };
+
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
@@ -59,9 +67,7 @@ describe('NativeWorldState', () => {
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeDefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
@@ -71,18 +77,14 @@ describe('NativeWorldState', () => {
       // open ws against the same data dir but a different rollup
       let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
       // db should be empty
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
       await ws.close();
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
       await ws.close();

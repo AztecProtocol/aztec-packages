@@ -156,15 +156,16 @@ class WorldState {
      *
      * @param revision The revision to query
      * @param tree_id The ID of the tree
-     * @param leaf The leaf to find
+     * @param leaves The leaves to find
+     * @param indices The indices to be updated
      * @param start_index The index to start searching from
-     * @return std::optional<index_t>
      */
     template <typename T>
-    std::optional<index_t> find_leaf_index(const WorldStateRevision& revision,
-                                           MerkleTreeId tree_id,
-                                           const T& leaf,
-                                           index_t start_index = 0) const;
+    void find_leaf_indices(const WorldStateRevision& revision,
+                           MerkleTreeId tree_id,
+                           const std::vector<T>& leaves,
+                           std::vector<std::optional<index_t>>& indices,
+                           index_t start_index = 0) const;
 
     /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
@@ -475,10 +476,11 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
 }
 
 template <typename T>
-std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev,
-                                                   MerkleTreeId id,
-                                                   const T& leaf,
-                                                   index_t start_index) const
+void WorldState::find_leaf_indices(const WorldStateRevision& rev,
+                                   MerkleTreeId id,
+                                   const std::vector<T>& leaves,
+                                   std::vector<std::optional<index_t>>& indices,
+                                   index_t start_index) const
 {
     using namespace crypto::merkle_tree;
 
@@ -493,9 +495,10 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.blockNumber, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
 
     } else {
@@ -504,19 +507,20 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, rev.blockNumber, start_index, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
     }
 
     signal.wait_for_level(0);
 
-    if (!local.success) {
-        return std::nullopt;
+    if (!local.success || local.inner.leaf_indices.empty()) {
+        throw std::runtime_error(local.message);
     }
 
-    return local.inner.leaf_index;
+    indices = std::move(local.inner.leaf_indices);
 }
 
 template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
