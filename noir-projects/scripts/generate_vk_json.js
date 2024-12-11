@@ -4,6 +4,14 @@ const child_process = require("child_process");
 const crypto = require("crypto");
 
 const clientIvcPatterns = require("../client_ivc_circuits.json");
+const rollupHonkPatterns = require("../rollup_honk_circuits.json");
+
+const CircuitType = {
+  ClientIVCCircuit: 0,
+  RollupHonkCircuit: 1,
+  HonkCircuit: 2
+};
+
 const {
   readVKFromS3,
   writeVKToS3,
@@ -32,13 +40,13 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-async function getArtifactHash(artifactPath, isClientIvc, isRecursive) {
+async function getArtifactHash(artifactPath, circuitType, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
   return generateArtifactHash(
     barretenbergHash,
     bytecodeHash,
-    isClientIvc,
+    circuitType,
     isRecursive
   );
 }
@@ -61,19 +69,19 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
   return true;
 }
 
-function isClientIvcCircuit(artifactName) {
+function typeOfCircuit(artifactName) {
   return clientIvcPatterns.some((pattern) =>
     artifactName.match(new RegExp(pattern))
   );
 }
 
 async function processArtifact(artifactPath, artifactName, outputFolder) {
-  const isClientIvc = isClientIvcCircuit(artifactName);
+  const circuitType = typeOfCircuit(artifactName);
   const isRecursive = true;
 
   const artifactHash = await getArtifactHash(
     artifactPath,
-    isClientIvc,
+    circuitType,
     isRecursive
   );
 
@@ -92,7 +100,7 @@ async function processArtifact(artifactPath, artifactName, outputFolder) {
       outputFolder,
       artifactPath,
       artifactHash,
-      isClientIvc,
+      circuitType,
       isRecursive
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
@@ -108,13 +116,15 @@ async function generateVKData(
   outputFolder,
   artifactPath,
   artifactHash,
-  isClientIvc,
+  circuitType,
   isRecursive
 ) {
-  if (isClientIvc) {
+  if (circuitType == CircuitType.ClientIVCCircuit) {
     console.log("Generating new client ivc vk for", artifactName);
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    console.log("Generating new rollup honk vk for", artifactName);
   } else {
-    console.log("Generating new vk for", artifactName);
+    console.log("Generating new honk vk for", artifactName);
   }
 
   const binaryVkPath = vkBinaryFileNameForArtifactName(
@@ -124,8 +134,13 @@ async function generateVKData(
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
   function getVkCommand() {
-    if (isClientIvc) return "write_vk_for_ivc";
-    return "write_vk_ultra_honk";
+    if (circuitType == CircuitType.ClientIVCCircuit) {
+      return "write_vk_for_ivc";
+    } else if (circuitType == CircuitType.RollupHonkCircuit) {
+      return "write_vk_ultra_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+    } else {
+      return "write_vk_ultra_honk";
+    }
   }
 
   const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
@@ -134,9 +149,14 @@ async function generateVKData(
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
-  const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isClientIvc ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
-  } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  if (circuitType == ClientIVCCircuit) {
+    vk_as_fields_flow = "prove_and_verify_client_ivc";
+  } else if (circuitType == RollupHonkCircuit) {
+    vk_as_fields_flow = "prove_and_verify_ultra_honk"; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+  } else {
+    vk_as_fields_flow = "prove_and_verify_ultra_honk";
+  }
+  const vkAsFieldsCommand = `${BB_BIN_PATH} ${vk_as_fields_flow} -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {
