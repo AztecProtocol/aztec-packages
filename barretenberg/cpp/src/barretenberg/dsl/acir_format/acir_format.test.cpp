@@ -341,11 +341,15 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
     };
     mock_opcode_indices(constraint_system);
     WitnessVector witness{ 5, 27, 32 };
-    AcirProgram program{ constraint_system, witness };
-    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
-    auto builder = create_circuit(program, metadata);
+    auto builder = create_circuit(constraint_system,
+                                  /*recursive*/ false,
+                                  /*size_hint*/ 0,
+                                  witness,
+                                  false,
+                                  std::make_shared<bb::ECCOpQueue>(),
+                                  true);
 
-    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
+    EXPECT_EQ(constraint_system.gates_per_opcode, std::vector<size_t>({ 2, 1 }));
 }
 
 TEST_F(AcirFormatTests, TestBigAdd)
