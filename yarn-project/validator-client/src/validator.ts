@@ -11,6 +11,7 @@ import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
@@ -68,6 +69,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   // Callback registered to: sequencer.buildBlock
   private blockBuilder?: BlockBuilderCallback = undefined;
 
+  private epochCacheUpdateLoop: RunningPromise;
+
   constructor(
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
@@ -81,7 +84,23 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.metrics = new ValidatorMetrics(telemetry);
 
     this.validationService = new ValidationService(keyStore);
-    this.log.verbose('Initialized validator');
+
+    // Refresh epoch cache every second to trigger commiteeChanged event
+    this.epochCacheUpdateLoop = new RunningPromise(async () => {
+      await this.epochCache.getCommittee().catch(err => log.error('Error updating validator committee', err));
+    }, 1000);
+
+    // Listen to commiteeChanged event to alert operator when their validator has entered the committee
+    this.epochCache.on('committeeChanged', (newCommittee, epochNumber) => {
+      const me = this.keyStore.getAddress();
+      if (newCommittee.some(addr => addr.equals(me))) {
+        this.log.info(`Validator ${me.toString()} is on the validator committee for epoch ${epochNumber}`);
+      } else {
+        this.log.verbose(`Validator ${me.toString()} not on the validator committee for epoch ${epochNumber}`);
+      }
+    });
+
+    this.log.verbose(`Initialized validator with address ${this.keyStore.getAddress().toString()}`);
   }
 
   static new(
@@ -102,12 +121,23 @@ export class ValidatorClient extends WithTracer implements Validator {
     return validator;
   }
 
-  public start() {
+  public async start() {
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
 
-    this.log.info('Validator started');
+    const me = this.keyStore.getAddress();
+    const inCommittee = await this.epochCache.isInCommittee(me);
+    if (inCommittee) {
+      this.log.info(`Started validator with address ${me.toString()} in current validator committee`);
+    } else {
+      this.log.info(`Started validator with address ${me.toString()}`);
+    }
+    this.epochCacheUpdateLoop.start();
     return Promise.resolve();
+  }
+
+  public async stop() {
+    await this.epochCacheUpdateLoop.stop();
   }
 
   public registerBlockProposalHandler() {
