@@ -2,9 +2,9 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
   Fr,
+  type Logger,
   type PXE,
   computeAuthWitMessageHash,
   generateClaimSecret,
@@ -48,7 +48,7 @@ export type UniswapSetupContext = {
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** Viem Public client instance. */
   publicClient: PublicClient<HttpTransport, Chain>;
   /** Viem Wallet Client instance. */
@@ -76,7 +76,7 @@ export const uniswapL1L2TestSuite = (
 
     let aztecNode: AztecNode;
     let pxe: PXE;
-    let logger: DebugLogger;
+    let logger: Logger;
 
     let walletClient: WalletClient<HttpTransport, Chain, Account>;
     let publicClient: PublicClient<HttpTransport, Chain>;
@@ -200,7 +200,6 @@ export const uniswapL1L2TestSuite = (
       // 2. Claim WETH on L2
       logger.info('Minting weth on L2');
       await wethCrossChainHarness.consumeMessageOnAztecAndMintPrivately(wethDepositClaim);
-      await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, wethDepositClaim.redeemSecret);
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
 
       // Store balances
@@ -223,7 +222,6 @@ export const uniswapL1L2TestSuite = (
       // 4. Swap on L1 - sends L2 to L1 message to withdraw WETH to L1 and another message to swap assets.
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
       const [secretForDepositingSwappedDai, secretHashForDepositingSwappedDai] = generateClaimSecret();
-      const [secretForRedeemingDai, secretHashForRedeemingDai] = generateClaimSecret();
 
       const l2UniswapInteractionReceipt = await uniswapL2Contract.methods
         .swap_private(
@@ -234,14 +232,13 @@ export const uniswapL1L2TestSuite = (
           nonceForWETHTransferToPublicApproval,
           uniswapFeeTier,
           minimumOutputAmount,
-          secretHashForRedeemingDai,
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
         .send()
         .wait();
 
-      const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)';
+      const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
       const swapPrivateContent = sha256ToField([
         Buffer.from(toFunctionSelector(swapPrivateFunction).substring(2), 'hex'),
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
@@ -249,7 +246,6 @@ export const uniswapL1L2TestSuite = (
         new Fr(uniswapFeeTier),
         daiCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(minimumOutputAmount),
-        secretHashForRedeemingDai,
         secretHashForDepositingSwappedDai,
         ownerEthAddress.toBuffer32(),
       ]);
@@ -322,7 +318,6 @@ export const uniswapL1L2TestSuite = (
         Number(uniswapFeeTier),
         daiCrossChainHarness.tokenPortalAddress.toString(),
         minimumOutputAmount,
-        secretHashForRedeemingDai.toString(),
         secretHashForDepositingSwappedDai.toString(),
         true,
         [withdrawMessageMetadata, swapPrivateMessageMetadata],
@@ -352,12 +347,11 @@ export const uniswapL1L2TestSuite = (
       // 6. claim dai on L2
       logger.info('Consuming messages to mint dai on L2');
       await daiCrossChainHarness.consumeMessageOnAztecAndMintPrivately({
-        redeemSecretHash: secretHashForRedeemingDai,
         claimAmount: new Fr(daiAmountToBridge),
         claimSecret: secretForDepositingSwappedDai,
         messageLeafIndex: tokenOutMsgIndex,
+        recipient: ownerAddress,
       });
-      await daiCrossChainHarness.redeemShieldPrivatelyOnL2(daiAmountToBridge, secretForRedeemingDai);
       await daiCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge);
 
       const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
@@ -424,7 +418,7 @@ export const uniswapL1L2TestSuite = (
     //       {
     //         caller: uniswapL2Contract.address,
     //         action: wethCrossChainHarness.l2Token.methods
-    //           .transfer_public(
+    //           .transfer_in_public(
     //             ownerAddress,
     //             uniswapL2Contract.address,
     //             wethAmountToBridge,
@@ -640,7 +634,6 @@ export const uniswapL1L2TestSuite = (
             uniswapFeeTier,
             minimumOutputAmount,
             Fr.random(),
-            Fr.random(),
             ownerEthAddress,
           )
           .prove(),
@@ -678,7 +671,6 @@ export const uniswapL1L2TestSuite = (
             uniswapFeeTier,
             minimumOutputAmount,
             Fr.random(),
-            Fr.random(),
             ownerEthAddress,
           )
           .prove(),
@@ -698,7 +690,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,
@@ -770,7 +762,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,
@@ -824,7 +816,6 @@ export const uniswapL1L2TestSuite = (
 
       // Swap
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
-      const [, secretHashForRedeemingDai] = generateClaimSecret();
 
       const [, secretHashForDepositingSwappedDai] = generateClaimSecret();
       const withdrawReceipt = await uniswapL2Contract.methods
@@ -836,7 +827,6 @@ export const uniswapL1L2TestSuite = (
           nonceForWETHTransferToPublicApproval,
           uniswapFeeTier,
           minimumOutputAmount,
-          secretHashForRedeemingDai,
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
@@ -845,9 +835,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateContent = sha256ToField([
         Buffer.from(
-          toFunctionSelector('swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)').substring(
-            2,
-          ),
+          toFunctionSelector('swap_private(address,uint256,uint24,address,uint256,bytes32,address)').substring(2),
           'hex',
         ),
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
@@ -855,7 +843,6 @@ export const uniswapL1L2TestSuite = (
         new Fr(uniswapFeeTier),
         daiCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(minimumOutputAmount),
-        secretHashForRedeemingDai,
         secretHashForDepositingSwappedDai,
         ownerEthAddress.toBuffer32(),
       ]);
@@ -945,7 +932,7 @@ export const uniswapL1L2TestSuite = (
           {
             caller: uniswapL2Contract.address,
             action: wethCrossChainHarness.l2Token.methods
-              .transfer_public(
+              .transfer_in_public(
                 ownerAddress,
                 uniswapL2Contract.address,
                 wethAmountToBridge,
@@ -1049,7 +1036,6 @@ export const uniswapL1L2TestSuite = (
       await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
 
       // Call swap_private on L1
-      const secretHashForRedeemingDai = Fr.random(); // creating my own secret hash
       logger.info('Execute withdraw and swap on the uniswapPortal!');
 
       const swapArgs = [
@@ -1058,7 +1044,6 @@ export const uniswapL1L2TestSuite = (
         Number(uniswapFeeTier),
         daiCrossChainHarness.tokenPortalAddress.toString(),
         minimumOutputAmount,
-        secretHashForRedeemingDai.toString(),
         secretHashForDepositingSwappedDai.toString(),
         true,
         [withdrawMessageMetadata, swapPublicMessageMetadata],

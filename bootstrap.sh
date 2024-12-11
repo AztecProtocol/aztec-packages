@@ -104,7 +104,7 @@ if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
   echo -n "Continue? [y/n] "
   read user_input
-  if [ "$user_input" != "y" ] && [ "$user_input" != "yes" ] && [ "$user_input" != "Y" ] && [ "$user_input" != "YES" ]; then
+  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
     echo "Exiting without cleaning"
     exit 1
   fi

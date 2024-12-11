@@ -1,9 +1,9 @@
-mod dispatch;
-mod functions;
-mod utils;
-mod notes;
-mod storage;
-mod events;
+pub mod dispatch;
+pub mod functions;
+pub mod utils;
+pub mod notes;
+pub mod storage;
+pub mod events;
 
 use functions::interfaces::STUBS;
 use notes::{generate_note_export, NOTES};
@@ -29,11 +29,13 @@ pub comptime fn aztec(m: Module) -> Quoted {
         generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
+    let sync_notes = generate_sync_notes();
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
         $public_dispatch
+        $sync_notes
     }
 }
 
@@ -68,7 +70,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     };
 
     quote {
-        struct $module_name {
+        pub struct $module_name {
             target_contract: dep::aztec::protocol_types::address::AztecAddress
         }
 
@@ -76,9 +78,9 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
             $fn_stubs_quote
 
             pub fn at(
-                target_contract: aztec::protocol_types::address::AztecAddress
+                addr: aztec::protocol_types::address::AztecAddress
             ) -> Self {
-                Self { target_contract }
+                Self { target_contract: addr }
             }
 
             pub fn interface() -> Self {
@@ -90,9 +92,9 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
         #[contract_library_method]
         pub fn at(
-            target_contract: aztec::protocol_types::address::AztecAddress
+            addr: aztec::protocol_types::address::AztecAddress
         ) -> $module_name {
-            $module_name { target_contract }
+            $module_name { target_contract: addr }
         }
 
         #[contract_library_method]
@@ -172,4 +174,12 @@ comptime fn generate_note_exports() -> Quoted {
             generate_note_export(s, note_type_id, fields)
         })
         .join(quote {})
+}
+
+comptime fn generate_sync_notes() -> Quoted {
+    quote {
+        unconstrained fn sync_notes() {
+            aztec::oracle::notes::sync_notes();
+        }
+    }
 }

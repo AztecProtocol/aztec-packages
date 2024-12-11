@@ -24,3 +24,12 @@ fn validate_empty_values_non_empty_revert_code_fails() {
     builder.validate();
 }
 
+#[test(should_fail_with = "unencrypted logs in private must be empty")]
+fn validate_empty_values_non_empty_unencrypted_log_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.output.add_unencrypted_log_hash(1, 2);
+
+    builder.validate();
+}
+

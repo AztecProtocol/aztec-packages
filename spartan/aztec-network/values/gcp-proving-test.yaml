@@ -1,0 +1,74 @@
+telemetry:
+  enabled: true
+
+validator:
+  replicas: 1
+  realProofs: true
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  validator:
+    disabled: false
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+    maxTxsPerBlock: 8
+    enforceTimeTable: false
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
+
+bootNode:
+  validator:
+    disabled: true
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
+
+proverNode:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
+
+proverAgent:
+  replicas: 120
+  bb:
+    hardwareConcurrency: 31
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
+
+bot:
+  replicas: 16
+  enabled: true
+  txIntervalSeconds: 1
+  botPrivateKey: ""
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
+  followChain: "PENDING"
+  bb:
+    hardwareConcurrency: 8
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+      ephemeral-storage: "8Gi"
+
+jobs:
+  deployL1Verifier:
+    enable: true
+
+fullnameOverride: sp
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: true

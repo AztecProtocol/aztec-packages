@@ -6,6 +6,7 @@ import {
   type L2LogsSource,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  type NullifierWithBlockSource,
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -53,6 +54,8 @@ describe('aztec node', () => {
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
 
+    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
+
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
     node = new AztecNodeService(
@@ -69,9 +72,9 @@ describe('aztec node', () => {
       p2p,
       l2BlockSource,
       l2LogsSource,
-      l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
+      nullifierWithBlockSource,
       worldState,
       undefined,
       12345,
@@ -135,16 +138,18 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
-      validMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
       lastBlockNumber = 3;

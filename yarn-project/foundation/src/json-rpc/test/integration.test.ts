@@ -1,12 +1,12 @@
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
-import { startHttpRpcServer } from '../server/json_rpc_server.js';
+import { startHttpRpcServer } from '../server/safe_json_rpc_server.js';
 import {
   type SafeJsonRpcServer,
   createNamespacedSafeJsonRpcServer,
-  createSafeJsonRpcServer,
   makeHandler,
 } from '../server/safe_json_rpc_server.js';
+import { createJsonRpcTestSetup } from './integration.js';
 
 describe('JsonRpc integration', () => {
   let testState: TestState;
@@ -28,15 +28,55 @@ describe('JsonRpc integration', () => {
     let client: TestStateApi;
 
     beforeEach(async () => {
-      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
-      httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
-      client = createSafeJsonRpcClient<TestStateApi>(`http://127.0.0.1:${httpServer.port}`, TestStateSchema);
+      ({ server, httpServer, client } = await createJsonRpcTestSetup(testState, TestStateSchema));
     });
 
     it('calls an RPC function with a primitive parameter', async () => {
       const note = await client.getNote(1);
       expect(note).toEqual(testNotes[1]);
       expect(note).toBeInstanceOf(TestNote);
+    });
+
+    it('calls an RPC function without an optional parameter', async () => {
+      const notes = await client.getNotes();
+      expect(notes).toEqual(testNotes);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with an optional parameter', async () => {
+      const notes = await client.getNotes(1);
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with a bigint parameter', async () => {
+      const notes = await client.getNotes2(1n);
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with an undefined parameter', async () => {
+      const notes = await client.getNotes2(undefined);
+      expect(notes).toEqual(testNotes);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with a default parameter', async () => {
+      const notes = await client.getNotes3();
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with a default parameter with explicit undefined', async () => {
+      const notes = await client.getNotes3(undefined);
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function overriding the default parameter', async () => {
+      const notes = await client.getNotes3(5);
+      expect(notes).toEqual(testNotes);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
     });
 
     it('calls an RPC function with incorrect parameter type', async () => {
@@ -59,19 +99,27 @@ describe('JsonRpc integration', () => {
       expect(testState.notes).toEqual([]);
     });
 
-    it('calls an RPC function that returns a primitive object and a bigint', async () => {
+    it('calls an RPC function that returns a primitive object with a bigint', async () => {
       const status = await client.getStatus();
       expect(status).toEqual({ status: 'ok', count: 2n });
+    });
+
+    it('calls an RPC function that returns a tuple', async () => {
+      const status = await client.getTuple();
+      expect(status).toEqual(['a', undefined, 1]);
+    });
+
+    it('calls an RPC function that returns undefined', async () => {
+      const note = await client.getNote(10);
+      expect(note).toBeUndefined();
     });
 
     it('calls an RPC function that throws an error', async () => {
       await expect(() => client.fail()).rejects.toThrow('Test state failed');
     });
 
-    it('fails if calls non-existing method in handler', async () => {
-      await expect(() => (client as TestState).forceClear()).rejects.toThrow(
-        'Unspecified method forceClear in client schema',
-      );
+    it('fails if calls non-existing method in handler', () => {
+      expect(() => (client as TestState).forceClear()).toThrow(/not a function/i);
     });
   });
 

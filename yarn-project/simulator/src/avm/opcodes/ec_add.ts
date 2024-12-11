@@ -2,7 +2,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -54,6 +54,9 @@ export class EcAdd extends Instruction {
     const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
       addressing.resolve(operands, memory);
 
+    memory.checkTags(TypeTag.FIELD, p1XOffset, p1YOffset, p2XOffset, p2YOffset);
+    memory.checkTags(TypeTag.UINT1, p1IsInfiniteOffset, p2IsInfiniteOffset);
+
     const p1X = memory.get(p1XOffset);
     const p1Y = memory.get(p1YOffset);
     const p1IsInfinite = memory.get(p1IsInfiniteOffset).toNumber() === 1;
@@ -80,16 +83,11 @@ export class EcAdd extends Instruction {
     } else {
       dest = grumpkin.add(p1, p2);
     }
-    // Temporary,
-    if (p1IsInfinite) {
-      dest = p2;
-    } else if (p2IsInfinite) {
-      dest = p1;
-    }
+
     memory.set(dstOffset, new Field(dest.x));
     memory.set(dstOffset + 1, new Field(dest.y));
     // Check representation of infinity for grumpkin
-    memory.set(dstOffset + 2, new Field(dest.equals(Point.ZERO) ? 1 : 0));
+    memory.set(dstOffset + 2, new Uint1(dest.equals(Point.ZERO) ? 1 : 0));
 
     memory.assert({ reads: 6, writes: 3, addressing });
   }

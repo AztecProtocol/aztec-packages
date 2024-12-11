@@ -11,7 +11,7 @@ pub use crate::{
     state_vars::{
         map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
         private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
-        shared_immutable::SharedImmutable, shared_mutable::SharedMutable, storage::Storable,
+        shared_mutable::SharedMutable, storage::Storable,
     },
 };
 pub use dep::protocol_types::{

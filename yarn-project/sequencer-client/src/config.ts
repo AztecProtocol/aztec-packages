@@ -1,12 +1,18 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -31,7 +37,12 @@ type ChainConfig = {
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & L1ReaderConfig & ChainConfig;
+export type SequencerClientConfig = PublisherConfig &
+  TxSenderConfig &
+  SequencerConfig &
+  L1ReaderConfig &
+  ChainConfig &
+  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -91,7 +102,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => parseSequencerAllowList(val),
     defaultValue: getDefaultAllowedTeardownFunctions(),
     description: 'The list of functions calls allowed to run teardown',
-    printDefault: () => 'FPC.pay_refund, FPC.pay_refund_with_shielded_rebate',
+    printDefault: () => 'FPC.pay_refund',
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
@@ -103,9 +114,15 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Whether to require every tx to have a fee payer',
     ...booleanConfigHelper(),
   },
-  gerousiaPayload: {
-    env: 'GEROUSIA_PAYLOAD_ADDRESS',
-    description: 'The address of the payload for the gerousia',
+  enforceTimeTable: {
+    env: 'SEQ_ENFORCE_TIME_TABLE',
+    description: 'Whether to enforce the time table when building blocks',
+    ...booleanConfigHelper(),
+    defaultValue: false,
+  },
+  governanceProposerPayload: {
+    env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
@@ -126,6 +143,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**
@@ -216,10 +234,6 @@ function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
       selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
     },
   ];
 }

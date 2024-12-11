@@ -29,7 +29,7 @@ impl Serialize<DAPP_PAYLOAD_SIZE> for DAppPayload {
             fields.extend_from_array(call.serialize());
         }
         fields.push(self.nonce);
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -49,7 +49,7 @@ impl DAppPayload {
         }
         bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
-        bytes.storage
+        bytes.storage()
     }
 
     // Executes all private and public calls

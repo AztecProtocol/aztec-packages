@@ -6,19 +6,21 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  type PeerInfo,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
   Tx,
   TxHash,
   type WorldStateSynchronizer,
+  metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -29,7 +31,6 @@ import { identify } from '@libp2p/identify';
 import type { PeerId } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
-import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
@@ -43,6 +44,7 @@ import {
 } from '../tx_validator/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
+import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from './encoding.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
@@ -60,22 +62,6 @@ import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
 /**
- * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
- * @param privateKey - Optional peer ID private key as hex string
- * @returns The peer ID.
- */
-export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
-  if (!privateKey?.length) {
-    return await createSecp256k1PeerId();
-  }
-  const base64 = Buffer.from(privateKey, 'hex').toString('base64');
-  return await createFromJSON({
-    id: '',
-    privKey: base64,
-  });
-}
-
-/**
  * Lib P2P implementation of the P2PService interface.
  */
 export class LibP2PService extends WithTracer implements P2PService {
@@ -84,7 +70,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
 
   // Request and response sub service
-  private reqresp: ReqResp;
+  public reqresp: ReqResp;
 
   /**
    * Callback for when a block is received from a peer.
@@ -101,11 +87,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    telemetry: TelemetryClient,
+    private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
-    private logger = createDebugLogger('aztec:libp2p_service'),
+    private logger = createLogger('p2p:libp2p_service'),
   ) {
-    // Instatntiate tracer
     super(telemetry, 'LibP2PService');
 
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
@@ -133,20 +118,17 @@ export class LibP2PService extends WithTracer implements P2PService {
       throw new Error('P2P service already started');
     }
 
-    // Log listen & announce addresses
+    // Get listen & announce addresses for logging
     const { tcpListenAddress, tcpAnnounceAddress } = this.config;
-    this.logger.info(`Starting P2P node on ${tcpListenAddress}`);
     if (!tcpAnnounceAddress) {
       throw new Error('Announce address not provided.');
     }
     const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
-    this.logger.info(`Announcing at ${announceTcpMultiaddr}`);
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
     await this.peerDiscoveryService.start();
     await this.node.start();
-    this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
 
     // Subscribe to standard GossipSub topics by default
     for (const topic in TopicType) {
@@ -156,7 +138,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
       const { msg, propagationSource: peerId } = e.detail;
-      this.logger.debug(`Received PUBSUB message.`);
+      this.logger.trace(`Received PUBSUB message.`);
 
       await this.jobQueue.put(() => this.handleNewGossipMessage(msg, peerId));
     });
@@ -173,6 +155,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       [TX_REQ_PROTOCOL]: this.validateRequestedTx.bind(this),
     };
     await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
+    this.logger.info(`Started P2P service`, {
+      listen: tcpListenAddress,
+      announce: announceTcpMultiaddr,
+      peerId: this.node.peerId.toString(),
+    });
   }
 
   /**
@@ -191,7 +178,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
-    this.logger.debug('Stopping request response service...');
   }
 
   /**
@@ -217,6 +203,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
 
     const datastore = new AztecDatastore(store);
+
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
     const node = await createLibp2p({
       start: false,
@@ -257,6 +245,12 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          msgIdFn: getMsgIdFn,
+          msgIdToStrFn: msgIdToStrFn,
+          fastMsgIdFn: fastMsgIdFn,
+          dataTransform: new SnappyTransform(),
+          metricsRegister: otelMetricsAdapter,
+          metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -291,11 +285,11 @@ export class LibP2PService extends WithTracer implements P2PService {
      * @param msg - the tx request message
      * @returns the tx response message
      */
-    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
+    const txHandler = (msg: Buffer): Promise<Buffer> => {
       const txHash = TxHash.fromBuffer(msg);
       const foundTx = mempools.txPool.getTxByHash(txHash);
-      const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
-      return Promise.resolve(asUint8Array);
+      const buf = foundTx ? foundTx.toBuffer() : Buffer.alloc(0);
+      return Promise.resolve(buf);
     };
 
     const requestResponseHandlers = {
@@ -315,6 +309,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       requestResponseHandlers,
     );
+  }
+
+  public getPeers(includePending?: boolean): PeerInfo[] {
+    return this.peerManager.getPeers(includePending);
   }
 
   /**
@@ -464,7 +462,7 @@ export class LibP2PService extends WithTracer implements P2PService {
    * @param message - The message to propagate.
    */
   public propagate<T extends Gossipable>(message: T): void {
-    this.logger.debug(`[${message.p2pMessageIdentifier()}] queued`);
+    this.logger.trace(`[${message.p2pMessageIdentifier()}] queued`);
     void this.jobQueue.put(async () => {
       await this.sendToPeers(message);
     });
@@ -591,10 +589,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     const parent = message.constructor as typeof Gossipable;
 
     const identifier = message.p2pMessageIdentifier().toString();
-    this.logger.verbose(`[${identifier}] sending`);
+    this.logger.trace(`Sending message ${identifier}`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`[${identifier}] sent to ${recipientsNum} peers`);
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.
@@ -605,7 +603,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
     try {
       await Promise.race([this.node.stop(), timeout]);
-      this.logger.debug('Libp2p stopped');
+      this.logger.debug('LibP2P stopped');
     } catch (error) {
       this.logger.error('Error during stop or timeout:', error);
     }

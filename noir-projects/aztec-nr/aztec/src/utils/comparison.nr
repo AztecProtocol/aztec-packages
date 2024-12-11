@@ -1,13 +1,14 @@
 struct ComparatorEnum {
-    EQ: u8,
-    NEQ: u8,
-    LT: u8,
-    LTE: u8,
-    GT: u8,
-    GTE: u8,
+    pub EQ: u8,
+    pub NEQ: u8,
+    pub LT: u8,
+    pub LTE: u8,
+    pub GT: u8,
+    pub GTE: u8,
 }
 
-global Comparator = ComparatorEnum { EQ: 1, NEQ: 2, LT: 3, LTE: 4, GT: 5, GTE: 6 };
+pub global Comparator: ComparatorEnum =
+    ComparatorEnum { EQ: 1, NEQ: 2, LT: 3, LTE: 4, GT: 5, GTE: 6 };
 
 pub fn compare(lhs: Field, operation: u8, rhs: Field) -> bool {
     // Values are computed ahead of time because circuits evaluate all branches

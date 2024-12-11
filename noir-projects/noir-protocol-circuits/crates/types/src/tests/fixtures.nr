@@ -1,15 +1,14 @@
-mod contract_functions;
-mod contracts;
-mod protocol_contract_tree;
+pub mod contract_functions;
+pub mod contracts;
+pub mod merkle_tree;
+pub mod protocol_contract_tree;
 pub mod vk_tree;
 
-use crate::{address::AztecAddress, point::Point};
+use crate::address::AztecAddress;
 
-global MSG_SENDER = AztecAddress { inner: 27 };
+pub global MSG_SENDER: AztecAddress = AztecAddress { inner: 27 };
 
-global PUBLIC_KEY = Point { x: 123456789, y: 123456789, is_infinite: false };
+pub global CHAIN_ID: Field = 1;
 
-global CHAIN_ID = 1;
-
-global VERSION = 3;
+pub global VERSION: Field = 3;
 

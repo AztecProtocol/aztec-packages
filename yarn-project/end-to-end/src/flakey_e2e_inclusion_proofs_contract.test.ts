@@ -62,7 +62,10 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        ({ noteHashes, visibleIncomingNotes } = receipt.debugInfo!);
+        ({ noteHashes } = receipt.debugInfo!);
+
+        await contract.methods.sync_notes().simulate();
+        visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
       });
 
       it('should return the correct values for creating a note', () => {
@@ -155,7 +158,10 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        const { noteHashes, visibleIncomingNotes } = receipt.debugInfo!;
+        const { noteHashes } = receipt.debugInfo!;
+
+        await contract.methods.sync_notes().simulate();
+        const visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
 
         expect(noteHashes.length).toBe(1);
         expect(visibleIncomingNotes.length).toBe(1);

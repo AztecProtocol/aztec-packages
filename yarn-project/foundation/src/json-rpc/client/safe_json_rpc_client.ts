@@ -1,11 +1,8 @@
 import { format } from 'util';
 
-import { createDebugLogger } from '../../log/logger.js';
+import { createLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
-import { jsonStringify2 } from '../convert.js';
-import { defaultFetch } from './json_rpc_client.js';
-
-export { jsonStringify } from '../convert.js';
+import { defaultFetch } from './fetch.js';
 
 /**
  * Creates a Proxy object that delegates over RPC and validates outputs against a given schema.
@@ -22,7 +19,7 @@ export function createSafeJsonRpcClient<T extends object>(
   useApiEndpoints: boolean = false,
   namespaceMethods?: string | false,
   fetch = defaultFetch,
-  log = createDebugLogger('json-rpc:client'),
+  log = createLogger('json-rpc:client'),
 ): T {
   let id = 0;
   const request = async (methodName: string, params: any[]): Promise<any> => {
@@ -33,13 +30,13 @@ export function createSafeJsonRpcClient<T extends object>(
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
-    const res = await fetch(host, method, body, useApiEndpoints, undefined, jsonStringify2);
+    const res = await fetch(host, method, body, useApiEndpoints);
     log.debug(format(`result`, method, res));
 
     if (res.error) {
       throw res.error;
     }
-    // TODO: Why check for string null and undefined?
+    // TODO(palla/schemas): Find a better way to handle null responses (JSON.stringify(null) is string "null").
     if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
       return;
     }
@@ -47,18 +44,10 @@ export function createSafeJsonRpcClient<T extends object>(
     return (schema as ApiSchema)[methodName].returnType().parse(res.result);
   };
 
-  // Intercept any RPC methods with a proxy
-  const proxy = new Proxy(
-    {},
-    {
-      get: (target, method: string) => {
-        if (['then', 'catch'].includes(method)) {
-          return Reflect.get(target, method);
-        }
-        return (...params: any[]) => request(method, params);
-      },
-    },
-  ) as T;
+  const proxy: any = {};
+  for (const method of Object.keys(schema)) {
+    proxy[method] = (...params: any[]) => request(method, params);
+  }
 
-  return proxy;
+  return proxy as T;
 }

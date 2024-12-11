@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
@@ -44,7 +44,7 @@ contract Sampler {
 contract SamplingTest is Test {
   Sampler sampler = new Sampler();
 
-  function testShuffle() public {
+  function testShuffle() public view {
     // Sizes pulled out of thin air
     uint256 setSize = 1024;
     uint256 commiteeSize = 32;

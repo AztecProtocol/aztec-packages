@@ -1,6 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import { TX_CONTEXT_LENGTH } from '../constants.gen.js';
 import { GasSettings } from './gas_settings.js';
@@ -22,6 +25,16 @@ export class TxContext {
   ) {
     this.chainId = new Fr(chainId);
     this.version = new Fr(version);
+  }
+
+  static get schema() {
+    return z
+      .object({
+        chainId: schemas.Fr,
+        version: schemas.Fr,
+        gasSettings: GasSettings.schema,
+      })
+      .transform(TxContext.from);
   }
 
   getSize() {

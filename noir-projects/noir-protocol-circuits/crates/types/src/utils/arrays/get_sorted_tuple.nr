@@ -1,8 +1,8 @@
 use crate::utils::arrays::sort_by::sort_by;
 
 pub struct SortedTuple<T> {
-    elem: T,
-    original_index: u32,
+    pub elem: T,
+    pub original_index: u32,
 }
 
 pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(

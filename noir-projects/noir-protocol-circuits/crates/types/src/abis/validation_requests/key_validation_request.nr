@@ -2,8 +2,8 @@ use crate::{point::Point, traits::{Deserialize, Empty, Serialize}};
 pub use crate::constants::KEY_VALIDATION_REQUEST_LENGTH;
 
 pub struct KeyValidationRequest {
-    pk_m: Point,
-    sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
+    pub pk_m: Point,
+    pub sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
 }
 
 impl Eq for KeyValidationRequest {

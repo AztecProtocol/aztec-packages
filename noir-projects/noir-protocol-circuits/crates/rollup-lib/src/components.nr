@@ -9,18 +9,16 @@ use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         log_hash::{LogHash, ScopedLogHash},
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
     },
     constants::{
-        AZTEC_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
+        AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    hash::{
-        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
-        silo_unencrypted_log_hash,
-    },
+    hash::{accumulate_sha256, compute_tx_logs_hash, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
+    traits::is_empty,
     utils::arrays::{array_length, array_merge},
 };
 
@@ -139,14 +137,21 @@ pub fn accumulate_fees(
     left.accumulated_fees + right.accumulated_fees
 }
 
+pub fn accumulate_mana_used(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs,
+) -> Field {
+    left.accumulated_mana_used + right.accumulated_mana_used
+}
+
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
-) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
+) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
     assert(
-        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many fee payment structs accumulated in rollup",
     );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
@@ -199,8 +204,8 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     ])
 }
 
-fn silo_and_hash_unencrypted_logs(
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+fn silo_and_hash_unencrypted_logs<let N: u32>(
+    unencrypted_logs_hashes: [ScopedLogHash; N],
 ) -> Field {
     let siloed_logs = unencrypted_logs_hashes.map(|log: ScopedLogHash| {
         LogHash {
@@ -212,19 +217,6 @@ fn silo_and_hash_unencrypted_logs(
     compute_tx_logs_hash(siloed_logs)
 }
 
-fn silo_and_hash_encrypted_logs(
-    encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-) -> Field {
-    let siloed_encrypted_logs = encrypted_logs_hashes.map(|log: ScopedLogHash| {
-        LogHash {
-            value: silo_encrypted_log_hash(log),
-            counter: log.log_hash.counter,
-            length: log.log_hash.length,
-        }
-    });
-    compute_tx_logs_hash(siloed_encrypted_logs)
-}
-
 // Tx effects hash consists of
 // 1 field for revert code
 // 1 field for transaction fee
@@ -232,110 +224,88 @@ fn silo_and_hash_encrypted_logs(
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
 // 1 field for L2 to L1 messages (represented by the out_hash)
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
+// MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
 //                                          __
-// 1 note encrypted logs length --> 1 field   |
-// 1 encrypted logs length --> 1 field        | -> 3 types of logs - 3 fields for its lengths
-// 1 unencrypted logs length --> 1 field    __|
-//                                                                                                                                   __
-// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
-// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
-// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1
+// 1 unencrypted logs length --> 1 field      |-> 2 types of flexible-length logs - 2 fields for their lengths
+// 1 contract class logs length --> 1 field __|
+//                                                                                                                                    __
+// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!      |-> 2 types of flexible-length logs - 2 fields for their hashes
+// 1 contract class logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! __|
+pub global TX_EFFECTS_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + 1
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + 3
-    + 3;
+    + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
+    + 2
+    + 2;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     out_hash: Field,
 ) -> Field {
-    let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
-
-    let note_hashes = combined.note_hashes;
-    let nullifiers = combined.nullifiers;
+    let mut tx_effects_hash_input: BoundedVec<Field, TX_EFFECTS_HASH_INPUT_FIELDS> =
+        BoundedVec::new();
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-    let note_logs_length = combined.note_encrypted_log_preimages_length;
-    let encrypted_logs_length = combined.encrypted_log_preimages_length;
-    let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
-    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
-    let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
-    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
 
-    let mut offset = 0;
+    let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
+    let contract_class_logs_length = combined.contract_class_log_preimages_length;
+    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let contract_class_logs_hash =
+        silo_and_hash_unencrypted_logs(combined.contract_class_logs_hashes);
 
     // REVERT CODE
     // upcast to Field to have the same size for the purposes of the hash
-    tx_effects_hash_input[offset] = revert_code as Field;
-    offset += 1;
+    tx_effects_hash_input.push(revert_code as Field);
 
     // TX FEE
-    tx_effects_hash_input[offset] = transaction_fee;
-    offset += 1;
+    tx_effects_hash_input.push(transaction_fee);
 
     // NOTE HASHES
-    for j in 0..MAX_NOTE_HASHES_PER_TX {
-        tx_effects_hash_input[offset + j] = note_hashes[j];
-    }
-    offset += MAX_NOTE_HASHES_PER_TX;
+    tx_effects_hash_input.extend_from_array(combined.note_hashes);
 
     // NULLIFIERS
-    for j in 0..MAX_NULLIFIERS_PER_TX {
-        tx_effects_hash_input[offset + j] = nullifiers[j];
-    }
-    offset += MAX_NULLIFIERS_PER_TX;
+    tx_effects_hash_input.extend_from_array(combined.nullifiers);
 
     // L2 TO L1 MESSAGES
-    tx_effects_hash_input[offset] = out_hash;
-    offset += 1;
+    tx_effects_hash_input.push(out_hash);
 
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
-        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
+        tx_effects_hash_input.extend_from_array(public_data_update_requests[j].serialize());
     }
-    offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
-    // NOTE ENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = note_logs_length;
-    offset += 1;
-
-    // ENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = encrypted_logs_length;
-    offset += 1;
+    // PRIVATE_LOGS
+    for j in 0..MAX_PRIVATE_LOGS_PER_TX {
+        tx_effects_hash_input.extend_from_array(combined.private_logs[j].fields);
+    }
 
     // UNENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = unencrypted_logs_length;
-    offset += 1;
+    tx_effects_hash_input.push(unencrypted_logs_length);
 
-    // NOTE ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = note_encrypted_logs_hash;
-    offset += 1;
-
-    // ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = encrypted_logs_hash;
-    offset += 1;
+    // CONTRACT CLASS LOGS LENGTH
+    tx_effects_hash_input.push(contract_class_logs_length);
 
     // UNENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = unencrypted_logs_hash;
-    offset += 1;
+    tx_effects_hash_input.push(unencrypted_logs_hash);
 
-    assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
+    // CONTRACT CLASS LOGS HASH
+    tx_effects_hash_input.push(contract_class_logs_hash);
+
+    assert_eq(tx_effects_hash_input.len(), TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
     for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
         // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_radix(256);
+        let input_as_bytes: [u8; 32] = tx_effects_hash_input.get_unchecked(offset).to_be_radix(256);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -346,30 +316,14 @@ pub fn compute_tx_effects_hash(
 }
 
 fn get_all_update_requests_for_tx_effects(
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
         BoundedVec::new();
     for update_request in all_public_data_update_requests {
-        if !update_request.is_empty() {
+        if !is_empty(update_request) {
             all_update_requests.push(update_request);
         }
     }
-    all_update_requests.storage
-}
-
-#[test]
-fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
-    let expected_size = 1 // revert code
-        + 1 // transaction fee
-        + MAX_NOTE_HASHES_PER_TX
-        + MAX_NULLIFIERS_PER_TX
-        + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + 1 // out hash
-        + 3 // logs lengths
-        + 3; // logs hashes
-    assert(
-        TX_EFFECTS_HASH_INPUT_FIELDS == expected_size,
-        "tx effects hash input size is incorrect",
-    );
+    all_update_requests.storage()
 }

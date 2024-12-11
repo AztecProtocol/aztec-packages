@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -31,20 +32,19 @@ struct StartGas {
 template <typename OpcodesFunc, typename CheckFunc>
 void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
-    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {};
+    AvmPublicInputs public_inputs;
 
-    kernel_inputs[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.l2_gas);
-    kernel_inputs[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET] = FF(startGas.da_gas);
+    public_inputs.gas_settings.gas_limits.l2_gas = startGas.l2_gas;
+    public_inputs.gas_settings.gas_limits.da_gas = startGas.da_gas;
 
-    VmPublicInputsNT public_inputs;
-    std::get<0>(public_inputs) = kernel_inputs;
     auto trace_builder =
         AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
 
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
 
     auto trace = trace_builder.finalize();
 

@@ -49,6 +49,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.private_call.verify(true);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -113,11 +117,11 @@ mod tests {
 
         // note_hash_read_requests
         builder.private_call.append_note_hash_read_requests(2);
-        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
+        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
 
-        // encrypted_logs_hashes
-        builder.private_call.append_encrypted_log_hashes(1);
-        let encrypted_log_hashes = builder.private_call.encrypted_logs_hashes.storage;
+        // private_logs
+        builder.private_call.append_private_logs(2);
+        let private_logs = builder.private_call.private_logs.storage();
 
         let public_inputs = builder.execute();
         assert_array_eq(
@@ -125,8 +129,8 @@ mod tests {
             [note_hash_read_requests[0], note_hash_read_requests[1]],
         );
         assert_array_eq(
-            public_inputs.end.encrypted_logs_hashes,
-            [encrypted_log_hashes[0]],
+            public_inputs.end.private_logs,
+            [private_logs[0], private_logs[1]],
         );
     }
 }

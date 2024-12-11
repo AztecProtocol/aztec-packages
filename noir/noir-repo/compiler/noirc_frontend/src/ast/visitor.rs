@@ -16,7 +16,7 @@ use crate::{
         InternedUnresolvedTypeData, QuotedTypeId,
     },
     parser::{Item, ItemKind, ParsedSubModule},
-    token::{CustomAttribute, SecondaryAttribute, Tokens},
+    token::{FmtStrFragment, MetaAttribute, SecondaryAttribute, Tokens},
     ParsedModule, QuotedType,
 };
 
@@ -172,7 +172,7 @@ pub trait Visitor {
 
     fn visit_literal_raw_str(&mut self, _: &str, _: u8) {}
 
-    fn visit_literal_fmt_str(&mut self, _: &str) {}
+    fn visit_literal_fmt_str(&mut self, _: &[FmtStrFragment], _length: u32) {}
 
     fn visit_literal_unit(&mut self) {}
 
@@ -474,7 +474,9 @@ pub trait Visitor {
         true
     }
 
-    fn visit_custom_attribute(&mut self, _: &CustomAttribute, _target: AttributeTarget) {}
+    fn visit_meta_attribute(&mut self, _: &MetaAttribute, _target: AttributeTarget) -> bool {
+        true
+    }
 }
 
 impl ParsedModule {
@@ -898,7 +900,7 @@ impl Literal {
             Literal::Integer(value, negative) => visitor.visit_literal_integer(*value, *negative),
             Literal::Str(str) => visitor.visit_literal_str(str),
             Literal::RawStr(str, length) => visitor.visit_literal_raw_str(str, *length),
-            Literal::FmtStr(str) => visitor.visit_literal_fmt_str(str),
+            Literal::FmtStr(fragments, length) => visitor.visit_literal_fmt_str(fragments, *length),
             Literal::Unit => visitor.visit_literal_unit(),
         }
     }
@@ -1441,15 +1443,22 @@ impl SecondaryAttribute {
     }
 
     pub fn accept_children(&self, target: AttributeTarget, visitor: &mut impl Visitor) {
-        if let SecondaryAttribute::Meta(custom) = self {
-            custom.accept(target, visitor);
+        if let SecondaryAttribute::Meta(meta_attribute) = self {
+            meta_attribute.accept(target, visitor);
         }
     }
 }
 
-impl CustomAttribute {
+impl MetaAttribute {
     pub fn accept(&self, target: AttributeTarget, visitor: &mut impl Visitor) {
-        visitor.visit_custom_attribute(self, target);
+        if visitor.visit_meta_attribute(self, target) {
+            self.accept_children(visitor);
+        }
+    }
+
+    pub fn accept_children(&self, visitor: &mut impl Visitor) {
+        self.name.accept(visitor);
+        visit_expressions(&self.arguments, visitor);
     }
 }
 

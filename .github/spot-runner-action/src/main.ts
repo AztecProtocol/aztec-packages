@@ -23,10 +23,11 @@ async function pollSpotStatus(
     }
     try {
       core.info("Found ec2 instance, looking for runners.");
-      if (process.env.WAIT_FOR_RUNNERS === "false" || await ghClient.hasRunner([config.githubJobId])) {
+      // TODO find out whatever happened here but we seem to not be able to wait for runners
+      //if (process.env.WAIT_FOR_RUNNERS === "false" || await ghClient.hasRunner([config.githubJobId])) {
         // we have runners
         return instances[0].InstanceId!;
-      }
+      //}
     } catch (err) {}
     // wait 10 seconds
     await new Promise((r) => setTimeout(r, 10000));
@@ -174,11 +175,11 @@ async function startWithGithubRunners(config: ActionConfig) {
       return false;
     }
     await setupGithubRunners(ip, config);
-    if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
-    else {
-      core.error("Instance failed to register with Github Actions");
-      throw Error("Instance failed to register with Github Actions");
-    }
+    // if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
+    // else {
+    //  core.error("Instance failed to register with Github Actions");
+    //  throw Error("Instance failed to register with Github Actions");
+    // }
     core.info("Done setting up runner.")
   }
   // Export to github environment

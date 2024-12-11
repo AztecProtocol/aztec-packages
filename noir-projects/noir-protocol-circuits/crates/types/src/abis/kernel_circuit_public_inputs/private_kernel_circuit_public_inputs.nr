@@ -1,7 +1,7 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
-        public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests,
+        accumulated_data::PrivateAccumulatedData, public_call_request::PublicCallRequest,
+        tx_constant_data::TxConstantData, validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
     constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -10,17 +10,16 @@ use crate::{
 };
 
 pub struct PrivateKernelCircuitPublicInputsArrayLengths {
-    note_hash_read_requests: u32,
-    nullifier_read_requests: u32,
-    scoped_key_validation_requests_and_generators: u32,
-    note_hashes: u32,
-    nullifiers: u32,
-    l2_to_l1_msgs: u32,
-    note_encrypted_logs_hashes: u32,
-    encrypted_logs_hashes: u32,
-    unencrypted_logs_hashes: u32,
-    public_call_requests: u32,
-    private_call_stack: u32,
+    pub note_hash_read_requests: u32,
+    pub nullifier_read_requests: u32,
+    pub scoped_key_validation_requests_and_generators: u32,
+    pub note_hashes: u32,
+    pub nullifiers: u32,
+    pub l2_to_l1_msgs: u32,
+    pub private_logs: u32,
+    pub contract_class_logs_hashes: u32,
+    pub public_call_requests: u32,
+    pub private_call_stack: u32,
 }
 
 impl PrivateKernelCircuitPublicInputsArrayLengths {
@@ -38,9 +37,8 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             note_hashes: array_length(public_inputs.end.note_hashes),
             nullifiers: array_length(public_inputs.end.nullifiers),
             l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
-            note_encrypted_logs_hashes: array_length(public_inputs.end.note_encrypted_logs_hashes),
-            encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
-            unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
+            private_logs: array_length(public_inputs.end.private_logs),
+            contract_class_logs_hashes: array_length(public_inputs.end.contract_class_logs_hashes),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
             private_call_stack: array_length(public_inputs.end.private_call_stack),
         }
@@ -54,9 +52,8 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             note_hashes: 0,
             nullifiers: 0,
             l2_to_l1_msgs: 0,
-            note_encrypted_logs_hashes: 0,
-            encrypted_logs_hashes: 0,
-            unencrypted_logs_hashes: 0,
+            private_logs: 0,
+            contract_class_logs_hashes: 0,
             public_call_requests: 0,
             private_call_stack: 0,
         }
@@ -74,21 +71,20 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
             & (self.note_hashes == other.note_hashes)
             & (self.nullifiers == other.nullifiers)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
-            & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
-            & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.private_logs == other.private_logs)
+            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & (self.public_call_requests == other.public_call_requests)
             & (self.private_call_stack == other.private_call_stack)
     }
 }
 
 pub struct PrivateKernelCircuitPublicInputs {
-    min_revertible_side_effect_counter: u32,
-    validation_requests: PrivateValidationRequests,
-    end: PrivateAccumulatedData,
-    constants: CombinedConstantData,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub min_revertible_side_effect_counter: u32,
+    pub validation_requests: PrivateValidationRequests,
+    pub end: PrivateAccumulatedData,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
@@ -96,16 +92,16 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
         let mut fields: BoundedVec<Field, PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
             BoundedVec::new();
 
+        fields.extend_from_array(self.constants.serialize());
         fields.push(self.min_revertible_side_effect_counter as Field);
         fields.extend_from_array(self.validation_requests.serialize());
         fields.extend_from_array(self.end.serialize());
-        fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
 
         assert_eq(fields.len(), PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -115,10 +111,10 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
     ) -> PrivateKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
+            constants: reader.read_struct(TxConstantData::deserialize),
             min_revertible_side_effect_counter: reader.read() as u32,
             validation_requests: reader.read_struct(PrivateValidationRequests::deserialize),
             end: reader.read_struct(PrivateAccumulatedData::deserialize),
-            constants: reader.read_struct(CombinedConstantData::deserialize),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
         };
@@ -130,10 +126,10 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
 
 impl Eq for PrivateKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
-        (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
+        (self.constants.eq(other.constants))
+            & (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
             & (self.validation_requests.eq(other.validation_requests))
             & (self.end.eq(other.end))
-            & (self.constants.eq(other.constants))
             & (self.public_teardown_call_request.eq(other.public_teardown_call_request))
     }
 }
@@ -141,10 +137,10 @@ impl Eq for PrivateKernelCircuitPublicInputs {
 impl Empty for PrivateKernelCircuitPublicInputs {
     fn empty() -> Self {
         Self {
+            constants: TxConstantData::empty(),
             min_revertible_side_effect_counter: 0,
             validation_requests: PrivateValidationRequests::empty(),
             end: PrivateAccumulatedData::empty(),
-            constants: CombinedConstantData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
         }

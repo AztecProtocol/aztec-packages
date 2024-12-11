@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -32,10 +33,10 @@ library UserLib {
     if (_amount == 0) {
       return;
     }
-    require(_self.numCheckPoints > 0, Errors.Apella__NoCheckpointsFound());
+    require(_self.numCheckPoints > 0, Errors.Governance__NoCheckpointsFound());
     DataStructures.CheckPoint storage last = _self.checkpoints[_self.numCheckPoints - 1];
     require(
-      last.power >= _amount, Errors.Apella__InsufficientPower(msg.sender, last.power, _amount)
+      last.power >= _amount, Errors.Governance__InsufficientPower(msg.sender, last.power, _amount)
     );
     if (last.time == Timestamp.wrap(block.timestamp)) {
       last.power -= _amount;
@@ -63,7 +64,7 @@ library UserLib {
   {
     // If not in the past, the values are not stable.
     // We disallow using it to avoid potential misuse.
-    require(_time < Timestamp.wrap(block.timestamp), Errors.Apella__UserLib__NotInPast());
+    require(_time < Timestamp.wrap(block.timestamp), Errors.Governance__UserLib__NotInPast());
 
     uint256 numCheckPoints = _self.numCheckPoints;
     if (numCheckPoints == 0) {

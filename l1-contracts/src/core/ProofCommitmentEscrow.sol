@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -17,8 +16,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     Timestamp executableAt;
   }
 
-  uint256 public constant WITHDRAW_DELAY =
-    Constants.ETHEREUM_SLOT_DURATION * Constants.AZTEC_EPOCH_DURATION * 3;
+  uint256 public immutable WITHDRAW_DELAY;
 
   address public immutable ROLLUP;
   IERC20 public immutable TOKEN;
@@ -31,9 +29,15 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     _;
   }
 
-  constructor(IERC20 _token, address _rollup) {
+  constructor(
+    IERC20 _token,
+    address _rollup,
+    uint256 _aztecSlotDuration,
+    uint256 _aztecEpochDuration
+  ) {
     ROLLUP = _rollup;
     TOKEN = _token;
+    WITHDRAW_DELAY = _aztecSlotDuration * _aztecEpochDuration;
   }
 
   /**

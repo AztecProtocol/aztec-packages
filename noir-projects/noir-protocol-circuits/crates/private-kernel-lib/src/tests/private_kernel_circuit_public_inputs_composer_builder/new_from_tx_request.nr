@@ -25,7 +25,6 @@ fn new_from_tx_request_succeeds() {
     // Check output constants.
     assert_eq(output.constants.tx_context, tx_request.tx_context);
     assert_eq(output.constants.historical_header, historical_header);
-    assert(is_empty(output.constants.global_variables));
 
     // Check first nullifier is set.
     assert_eq(output.end.nullifiers[0], first_nullifier);

@@ -59,6 +59,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -71,7 +75,8 @@
     "@aztec/types": "workspace:^",
     "bindings": "^1.5.0",
     "msgpackr": "^1.10.2",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

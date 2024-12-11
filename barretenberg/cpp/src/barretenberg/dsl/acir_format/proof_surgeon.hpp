@@ -33,7 +33,8 @@ class ProofSurgeon {
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        const size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
+        const size_t num_public_inputs_to_extract =
+            verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
         std::vector<FF> public_inputs =
             acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
 
@@ -145,10 +146,9 @@ class ProofSurgeon {
     static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
-                                                                const size_t num_public_inputs)
+                                                                const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
-        const size_t num_public_inputs_to_extract = num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
         std::vector<bb::fr> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 

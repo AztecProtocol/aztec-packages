@@ -3,6 +3,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "ram_table.hpp"
 
 using namespace bb;
@@ -15,8 +16,58 @@ using ram_table_ct = stdlib::ram_table<Builder>;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+STANDARD_TESTING_TAGS
 
-TEST(ram_table, ram_table_init_read_consistency)
+/**
+ * @brief Check that Origin Tags within the ram table are propagated correctly (when we lookup an element it has the
+ * same tag as the one inserted originally)
+ *
+ */
+TEST(RamTable, TagCorrectness)
+{
+
+    Builder builder;
+    std::vector<field_ct> table_values;
+
+    // Generate random witnesses
+    field_ct entry_1 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_2 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_3 = witness_ct(&builder, bb::fr::random_element());
+
+    // Tag them with 3 different tags
+    entry_1.set_origin_tag(submitted_value_origin_tag);
+    entry_2.set_origin_tag(challenge_origin_tag);
+    // The last tag is an instant death tag, that triggers a runtime failure if any computation happens on the element
+    entry_3.set_origin_tag(instant_death_tag);
+
+    table_values.emplace_back(entry_1);
+    table_values.emplace_back(entry_2);
+    table_values.emplace_back(entry_3);
+
+    // Initialize the table
+    ram_table_ct table(table_values);
+
+    // Check that each element has the same tag as original entries
+    EXPECT_EQ(table.read(field_ct(0)).get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(table.read(field_ct(witness_ct(&builder, 0))).get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(table.read(field_ct(1)).get_origin_tag(), challenge_origin_tag);
+    EXPECT_EQ(table.read(field_ct(witness_ct(&builder, 1))).get_origin_tag(), challenge_origin_tag);
+
+    // Replace one of the elements in the table with a new one
+    entry_2.set_origin_tag(next_challenge_tag);
+    table.write(field_ct(1), entry_2);
+
+    // Check that the tag has been updated accordingly
+    EXPECT_EQ(table.read(field_ct(1)).get_origin_tag(), next_challenge_tag);
+    EXPECT_EQ(table.read(field_ct(witness_ct(&builder, 1))).get_origin_tag(), next_challenge_tag);
+
+#ifndef NDEBUG
+    // Check that interacting with the poisoned element causes a runtime error
+    EXPECT_THROW(table.read(0) + table.read(2), std::runtime_error);
+#endif
+}
+
+TEST(RamTable, RamTableInitReadConsistency)
 {
     Builder builder;
 
@@ -50,7 +101,7 @@ TEST(ram_table, ram_table_init_read_consistency)
     EXPECT_EQ(verified, true);
 }
 
-TEST(ram_table, ram_table_read_write_consistency)
+TEST(RamTable, RamTableReadWriteConsistency)
 {
     Builder builder;
     const size_t table_size = 10;

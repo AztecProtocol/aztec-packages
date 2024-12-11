@@ -4,8 +4,8 @@ use crate::hash::poseidon2_hash_with_separator;
 use crate::traits::Hash;
 
 pub struct ContractClassFunctionLeafPreimage {
-    selector: FunctionSelector,
-    vk_hash: Field,
+    pub selector: FunctionSelector,
+    pub vk_hash: Field,
 }
 
 impl Hash for ContractClassFunctionLeafPreimage {

@@ -2,23 +2,23 @@ use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
         function_selector::FunctionSelector,
-        log_hash::{LogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log_hash::{LogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
+        private_log::{PrivateLog, PrivateLogData},
+        side_effect::scoped::Scoped,
     },
     address::{AztecAddress, EthAddress},
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__VK,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    proof::verification_key::VerificationKey,
     traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
-use super::utils::field::field_from_bytes;
+use super::utils::{arrays::array_concat, field::field_from_bytes};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -89,27 +89,17 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
-    // We assume contract address has already been masked
-    if log_hash.contract_address.is_zero() {
-        0
-    } else {
-        accumulate_sha256(
-            [log_hash.contract_address.to_field(), log_hash.log_hash.value],
-        )
-    }
+pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
+    poseidon2_hash([contract_address.to_field(), field])
 }
 
-pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
-    if scoped_log.contract_address.is_zero() {
-        AztecAddress::from_field(0)
-    } else if (scoped_log.log_hash.randomness == 0) {
-        scoped_log.contract_address
+pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
+    if private_log.contract_address.is_zero() {
+        private_log.inner.log
     } else {
-        AztecAddress::from_field(poseidon2_hash_with_separator(
-            [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
-            0,
-        ))
+        let mut fields = private_log.inner.log.fields;
+        fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
+        PrivateLog { fields }
     }
 }
 
@@ -127,16 +117,6 @@ pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
     poseidon2_hash([left, right])
-}
-
-pub fn stdlib_recursion_verification_key_compress_native_vk<let N: u32>(
-    _vk: VerificationKey<N>,
-) -> Field {
-    // Original cpp code
-    // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
-    // The above cpp method is only ever called on verification key, so it has been special cased here
-    let _hash_index = GENERATOR_INDEX__VK;
-    0
 }
 
 pub fn compute_l2_to_l1_hash(
@@ -158,7 +138,7 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_to_field(bytes.storage())
 }
 
 pub fn silo_l2_to_l1_message(
@@ -210,34 +190,10 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 }
 
 // Computes the final logs hash for a tx.
-// NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly.
-pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash<let N: u32>(logs: [LogHash; N]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
-    // Ideally we would push to a slice then hash, but there is no sha_slice
-    // Hardcode to 256 bytes for now
-    let mut hash = sha256_to_field(hash_input_flattened);
-    // Not having a 0 value hash for empty logs causes issues with empty txs
-    // used for padding. Returning early is currently unsupported.
-    // We always provide sorted logs here, so 0 being empty means all are empty.
-    if is_empty(logs[0]) {
-        hash = 0;
-    }
-    hash
-}
-
-pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]) -> Field {
-    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
-    for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+    let mut hash_input_flattened = [0; N * 32];
+    for offset in 0..N {
         // TODO: This is not checking that the decomposition is smaller than P
         let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
         for byte_index in 0..32 {
@@ -274,18 +230,8 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
-    let in_len = N + 1;
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-    sponge.absorb(separator.to_field());
-
-    for i in 0..inputs.len() {
-        sponge.absorb(inputs[i]);
-    }
-
-    sponge.squeeze()
+    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    poseidon2_hash(inputs_with_separator)
 }
 
 pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
@@ -307,32 +253,22 @@ where
 
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
-    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of Math.ceil(N/31)
-    let mut in_len = N / 31;
-    let mut has_padding = false;
-    if N % 31 != 0 {
-        in_len += 1;
-        has_padding = true;
-    }
-
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-
+    let mut fields = [0; (N + 30) / 31];
+    let mut field_index = 0;
     let mut current_field = [0; 31];
     for i in 0..inputs.len() {
         let index = i % 31;
         current_field[index] = inputs[i];
         if index == 30 {
-            sponge.absorb(field_from_bytes(current_field, false));
+            fields[field_index] = field_from_bytes(current_field, false);
             current_field = [0; 31];
+            field_index += 1;
         }
     }
-    if has_padding {
-        sponge.absorb(field_from_bytes(current_field, false));
+    if field_index != fields.len() {
+        fields[field_index] = field_from_bytes(current_field, false);
     }
-
-    sponge.squeeze()
+    poseidon2_hash(fields)
 }
 
 #[test]

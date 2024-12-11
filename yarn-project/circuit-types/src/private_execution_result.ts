@@ -1,16 +1,15 @@
-import {
-  EncryptedFunctionL2Logs,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
-  EncryptedNoteFunctionL2Logs,
-  Note,
-  PublicExecutionRequest,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
+import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { type ZodFor, mapSchema, schemas } from '@aztec/foundation/schemas';
+import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
+
+import { Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from './logs/index.js';
+import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**
  * The contents of a new note.
@@ -25,68 +24,68 @@ export class NoteAndSlot {
     public noteTypeId: NoteSelector,
   ) {}
 
-  toJSON() {
-    return {
-      note: this.note.toBuffer().toString('hex'),
-      storageSlot: this.storageSlot.toBuffer().toString('hex'),
-      noteTypeId: this.noteTypeId.toString(),
-    };
+  static get schema() {
+    return z
+      .object({
+        note: Note.schema,
+        storageSlot: schemas.Fr,
+        noteTypeId: schemas.NoteSelector,
+      })
+      .transform(NoteAndSlot.from);
   }
 
-  public static fromJSON(json: any): NoteAndSlot {
-    return new NoteAndSlot(
-      Note.fromBuffer(Buffer.from(json.note, 'hex')),
-      Fr.fromString(json.storageSlot),
-      NoteSelector.fromString(json.noteTypeId),
-    );
+  static from(fields: FieldsOf<NoteAndSlot>) {
+    return new NoteAndSlot(fields.note, fields.storageSlot, fields.noteTypeId);
+  }
+
+  static random() {
+    return new NoteAndSlot(Note.random(), Fr.random(), NoteSelector.random());
   }
 }
 
-export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
-  constructor(public log: TLog, public counter: number) {}
+export class CountedContractClassLog implements IsEmpty {
+  constructor(public log: UnencryptedL2Log, public counter: number) {}
+
+  static get schema() {
+    return z
+      .object({
+        log: UnencryptedL2Log.schema,
+        counter: schemas.Integer,
+      })
+      .transform(CountedContractClassLog.from);
+  }
+
+  static from(fields: { log: UnencryptedL2Log; counter: number }) {
+    return new CountedContractClassLog(fields.log, fields.counter);
+  }
 
   isEmpty(): boolean {
     return !this.log.data.length && !this.counter;
   }
 }
 
-export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
-  constructor(log: EncryptedL2NoteLog, counter: number, public noteHashCounter: number) {
-    super(log, counter);
-  }
-
-  toJSON() {
-    return {
-      log: this.log.toJSON(),
-      counter: this.counter,
-      noteHashCounter: this.noteHashCounter,
-    };
-  }
-
-  static fromJSON(json: any) {
-    return new CountedNoteLog(EncryptedL2NoteLog.fromJSON(json.log), json.counter, json.noteHashCounter);
-  }
-}
-
 export class CountedPublicExecutionRequest {
   constructor(public request: PublicExecutionRequest, public counter: number) {}
+
+  static get schema() {
+    return z
+      .object({
+        request: PublicExecutionRequest.schema,
+        counter: schemas.Integer,
+      })
+      .transform(CountedPublicExecutionRequest.from);
+  }
+
+  static from(fields: FieldsOf<CountedPublicExecutionRequest>) {
+    return new CountedPublicExecutionRequest(fields.request, fields.counter);
+  }
 
   isEmpty(): boolean {
     return this.request.isEmpty() && !this.counter;
   }
 
-  toJSON() {
-    return {
-      request: this.request.toBuffer().toString('hex'),
-      counter: this.counter,
-    };
-  }
-
-  static fromJSON(json: any) {
-    return new CountedPublicExecutionRequest(
-      PublicExecutionRequest.fromBuffer(Buffer.from(json.request, 'hex')),
-      json.counter,
-    );
+  static random() {
+    return new CountedPublicExecutionRequest(PublicExecutionRequest.random(), 0);
   }
 }
 
@@ -120,86 +119,62 @@ export class PrivateExecutionResult {
     /** Public function execution requested for teardown */
     public publicTeardownFunctionCall: PublicExecutionRequest,
     /**
-     * Encrypted note logs emitted during execution of this function call.
-     * Note: These are preimages to `noteEncryptedLogsHashes`.
+     * Contract class logs emitted during execution of this function call.
+     * Note: These are preimages to `contractClassLogsHashes`.
      */
-    public noteEncryptedLogs: CountedNoteLog[],
-    /**
-     * Encrypted logs emitted during execution of this function call.
-     * Note: These are preimages to `encryptedLogsHashes`.
-     */
-    public encryptedLogs: CountedLog<EncryptedL2Log>[],
-    /**
-     * Unencrypted logs emitted during execution of this function call.
-     * Note: These are preimages to `unencryptedLogsHashes`.
-     */
-    public unencryptedLogs: CountedLog<UnencryptedL2Log>[],
+    public contractClassLogs: CountedContractClassLog[],
   ) {}
 
-  toJSON(): any {
-    return {
-      acir: this.acir.toString('hex'),
-      vk: this.vk.toString('hex'),
-      partialWitness: Array.from(this.partialWitness.entries()),
-      publicInputs: this.publicInputs.toJSON(),
-      noteHashLeafIndexMap: Array.from(this.noteHashLeafIndexMap.entries()).map(([key, value]) => [
-        key.toString(),
-        value.toString(),
-      ]),
-      newNotes: this.newNotes.map(note => note.toJSON()),
-      noteHashNullifierCounterMap: Array.from(this.noteHashNullifierCounterMap.entries()),
-      returnValues: this.returnValues.map(fr => fr.toBuffer().toString('hex')),
-      nestedExecutions: this.nestedExecutions.map(exec => exec.toJSON()),
-      enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(call => call.toJSON()),
-      publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
-      noteEncryptedLogs: this.noteEncryptedLogs.map(log => log.toJSON()),
-      encryptedLogs: this.encryptedLogs.map(countedLog => ({
-        log: countedLog.log.toJSON(),
-        counter: countedLog.counter,
-      })),
-      unencryptedLogs: this.unencryptedLogs.map(countedLog => ({
-        log: countedLog.log.toJSON(),
-        counter: countedLog.counter,
-      })),
-    };
+  static get schema(): ZodFor<PrivateExecutionResult> {
+    return z
+      .object({
+        acir: schemas.Buffer,
+        vk: schemas.Buffer,
+        partialWitness: mapSchema(z.coerce.number(), z.string()),
+        publicInputs: PrivateCircuitPublicInputs.schema,
+        noteHashLeafIndexMap: mapSchema(schemas.BigInt, schemas.BigInt),
+        newNotes: z.array(NoteAndSlot.schema),
+        noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
+        returnValues: z.array(schemas.Fr),
+        nestedExecutions: z.array(z.lazy(() => PrivateExecutionResult.schema)),
+        enqueuedPublicFunctionCalls: z.array(CountedPublicExecutionRequest.schema),
+        publicTeardownFunctionCall: PublicExecutionRequest.schema,
+        contractClassLogs: z.array(CountedContractClassLog.schema),
+      })
+      .transform(PrivateExecutionResult.from);
   }
 
-  static fromJSON(json: any): PrivateExecutionResult {
+  static from(fields: FieldsOf<PrivateExecutionResult>) {
     return new PrivateExecutionResult(
-      Buffer.from(json.acir, 'hex'),
-      Buffer.from(json.vk, 'hex'),
-      Array.isArray(json.partialWitness)
-        ? new Map(json.partialWitness.map(([key, value]: any[]) => [Number(key), value as string]))
-        : new Map(),
-      PrivateCircuitPublicInputs.fromJSON(json.publicInputs),
-      Array.isArray(json.noteHashLeafIndexMap)
-        ? new Map(json.noteHashLeafIndexMap.map(([key, value]: any[]) => [BigInt(key), BigInt(value)]))
-        : new Map(),
-      Array.isArray(json.newNotes) ? json.newNotes.map((note: any) => NoteAndSlot.fromJSON(note)) : [],
-      Array.isArray(json.noteHashNullifierCounterMap)
-        ? new Map(json.noteHashNullifierCounterMap.map(([key, value]: any[]) => [Number(key), Number(value)]))
-        : new Map(),
-      json.returnValues.map((fr: any) => new Fr(Buffer.from(fr, 'hex'))),
-      Array.isArray(json.nestedExecutions)
-        ? json.nestedExecutions.map((exec: any) => PrivateExecutionResult.fromJSON(exec))
-        : [],
-      Array.isArray(json.enqueuedPublicFunctionCalls)
-        ? json.enqueuedPublicFunctionCalls.map((call: any) => CountedPublicExecutionRequest.fromJSON(call))
-        : [],
-      PublicExecutionRequest.fromBuffer(Buffer.from(json.publicTeardownFunctionCall, 'hex')),
-      Array.isArray(json.noteEncryptedLogs)
-        ? json.noteEncryptedLogs.map((json: any) => CountedNoteLog.fromJSON(json))
-        : [],
-      Array.isArray(json.encryptedLogs)
-        ? json.encryptedLogs.map(
-            (json: any) => new CountedLog<EncryptedL2Log>(EncryptedL2Log.fromJSON(json.log), json.counter),
-          )
-        : [],
-      Array.isArray(json.unencryptedLogs)
-        ? json.unencryptedLogs.map(
-            (json: any) => new CountedLog<UnencryptedL2Log>(UnencryptedL2Log.fromJSON(json.log), json.counter),
-          )
-        : [],
+      fields.acir,
+      fields.vk,
+      fields.partialWitness,
+      fields.publicInputs,
+      fields.noteHashLeafIndexMap,
+      fields.newNotes,
+      fields.noteHashNullifierCounterMap,
+      fields.returnValues,
+      fields.nestedExecutions,
+      fields.enqueuedPublicFunctionCalls,
+      fields.publicTeardownFunctionCall,
+      fields.contractClassLogs,
+    );
+  }
+
+  static random(nested = 1): PrivateExecutionResult {
+    return new PrivateExecutionResult(
+      randomBytes(4),
+      randomBytes(4),
+      new Map([[1, 'one']]),
+      PrivateCircuitPublicInputs.empty(),
+      new Map([[1n, 1n]]),
+      [NoteAndSlot.random()],
+      new Map([[0, 0]]),
+      [Fr.random()],
+      times(nested, () => PrivateExecutionResult.random(0)),
+      [CountedPublicExecutionRequest.random()],
+      PublicExecutionRequest.random(),
+      [new CountedContractClassLog(UnencryptedL2Log.random(), randomInt(10))],
     );
   }
 }
@@ -223,77 +198,21 @@ export function collectNoteHashNullifierCounterMap(
 }
 
 /**
- * Collect all encrypted logs across all nested executions.
+ * Collect all contract class logs across all nested executions.
  * @param execResult - The topmost execution result.
- * @returns All encrypted logs.
+ * @returns All contract class logs.
  */
-function collectNoteEncryptedLogs(
-  execResult: PrivateExecutionResult,
-  noteHashNullifierCounterMap: Map<number, number>,
-  minRevertibleSideEffectCounter: number,
-): CountedLog<EncryptedL2NoteLog>[] {
-  return [
-    execResult.noteEncryptedLogs.filter(noteLog => {
-      const nullifierCounter = noteHashNullifierCounterMap.get(noteLog.noteHashCounter);
-      return (
-        nullifierCounter === undefined ||
-        (noteLog.noteHashCounter < minRevertibleSideEffectCounter && nullifierCounter >= minRevertibleSideEffectCounter)
-      );
-    }),
-    ...execResult.nestedExecutions.flatMap(res =>
-      collectNoteEncryptedLogs(res, noteHashNullifierCounterMap, minRevertibleSideEffectCounter),
-    ),
-  ].flat();
+function collectContractClassLogs(execResult: PrivateExecutionResult): CountedContractClassLog[] {
+  return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
 }
 
 /**
- * Collect all encrypted logs across all nested executions and sorts by counter.
+ * Collect all contract class logs across all nested executions and sorts by counter.
  * @param execResult - The topmost execution result.
- * @returns All encrypted logs.
+ * @returns All contract class logs.
  */
-export function collectSortedNoteEncryptedLogs(execResult: PrivateExecutionResult): EncryptedNoteFunctionL2Logs {
-  const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(execResult);
-  const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(execResult);
-  const allLogs = collectNoteEncryptedLogs(execResult, noteHashNullifierCounterMap, minRevertibleSideEffectCounter);
-  const sortedLogs = sortByCounter(allLogs);
-  return new EncryptedNoteFunctionL2Logs(sortedLogs.map(l => l.log));
-}
-/**
- * Collect all encrypted logs across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All encrypted logs.
- */
-function collectEncryptedLogs(execResult: PrivateExecutionResult): CountedLog<EncryptedL2Log>[] {
-  return [execResult.encryptedLogs, ...execResult.nestedExecutions.flatMap(collectEncryptedLogs)].flat();
-}
-
-/**
- * Collect all encrypted logs across all nested executions and sorts by counter.
- * @param execResult - The topmost execution result.
- * @returns All encrypted logs.
- */
-export function collectSortedEncryptedLogs(execResult: PrivateExecutionResult): EncryptedFunctionL2Logs {
-  const allLogs = collectEncryptedLogs(execResult);
-  const sortedLogs = sortByCounter(allLogs);
-  return new EncryptedFunctionL2Logs(sortedLogs.map(l => l.log));
-}
-
-/**
- * Collect all unencrypted logs across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All unencrypted logs.
- */
-function collectUnencryptedLogs(execResult: PrivateExecutionResult): CountedLog<UnencryptedL2Log>[] {
-  return [execResult.unencryptedLogs, ...execResult.nestedExecutions.flatMap(collectUnencryptedLogs)].flat();
-}
-
-/**
- * Collect all unencrypted logs across all nested executions and sorts by counter.
- * @param execResult - The topmost execution result.
- * @returns All unencrypted logs.
- */
-export function collectSortedUnencryptedLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
-  const allLogs = collectUnencryptedLogs(execResult);
+export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
+  const allLogs = collectContractClassLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }

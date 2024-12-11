@@ -88,28 +88,6 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 }
 
 /**
- * @brief Test proof construction/verification for a structured execution trace
- *
- */
-TYPED_TEST(UltraHonkTests, StructuredTrace)
-{
-    auto builder = UltraCircuitBuilder();
-    size_t num_gates = 3;
-
-    // Add some arbitrary arithmetic gates that utilize public inputs
-    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
-
-    // Construct an proving_key with a structured execution trace
-    TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
-    typename TestFixture::Prover prover(proving_key);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(verifier.verify_proof(proof));
-}
-
-/**
  * @brief Test simple circuit with public inputs
  *
  */

@@ -41,11 +41,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t round = 0;
         manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_PC", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_PX", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_PY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Z1", frs_per_G);
@@ -53,15 +50,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_Z1ZERO", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Z2ZERO", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_OP", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_Y", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_PC", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_POINT_TRANSITION", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_ROUND", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_S1HI", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_S1LO", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_S2HI", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_S2LO", frs_per_G);
@@ -70,21 +61,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "PRECOMPUTE_S4HI", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_S4LO", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SKEW", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_DX", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_DY", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_TX", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_TY", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_TRANSITION", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_ADD", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_DOUBLE", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_SKEW", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_ACCUMULATOR_X", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_ACCUMULATOR_Y", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_PC", frs_per_G);
         manifest_expected.add_entry(round, "MSM_SIZE_OF_MSM", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_COUNT", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_ROUND", frs_per_G);
-        manifest_expected.add_entry(round, "MSM_ADD1", frs_per_G);
         manifest_expected.add_entry(round, "MSM_ADD2", frs_per_G);
         manifest_expected.add_entry(round, "MSM_ADD3", frs_per_G);
         manifest_expected.add_entry(round, "MSM_ADD4", frs_per_G);
@@ -108,9 +85,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "MSM_SLICE2", frs_per_G);
         manifest_expected.add_entry(round, "MSM_SLICE3", frs_per_G);
         manifest_expected.add_entry(round, "MSM_SLICE4", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_RESET_ACCUMULATOR", frs_per_G);
-        manifest_expected.add_entry(round, "PRECOMPUTE_SELECT", frs_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS_0", frs_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS_1", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_BASE_INFINITY", frs_per_G);
@@ -125,6 +100,31 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S1HI", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_DX", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_DY", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_TX", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_TY", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_TRANSITION", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ADD", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_DOUBLE", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_SKEW", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ACCUMULATOR_X", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ACCUMULATOR_Y", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_COUNT", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ROUND", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ADD1", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_PC", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_PC", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_PC", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_ROUND", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_SELECT", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
@@ -132,13 +132,17 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        for (size_t i = 0; i < log_n; i++) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
         round++;
 
+        for (size_t i = 0; i < log_n; i++) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Libra:commitment_" + idx, frs_per_G);
+        }
         manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");
@@ -160,6 +164,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         // manifest_expected.add_entry(round, "Libra:evaluation", log_n * frs_per_Fr);
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
+        manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
+        manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
 
         manifest_expected.add_challenge(round, "rho");
 
@@ -199,12 +205,25 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
+        manifest_expected.add_challenge(round, "Translation:batching_challenge");
+
+        return manifest_expected;
+    }
+
+    TranscriptManifest construct_eccvm_ipa_manifest()
+    {
+        TranscriptManifest manifest_expected;
+        // Size of types is number of bb::frs needed to represent the type
+        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
+        size_t round = 0;
         manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
-            std::string idx = std::to_string(log_n - i - 1);
+            std::string idx = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
             manifest_expected.add_entry(round, "IPA:R_" + idx, frs_per_G);
             std::string label = "IPA:round_challenge_" + idx;
@@ -212,9 +231,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
 
         round++;
+        manifest_expected.add_entry(round, "IPA:G_0", frs_per_G);
         manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fr);
-        manifest_expected.add_challenge(round, "Translation:batching_challenge");
-
         return manifest_expected;
     }
 
@@ -264,7 +282,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     ECCVMProver prover(builder);
-    auto proof = prover.construct_proof();
+    ECCVMProof proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = this->construct_eccvm_honk_manifest(prover.key->circuit_size);
@@ -273,6 +291,15 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+    }
+
+    auto ipa_manifest_expected = this->construct_eccvm_ipa_manifest();
+    auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
+
+    // Note: a manifest can be printed using manifest.print()
+    for (size_t round = 0; round < ipa_manifest_expected.size(); ++round) {
+        ASSERT_EQ(prover_ipa_manifest[round], ipa_manifest_expected[round])
+            << "IPA prover manifest discrepency in round " << round;
     }
 }
 
@@ -288,7 +315,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     ECCVMProver prover(builder);
-    auto proof = prover.construct_proof();
+    ECCVMProof proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     ECCVMVerifier verifier(prover.key);
@@ -340,24 +367,28 @@ TEST_F(ECCVMTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     ECCVMProver prover(builder);
-    auto proof = prover.construct_proof();
+    ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript();
     prover.transcript->serialize_full_transcript();
-    EXPECT_TRUE(
-        verifier.verify_proof(prover.transcript->proof_data)); // we have changed nothing so proof is still valid
+    EXPECT_TRUE(verifier.verify_proof(
+        { prover.transcript->proof_data,
+          prover.ipa_transcript->proof_data })); // we have changed nothing so proof is still valid
 
     typename Flavor::Commitment one_group_val = Flavor::Commitment::one();
     auto rand_val = Flavor::FF::random_element();
     prover.transcript->transcript_Px_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
-        prover.transcript->proof_data)); // we have not serialized it back to the proof so it should still be fine
+        { prover.transcript->proof_data, prover.ipa_transcript->proof_data })); // we have not serialized it back to the
+                                                                                // proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
-    EXPECT_FALSE(verifier.verify_proof(prover.transcript->proof_data)); // the proof is now wrong after serializing it
+    EXPECT_FALSE(
+        verifier.verify_proof({ prover.transcript->proof_data,
+                                prover.ipa_transcript->proof_data })); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript();
     EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript->transcript_Px_comm),

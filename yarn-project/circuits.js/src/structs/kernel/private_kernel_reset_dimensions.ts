@@ -11,7 +11,7 @@ export class PrivateKernelResetDimensions {
     public TRANSIENT_DATA_AMOUNT: number,
     public NOTE_HASH_SILOING_AMOUNT: number,
     public NULLIFIER_SILOING_AMOUNT: number,
-    public ENCRYPTED_LOG_SILOING_AMOUNT: number,
+    public PRIVATE_LOG_SILOING_AMOUNT: number,
   ) {}
 
   toBuffer() {
@@ -24,7 +24,7 @@ export class PrivateKernelResetDimensions {
       this.TRANSIENT_DATA_AMOUNT,
       this.NOTE_HASH_SILOING_AMOUNT,
       this.NULLIFIER_SILOING_AMOUNT,
-      this.ENCRYPTED_LOG_SILOING_AMOUNT,
+      this.PRIVATE_LOG_SILOING_AMOUNT,
     );
   }
 
@@ -65,7 +65,7 @@ export const privateKernelResetDimensionNames: DimensionName[] = [
   'TRANSIENT_DATA_AMOUNT',
   'NOTE_HASH_SILOING_AMOUNT',
   'NULLIFIER_SILOING_AMOUNT',
-  'ENCRYPTED_LOG_SILOING_AMOUNT',
+  'PRIVATE_LOG_SILOING_AMOUNT',
 ];
 
 export interface DimensionConfig {

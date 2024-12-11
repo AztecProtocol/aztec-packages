@@ -20,7 +20,7 @@ import {
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
@@ -45,7 +45,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 import {
@@ -79,10 +79,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
-    private log = createDebugLogger('aztec:bb-native-prover'),
+    private log = createLogger('bb-prover:native'),
   ) {}
 
-  public static async new(config: BBConfig, log?: DebugLogger) {
+  public static async new(config: BBConfig, log?: Logger) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
   }
@@ -105,6 +105,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       path.join(directory, 'acir.msgpack'),
       path.join(directory, 'witnesses.msgpack'),
       this.log.info,
+      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -276,7 +277,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await promise;
   }
 
-  private async simulate<I extends { toBuffer: () => Buffer }, O extends { toBuffer: () => Buffer }>(
+  private async simulate<
+    I extends { toBuffer: () => Buffer },
+    O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+  >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
     convertInputs: (inputs: I) => WitnessMap,
@@ -335,7 +339,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
 
     if (vkResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate proof for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
+      this.log.error(`Failed to generate verification key for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
       throw new Error(vkResult.reason);
     }
 

@@ -281,8 +281,7 @@ impl<'interner> TokenPrettyPrinter<'interner> {
             | Token::Whitespace(_)
             | Token::LineComment(..)
             | Token::BlockComment(..)
-            | Token::Attribute(..)
-            | Token::InnerAttribute(..)
+            | Token::AttributeStart { .. }
             | Token::Invalid(_) => {
                 if last_was_alphanumeric {
                     write!(f, " ")?;
@@ -662,7 +661,7 @@ fn remove_interned_in_literal(interner: &NodeInterner, literal: Literal) -> Lite
         | Literal::Integer(_, _)
         | Literal::Str(_)
         | Literal::RawStr(_, _)
-        | Literal::FmtStr(_)
+        | Literal::FmtStr(_, _)
         | Literal::Unit => literal,
     }
 }

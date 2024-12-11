@@ -43,7 +43,7 @@ export class SStore extends BaseStorageInstruction {
 
     const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
-    context.persistableState.writeStorage(context.environment.address, slot, value);
+    await context.persistableState.writeStorage(context.environment.address, slot, value);
 
     memory.assert({ reads: 2, addressing });
   }

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
 namespace bb {
 /**
@@ -51,6 +53,30 @@ template <typename Curve> class OpeningClaim {
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
+    IPAClaimIndices get_witness_indices() const
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        return { opening_pair.challenge.binary_basis_limbs[0].element.normalize().witness_index,
+                 opening_pair.challenge.binary_basis_limbs[1].element.normalize().witness_index,
+                 opening_pair.challenge.binary_basis_limbs[2].element.normalize().witness_index,
+                 opening_pair.challenge.binary_basis_limbs[3].element.normalize().witness_index,
+                 opening_pair.evaluation.binary_basis_limbs[0].element.normalize().witness_index,
+                 opening_pair.evaluation.binary_basis_limbs[1].element.normalize().witness_index,
+                 opening_pair.evaluation.binary_basis_limbs[2].element.normalize().witness_index,
+                 opening_pair.evaluation.binary_basis_limbs[3].element.normalize().witness_index,
+                 commitment.x.normalize().witness_index, // no idea if we need these normalize() calls...
+                 commitment.y.normalize().witness_index };
+    }
+
+    auto get_native_opening_claim() const
+        requires(Curve::is_stdlib_type)
+    {
+        return OpeningClaim<typename Curve::NativeCurve>{
+            { static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.challenge.get_value()),
+              static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.evaluation.get_value()) },
+            commitment.get_value()
+        };
+    }
     /**
      * @brief inefficiently check that the claim is correct by recomputing the commitment
      * and evaluating the polynomial in r.

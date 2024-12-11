@@ -41,7 +41,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
-    using Flavor = AvmFlavor;
+    using Flavor = bb::avm::AvmFlavor;
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
     assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
@@ -149,14 +149,15 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
-AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
-                                                          const RecursionConstraint& input,
-                                                          AggregationObjectIndices input_aggregation_object_indices,
-                                                          bool has_valid_witness_assignments)
+PairingPointAccumulatorIndices create_avm_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    bool has_valid_witness_assignments)
 {
     using Flavor = AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
-    using RecursiveVerifier = AvmRecursiveVerifier_<Flavor>;
+    using RecursiveVerifier = bb::avm::AvmRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == AVM);
 

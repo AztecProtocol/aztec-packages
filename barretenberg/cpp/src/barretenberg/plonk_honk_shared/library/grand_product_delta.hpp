@@ -48,6 +48,9 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     // Note: The public inputs may be offset from the 0th index of the wires, for example due to the inclusion of an
     // initial zero row or Goblin-stlye ECC op gates. Accordingly, the indices i in the above formulas are given by i =
     // [0, m-1] + offset, i.e. i = offset, 1 + offset, …, m - 1 + offset.
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
+    // delta in the face of increases to virtual size caused by execution trace overflow
     Field numerator_acc = gamma + (beta * Field(domain_size + offset));
     Field denominator_acc = gamma - beta * Field(1 + offset);
 

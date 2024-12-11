@@ -33,8 +33,8 @@ using namespace bb::join_split_example::proofs::notes::native;
 using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
 auto create_account_leaf_data(fr const& account_alias_hash,
-                              grumpkin::g1::affine_element const& owner_key,
-                              grumpkin::g1::affine_element const& signing_key)
+                              bb::grumpkin::g1::affine_element const& owner_key,
+                              bb::grumpkin::g1::affine_element const& signing_key)
 {
     return notes::native::account::account_note{ account_alias_hash, owner_key, signing_key }.commit();
 }
@@ -868,7 +868,7 @@ TEST_P(test_allow_chain_to_other_users_fail, )
 {
     join_split_tx tx = simple_setup();
     tx.allow_chain = GetParam();
-    tx.output_note[tx.allow_chain - 1].owner = grumpkin::g1::element::random_element(); // i.e. not owned by self.
+    tx.output_note[tx.allow_chain - 1].owner = bb::grumpkin::g1::element::random_element(); // i.e. not owned by self.
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
     EXPECT_EQ(result.err, "inter-user chaining disallowed");
@@ -1027,7 +1027,7 @@ TEST_F(join_split_tests, test_total_output_value_larger_than_total_input_value_f
 TEST_F(join_split_tests, test_different_input_note_owners_fails)
 {
     join_split_tx tx = simple_setup({ 1, 2 });
-    tx.input_note[0].owner = grumpkin::g1::affine_element::hash_to_curve({ 1 });
+    tx.input_note[0].owner = bb::grumpkin::g1::affine_element::hash_to_curve({ 1 });
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -1072,7 +1072,7 @@ TEST_F(join_split_tests, test_different_note_account_required_vs_account_require
 TEST_F(join_split_tests, test_wrong_input_note_owner_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.input_note[0].owner = grumpkin::g1::element::random_element();
+    tx.input_note[0].owner = bb::grumpkin::g1::element::random_element();
     tx.input_note[1].owner = tx.input_note[0].owner;
 
     auto result = sign_and_verify_logic(tx, user.owner);
@@ -1083,8 +1083,8 @@ TEST_F(join_split_tests, test_wrong_input_note_owner_fails)
 TEST_F(join_split_tests, test_random_output_note_owners)
 {
     join_split_tx tx = simple_setup();
-    tx.output_note[0].owner = grumpkin::g1::element::random_element();
-    tx.output_note[1].owner = grumpkin::g1::element::random_element();
+    tx.output_note[0].owner = bb::grumpkin::g1::element::random_element();
+    tx.output_note[1].owner = bb::grumpkin::g1::element::random_element();
 
     EXPECT_TRUE(sign_and_verify_logic(tx, user.owner).valid);
 }
@@ -1096,7 +1096,7 @@ TEST_F(join_split_tests, test_random_output_note_owners)
 TEST_F(join_split_tests, test_wrong_account_private_key_fails)
 {
     join_split_tx tx = simple_setup();
-    tx.account_private_key = grumpkin::fr::random_element();
+    tx.account_private_key = bb::grumpkin::fr::random_element();
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);

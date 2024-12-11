@@ -16,6 +16,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
+import { type AvmEphemeralForest } from '../avm_tree.js';
 import { type AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
@@ -42,6 +43,8 @@ export function initPersistableStateManager(overrides?: {
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
+  doMerkleOperations?: boolean;
+  merkleTrees?: AvmEphemeralForest;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -49,6 +52,8 @@ export function initPersistableStateManager(overrides?: {
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
+    overrides?.doMerkleOperations || false,
+    overrides?.merkleTrees || mock<AvmEphemeralForest>(),
   );
 }
 
@@ -59,7 +64,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),

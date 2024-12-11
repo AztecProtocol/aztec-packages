@@ -10,19 +10,22 @@ import {
 } from '@aztec/circuits.js';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
+import { z } from 'zod';
 
-export type PrivateKernelProverProfileResult = {
-  gateCounts: { circuitName: string; gateCount: number }[];
-};
+export const PrivateKernelProverProfileResultSchema = z.object({
+  gateCounts: z.array(z.object({ circuitName: z.string(), gateCount: z.number() })),
+});
+
+export type PrivateKernelProverProfileResult = z.infer<typeof PrivateKernelProverProfileResultSchema>;
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
-export type PrivateKernelSimulateOutput<PublicInputsType> = {
-  /**
-   * The public inputs required for the proof generation process.
-   */
+export type PrivateKernelSimulateOutput<
+  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+> = {
+  /** The public inputs required for the proof generation process. */
   publicInputs: PublicInputsType;
 
   clientIvcProof?: ClientIvcProof;

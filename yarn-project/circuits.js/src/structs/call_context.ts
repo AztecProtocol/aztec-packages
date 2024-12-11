@@ -1,8 +1,12 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { inspect } from 'util';
+import { z } from 'zod';
 
 import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
 
@@ -35,6 +39,26 @@ export class CallContext {
    */
   public static empty(): CallContext {
     return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false);
+  }
+
+  static random() {
+    return new CallContext(
+      AztecAddress.random(),
+      AztecAddress.random(),
+      FunctionSelector.random(),
+      Math.random() > 0.5,
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        msgSender: schemas.AztecAddress,
+        contractAddress: schemas.AztecAddress,
+        functionSelector: schemas.FunctionSelector,
+        isStaticCall: z.boolean(),
+      })
+      .transform(CallContext.from);
   }
 
   isEmpty() {
@@ -101,5 +125,14 @@ export class CallContext {
       callContext.functionSelector.equals(this.functionSelector) &&
       callContext.isStaticCall === this.isStaticCall
     );
+  }
+
+  [inspect.custom]() {
+    return `CallContext {
+      msgSender: ${this.msgSender}
+      contractAddress: ${this.contractAddress}
+      functionSelector: ${this.functionSelector}
+      isStaticCall: ${this.isStaticCall}
+    }`;
   }
 }

@@ -1,8 +1,5 @@
-import { Fr, FunctionSelector, Gas, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
-import { gasLeftToGas } from '../avm_gas.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -46,7 +43,6 @@ abstract class ExternalCall extends Instruction {
 
     const callAddress = memory.getAs<Field>(addrOffset);
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    const functionSelector = new Fr(PUBLIC_DISPATCH_SELECTOR);
     // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
@@ -63,15 +59,10 @@ abstract class ExternalCall extends Instruction {
     const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
     context.machineState.consumeGas(allocatedGas);
 
-    const nestedContext = context.createNestedContractCallContext(
-      callAddress.toFr(),
-      calldata,
-      allocatedGas,
-      callType,
-      FunctionSelector.fromField(functionSelector),
-    );
+    const aztecAddress = callAddress.toAztecAddress();
+    const nestedContext = context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = new AvmSimulator(nestedContext);
+    const simulator = await AvmSimulator.build(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 
@@ -95,18 +86,14 @@ abstract class ExternalCall extends Instruction {
     memory.set(successOffset, new Uint1(success ? 1 : 0));
 
     // Refund unused gas
-    context.machineState.refundGas(gasLeftToGas(nestedContext.machineState));
+    context.machineState.refundGas(nestedCallResults.gasLeft);
 
-    // Accept the nested call's state and trace the nested call
-    await context.persistableState.processNestedCall(
-      /*nestedState=*/ nestedContext.persistableState,
-      /*nestedEnvironment=*/ nestedContext.environment,
-      /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*endGasLeft=*/ Gas.from(nestedContext.machineState.gasLeft),
-      /*bytecode=*/ simulator.getBytecode()!,
-      /*avmCallResults=*/ nestedCallResults,
-    );
-
+    // Merge nested call's state and trace based on whether it succeeded.
+    if (success) {
+      context.persistableState.merge(nestedContext.persistableState);
+    } else {
+      context.persistableState.reject(nestedContext.persistableState);
+    }
     memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
   }
 
@@ -142,22 +129,25 @@ export class Return extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private returnOffset: number, private copySize: number) {
+  constructor(private indirect: number, private returnOffset: number, private returnSizeOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(this.copySize));
 
-    const operands = [this.returnOffset];
+    const operands = [this.returnOffset, this.returnSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [returnOffset] = addressing.resolve(operands, memory);
+    const [returnOffset, returnSizeOffset] = addressing.resolve(operands, memory);
 
-    const output = memory.getSlice(returnOffset, this.copySize).map(word => word.toFr());
+    memory.checkTag(TypeTag.UINT32, returnSizeOffset);
+    const returnSize = memory.get(returnSizeOffset).toNumber();
+    context.machineState.consumeGas(this.gasCost(returnSize));
+
+    const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
-    memory.assert({ reads: this.copySize, addressing });
+    memory.assert({ reads: returnSize + 1, addressing });
   }
 
   public override handlesPC(): boolean {

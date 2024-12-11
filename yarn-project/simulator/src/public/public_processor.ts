@@ -6,47 +6,38 @@ import {
   type ProcessedTx,
   type ProcessedTxHandler,
   Tx,
+  TxExecutionPhase,
   type TxValidator,
-  makeProcessedTx,
-  validateProcessedTx,
+  makeProcessedTxFromPrivateOnlyTx,
+  makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import {
-  ContractClassRegisteredEvent,
+  type AztecAddress,
+  type BlockHeader,
   type ContractDataSource,
+  Fr,
   type GlobalVariables,
-  type Header,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
-import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { type SimulationProvider } from '../providers/index.js';
-import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
-import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
-import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(
-    private contractDataSource: ContractDataSource,
-    private simulator: SimulationProvider,
-    private telemetryClient: TelemetryClient,
-  ) {}
+  constructor(private contractDataSource: ContractDataSource, private telemetryClient: TelemetryClient) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -56,23 +47,26 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: Header | undefined,
+    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
-    const { telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicExecutor = new PublicExecutor(worldStateDB, telemetryClient);
-    const publicKernelSimulator = new RealPublicKernelCircuitSimulator(this.simulator);
-
-    return PublicProcessor.create(
+    const publicTxSimulator = new PublicTxSimulator(
       merkleTree,
-      publicExecutor,
-      publicKernelSimulator,
+      worldStateDB,
+      this.telemetryClient,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+    );
+
+    return new PublicProcessor(
+      merkleTree,
       globalVariables,
       historicalHeader,
       worldStateDB,
+      publicTxSimulator,
       this.telemetryClient,
     );
   }
@@ -86,46 +80,14 @@ export class PublicProcessor {
   private metrics: PublicProcessorMetrics;
   constructor(
     protected db: MerkleTreeWriteOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
-    protected enqueuedCallsProcessor: EnqueuedCallsProcessor,
+    protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
-    private log = createDebugLogger('aztec:sequencer:public-processor'),
+    private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-  }
-
-  static create(
-    db: MerkleTreeWriteOperations,
-    publicExecutor: PublicExecutor,
-    publicKernelSimulator: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-  ) {
-    const enqueuedCallsProcessor = EnqueuedCallsProcessor.create(
-      db,
-      publicExecutor,
-      publicKernelSimulator,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-    );
-
-    return new PublicProcessor(
-      db,
-      publicExecutor,
-      publicKernelSimulator,
-      globalVariables,
-      historicalHeader,
-      worldStateDB,
-      enqueuedCallsProcessor,
-      telemetryClient,
-    );
   }
 
   get tracer(): Tracer {
@@ -157,21 +119,17 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs())]
+          ? await this.processPrivateOnlyTx(tx)
           : await this.processTxWithPublicCalls(tx);
         this.log.debug(`Processed tx`, {
           txHash: processedTx.hash,
-          historicalHeaderHash: processedTx.data.constants.historicalHeader.hash(),
-          blockNumber: processedTx.data.constants.globalVariables.blockNumber,
-          lastArchiveRoot: processedTx.data.constants.historicalHeader.lastArchive.root,
+          historicalHeaderHash: processedTx.constants.historicalHeader.hash(),
+          blockNumber: processedTx.constants.globalVariables.blockNumber,
+          lastArchiveRoot: processedTx.constants.historicalHeader.lastArchive.root,
         });
-
-        // Set fee payment update request into the processed tx
-        processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
 
         // Commit the state updates from this transaction
         await this.worldStateDB.commit();
-        validateProcessedTx(processedTx);
 
         // Re-validate the transaction
         if (txValidator) {
@@ -194,11 +152,14 @@ export class PublicProcessor {
         // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
         // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
         // The below is taken from buildBaseRollupHints:
-        await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, processedTx.data.end.noteHashes);
+        await this.db.appendLeaves(
+          MerkleTreeId.NOTE_HASH_TREE,
+          padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+        );
         try {
           await this.db.batchInsert(
             MerkleTreeId.NULLIFIER_TREE,
-            processedTx.data.end.nullifiers.map(n => n.toBuffer()),
+            padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
             NULLIFIER_SUBTREE_HEIGHT,
           );
         } catch (error) {
@@ -211,18 +172,9 @@ export class PublicProcessor {
           }
         }
 
-        const allPublicDataUpdateRequests = padArrayEnd(
-          processedTx.finalPublicDataUpdateRequests,
-          PublicDataUpdateRequest.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
-        const allPublicDataWrites = allPublicDataUpdateRequests.map(
-          ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
-        );
-        await this.db.batchInsert(
+        await this.db.sequentialInsert(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          allPublicDataWrites.map(x => x.toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
+          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
         );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
@@ -247,45 +199,61 @@ export class PublicProcessor {
    * request for updating fee balance. It also updates the local public state db.
    * See build_or_patch_payment_update_request in base_rollup_inputs.nr for more details.
    */
-  private async createFinalDataUpdateRequests(tx: ProcessedTx) {
-    const finalPublicDataUpdateRequests = [
-      ...tx.data.end.publicDataUpdateRequests,
-      ...times(PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataUpdateRequest.empty()),
-    ];
-
-    const feePayer = tx.data.feePayer;
+  private async getFeePaymentPublicDataWrite(
+    publicDataWrites: PublicDataWrite[],
+    txFee: Fr,
+    feePayer: AztecAddress,
+  ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
-      return finalPublicDataUpdateRequests;
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      return;
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
-    const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
 
-    this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const existingBalanceWriteIndex = finalPublicDataUpdateRequests.findIndex(request =>
-      request.leafSlot.equals(leafSlot),
-    );
+    const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
 
-    const balance =
-      existingBalanceWriteIndex > -1
-        ? finalPublicDataUpdateRequests[existingBalanceWriteIndex].newValue
-        : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = existingBalanceWrite
+      ? existingBalanceWrite.value
+      : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
-      throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
+      throw new Error(
+        `Not enough balance for fee payer to pay for transaction (got ${balance.toBigInt()} needs ${txFee.toBigInt()})`,
+      );
     }
 
     const updatedBalance = balance.sub(txFee);
     await this.worldStateDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
-    finalPublicDataUpdateRequests[
-      existingBalanceWriteIndex > -1 ? existingBalanceWriteIndex : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    ] = new PublicDataUpdateRequest(leafSlot, updatedBalance, 0);
+    return new PublicDataWrite(leafSlot, updatedBalance);
+  }
 
-    return finalPublicDataUpdateRequests;
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
+  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
+    const gasFees = this.globalVariables.gasFees;
+    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
+
+    const accumulatedData = tx.data.forRollup!.end;
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
+      accumulatedData.publicDataWrites,
+      transactionFee,
+      tx.data.feePayer,
+    );
+
+    const processedTx = makeProcessedTxFromPrivateOnlyTx(
+      tx,
+      transactionFee,
+      feePaymentPublicDataWrite,
+      this.globalVariables,
+    );
+    return [processedTx];
   }
 
   @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
@@ -294,12 +262,12 @@ export class PublicProcessor {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, tailKernelOutput, returnValues, revertReason, gasUsed, processedPhases } =
-      await this.enqueuedCallsProcessor.process(tx);
+    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+      await this.publicTxSimulator.simulate(tx);
 
-    if (!tailKernelOutput) {
+    if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
-      throw new Error('Final public kernel was not executed.');
+      throw new Error('Avm proving result was not generated.');
     }
 
     processedPhases.forEach(phase => {
@@ -311,16 +279,34 @@ export class PublicProcessor {
     });
 
     this.metrics.recordClassRegistration(
-      ...ContractClassRegisteredEvent.fromLogs(
-        tx.unencryptedLogs.unrollLogs(),
-        ProtocolContractAddress.ContractClassRegisterer,
-      ),
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
 
     const phaseCount = processedPhases.length;
-    this.metrics.recordTx(phaseCount, timer.ms());
+    const durationMs = timer.ms();
+    this.metrics.recordTx(phaseCount, durationMs);
 
-    const processedTx = makeProcessedTx(tx, tailKernelOutput, { avmProvingRequest, revertReason, gasUsed });
+    const data = avmProvingRequest.inputs.output;
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
+      data.accumulatedData.publicDataWrites,
+      data.transactionFee,
+      tx.data.feePayer,
+    );
+
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      avmProvingRequest,
+      feePaymentPublicDataWrite,
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
+
+    const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+
     return [processedTx, returnValues];
   }
 }

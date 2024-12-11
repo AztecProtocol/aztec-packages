@@ -1,22 +1,22 @@
 use crate::{
     abis::{
         accumulated_data::{
-            CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-            PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder,
+            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
+            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
+        avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
-        enqueued_call_data::{EnqueuedCallData, Proof},
         function_data::FunctionData,
-        function_selector::FunctionSelector,
         gas::Gas,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
             KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
-            PublicKernelCircuitPublicInputs, VMCircuitPublicInputs,
+            PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        log::Log,
+        log_hash::{LogHash, ScopedLogHash},
         max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -24,41 +24,35 @@ use crate::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         private_kernel_data::PrivateKernelData,
-        public_call_data::{Proof as PublicCallDataProof, PublicCallData},
+        private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
-        public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
-        public_inner_call_request::PublicInnerCallRequest,
-        public_kernel_data::PublicKernelData,
+        public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
-        tree_leaf_read_request::TreeLeafReadRequest,
+        side_effect::{Counted, scoped::Scoped},
+        tube::{PrivateTubeData, PublicTubeData},
+        tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            PublicValidationRequestArrayLengths, PublicValidationRequests, RollupValidationRequests,
-            ScopedKeyValidationRequestAndGenerator,
+            RollupValidationRequests, ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
-        FUNCTION_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-        PRIVATE_CALL_REQUEST_LENGTH, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        VK_TREE_HEIGHT,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
-        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_tx_logs_hash,
-        mask_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash,
+        compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
+        silo_note_hash,
     },
-    header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
@@ -87,102 +81,91 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     let len = vec.len();
     for i in 0..N {
         if i < len {
-            reversed.push(vec.storage[len - i - 1]);
+            reversed.push(vec.get_unchecked(len - i - 1));
         }
     }
     reversed
 }
 
 pub struct FixtureBuilder {
-    contract_address: AztecAddress,
-    msg_sender: AztecAddress,
-    is_static_call: bool,
+    pub contract_address: AztecAddress,
+    pub msg_sender: AztecAddress,
+    pub is_static_call: bool,
 
     // Fees.
-    is_fee_payer: bool,
-    fee_payer: AztecAddress,
-    public_teardown_call_request: PublicCallRequest,
-    transaction_fee: Field,
-    start_gas_left: Gas,
-    end_gas_left: Gas,
+    pub is_fee_payer: bool,
+    pub fee_payer: AztecAddress,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub transaction_fee: Field,
+    pub start_gas_left: Gas,
+    pub end_gas_left: Gas,
 
     // Constant data.
-    historical_header: Header,
-    tx_context: TxContext,
-    global_variables: GlobalVariables,
+    pub historical_header: BlockHeader,
+    pub tx_context: TxContext,
+    pub global_variables: GlobalVariables,
 
     // Accumulated data.
-    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
-    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
-    note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
-    note_encrypted_logs_hash: Field,
-    encrypted_logs_hash: Field,
-    unencrypted_logs_hash: Field,
-    note_encrypted_log_preimages_length: Field,
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
-    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
-    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    public_inner_call_requests: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    gas_used: Gas,
-    revert_code: u8,
+    pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub unencrypted_log_preimages_length: Field,
+    pub contract_class_log_preimages_length: Field,
+    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
+    pub gas_used: Gas,
+    pub revert_code: u8,
 
     // Validation requests.
-    max_block_number: MaxBlockNumber,
-    note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    note_hash_tree_leaf_read_requests: BoundedVec<TreeLeafReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    l1_to_l2_msg_read_requests: BoundedVec<TreeLeafReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
-    scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-    public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
-    contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
-    validation_requests_split_counter: Option<u32>,
+    pub max_block_number: MaxBlockNumber,
+    pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub validation_requests_split_counter: Option<u32>,
 
     // Function.
-    function_data: FunctionData,
-    args_hash: Field,
-    returns_hash: Field,
+    pub function_data: FunctionData,
+    pub args_hash: Field,
+    pub returns_hash: Field,
 
     // Private call.
-    salted_initialization_hash: SaltedInitializationHash,
-    public_keys: PublicKeys,
-    contract_class_artifact_hash: Field,
-    contract_class_public_bytecode_commitment: Field,
-    function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    acir_hash: Field,
+    pub salted_initialization_hash: SaltedInitializationHash,
+    pub public_keys: PublicKeys,
+    pub contract_class_artifact_hash: Field,
+    pub contract_class_public_bytecode_commitment: Field,
+    pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+    pub acir_hash: Field,
 
     // Public call.
-    bytecode_hash: Field,
-    prover_address: AztecAddress,
+    pub bytecode_hash: Field,
+    pub prover_address: AztecAddress,
 
     // Proof.
-    proof: NestedRecursiveProof,
-    honk_vk: HonkVerificationKey,
-    client_ivc_vk: ClientIVCVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
-    vk_tree_root: Field,
+    pub proof: NestedRecursiveProof,
+    pub honk_vk: HonkVerificationKey,
+    pub client_ivc_vk: ClientIVCVerificationKey,
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
+    pub vk_tree_root: Field,
 
     // Protocol contracts.
-    protocol_contract_tree_root: Field,
-    protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+    pub protocol_contract_tree_root: Field,
+    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
     // Counters.
-    min_revertible_side_effect_counter: u32,
-    counter_start: u32,
-    counter: u32,
+    pub min_revertible_side_effect_counter: u32,
+    pub counter_start: u32,
+    pub counter: u32,
 
     // States.
-    start_state: PartialStateReference,
+    pub start_state: PartialStateReference,
 
     // Mock data.
-    value_offset: Field,
+    pub value_offset: Field,
 }
 
 impl FixtureBuilder {
@@ -205,7 +188,10 @@ impl FixtureBuilder {
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
-        builder.use_contract(contract_data).use_function(contract_function)
+        builder.use_contract(contract_data).use_function(
+            contract_function,
+            fixtures::contract_functions::default_vk,
+        )
     }
 
     pub fn as_parent_contract(&mut self) -> Self {
@@ -248,7 +234,7 @@ impl FixtureBuilder {
         let _ = self.use_contract(contract_data);
         self.contract_address = AztecAddress::from_field(contract_index as Field);
 
-        self.use_function(function_data)
+        self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
 
     pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
@@ -261,17 +247,15 @@ impl FixtureBuilder {
         *self
     }
 
-    pub fn use_function(&mut self, function_data: ContractFunction) -> Self {
+    pub fn use_function(
+        &mut self,
+        function_data: ContractFunction,
+        vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS],
+    ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
         self.acir_hash = function_data.acir_hash;
-        *self
-    }
-
-    pub fn is_public_function(&mut self) -> Self {
-        let contract_function = fixtures::contract_functions::default_public_function;
-        self.function_data = contract_function.data;
-        self.bytecode_hash = contract_function.acir_hash;
+        self.client_ivc_vk = VerificationKey { key: vk, hash: function_data.vk_hash };
         *self
     }
 
@@ -283,6 +267,19 @@ impl FixtureBuilder {
     pub fn is_first_call(&mut self) -> Self {
         self.msg_sender = AztecAddress::from_field(MAX_FIELD_VALUE);
         *self
+    }
+
+    pub fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
+
+    pub fn to_tx_constant_data(self) -> TxConstantData {
+        TxConstantData {
+            historical_header: self.historical_header,
+            tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+        }
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
@@ -331,35 +328,34 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(self.note_hash_read_requests.storage.map(
+            note_hash_read_requests: subarray(self.note_hash_read_requests.storage().map(
                 |r: ScopedReadRequest| r.read_request,
             )),
-            nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(
+            nullifier_read_requests: subarray(self.nullifier_read_requests.storage().map(
                 |r: ScopedReadRequest| r.read_request,
             )),
             key_validation_requests_and_generators: subarray(self
                 .scoped_key_validation_requests_and_generators
-                .storage
+                .storage()
                 .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
             note_hashes: subarray(
-                self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
+                self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
             ),
             nullifiers: subarray(
-                self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
+                self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
             ),
-            private_call_requests: subarray(self.private_call_requests.storage),
-            public_call_requests: subarray(self.public_call_requests.storage),
+            private_call_requests: subarray(self.private_call_requests.storage()),
+            public_call_requests: subarray(self.public_call_requests.storage()),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| {
+            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage().map(|r: ScopedL2ToL1Message| {
                 r.message
             })),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage),
-            encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage.map(
-                |l: ScopedEncryptedLogHash| l.log_hash,
-            )),
-            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(
+            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                l.inner
+            })),
+            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.log_hash,
             )),
             historical_header: self.historical_header,
@@ -387,9 +383,8 @@ impl FixtureBuilder {
             note_hashes: self.note_hashes,
             nullifiers: self.nullifiers,
             l2_to_l1_msgs: self.l2_to_l1_msgs,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
-            encrypted_logs_hashes: self.encrypted_logs_hashes,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
+            private_logs: self.private_logs,
+            contract_class_logs_hashes: self.contract_class_logs_hashes,
             public_call_requests: self.public_call_requests,
             private_call_stack: vec_reverse(self.private_call_requests),
         }
@@ -401,125 +396,74 @@ impl FixtureBuilder {
 
     pub fn to_public_call_request(self) -> PublicCallRequest {
         PublicCallRequest {
-            call_context: self.build_call_context(),
+            msg_sender: self.msg_sender,
+            contract_address: self.contract_address,
+            function_selector: self.function_data.selector,
+            is_static_call: self.is_static_call,
             args_hash: self.args_hash,
-            counter: 0,
         }
     }
 
-    pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
-        let nullifiers = BoundedVec {
-            storage: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
-            len: self.nullifiers.len(),
-        };
-        let note_encrypted_logs_hashes = BoundedVec {
-            storage: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| {
-                LogHash { value: l.value, counter: l.counter, length: l.length }
-            }),
-            len: self.note_encrypted_logs_hashes.len(),
-        };
-        let encrypted_logs_hashes = BoundedVec {
-            storage: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| {
-                ScopedLogHash {
-                    log_hash: LogHash {
-                        value: l.log_hash.value,
-                        counter: l.log_hash.counter,
-                        length: l.log_hash.length,
-                    },
-                    contract_address: l.contract_address,
-                }
-            }),
-            len: self.encrypted_logs_hashes.len(),
-        };
-
-        PublicAccumulatedDataBuilder {
-            note_hashes: self.note_hashes,
-            nullifiers,
-            l2_to_l1_msgs: self.l2_to_l1_msgs,
-            note_encrypted_logs_hashes,
-            encrypted_logs_hashes,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
-            public_data_update_requests: self.public_data_update_requests,
-            public_call_stack: self.public_call_requests,
-            gas_used: self.gas_used,
-        }
-    }
-
-    pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
-        self.to_public_accumulated_data_builder().finish()
-    }
-
-    pub fn to_exposed_public_accumulated_data(self) -> PublicAccumulatedData {
-        PublicAccumulatedData {
-            note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.expose_to_public()),
-            nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.expose_to_public()),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| {
+    pub fn to_private_to_public_accumulated_data(self) -> PrivateToPublicAccumulatedData {
+        PrivateToPublicAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.value()),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.value()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(
-                |l: NoteLogHash| l.expose_to_public(),
+            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
+                |l: ScopedLogHash| l.expose_to_public(),
             ),
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(
-                |l: ScopedEncryptedLogHash| l.expose_to_public(),
+            public_call_requests: self.public_call_requests.storage().map(
+                |cr: Counted<PublicCallRequest>| cr.inner,
             ),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
-            public_data_update_requests: self.public_data_update_requests.storage,
-            public_call_stack: self.public_call_requests.storage.map(|cr: PublicCallRequest| {
-                cr.expose_to_public()
-            }),
-            gas_used: self.gas_used,
         }
     }
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(
-                |l: NoteLogHash| l.expose_to_public(),
-            ),
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(
-                |l: ScopedEncryptedLogHash| l.expose_to_public(),
-            ),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| {
+            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
                 l.expose_to_public()
             }),
-            note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
+                |l: ScopedLogHash| l.expose_to_public(),
+            ),
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: self.public_data_update_requests.storage,
-            gas_used: self.gas_used,
+            contract_class_log_preimages_length: self.contract_class_log_preimages_length,
+            public_data_writes: self.public_data_writes.storage(),
         }
     }
 
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage(),
+            nullifier_read_requests: self.nullifier_read_requests.storage(),
             scoped_key_validation_requests_and_generators: self
                 .scoped_key_validation_requests_and_generators
-                .storage,
+                .storage(),
             split_counter: self.validation_requests_split_counter,
         }
     }
 
     pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
+        let constants = self.to_tx_constant_data();
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_private_validation_requests();
-        let constants = self.to_constant_data();
         let public_teardown_call_request = self.public_teardown_call_request;
 
         PrivateKernelCircuitPublicInputs {
+            constants,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end,
             validation_requests,
-            constants,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
         }
@@ -535,126 +479,31 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_public_circuit_public_inputs(self) -> PublicCircuitPublicInputs {
-        PublicCircuitPublicInputs {
-            call_context: self.build_call_context(),
-            args_hash: self.args_hash,
-            returns_hash: self.returns_hash,
-            note_hash_read_requests: subarray(self.note_hash_tree_leaf_read_requests.storage),
-            nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
-            nullifier_non_existent_read_requests: subarray(self
-                .nullifier_non_existent_read_requests
-                .storage
-                .map(|r: ScopedReadRequest| r.read_request)),
-            l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage),
-            contract_storage_update_requests: subarray(
-                self.contract_storage_update_requests.storage,
-            ),
-            contract_storage_reads: self.contract_storage_reads.storage,
-            public_call_requests: subarray(self.public_inner_call_requests.storage),
-            note_hashes: subarray(
-                self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
-            ),
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| {
-                m.message
-            })),
-            start_side_effect_counter: self.counter_start,
-            end_side_effect_counter: self.counter,
-            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(
-                |l: ScopedLogHash| l.log_hash,
-            )),
-            historical_header: self.historical_header,
-            global_variables: self.global_variables,
-            prover_address: self.prover_address,
-            revert_code: self.revert_code,
-            start_gas_left: self.start_gas_left,
-            end_gas_left: self.end_gas_left,
-            transaction_fee: self.transaction_fee,
-        }
-    }
-
-    pub fn to_public_call_data(self) -> PublicCallData {
-        PublicCallData {
-            public_inputs: self.to_public_circuit_public_inputs(),
-            proof: PublicCallDataProof {},
-            bytecode_hash: self.bytecode_hash,
-        }
-    }
-
-    pub fn to_public_validation_requests(self) -> PublicValidationRequests {
-        PublicValidationRequests {
-            for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_tree_leaf_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
-            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
-            public_data_reads: self.public_data_reads.storage,
-            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage,
-        }
-    }
-
-    pub fn to_vm_circuit_public_inputs(self) -> VMCircuitPublicInputs {
-        VMCircuitPublicInputs {
-            constants: self.to_constant_data(),
-            call_request: self.to_public_call_request(),
-            public_call_stack: subarray(self.public_inner_call_requests.storage),
-            previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
-            validation_requests: self.to_public_validation_requests(),
-            previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
-            accumulated_data: self.to_public_accumulated_data(),
-            start_side_effect_counter: self.counter_start,
-            end_side_effect_counter: self.counter,
-            start_gas_left: self.start_gas_left,
-            transaction_fee: self.transaction_fee,
-            reverted: self.revert_code != 0,
-        }
-    }
-
-    pub fn to_enqueued_call_data(self) -> EnqueuedCallData {
-        EnqueuedCallData { data: self.to_vm_circuit_public_inputs(), proof: Proof {} }
-    }
-
-    pub fn to_public_kernel_circuit_public_inputs(
+    pub fn to_private_to_public_kernel_circuit_public_inputs(
         self,
         revertible: bool,
-    ) -> PublicKernelCircuitPublicInputs {
+    ) -> PrivateToPublicKernelCircuitPublicInputs {
         // TODO: Split the data using self.min_revertible_side_effect_counter.
-        let accumulated_data = self.to_public_accumulated_data();
-        let end_non_revertible = if revertible {
-            PublicAccumulatedData::empty()
+        let accumulated_data = self.to_private_to_public_accumulated_data();
+        let non_revertible_accumulated_data = if revertible {
+            PrivateToPublicAccumulatedData::empty()
         } else {
             accumulated_data
         };
-        let end = if revertible {
+        let revertible_accumulated_data = if revertible {
             accumulated_data
         } else {
-            PublicAccumulatedData::empty()
+            PrivateToPublicAccumulatedData::empty()
         };
 
-        PublicKernelCircuitPublicInputs {
-            constants: self.to_constant_data(),
-            validation_requests: self.to_public_validation_requests(),
-            end_non_revertible,
-            end,
-            end_side_effect_counter: self.counter,
+        PrivateToPublicKernelCircuitPublicInputs {
+            constants: self.to_tx_constant_data(),
+            rollup_validation_requests: self.to_rollup_validation_requests(),
+            non_revertible_accumulated_data,
+            revertible_accumulated_data,
             public_teardown_call_request: self.public_teardown_call_request,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            revert_code: self.revert_code,
-        }
-    }
-
-    pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
-        let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: self.proof,
-            vk: self.honk_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
         }
     }
 
@@ -673,8 +522,41 @@ impl FixtureBuilder {
             constants,
             start_state: self.start_state,
             revert_code: self.revert_code,
+            gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
+    }
+
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
@@ -720,8 +602,7 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_new_note_hash(value);
-                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
-                self.add_note_encrypted_log_hash(log_hash, length, self.counter - 1);
+                self.append_private_logs_for_note(1, self.counter - 1);
             }
         }
     }
@@ -822,70 +703,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_contract_storage_read_request(&mut self, storage_slot: Field, value: Field) {
-        self.contract_storage_reads.push(
-            StorageRead { storage_slot, current_value: value, counter: self.next_counter() },
-        );
-    }
-
-    pub fn append_contract_storage_read_requests(&mut self, num: u32) {
-        let index_offset = self.contract_storage_reads.len();
-        for i in 0..self.contract_storage_reads.max_len() {
-            if i < num {
-                let (storage_slot, value) = self.mock_contract_storage_read(index_offset + i);
-                self.add_contract_storage_read_request(storage_slot, value);
-            }
-        }
-    }
-
-    pub fn add_contract_storage_update_request(&mut self, storage_slot: Field, value: Field) {
-        let update_request =
-            StorageUpdateRequest { storage_slot, new_value: value, counter: self.next_counter() };
-        self.contract_storage_update_requests.push(update_request);
-    }
-
-    pub fn append_contract_storage_update_requests(&mut self, num: u32) {
-        let index_offset = self.contract_storage_update_requests.len();
-        for i in 0..self.contract_storage_update_requests.max_len() {
-            if i < num {
-                let (storage_slot, value) = self.mock_contract_storage_write(index_offset + i);
-                self.add_contract_storage_update_request(storage_slot, value);
-            }
-        }
-    }
-
-    pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
-        let update_request =
-            PublicDataUpdateRequest { leaf_slot, new_value: value, counter: self.next_counter() };
-        self.public_data_update_requests.push(update_request);
-    }
-
-    pub fn append_public_data_update_requests(&mut self, num_updates: u32) {
-        let index_offset = self.public_data_update_requests.len();
-        for i in 0..self.public_data_update_requests.max_len() {
-            if i < num_updates {
-                let (leaf_slot, value) = self.mock_public_data_write(index_offset + i);
-                self.add_public_data_update_request(leaf_slot, value);
-            }
-        }
-    }
-
-    pub fn add_public_data_read_request(&mut self, leaf_slot: Field, value: Field) {
-        self.public_data_reads.push(
-            PublicDataRead { leaf_slot, value, counter: self.next_counter() },
-        );
-    }
-
-    pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
-        let index_offset = self.public_data_reads.len();
-        for i in 0..self.public_data_reads.max_len() {
-            if i < num_reads {
-                let (leaf_slot, value) = self.mock_public_data_read(index_offset + i);
-                self.add_public_data_read_request(leaf_slot, value);
-            }
-        }
-    }
-
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.mock_note_hash_value(note_hash_index);
@@ -908,21 +725,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_hash_tree_leaf_read_requests(&mut self, value: Field, leaf_index: Field) {
-        let read_request = TreeLeafReadRequest { value, leaf_index };
-        self.note_hash_tree_leaf_read_requests.push(read_request);
-    }
-
-    pub fn append_note_hash_tree_leaf_read_requests(&mut self, num_reads: u32) {
-        let index_offset = self.note_hash_tree_leaf_read_requests.len();
-        for i in 0..self.note_hash_tree_leaf_read_requests.max_len() {
-            if i < num_reads {
-                let value = self.mock_note_hash_read_value(index_offset + i);
-                self.add_note_hash_tree_leaf_read_requests(value, (index_offset + i) as Field);
-            }
-        }
-    }
-
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
         let nullifier = self.mock_nullifier_value(nullifier_index);
@@ -931,13 +733,6 @@ impl FixtureBuilder {
         );
         self.nullifier_read_requests.push(read_request);
         read_request_index
-    }
-
-    pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
-        self.nullifier_non_existent_read_requests.push(read_request);
     }
 
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
@@ -949,16 +744,6 @@ impl FixtureBuilder {
                     self.contract_address,
                 );
                 self.nullifier_read_requests.push(read_request);
-            }
-        }
-    }
-
-    pub fn append_nullifier_non_existent_read_requests(&mut self, num: u32) {
-        let index_offset = self.nullifier_non_existent_read_requests.len();
-        for i in 0..self.nullifier_non_existent_read_requests.max_len() {
-            if i < num {
-                let value = self.mock_nullifier_read_value(index_offset + i);
-                self.add_non_existent_read_request_for_nullifier(value);
             }
         }
     }
@@ -993,63 +778,58 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_encrypted_log_hash(
+    pub fn add_private_log(
         &mut self,
-        value: Field,
-        length: Field,
+        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
         note_hash_counter: u32,
     ) {
-        let log_hash =
-            NoteLogHash { value, counter: self.next_counter(), length, note_hash_counter };
-        self.note_encrypted_logs_hashes.push(log_hash);
-        self.encrypted_log_preimages_length += length;
+        let log = Log { fields };
+        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
+            self.contract_address,
+        );
+        self.private_logs.push(logData);
     }
 
-    pub fn append_note_encrypted_log_hashes(&mut self, num: u32) {
-        let index_offset = self.note_encrypted_logs_hashes.len();
-        for i in 0..self.note_encrypted_logs_hashes.max_len() {
-            if i < num {
-                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
-                self.add_note_encrypted_log_hash(log_hash, length, 0);
+    pub fn append_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let fields = self.mock_private_log_fields(index_offset + i);
+                self.add_private_log(fields, note_hash_counter);
             }
         }
     }
 
-    pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let log_hash =
-            EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
-        self.encrypted_logs_hashes.push(log_hash.scope(self.contract_address));
-        self.encrypted_log_preimages_length += length;
-    }
-
-    pub fn add_masked_encrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = EncryptedLogHash {
-            value: hash,
-            counter: self.next_counter(),
-            length,
-            randomness: 2,
-        }
-            .scope(self.contract_address);
-        log_hash.contract_address = mask_encrypted_log_hash(log_hash);
-        log_hash.log_hash.randomness = 0;
-        self.encrypted_logs_hashes.push(log_hash);
-        self.encrypted_log_preimages_length += length;
-    }
-
-    pub fn append_encrypted_log_hashes(&mut self, num: u32) {
-        let index_offset = self.encrypted_logs_hashes.len();
-        for i in 0..self.encrypted_logs_hashes.max_len() {
-            if i < num {
-                let (log_hash, length) = self.mock_encrypted_log(index_offset + i);
-                self.add_encrypted_log_hash(log_hash, length);
+    pub fn append_private_logs(&mut self, num_logs: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let fields = self.mock_private_log_fields(index_offset + i);
+                self.add_private_log(fields, 0 /* note_hash_counter */);
             }
         }
     }
 
-    pub fn mask_encrypted_log_hashes(&mut self) {
-        for i in 0..self.encrypted_logs_hashes.max_len() {
-            self.encrypted_logs_hashes.storage[i].contract_address =
-                mask_encrypted_log_hash(self.encrypted_logs_hashes.storage[i]);
+    pub fn add_siloed_private_log(
+        &mut self,
+        fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        note_hash_counter: u32,
+    ) {
+        let log = Log { fields };
+        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
+            AztecAddress::zero(),
+        );
+        self.private_logs.push(logData);
+    }
+
+    pub fn append_siloed_private_logs_for_note(&mut self, num_logs: u32, note_hash_counter: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let mut fields = self.mock_private_log_fields(index_offset + i);
+                fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
+                self.add_siloed_private_log(fields, note_hash_counter);
+            }
         }
     }
 
@@ -1069,25 +849,10 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn hash_unencrypted_log_hashes(&mut self) {
-        let mut log_hashes = self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.inner());
-        for i in 0..self.unencrypted_logs_hashes.max_len() {
-            let log_hash = self.unencrypted_logs_hashes.storage[i];
-            if !log_hash.contract_address.is_zero() {
-                log_hashes[i].value = silo_unencrypted_log_hash(log_hash);
-            }
-        }
-        self.unencrypted_logs_hash = compute_tx_logs_hash(log_hashes);
-    }
-
-    pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
-        self.encrypted_logs_hash = hash;
-        self.encrypted_log_preimages_length = preimages_length;
-    }
-
-    pub fn set_unencrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
-        self.unencrypted_logs_hash = hash;
-        self.unencrypted_log_preimages_length = preimages_length;
+    pub fn add_contract_class_log_hash(&mut self, hash: Field, length: Field) {
+        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
+        self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
+        self.contract_class_log_preimages_length += length;
     }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
@@ -1129,15 +894,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_public_call_request(&mut self, request: PublicCallRequest) {
-        self.public_call_requests.push(request);
+        self.public_call_requests.push(Counted::new(request, self.next_counter()));
     }
 
     pub fn append_public_call_requests(&mut self, num: u32) {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
-                let mut request = self.mock_public_call_request(index_offset + i);
-                request.counter = self.next_counter();
+                let request = self.mock_public_call_request(index_offset + i);
                 self.add_public_call_request(request);
             }
         }
@@ -1154,9 +918,7 @@ impl FixtureBuilder {
     }
 
     pub fn set_public_teardown_call_request(&mut self) {
-        let mut request = self.mock_public_teardown_call_request();
-        request.counter = self.next_counter();
-        self.public_teardown_call_request = request;
+        self.public_teardown_call_request = self.mock_public_teardown_call_request();
     }
 
     pub fn end_setup(&mut self) {
@@ -1223,10 +985,18 @@ impl FixtureBuilder {
         (value_offset, EthAddress::from_field(1 + value_offset))
     }
 
-    fn mock_note_encrypted_log(self, index: u32) -> (Field, Field) {
-        let log_hash = 282828 + self.value_offset + index as Field;
-        let length = 5 + index as Field;
-        (log_hash, length)
+    fn mock_private_log_fields(self, index: u32) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
+        let value_offset =
+            328732 + self.value_offset + (index * PRIVATE_LOG_SIZE_IN_FIELDS) as Field;
+        let mut fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+        for i in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+            fields[i] = value_offset + i as Field;
+        }
+        fields
+    }
+
+    fn mock_private_log_randomness(self, index: u32) -> Field {
+        579579 + self.value_offset + index as Field
     }
 
     fn mock_encrypted_log(self, index: u32) -> (Field, Field) {
@@ -1260,8 +1030,8 @@ impl FixtureBuilder {
             fields[i] = value_offset + i as Field;
         }
         let mut request = PublicCallRequest::deserialize(fields);
-        request.call_context.msg_sender = self.contract_address;
-        request.call_context.is_static_call = self.is_static_call;
+        request.msg_sender = self.contract_address;
+        request.is_static_call = self.is_static_call;
         request
     }
 
@@ -1278,10 +1048,6 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
-
-    fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
-    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1293,35 +1059,24 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
+            private_logs: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            note_encrypted_logs_hash: 0,
-            encrypted_logs_hash: 0,
-            unencrypted_logs_hash: 0,
-            note_encrypted_log_preimages_length: 0,
-            encrypted_log_preimages_length: 0,
+            contract_class_logs_hashes: BoundedVec::new(),
             unencrypted_log_preimages_length: 0,
-            public_data_update_requests: BoundedVec::new(),
-            contract_storage_update_requests: BoundedVec::new(),
+            contract_class_log_preimages_length: 0,
+            public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            public_inner_call_requests: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
-            note_hash_tree_leaf_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            nullifier_non_existent_read_requests: BoundedVec::new(),
-            l1_to_l2_msg_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
-            public_data_reads: BoundedVec::new(),
-            contract_storage_reads: BoundedVec::new(),
             validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,

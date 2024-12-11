@@ -180,17 +180,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
             self.error_types.insert(*error_selector, error_type.clone());
         }
 
-        let mut byte_code = obj.byte_code.clone();
-
-        // Replace STOP with RETURN because this is not the end of the program now.
-        let stop_position = byte_code
-            .iter()
-            .position(|opcode| matches!(opcode, BrilligOpcode::Stop { .. }))
-            .expect("Trying to link with a function that does not have a stop opcode");
-
-        byte_code[stop_position] = BrilligOpcode::Return;
-
-        self.byte_code.append(&mut byte_code);
+        self.byte_code.append(&mut obj.byte_code.clone());
 
         // Remove all resolved external calls and transform them to jumps
         let is_resolved = |label: &Label| self.labels.contains_key(label);

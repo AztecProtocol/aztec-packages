@@ -1,9 +1,9 @@
 import { getSingleKeyAccount } from '@aztec/accounts/single_key';
 import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createLogger('example:token');
 
 export const alicePrivateKey = Fr.random();
 export const bobPrivateKey = Fr.random();
@@ -41,7 +41,8 @@ async function main() {
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
-  await tokenAlice.methods.mint_to_private(aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
+  const from = aliceWallet.getAddress(); // we are setting from to Alice here because of TODO(#9887)
+  await tokenAlice.methods.mint_to_private(from, aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
 
   logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 

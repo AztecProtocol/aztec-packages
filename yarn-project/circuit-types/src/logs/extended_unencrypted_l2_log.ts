@@ -1,6 +1,9 @@
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { LogId } from './log_id.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';
@@ -16,6 +19,23 @@ export class ExtendedUnencryptedL2Log {
     public readonly log: UnencryptedL2Log,
   ) {}
 
+  static random() {
+    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
+  }
+
+  static get schema() {
+    return z
+      .object({
+        id: LogId.schema,
+        log: UnencryptedL2Log.schema,
+      })
+      .transform(ExtendedUnencryptedL2Log.from);
+  }
+
+  static from(fields: FieldsOf<ExtendedUnencryptedL2Log>) {
+    return new ExtendedUnencryptedL2Log(fields.id, fields.log);
+  }
+
   /**
    * Serializes log to a buffer.
    * @returns A buffer containing the serialized log.
@@ -29,7 +49,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A string containing the serialized log.
    */
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -69,7 +89,6 @@ export class ExtendedUnencryptedL2Log {
    * @returns An `ExtendedUnencryptedL2Log` object.
    */
   public static fromString(data: string): ExtendedUnencryptedL2Log {
-    const buffer = Buffer.from(data, 'hex');
-    return ExtendedUnencryptedL2Log.fromBuffer(buffer);
+    return ExtendedUnencryptedL2Log.fromBuffer(hexToBuffer(data));
   }
 }

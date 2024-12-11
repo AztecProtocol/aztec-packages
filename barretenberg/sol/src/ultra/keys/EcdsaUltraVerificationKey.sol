@@ -60,8 +60,8 @@ library EcdsaUltraVerificationKey {
             mstore(add(_vk, 0x5e0), 0x01bd6e61d801d895c7edfee071518761f3c8c0e10bec5f0fb0b25ae430a2c91e) // vk.ID3.y
             mstore(add(_vk, 0x600), 0x30223d4653291c03019e96bd716769c7c6d6520fddf2e633a75f94b08bee86dd) // vk.ID4.x
             mstore(add(_vk, 0x620), 0x2e389428afa291855039f1b4af22e70d469f4e20116b85889737d624a2d27fef) // vk.ID4.y
-            mstore(add(_vk, 0x640), 0x00) // vk.contains_recursive_proof
-            mstore(add(_vk, 0x660), 0) // vk.recursive_proof_public_input_indices
+            mstore(add(_vk, 0x640), 0x00) // vk.contains_pairing_point_accumulator
+            mstore(add(_vk, 0x660), 0) // vk.pairing_point_accumulator_public_input_indices
             mstore(add(_vk, 0x680), 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1) // vk.g2_x.X.c1
             mstore(add(_vk, 0x6a0), 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0) // vk.g2_x.X.c0
             mstore(add(_vk, 0x6c0), 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4) // vk.g2_x.Y.c1

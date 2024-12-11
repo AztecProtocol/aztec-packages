@@ -16,17 +16,38 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
       initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-boot-node
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
             - -c
             - |
-              until curl --head --silent {{ include "aztec-network.bootNodeUrl" . }}/status; do
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              until curl --head --silent ${BOOT_NODE_HOST}/status; do
                 echo "Waiting for boot node..."
                 sleep 5
               done
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+        {{- if not .Values.network.public }}
+        # We only need to wait for the validator service if the network is not public
         - name: wait-for-validator-service
           image: {{ .Values.images.curl.image }}
           command:
@@ -37,30 +58,40 @@ spec:
                 echo "Waiting for validator service..."
                 sleep 5
               done
+        {{- end }}
       containers:
         - name: pxe
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
           command:
             - "/bin/bash"
             - "-c"
-            - >
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- if .Values.network.public }}
+              # If the network is public, we need to use the boot node URL
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              # If the network is not public, we can use the validator URL
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+              echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
           env:
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
-            - name: AZTEC_NODE_URL
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+            - name: AZTEC_PORT
+              value: "{{ .Values.pxe.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.pxe.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.pxe.debug }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.pxe.proverEnabled }}"
+              value: "{{ .Values.aztec.realProofs }}"
           ports:
             - name: http
-              containerPort: {{ .Values.pxe.service.port }}
+              containerPort: {{ .Values.pxe.service.nodePort }}
               protocol: TCP
           readinessProbe:
             exec:
@@ -70,7 +101,7 @@ spec:
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"pxe_isGlobalStateSynchronized","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.port }} | grep -q '"result":true'
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"result":true'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}
@@ -92,8 +123,8 @@ spec:
     app: pxe
   ports:
     - protocol: TCP
-      port: {{ .Values.pxe.service.port }}
-      targetPort: {{ .Values.pxe.service.targetPort }}
+      port: {{ .Values.pxe.service.nodePort }}
+      targetPort: {{ .Values.pxe.service.nodePort }}
       {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
@@ -102,7 +133,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-pxe-lb
+  name: pxe-lb
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -112,8 +147,8 @@ spec:
     app: pxe
   ports:
     - protocol: TCP
-      port: {{ .Values.pxe.service.port }}
-      targetPort: {{ .Values.pxe.service.targetPort }}
+      port: {{ .Values.pxe.service.nodePort }}
+      targetPort: {{ .Values.pxe.service.nodePort }}
       {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}

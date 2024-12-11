@@ -1,7 +1,7 @@
-import { PublicKernelPhase, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type Tx, TxExecutionPhase, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { EnqueuedCallsProcessor, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
+import { createLogger } from '@aztec/foundation/log';
+import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -9,7 +9,7 @@ export interface PublicStateSource {
 }
 
 export class GasTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_gas');
+  #log = createLogger('sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
 
@@ -58,7 +58,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
+    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     const claimFunctionCall = setupFns.find(
       fn =>
         fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&
@@ -66,13 +66,17 @@ export class GasTxValidator implements TxValidator<Tx> {
         fn.args.length > 2 &&
         // Public functions get routed through the dispatch function, whose first argument is the target function selector.
         fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
-        fn.args[1].equals(feePayer) &&
+        fn.args[1].equals(feePayer.toField()) &&
         !fn.callContext.isStaticCall,
     );
 
     const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
-      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, { feePayer, balance, feeLimit });
+      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, {
+        feePayer,
+        balance: balance.toBigInt(),
+        feeLimit: feeLimit.toBigInt(),
+      });
       return false;
     }
     return true;
