@@ -20,6 +20,7 @@ source:
   RUN yarn
 
   COPY client_ivc_circuits.json .
+  COPY rollup_honk_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
 build-contracts:
