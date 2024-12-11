@@ -68,12 +68,6 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
 
-      # Sepolia deployment secrets
-      TF_VAR_L1_DEPLOYMENT_PRIVATE_KEY: ${{ secrets.L1_DEPLOYMENT_PRIVATE_KEY }}
-      TF_VAR_VALIDATOR_KEYS: ${{ secrets.VALIDATOR_KEYS }}
-      TF_VAR_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}
-      TF_VAR_PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -135,6 +129,7 @@ jobs:
             -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
             -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
             -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
+            -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.ETHEREUM_EXTERNAL_HOST }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 

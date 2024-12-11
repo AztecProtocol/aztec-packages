@@ -8,7 +8,7 @@ network:
   public: false
 
 ethereum:
-  externalHost: "https://sepolia.infura.io/v3/${INFURA_API_KEY}"
+  externalHost:
   chainId: "11155111"
 
 validator:
@@ -28,3 +28,6 @@ bootNode:
 
 proverNode:
   proverPublisherPrivateKey:
+
+bot:
+  txIntervalSeconds: 20

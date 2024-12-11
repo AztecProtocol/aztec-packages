@@ -48,3 +48,8 @@ variable "PROVER_PUBLISHER_PRIVATE_KEY" {
   type        = string
   sensitive   = true
 }
+
+variable "ETHEREUM_EXTERNAL_HOST" {
+  description = "External host to use for the ethereum node"
+  type        = string
+}

@@ -74,6 +74,11 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.PROVER_PUBLISHER_PRIVATE_KEY
   }
 
+  set {
+    name  = "ethereum.externalHost"
+    value = var.ETHEREUM_EXTERNAL_HOST
+  }
+
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
   wait          = true
