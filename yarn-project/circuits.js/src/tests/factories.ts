@@ -57,7 +57,6 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
@@ -315,7 +314,12 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
     fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
-    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0xd00, PublicDataWrite.empty),
+    tupleGenerator(
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      makePublicDataWrite,
+      seed + 0xd00,
+      PublicDataWrite.empty,
+    ),
   );
 }
 
@@ -348,7 +352,7 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
     makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
-    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
+    makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }
 
@@ -435,6 +439,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
+    makeAztecAddress(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
@@ -1111,14 +1116,11 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const constants = makeConstantBaseRollupData(0x100);
 
-  const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
-
   return PublicBaseRollupHints.from({
     start,
     stateDiffHints,
     archiveRootMembershipWitness,
     constants,
-    feePayerFeeJuiceBalanceReadHint,
   });
 }
 
