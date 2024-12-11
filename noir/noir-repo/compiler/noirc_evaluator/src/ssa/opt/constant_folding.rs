@@ -125,11 +125,13 @@ impl Ssa {
         }
 
         // The ones that remain are never called: let's remove them.
-        for func_id in brillig_functions.keys() {
+        for (func_id, func) in &brillig_functions {
             // We never want to remove the main function (it could be `unconstrained` or it
             // could have been turned into brillig if `--force-brillig` was given).
             // We also don't want to remove entry points.
-            if self.main_id == *func_id || self.entry_point_to_generated_index.contains_key(func_id)
+            let runtime = func.runtime();
+            if self.main_id == *func_id
+                || (runtime.is_entry_point() && matches!(runtime, RuntimeType::Acir(_)))
             {
                 continue;
             }
@@ -1521,18 +1523,18 @@ mod test {
               b0(v0: u32):
                 v2 = eq v0, u32 0
                 jmpif v2 then: b4, else: b1
+              b1():
+                jmpif v0 then: b3, else: b2
+              b2():
+                jmp b5()
+              b3():
+                v4 = sub v0, u32 1 // We can't hoist this because v0 is zero here and it will lead to an underflow
+                jmp b5()
               b4():
                 v5 = sub v0, u32 1
                 jmp b5()
               b5():
                 return
-              b1():
-                jmpif v0 then: b3, else: b2
-              b3():
-                v4 = sub v0, u32 1 // We can't hoist this because v0 is zero here and it will lead to an underflow
-                jmp b5()
-              b2():
-                jmp b5()
             }
             ";
         let ssa = Ssa::from_str(src).unwrap();
