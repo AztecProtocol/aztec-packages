@@ -171,7 +171,7 @@ pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
 // GAS DEFAULTS
 pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
-pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
+pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 12_000_000;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -179,7 +179,7 @@ pub global FIXED_DA_GAS: u32 = 512;
 // pays for fixed tx costs like validation, and updating state roots
 pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
-pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 1024;
+pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.
