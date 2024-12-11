@@ -26,7 +26,7 @@ spec:
           emptyDir: {}
       containers:
         - name: setup-l2-contracts
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config

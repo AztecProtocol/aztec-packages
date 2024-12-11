@@ -3,10 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract InclusionProofs {
-    use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
-    };
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
 
     use dep::aztec::{
@@ -35,10 +32,8 @@ contract InclusionProofs {
     fn create_note(owner: AztecAddress, value: Field) {
         let mut note = ValueNote::new(value, owner);
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             owner,
             context.msg_sender(),
         ));

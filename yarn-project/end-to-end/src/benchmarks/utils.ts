@@ -58,10 +58,9 @@ export function getFolderSize(path: string): number {
  */
 export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
-  // Setting the outgoing viewer to owner here since the outgoing logs are not important in this context
-  const outgoingViewer = owner;
+  const sender = owner;
   return new BatchCall(context.wallet, [
-    contract.methods.create_note(owner, outgoingViewer, index + 1).request(),
+    contract.methods.create_note(owner, sender, index + 1).request(),
     contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }

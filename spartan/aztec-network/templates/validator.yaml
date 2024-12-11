@@ -12,6 +12,14 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: validator
+  volumeClaimTemplates:
+    - metadata:
+        name: validator-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.validator.storageSize }}
   template:
     metadata:
       labels:
@@ -28,7 +36,7 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-services
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -53,7 +61,6 @@ spec:
               {{- end }}
 
               if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
-                # Get the list of pod IPs for the validator service
                 echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
               else
                 until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
@@ -72,8 +79,7 @@ spec:
               mountPath: /shared/config
 
         - name: configure-validator-env
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"
@@ -101,8 +107,7 @@ spec:
                   fieldPath: metadata.name
       containers:
         - name: validator
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
             - "-c"
@@ -136,6 +141,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: validator-data
+              mountPath: {{ .Values.validator.dataDir }}
           env:
             - name: POD_IP
               valueFrom:
@@ -197,6 +204,9 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+        - name: validator-data
+          persistentVolumeClaim:
+            claimName: validator-data
 ---
 # If this is not a public network, create a headless service for StatefulSet DNS entries
 {{ if not .Values.network.public }}

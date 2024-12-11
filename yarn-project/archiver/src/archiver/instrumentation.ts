@@ -18,13 +18,14 @@ export class ArchiverInstrumentation {
   private blockHeight: Gauge;
   private blockSize: Gauge;
   private syncDuration: Histogram;
+  private l1BlocksSynced: UpDownCounter;
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
   private dbMetrics: LmdbMetrics;
 
   private log = createLogger('archiver:instrumentation');
 
-  constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+  private constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',
@@ -59,6 +60,11 @@ export class ArchiverInstrumentation {
       },
     });
 
+    this.l1BlocksSynced = meter.createUpDownCounter(Metrics.ARCHIVER_L1_BLOCKS_SYNCED, {
+      description: 'Number of blocks synced from L1',
+      valueType: ValueType.INT,
+    });
+
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
@@ -77,6 +83,16 @@ export class ArchiverInstrumentation {
     );
   }
 
+  public static async new(telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+    const instance = new ArchiverInstrumentation(telemetry, lmdbStats);
+
+    instance.l1BlocksSynced.add(0);
+
+    await instance.telemetry.flush();
+
+    return instance;
+  }
+
   public isEnabled(): boolean {
     return this.telemetry.isEnabled();
   }
@@ -84,6 +100,7 @@ export class ArchiverInstrumentation {
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
     this.syncDuration.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
+    this.l1BlocksSynced.add(blocks.length);
     for (const block of blocks) {
       this.blockSize.record(block.body.txEffects.length);
     }

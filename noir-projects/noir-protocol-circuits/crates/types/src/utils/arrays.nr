@@ -55,18 +55,14 @@ pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
     dst
 }
 
-pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
+// Helper function to convert a validated array to BoundedVec.
+// Important: Only use it for validated arrays: validate_array(array) should be true.
+pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
     T: Empty + Eq,
 {
-    let mut len = 0;
-    for elem in array {
-        if !is_empty(elem) {
-            len += 1;
-        }
-    }
-
-    BoundedVec { storage: array, len }
+    let len = array_length(array);
+    BoundedVec::from_parts_unchecked(array, len)
 }
 
 pub unconstrained fn find_index_hint<T, let N: u32, Env>(
