@@ -13,7 +13,7 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 
 pub struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
-    previous_rollup_data: [PreviousRollupData; 2],
+    pub previous_rollup_data: [PreviousRollupData; 2],
 }
 
 impl Empty for MergeRollupInputs {

@@ -1,13 +1,3 @@
-# Enable and configure Grafana
-# https://artifacthub.io/packages/helm/grafana/grafana
-grafana:
-  service:
-    type: LoadBalancer
-  persistence:
-    type: pvc
-    enabled: true
-    size: "10Gi"
-
 opentelemetry-collector:
   ports:
     jaeger-compact:
@@ -15,6 +5,21 @@ opentelemetry-collector:
   service:
     enabled: true
     type: LoadBalancer
+  config:
+    exporters:
+      # debug:
+      #   verbosity: detailed
+      otlphttp/logs:
+        endpoint: http://loki-write.metrics:3100/otlp
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
 
 loki:
   loki:
@@ -58,6 +63,26 @@ loki:
     persistence:
       size: 64Gi
 
-  gateway:
-    service:
-      type: LoadBalancer
+# https://artifacthub.io/packages/helm/grafana/grafana
+grafana:
+  service:
+    type: LoadBalancer
+  persistence:
+    type: pvc
+    enabled: true
+    size: "10Gi"
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://loki-read.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

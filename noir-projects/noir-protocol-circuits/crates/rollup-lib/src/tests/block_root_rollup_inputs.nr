@@ -1,4 +1,4 @@
-use crate::block_root::block_root_rollup_inputs::BlockRootRollupInputs;
+use crate::block_root::BlockRootRollupInputs;
 use crate::tests::l1_to_l2_roots::default_root_rollup_parity_input;
 use crate::tests::previous_rollup_data::default_previous_rollup_data;
 use dep::types::{
