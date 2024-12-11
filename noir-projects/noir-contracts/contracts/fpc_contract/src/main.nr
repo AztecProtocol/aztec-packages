@@ -2,6 +2,8 @@ mod config;
 
 use dep::aztec::macros::aztec;
 
+/// Fee Payment Contract (FPC) allows users to pay for the transaction fee with an arbitrary asset. Supports private
+/// and public fee payment flows.
 #[aztec]
 contract FPC {
     use crate::config::Config;
