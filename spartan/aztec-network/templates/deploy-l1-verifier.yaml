@@ -27,7 +27,7 @@ spec:
             name: {{ include "aztec-network.fullname" . }}-scripts
       containers:
         - name: deploy-l1-verifier
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
