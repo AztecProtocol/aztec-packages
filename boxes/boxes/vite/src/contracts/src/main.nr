@@ -4,10 +4,8 @@ use dep::aztec::macros::aztec;
 contract BoxReact {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{initializer, private}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable},
-        protocol_types::public_keys::OvpkM,
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -22,10 +20,8 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
         numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(
             &mut context,
-            owner_ovpk_m,
             owner,
             context.msg_sender(),
         ));
@@ -36,10 +32,8 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
         numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(
             &mut context,
-            owner_ovpk_m,
             owner,
             context.msg_sender(),
         ));
