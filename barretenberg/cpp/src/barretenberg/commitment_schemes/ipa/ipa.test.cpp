@@ -24,20 +24,21 @@ class IPATest : public CommitmentTest<Curve> {
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
 
-    constexpr std::array<uint64_t, 9> factors_of_p_minus_1 = { { 9, // 3^2
-                                                                 13,
-                                                                 29,
-                                                                 67,
-                                                                 229,
-                                                                 311,
-                                                                 // 983,
-                                                                 11003,
-                                                                 405928799,
-                                                                 11465965001 } };
+    constexpr std::array<uint64_t, 10> factors_of_p_minus_1 = { { 2,
+                                                                  3, // 3^2
+                                                                  13,
+                                                                  //  29,
+                                                                  67,
+                                                                  229,
+                                                                  311,
+                                                                  983,
+                                                                  11003,
+                                                                  405928799,
+                                                                  11465965001 } };
     Fr num_random = Fr::random_element();
     Fr prod{ 1 };
     info(num_random);
-    for (size_t idx = 0; idx < 9; idx++) {
+    for (size_t idx = 0; idx < 10; idx++) {
         num_random = num_random.pow(factors_of_p_minus_1[idx]);
         prod *= Fr{ factors_of_p_minus_1[idx] };
     }
@@ -89,8 +90,8 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 
     // info(Fr{ 1 } + prod * Fr{ 29 * 13 });
 
-    if ((gen.pow(983 * 2) == Fr{ 1 }) && (gen.pow(983) != Fr{ 1 }) && (gen.pow(2) != Fr{ 1 })) {
-        info("gen?", gen);
+    if ((gen.pow(29 * 3) == Fr{ 1 }) && (gen.pow(29) != Fr{ 1 }) && (gen.pow(3) != Fr{ 1 })) {
+        info("gen? ", gen);
         // for (size_t idx = 0; idx < 450; idx++) {
         //     info(gen.pow(idx));
         // }

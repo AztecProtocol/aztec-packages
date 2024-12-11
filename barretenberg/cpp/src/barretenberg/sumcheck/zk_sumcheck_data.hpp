@@ -21,11 +21,17 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
 
+    static constexpr size_t SUBGROUP_SIZE = 87;
+
+    static constexpr size_t BATCHED_POLYNOMIAL_LENGTH = 2 * SUBGROUP_SIZE + 2;
+
+    static constexpr size_t QUOTIENT_LENGTH = SUBGROUP_SIZE + 2;
+
     static constexpr FF grumpkin_subgroup_generator =
-        FF(uint256_t("0x2b2f46dc50fb64ea8c28e6331d1371f38ef09ba413bd8287a6b182575351c177"));
+        FF(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
     static constexpr FF bn_254_subgroup_generator =
-        FF(uint256_t("0x02d284e1a6dba4be658d3106583135d5dfc3b35febe48ca10ee1371cb197541e"));
+        FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
@@ -34,24 +40,33 @@ template <typename Flavor> struct ZKSumcheckData {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? 3 : 0;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.
     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
 
     FF free_term{ 0 };
-    std::array<FF, 1000> interpolation_domain;
+    std::array<FF, SUBGROUP_SIZE> interpolation_domain;
     // to compute product in lagrange basis
-    std::array<FF, 377 * 2> extended_domain;
-    Polynomial<FF> polynomial_lagrange_form;
-    Polynomial<FF> concatenated;
+    Polynomial<FF> libra_concatenated_lagrange_form;
+    Polynomial<FF> libra_concatenated_monomial_form;
+
+    Polynomial<FF> challenge_polynomial;
+    Polynomial<FF> challenge_polynomial_lagrange;
+
+    Polynomial<FF> big_sum_polynomial;
+    Polynomial<FF> batched_polynomial;
+    Polynomial<FF> batched_quotient;
+
     LibraUnivariates libra_univariates;
+    size_t log_circuit_size;
     LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
     FF libra_running_sum;
     ClaimedLibraEvaluations libra_evaluations;
+    std::array<FF, SUBGROUP_SIZE> big_sum_lagrange_coeffs;
 
     // Default constructor
     ZKSumcheckData() = default;
@@ -61,52 +76,22 @@ template <typename Flavor> struct ZKSumcheckData {
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : free_term(FF(0))
-        , libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
+        , challenge_polynomial(SUBGROUP_SIZE)                 // public polynomial
+        , big_sum_polynomial(SUBGROUP_SIZE + 2)               // includes masking
+        , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)       // batched polynomial, input to shplonk prover
+        , batched_quotient(QUOTIENT_LENGTH)                   // quotient of the batched polynomial by Z_H(X) = X^87 - 1
+        , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
+        , log_circuit_size(multivariate_d)
         , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
     {
-        info(bn_254_subgroup_generator.pow(2 * 29 * 13));
-        info(grumpkin_subgroup_generator.pow(2 * 983));
-        std::array<FF, 100> coeffs_lagrange_subgroup;
-        coeffs_lagrange_subgroup[0] = free_term;
-        info(libra_univariates_monomial.size());
-        for (size_t poly_idx = 0; poly_idx < libra_univariates_monomial.size(); poly_idx++) {
-            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-                size_t idx_to_populate = 1 + poly_idx * LIBRA_UNIVARIATES_LENGTH + idx;
-                info(idx_to_populate);
-                coeffs_lagrange_subgroup[idx_to_populate] = libra_univariates_monomial[poly_idx].value_at(idx);
-            }
-        }
-        // 377--> Flavor::SubgroupSize
-
-        // create evaluation domain using the generator
-        for (size_t idx = 0; idx < 1000; idx++) {
-            interpolation_domain[idx] = bn_254_subgroup_generator.pow(2 * idx);
-            // extended_domain[idx] = bn_254_subgroup_generator.pow(2 * idx);
-            // size_t wrapping_idx = 2 * 377 + idx;
-            // extended_domain[wrapping_idx] = bn_254_subgroup_generator.pow(idx);
-        }
-
-        polynomial_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
-        using namespace std::chrono;
-
-        auto total_time = 0.0;
-        auto start = high_resolution_clock::now();
-
-        Polynomial<FF> polynomial_to_commit(
-            std::span<FF>(interpolation_domain), std::span<FF>(coeffs_lagrange_subgroup), 1000);
-
-        auto end = high_resolution_clock::now();
-        total_time += duration<double, std::milli>(end - start).count();
-
-        info("total time", total_time);
-        // If proving_key is provided, commit to libra_univariates
+        compute_concatenated_libra_polynomial();
+        // If proving_key is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key != nullptr) {
-
-            auto libra_commitment = commitment_key->commit(polynomial_to_commit);
+            auto libra_commitment = commitment_key->commit(libra_concatenated_monomial_form);
             transcript->template send_to_verifier("Libra:commitment", libra_commitment);
         }
-        concatenated = polynomial_to_commit;
         // Compute the total sum of the Libra polynomials
         libra_scaling_factor = FF(1);
         FF libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor);
@@ -220,6 +205,227 @@ template <typename Flavor> struct ZKSumcheckData {
         // subtract the contribution of the first libra univariate from libra total sum
         libra_running_sum += -libra_univariates[0].value_at(0) - libra_univariates[0].value_at(1);
         libra_running_sum *= FF(1) / FF(2);
+    }
+
+    // compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0 + m_1 X)
+    void compute_concatenated_libra_polynomial()
+    {
+        // info(bn_254_subgroup_generator.pow(29 * 3));
+        // info(grumpkin_subgroup_generator.pow(2 * 983));
+        std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
+        coeffs_lagrange_subgroup[0] = free_term;
+
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            coeffs_lagrange_subgroup[idx] = FF{ 0 };
+        }
+        // info(libra_univariates_monomial.size());
+        for (size_t poly_idx = 0; poly_idx < libra_univariates_monomial.size(); poly_idx++) {
+            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                size_t idx_to_populate = 1 + poly_idx * LIBRA_UNIVARIATES_LENGTH + idx;
+                // info(idx_to_populate);
+                coeffs_lagrange_subgroup[idx_to_populate] = libra_univariates_monomial[poly_idx].value_at(idx);
+            }
+        }
+        // 377--> Flavor::SubgroupSize
+
+        // create evaluation domain using the generator
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
+        }
+
+        libra_concatenated_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
+
+        bb::Univariate<FF, 2> masking_scalars = bb::Univariate<FF, 2>::zero();
+
+        // using namespace std::chrono;
+
+        // auto total_time = 0.0;
+        // auto start = high_resolution_clock::now();
+
+        auto libra_concatenated_monomial_form_unmasked =
+            Polynomial<FF>(interpolation_domain, coeffs_lagrange_subgroup, SUBGROUP_SIZE);
+
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            libra_concatenated_monomial_form.at(idx) = libra_concatenated_monomial_form_unmasked.at(idx);
+        }
+
+        libra_concatenated_monomial_form.at(0) -= masking_scalars.value_at(0);
+        libra_concatenated_monomial_form.at(1) += masking_scalars.value_at(1);
+
+        libra_concatenated_monomial_form.at(SUBGROUP_SIZE) -= masking_scalars.value_at(0);
+        libra_concatenated_monomial_form.at(SUBGROUP_SIZE + 1) += masking_scalars.value_at(1);
+        // auto end = high_resolution_clock::now();
+        // total_time += duration<double, std::milli>(end - start).count();
+
+        // info("total time", total_time);
+    }
+    void setup_challenge_polynomial(const std::vector<FF> multivariate_challenge)
+    {
+        std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_basis;
+        coeffs_lagrange_basis[0] = FF(1);
+
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            coeffs_lagrange_basis[idx] = FF{ 0 };
+        }
+
+        for (size_t idx_poly = 0; idx_poly < log_circuit_size; idx_poly++) {
+            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly + idx;
+                coeffs_lagrange_basis[current_idx] = multivariate_challenge[idx_poly].pow(idx);
+            }
+        }
+        challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
+        challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
+
+        info(challenge_polynomial.evaluate(interpolation_domain[84]));
+        // info(multivariate_challenge[84]);
+    }
+
+    void setup_big_sum_polynomial()
+    {
+        big_sum_lagrange_coeffs[0] = 0;
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            size_t prev_idx = idx - 1;
+            big_sum_lagrange_coeffs[idx] =
+                big_sum_lagrange_coeffs[prev_idx] +
+                challenge_polynomial_lagrange.at(prev_idx) * libra_concatenated_lagrange_form.at(prev_idx);
+            // info("big sum coeff lagrange ", idx, "  ", big_sum_lagrange_coeffs[idx]);
+        };
+
+        //  get unmasked in monomial
+        auto big_sum_polynomial_unmasked = Polynomial<FF>(interpolation_domain, big_sum_lagrange_coeffs, SUBGROUP_SIZE);
+        //  mask
+        bb::Univariate<FF, 2> masking_scalars = bb::Univariate<FF, 2>::zero();
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            big_sum_polynomial.at(idx) = big_sum_polynomial_unmasked.at(idx);
+        }
+        big_sum_polynomial.at(0) -= masking_scalars.value_at(0);
+        big_sum_polynomial.at(1) += masking_scalars.value_at(1);
+
+        big_sum_polynomial.at(SUBGROUP_SIZE) -= masking_scalars.value_at(0);
+        big_sum_polynomial.at(SUBGROUP_SIZE + 1) += masking_scalars.value_at(1);
+        info("should be libra opening claim", big_sum_polynomial.evaluate(interpolation_domain[80]));
+    };
+
+    void compute_batched_polynomial()
+    {
+        // compute shifted big sum
+        std::array<FF, SUBGROUP_SIZE> shifted_big_sum_lagrange;
+
+        shifted_big_sum_lagrange[SUBGROUP_SIZE - 1] =
+            big_sum_lagrange_coeffs[0] - big_sum_lagrange_coeffs[SUBGROUP_SIZE - 1];
+        for (size_t idx = 0; idx < SUBGROUP_SIZE - 1; idx++) {
+            shifted_big_sum_lagrange[idx] = big_sum_lagrange_coeffs[idx + 1] - big_sum_lagrange_coeffs[idx];
+        }
+        auto shifted_big_sum = Polynomial<FF>(interpolation_domain, shifted_big_sum_lagrange, SUBGROUP_SIZE);
+
+        // compute lagrange first in monomial basis
+        std::array<FF, SUBGROUP_SIZE> lagrange_coeffs;
+        lagrange_coeffs[0] = FF(1);
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            lagrange_coeffs[idx] = FF(0);
+        }
+        // todo: turn into constexpr
+        Polynomial<FF> lagrange_first_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+
+        // compute lagrange last in monomial basis
+        // todo: turn into constexpr
+        lagrange_coeffs[0] = 0;
+        lagrange_coeffs[SUBGROUP_SIZE - 1] = 1;
+
+        Polynomial<FF> lagrange_last_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+
+        // compute the negated product of challenge_polynomial and libra_concatenated_monomial_form
+        Polynomial<FF> result(BATCHED_POLYNOMIAL_LENGTH);
+
+        for (size_t i = 0; i < libra_concatenated_monomial_form.size(); ++i) {
+            for (size_t j = 0; j < challenge_polynomial.size(); ++j) {
+                result.at(i + j) -= libra_concatenated_monomial_form.at(i) * challenge_polynomial.at(j);
+            }
+        }
+        info("======");
+        info(-result.evaluate(interpolation_domain[SUBGROUP_SIZE - 1]));
+        info(libra_concatenated_lagrange_form.at(SUBGROUP_SIZE - 1) *
+             challenge_polynomial_lagrange.at(SUBGROUP_SIZE - 1));
+        info("======");
+
+        // compute (A(gX) - A(X) - F(X) * G(X))
+        for (size_t idx = 0; idx < shifted_big_sum.size(); idx++) {
+            result.at(idx) += shifted_big_sum.at(idx);
+        }
+        info("eval of A(gX) - A(X) - F(X) G(X) at last element ",
+             result.evaluate(interpolation_domain[SUBGROUP_SIZE - 1]));
+        // mutiply by X-g
+        // shift by X
+        for (size_t idx = result.size() - 1; idx > 0; idx--) {
+            result.at(idx) = result.at(idx - 1);
+        }
+        result.at(0) = FF(0);
+
+        // subtract g from result to get (X- 1)(A(gX) - A(X) - F(X) * G(X))
+        for (size_t idx = 0; idx < result.size() - 1; idx++) {
+            result.at(idx) -= result.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
+        }
+
+        info("======");
+        info(result.evaluate(interpolation_domain[4]));
+        info(big_sum_lagrange_coeffs[5] - big_sum_lagrange_coeffs[4] -
+             libra_concatenated_lagrange_form.at(4) * challenge_polynomial_lagrange.at(4));
+        info("======");
+
+        lagrange_first_monomial += lagrange_last_monomial;
+
+        // info("lagrange first plus last ", lagrange_first_monomial.evaluate(interpolation_domain[5]));
+        for (size_t i = 0; i < big_sum_polynomial.size(); ++i) {
+            for (size_t j = 0; j < lagrange_first_monomial.size(); ++j) {
+                result.at(i + j) += big_sum_polynomial.at(i) * lagrange_first_monomial.at(j);
+            }
+        }
+        info("(lagrange first + last ) A(X) + () at 1 ", result.evaluate(interpolation_domain[SUBGROUP_SIZE - 1]));
+
+        info("======");
+        info(result.evaluate(interpolation_domain[4]));
+        info(big_sum_lagrange_coeffs[5] - big_sum_lagrange_coeffs[4] -
+             libra_concatenated_lagrange_form.at(4) * challenge_polynomial_lagrange.at(4));
+        info("======");
+        FF claimed_sum = big_sum_lagrange_coeffs[SUBGROUP_SIZE - 2];
+        info(claimed_sum);
+        info("=====");
+        for (size_t idx = 0; idx < lagrange_last_monomial.size(); idx++) {
+            result.at(idx) -= lagrange_last_monomial.at(idx) * claimed_sum;
+        }
+
+        // for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+        //     info(result.evaluate(interpolation_domain[idx]));
+        // }
+        info(" ====");
+        batched_polynomial = result;
+    }
+    // Compute the quotient by Z_H = X^87 - 1
+    void compute_batched_quotient()
+    {
+        auto remainder = batched_polynomial;
+        for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx > QUOTIENT_LENGTH; idx--) {
+            batched_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
+            remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
+        }
+
+        Polynomial<FF> result(BATCHED_POLYNOMIAL_LENGTH);
+        std::array<FF, SUBGROUP_SIZE + 1> Z_H;
+        for (size_t idx = 0; idx < SUBGROUP_SIZE + 1; idx++) {
+            Z_H[idx] = FF(0);
+        }
+        Z_H[0] = FF(-1);
+        Z_H[SUBGROUP_SIZE] = FF(1);
+        for (size_t i = 0; i < batched_quotient.size(); ++i) {
+            for (size_t j = 0; j < Z_H.size(); ++j) {
+                result.at(i + j) += batched_quotient.at(i) * Z_H[j];
+            }
+        }
+        // for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+        //     info("product", result.evaluate(interpolation_domain[idx]));
+        //     // info("source poly", batched_polynomial.at(idx));
+        // }
     }
 };
 } // namespace bb
