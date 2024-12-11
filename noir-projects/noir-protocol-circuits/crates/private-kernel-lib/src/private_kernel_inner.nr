@@ -47,6 +47,11 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+            self.private_call.verify(false);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 

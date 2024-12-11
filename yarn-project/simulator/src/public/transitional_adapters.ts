@@ -1,12 +1,13 @@
 import {
   type AvmCircuitPublicInputs,
-  type Fr,
+  type AztecAddress,
+  Fr,
   type Gas,
   type GasSettings,
   type GlobalVariables,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
@@ -30,6 +31,7 @@ export function generateAvmCircuitPublicInputs(
   startStateReference: StateReference,
   startGasUsed: Gas,
   gasSettings: GasSettings,
+  feePayer: AztecAddress,
   setupCallRequests: PublicCallRequest[],
   appLogicCallRequests: PublicCallRequest[],
   teardownCallRequests: PublicCallRequest[],
@@ -52,6 +54,7 @@ export function generateAvmCircuitPublicInputs(
     startTreeSnapshots,
     startGasUsed,
     gasSettings,
+    feePayer,
     setupCallRequests,
     appLogicCallRequests,
     teardownCallRequests.length ? teardownCallRequests[0] : PublicCallRequest.empty(),
@@ -143,28 +146,18 @@ export function generateAvmCircuitPublicInputs(
     MAX_L2_TO_L1_MSGS_PER_TX,
   );
 
-  const dedupedPublicDataWrites: Array<PublicDataWrite> = [];
-  const leafSlotOccurences: Map<bigint, number> = new Map();
+  // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
+  // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
+  // and the rest occurrences are omitted
+  const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
   for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
-    const slot = publicDataWrite.leafSlot.toBigInt();
-    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
-    leafSlotOccurences.set(slot, prevOccurrences + 1);
-  }
-
-  for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
-    const slot = publicDataWrite.leafSlot.toBigInt();
-    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
-    if (prevOccurrences === 1) {
-      dedupedPublicDataWrites.push(publicDataWrite);
-    } else {
-      leafSlotOccurences.set(slot, prevOccurrences - 1);
-    }
+    squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.value);
   }
 
   avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
-    dedupedPublicDataWrites,
+    Array.from(squashedPublicDataWrites.entries()).map(([slot, value]) => new PublicDataWrite(new Fr(slot), value)),
     PublicDataWrite.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
   //console.log(`AvmCircuitPublicInputs:\n${inspect(avmCircuitPublicInputs)}`);
   return avmCircuitPublicInputs;

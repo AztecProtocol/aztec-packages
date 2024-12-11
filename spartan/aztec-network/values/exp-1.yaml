@@ -8,6 +8,7 @@ aztec:
 
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 images:
   aztec:
