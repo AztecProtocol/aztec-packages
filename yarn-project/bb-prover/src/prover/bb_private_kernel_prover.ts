@@ -106,6 +106,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       path.join(directory, 'acir.msgpack'),
       path.join(directory, 'witnesses.msgpack'),
       this.log.info,
+      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {

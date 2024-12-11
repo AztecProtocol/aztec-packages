@@ -11,10 +11,10 @@ use dep::types::{
 };
 
 pub struct RootRollupParityInput {
-    proof: NestedRecursiveProof,
-    verification_key: HonkVerificationKey,
-    vk_path: [Field; VK_TREE_HEIGHT],
-    public_inputs: ParityPublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub verification_key: HonkVerificationKey,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: ParityPublicInputs,
 }
 
 impl Empty for RootRollupParityInput {
@@ -42,7 +42,7 @@ impl Verifiable for RootRollupParityInput {
 }
 
 impl RootRollupParityInput {
-    fn validate_in_vk_tree(self) {
+    pub fn validate_in_vk_tree(self) {
         self.verification_key.check_hash();
         assert_check_membership(
             self.verification_key.hash,

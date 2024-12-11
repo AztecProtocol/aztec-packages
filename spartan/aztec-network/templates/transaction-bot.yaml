@@ -53,7 +53,7 @@ spec:
               mountPath: /shared/config
       containers:
         - name: transaction-bot
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config

@@ -18,7 +18,7 @@ import {
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
 
-export { ValueType, Span } from '@opentelemetry/api';
+export { Span, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
@@ -115,6 +115,11 @@ export interface TelemetryClient {
    * Stops the telemetry client.
    */
   stop(): Promise<void>;
+
+  /**
+   * Flushes the telemetry client.
+   */
+  flush(): Promise<void>;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */

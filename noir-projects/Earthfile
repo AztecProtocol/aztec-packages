@@ -19,8 +19,8 @@ source:
   COPY package.json yarn.lock .
   RUN yarn
 
-  COPY mega_honk_circuits.json .
-  COPY ivc_integration_circuits.json .
+  COPY client_ivc_circuits.json .
+  COPY rollup_honk_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
 build-contracts:

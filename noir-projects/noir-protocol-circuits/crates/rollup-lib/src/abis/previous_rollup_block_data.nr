@@ -3,7 +3,7 @@ use dep::types::{
     constants::{PROOF_TYPE_ROLLUP_HONK, VK_TREE_HEIGHT},
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-        recursive_proof::NestedRecursiveProof,
+        rollup_recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },
@@ -12,10 +12,10 @@ use dep::types::{
 };
 
 pub struct PreviousRollupBlockData {
-    block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
-    proof: NestedRecursiveProof,
-    vk: HonkVerificationKey,
-    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
+    pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub vk: HonkVerificationKey,
+    pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupBlockData {
@@ -45,7 +45,7 @@ impl Empty for PreviousRollupBlockData {
 }
 
 impl PreviousRollupBlockData {
-    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;

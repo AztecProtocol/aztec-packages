@@ -1,8 +1,8 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    constants::{PRIVATE_KERNEL_RESET_INDEX, VK_TREE_HEIGHT},
+    constants::{PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
-    proof::verification_key::ClientIVCVerificationKey,
+    proof::{traits::Verifiable, verification_key::ClientIVCVerificationKey},
     utils::arrays::find_index_hint,
 };
 
@@ -14,7 +14,7 @@ pub struct PrivateKernelData {
 }
 
 impl PrivateKernelData {
-    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         self.vk.check_hash();
 
         let index_in_allowed_list = if self.vk_index >= PRIVATE_KERNEL_RESET_INDEX {
@@ -35,6 +35,13 @@ impl PrivateKernelData {
             self.vk_path,
             self.public_inputs.constants.vk_tree_root,
         );
+    }
+}
+
+impl Verifiable for PrivateKernelData {
+    fn verify(self) {
+        // Client IVC public inputs are linked in the backend via the databus
+        std::verify_proof_with_type(self.vk.key, [], [], 0, PROOF_TYPE_PG);
     }
 }
 

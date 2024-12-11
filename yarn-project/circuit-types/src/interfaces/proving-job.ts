@@ -10,6 +10,7 @@ import {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   ParityPublicInputs,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
@@ -51,6 +52,7 @@ export function makeProofAndVerificationKey<N extends number>(
 }
 
 export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH> = {
+  // WORKTODO
   inputs: T;
   proof: RecursiveProof<N>;
   verificationKey: VerificationKeyData;
@@ -172,27 +174,45 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BaseOrMergeRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BaseOrMergeRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.MERGE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BaseOrMergeRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRootOrBlockMergePublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRootOrBlockMergePublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRootOrBlockMergePublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.ROOT_ROLLUP),
@@ -215,12 +235,30 @@ export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
-  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
-  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
-  [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
-  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
-  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
-  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
+  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
+    BaseOrMergeRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
+    BaseOrMergeRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
+    BaseOrMergeRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
   [ProvingRequestType.BASE_PARITY]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: PublicInputsAndRecursiveProof<
@@ -241,7 +279,7 @@ export type ProvingJobId = z.infer<typeof ProvingJobId>;
 export const ProvingJob = z.object({
   id: ProvingJobId,
   type: z.nativeEnum(ProvingRequestType),
-  blockNumber: z.number().optional(),
+  epochNumber: z.number(),
   inputsUri: ProofUri,
 });
 
