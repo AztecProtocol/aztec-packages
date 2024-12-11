@@ -22,8 +22,11 @@ export function getUltraHonkFlavorForCircuit(artifact: UltraHonkProtocolArtifact
 export function getUltraHonkFlavorForCircuit(artifact: UltraRollupHonkProtocolArtifact): 'ultra_honk';
 export function getUltraHonkFlavorForCircuit(artifact: ProtocolArtifact): UltraHonkFlavor;
 export function getUltraHonkFlavorForCircuit(artifact: ProtocolArtifact): UltraHonkFlavor {
-  if (isUltraKeccakHonkCircuit(artifact)) return 'ultra_keccak_honk';
-  else if (UltraHonkCircuits.includes(artifact as UltraHonkProtocolArtifact)) return 'ultra_honk';
+  if (isUltraKeccakHonkCircuit(artifact)) {
+    return 'ultra_keccak_honk';
+  } else if (UltraHonkCircuits.includes(artifact as UltraHonkProtocolArtifact)) {
+    return 'ultra_honk'; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1169): change to rollup honk
+  }
   return 'ultra_honk';
 }
 
