@@ -188,16 +188,11 @@ export class PublicProcessor {
   }
 
   /**
-   * Creates the final set of data update requests for the transaction. This includes the
-   * set of public data update requests as returned by the public kernel, plus a data update
-   * request for updating fee balance. It also updates the local public state db.
-   * See build_or_patch_payment_update_request in base_rollup_inputs.nr for more details.
+   * Creates the public data write for paying the tx fee.
+   * This is used in private only txs, since for txs with public calls
+   * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(
-    publicDataWrites: PublicDataWrite[],
-    txFee: Fr,
-    feePayer: AztecAddress,
-  ): Promise<PublicDataWrite | undefined> {
+  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
       this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
       return;
@@ -209,11 +204,7 @@ export class PublicProcessor {
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
-
-    const balance = existingBalanceWrite
-      ? existingBalanceWrite.value
-      : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(
@@ -234,12 +225,7 @@ export class PublicProcessor {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
-    const accumulatedData = tx.data.forRollup!.end;
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      accumulatedData.publicDataWrites,
-      transactionFee,
-      tx.data.feePayer,
-    );
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
     const processedTx = makeProcessedTxFromPrivateOnlyTx(
       tx,
@@ -283,21 +269,7 @@ export class PublicProcessor {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs);
 
-    const data = avmProvingRequest.inputs.output;
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      data.accumulatedData.publicDataWrites,
-      data.transactionFee,
-      tx.data.feePayer,
-    );
-
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(
-      tx,
-      avmProvingRequest,
-      feePaymentPublicDataWrite,
-      gasUsed,
-      revertCode,
-      revertReason,
-    );
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

@@ -35,7 +35,7 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-ethereum
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -62,7 +62,7 @@ spec:
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
         - name: deploy-l1-contracts
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             [
               "/bin/bash",
@@ -97,7 +97,7 @@ spec:
       {{- end }}
       containers:
         - name: boot-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c

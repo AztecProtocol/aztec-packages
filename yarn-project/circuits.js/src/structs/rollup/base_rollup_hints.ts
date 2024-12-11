@@ -100,8 +100,6 @@ export class PublicBaseRollupHints {
     public startSpongeBlob: SpongeBlob,
     /** Hints used while proving state diff validity. */
     public stateDiffHints: PublicBaseStateDiffHints,
-    /** Public data read hint for accessing the balance of the fee payer. */
-    public feePayerFeeJuiceBalanceReadHint: PublicDataHint,
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
@@ -121,7 +119,6 @@ export class PublicBaseRollupHints {
       fields.start,
       fields.startSpongeBlob,
       fields.stateDiffHints,
-      fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
       fields.constants,
     ] as const;
@@ -149,7 +146,6 @@ export class PublicBaseRollupHints {
       reader.readObject(PartialStateReference),
       reader.readObject(SpongeBlob),
       reader.readObject(PublicBaseStateDiffHints),
-      reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       reader.readObject(ConstantRollupData),
     );
@@ -164,7 +160,6 @@ export class PublicBaseRollupHints {
       PartialStateReference.empty(),
       SpongeBlob.empty(),
       PublicBaseStateDiffHints.empty(),
-      PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       ConstantRollupData.empty(),
     );
