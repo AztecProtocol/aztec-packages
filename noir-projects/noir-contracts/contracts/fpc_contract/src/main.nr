@@ -19,11 +19,12 @@ contract FPC {
         config: PublicImmutable<Config, Context>,
     }
 
-    /// Initializes the contract with the accepted asset and the fee recipient (address that receives accepted ).
+    /// Initializes the contract with an accepted asset (AA) and a private fee recipient (address that receives AA
+    /// from users during the private fee payment flow).
     #[public]
     #[initializer]
-    fn constructor(accepted_asset: AztecAddress, fee_recipient: AztecAddress) {
-        let config = Config { accepted_asset, fee_recipient };
+    fn constructor(accepted_asset: AztecAddress, private_fee_recipient: AztecAddress) {
+        let config = Config { accepted_asset, private_fee_recipient };
         storage.config.initialize(config);
     }
 
@@ -33,12 +34,12 @@ contract FPC {
     /// ## Overview
     /// Uses partial notes to implement a refund flow which works as follows:
     /// 1. `setup_refund` function subtracts the `max_fee` from user's balance of AA, prepares partial notes
-    /// for the `fee_recipient` (to obtain the payment in AA for the fee) and for the msg_sender (for refund note of
-    /// the AA) and sets a public teardown function (in which the partial notes will be finalized),
+    /// for the `private_fee_recipient` (to obtain the payment in AA for the fee) and for the msg_sender (for refund
+    /// note of the AA) and sets a public teardown function (in which the partial notes will be finalized),
     /// 2. then the private and public functions of a tx get executed,
     /// 3. at this point we know the tx fee so we can compute in the teardown function how much of AA the user needs
-    /// to pay to the `fee_recipient` and how much of it will be refunded back. Note that this is computed based on
-    /// an exchange rate between AA and fee juice.
+    /// to pay to the `private_fee_recipient` and how much of it will be refunded back. Note that this is computed
+    /// based on an exchange rate between AA and fee juice.
     /// 4. the protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     ///
     /// With this scheme a user has privately paid for the tx fee with an arbitrary AA (e.g. could be a stablecoin).
@@ -52,7 +53,7 @@ contract FPC {
         let config = storage.config.read();
 
         Token::at(config.accepted_asset)
-            .setup_refund(config.fee_recipient, context.msg_sender(), max_fee, nonce)
+            .setup_refund(config.private_fee_recipient, context.msg_sender(), max_fee, nonce)
             .call(&mut context);
         context.set_as_fee_payer();
     }
@@ -65,15 +66,15 @@ contract FPC {
     /// 1. We pull the `max_fee` from the user's balance of the AA to this contract (requires setting an authwit),
     /// 2. then the private and public functions of a tx get executed,
     /// 3. at this point we know the tx fee so we can compute how much of AA the user needs to pay to
-    /// the `fee_recipient` and how much of it will be refunded back. Note that this is computed based on an exchange
-    /// rate between AA and fee juice.
+    /// the `private_fee_recipient` and how much of it will be refunded back. Note that this is computed based on
+    /// an exchange rate between AA and fee juice.
     /// 4. the protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     ///
     /// ***Note:***
     /// AA funds sent by the users to this contract stay in this contract and are not transferred
-    /// to the `fee_recipient`. In the private flow we needed a separate `fee_recipient` as this contract does not
-    /// have keys associated with it. In production we would want to have a method allowing for pulling of these funds
-    /// from this contract.
+    /// to the `private_fee_recipient`. In the private flow we needed a separate `private_fee_recipient` as this
+    /// contract does not have keys associated with it. In production we would want to have a method allowing for
+    /// pulling of these funds from this contract.
     #[private]
     fn fee_entrypoint_public(max_fee: Field, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates

@@ -638,16 +638,15 @@ contract Token {
     fn setup_refund(
         fee_recipient: AztecAddress, // Receives the fee note (set by the fee payer contract (FPC))
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        max_fee: Field, // The amount the user funded the fee payer with (represents fee limit).
+        max_fee: Field, // The maximum fee a user is willing to pay for the tx (denominated in FPC's accepted asset)
         nonce: Field, // A nonce to make authwitness unique.
     ) {
         // 1. This function is called by FPC when setting up a refund so we need to support the authwit flow here
         // and check that the user really permitted fee_recipient to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, user);
 
-        // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
-        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
-        // to the user in the `complete_refund(...)` function.
+        // 2. Deduct the max fee from user's balance. The difference between max fee and the actual tx fee will
+        // be refunded to the user in the `complete_refund(...)` function.
         let change = subtract_balance(
             &mut context,
             storage,
@@ -661,12 +660,12 @@ contract Token {
             user,
         ));
 
-        // 4. We prepare the partial notes
+        // 3. We prepare the partial notes
         let fee_recipient_point_slot =
             _prepare_private_balance_increase(user, fee_recipient, &mut context, storage);
         let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
 
-        // 5. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 4. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
