@@ -1,7 +1,7 @@
 import { type Database, type RangeOptions } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap, AztecMultiMapWithSize, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecAsyncMultiMap, type AztecMultiMap, type AztecMapWithSize } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -157,9 +157,24 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     return ['map', this.name, 'slot', key];
   }
 
+  async clear(): Promise<void> {
+    const lmdbRange: RangeOptions = {
+      start: this.#startSentinel,
+      end: this.#endSentinel,
+    };
+
+    const iterator = this.db.getRange(lmdbRange);
+
+    for (const {
+      key,
+    } of iterator) {
+      await this.db.remove(key);
+    }
+  }
+
 }
 
-export class LmdbAztecMultiMapWithSize<K extends Key, V> extends LmdbAztecMap<K, V> implements AztecMultiMapWithSize<K, V> {
+export class LmdbAztecMapWithSize<K extends Key, V> extends LmdbAztecMap<K, V> implements AztecMapWithSize<K, V>, AztecAsyncMultiMap<K, V> {
   #sizeCache?: number;
 
   constructor(rootDb: Database, mapName: string) {

@@ -6,8 +6,8 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type PoolInstrumentation } from '../instrumentation.js';
+import { type AttestationPool } from './attestation_pool.js';
 import { mockAttestation } from './mocks.js';
-import { AttestationPool } from './attestation_pool.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
 
@@ -19,7 +19,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   let metricsMock: MockProxy<PoolInstrumentation<BlockAttestation>>;
 
   beforeEach(() => {
-
     ap = getAttestationPool();
     signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, () => Secp256k1Signer.random());
 
@@ -33,6 +32,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     return signers.map(signer => mockAttestation(signer, slotNumber, archive));
   };
 
+  // We compare buffers as the objects can have cached values attached to them which are not serialised
+  // using array containing as the kv store does not respect insertion order
+  // TODO(md): should i make a version which respects insertion order?
+  const compareAttestations = (a1: BlockAttestation[], a2: BlockAttestation[]) => {
+    const a1Buffer = a1.map(attestation => attestation.toBuffer());
+    const a2Buffer = a2.map(attestation => attestation.toBuffer());
+    expect(a1Buffer.length).toBe(a2Buffer.length);
+    expect(a1Buffer).toEqual(expect.arrayContaining(a2Buffer));
+  };
+
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
@@ -40,21 +49,17 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     await ap.addAttestations(attestations);
 
-    console.log('add passes');
-
     // Check metrics have been updated.
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
-    console.log('get passes');
 
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
-    expect(retreivedAttestations).toEqual(attestations);
+
+    compareAttestations(retreivedAttestations, attestations);
 
     // Delete by slot
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
-
-    console.log('delete passes');
 
     expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
@@ -78,7 +83,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
     expect(retreivedAttestations.length).toBe(1);
-    expect(retreivedAttestations[0]).toEqual(attestations[0]);
+    expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
     expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
     expect(retreivedAttestations[0].getSender().toString()).toEqual(signer.address.toString());
   });
@@ -95,7 +100,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), archive);
       expect(retreivedAttestations.length).toBe(1);
-      expect(retreivedAttestations[0]).toEqual(attestation);
+      expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
       expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
     }
   });
@@ -113,7 +118,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
-      expect(retreivedAttestations[0]).toEqual(attestation);
+      expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
       expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
     }
   });
@@ -130,7 +135,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
-    expect(retreivedAttestations).toEqual(attestations);
+    compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestations(attestations);
 
@@ -150,7 +155,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
-    expect(retreivedAttestations).toEqual(attestations);
+    compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
 
@@ -170,7 +175,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
-    expect(retreivedAttestations).toEqual(attestations);
+    compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
 

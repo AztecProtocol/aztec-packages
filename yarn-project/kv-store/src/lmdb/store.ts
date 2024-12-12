@@ -9,13 +9,13 @@ import { join } from 'path';
 import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
 import { type Key } from '../interfaces/common.js';
 import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
-import { AztecMultiMapWithSize, type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecMapWithSize, type AztecMultiMapWithSize, type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
 import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
 import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
-import { LmdbAztecMap, LmdbAztecMultiMapWithSize } from './map.js';
+import { LmdbAztecMap, LmdbAztecMapWithSize } from './map.js';
 import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
@@ -124,9 +124,17 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @returns A new AztecMultiMapWithSize
    */
   openMultiMapWithSize<K extends Key, V>(name: string): AztecMultiMapWithSize<K, V> {
-    return new LmdbAztecMultiMapWithSize(this.#multiMapData, name);
+    return new LmdbAztecMapWithSize(this.#multiMapData, name);
   }
 
+  /**
+   * Creates a new AztecMapWithSize in the store.
+   * @param name - Name of the map
+   * @returns A new AztecMapWithSize
+   */
+  openMapWithSize<K extends Key, V>(name: string): AztecMapWithSize<K, V> {
+    return new LmdbAztecMapWithSize(this.#data, name);
+  }
 
   /**
    * Creates a new AztecArray in the store.

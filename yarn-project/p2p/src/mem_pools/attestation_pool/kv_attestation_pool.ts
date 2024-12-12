@@ -1,104 +1,70 @@
-import { type BlockAttestation } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { BlockAttestation } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { type AztecKVStore, type AztecMapWithSize, type AztecMultiMap } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
-import { AztecKVStore, AztecMap, AztecMultiMapWithSize  } from '@aztec/kv-store';
 
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
+  // Index of all proposal ids in a slot
+  private attestations: AztecMultiMap<string, string>;
 
-  // TODO: fix all of this up - this is a mess
-  private attestations: AztecMap<string, string>; // Store slot -> slotMapKey
-  private slotMaps: Map<string, AztecMultiMapWithSize<string, string>>; // Cache of slot maps
-  private proposalMaps: Map<string, AztecMultiMapWithSize<string, BlockAttestation>>; // Cache of proposal maps
-
-  constructor(private store: AztecKVStore, telemetry: TelemetryClient, private log = createDebugLogger('aztec:attestation_pool')) {
-    this.attestations = store.openMap('attestations');
-    this.slotMaps = new Map();
-    this.proposalMaps = new Map();
+  constructor(
+    private store: AztecKVStore,
+    telemetry: TelemetryClient,
+    private log = createLogger('aztec:attestation_pool'),
+  ) {
+    this.attestations = store.openMultiMap('attestations');
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
-  private getSlotMapKey(slot: string): string {
-    return `slot-${slot}`;
+  private getProposalMapKey(slot: string, proposalId: string): string {
+    return `proposal-${slot}-${proposalId}`;
   }
 
-  private getProposalMapKey(proposalId: string): string {
-    return `proposal-${proposalId}`;
-  }
-
-  private getSlotMap(slot: string): AztecMultiMapWithSize<string, string> {
-    const mapKey = this.getSlotMapKey(slot);
-    if (!this.slotMaps.has(mapKey)) {
-      this.slotMaps.set(mapKey, this.store.openMultiMapWithSize(mapKey));
-    }
-    return this.slotMaps.get(mapKey)!;
-  }
-
-  private getProposalMap(proposalId: string): AztecMultiMapWithSize<string, BlockAttestation> {
-    const mapKey = this.getProposalMapKey(proposalId);
-    if (!this.proposalMaps.has(mapKey)) {
-      this.proposalMaps.set(mapKey, this.store.openMultiMapWithSize(mapKey));
-    }
-    return this.proposalMaps.get(mapKey)!;
+  /**
+   * Get the proposal map for a given slot and proposalId
+   *
+   * Essentially a nested mapping of address -> attestation
+   *
+   * @param slot - The slot to get the proposal map for
+   * @param proposalId - The proposalId to get the map for
+   * @returns The proposal map
+   */
+  private getProposalMap(slot: string, proposalId: string): AztecMapWithSize<string, Buffer> {
+    const mapKey = this.getProposalMapKey(slot, proposalId);
+    return this.store.openMapWithSize(mapKey);
   }
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
-      for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
-        const proposalId = attestation.archive.toString();
-        const address = attestation.getSender().toString();
+    for (const attestation of attestations) {
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
+      const proposalId = attestation.archive.toString();
+      const address = attestation.getSender().toString();
 
-        // Get or create slot map
-        const slotMapKey = this.getSlotMapKey(slotNumber);
-        if (!this.attestations.has(slotNumber)) {
-          await this.attestations.set(slotNumber, slotMapKey);
-        }
+      // Index the proposalId in the slot map
+      await this.attestations.set(slotNumber, proposalId);
 
-        // Get slot map and store proposal reference
-        const slotMap = this.getSlotMap(slotNumber);
-        const proposalMapKey = this.getProposalMapKey(proposalId);
-        await slotMap.set(proposalId, proposalMapKey);
+      // Store the actual attestation in the proposal map
+      const proposalMap = this.getProposalMap(slotNumber, proposalId);
+      await proposalMap.set(address, attestation.toBuffer());
 
-        // Store the actual attestation in the proposal map
-        const proposalMap = this.getProposalMap(proposalId);
-        await proposalMap.set(address, attestation);
-
-        this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
-      }
+      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+    }
 
     this.metrics.recordAddedObjects(attestations.length);
   }
 
-  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    const slotString = this.getSlotMapKey(slot.toString());
-    if (!this.attestations.has(slotString)) {
-      return [];
-    }
-
-    const slotMap = this.getSlotMap(slotString);
-    if (!slotMap.has(proposalId)) {
-      return [];
-    }
-
-    const proposalMap = this.getProposalMap(proposalId);
-    return Array.from(proposalMap.values());
-  }
-
-  #getNumberOfAttestationsInSlot(slot: bigint): number {
-    let total = 0;
-    const slotMap = this.getSlotMap(slot.toString());
-
-    if (slotMap) {
-      for (const proposalAttestationMapName of slotMap.values() ?? []) {
-        const proposalMap = this.getProposalMap(proposalAttestationMapName);
-        total += proposalMap.size();
-      }
-    }
-    return total;
+  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    const slotNumber = new Fr(slot).toString();
+    const proposalMap = this.getProposalMap(slotNumber, proposalId);
+    const attestations = proposalMap.values();
+    const attestationsArray = Array.from(attestations).map(attestation => BlockAttestation.fromBuffer(attestation));
+    return Promise.resolve(attestationsArray);
   }
 
   public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
@@ -113,17 +79,26 @@ export class KvAttestationPool implements AttestationPool {
       }
     }
 
-    for (const oldSlot of olderThan) {
-      await this.deleteAttestationsForSlot(BigInt(oldSlot));
-    }
+    await Promise.all(olderThan.map(oldSlot => this.deleteAttestationsForSlot(BigInt(oldSlot))));
     return Promise.resolve();
   }
 
-  public deleteAttestationsForSlot(slot: bigint): Promise<void> {
-    const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
-    this.attestations.delete(this.getSlotMapKey(slot.toString()));
+  public async deleteAttestationsForSlot(slot: bigint): Promise<void> {
+    const deletionPromises = [];
 
-    // TODO: delete from store
+    const slotString = new Fr(slot).toString();
+    let numberOfAttestations = 0;
+    const proposalIds = this.attestations.getValues(slotString);
+
+    if (proposalIds) {
+      for (const proposalId of proposalIds) {
+        const proposalMap = this.getProposalMap(slotString, proposalId);
+        numberOfAttestations += proposalMap.size();
+        deletionPromises.push(proposalMap.clear());
+      }
+    }
+
+    await Promise.all(deletionPromises);
 
     this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
     this.metrics.recordRemovedObjects(numberOfAttestations);
@@ -131,79 +106,50 @@ export class KvAttestationPool implements AttestationPool {
   }
 
   public async deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
-    const slotAttestationMap = await getSlotOrDefault(this.store, this.attestations, this.getSlotKey(slot));
+    const deletionPromises = [];
+
+    const slotString = new Fr(slot).toString();
+    const slotAttestationMap = this.attestations.get(slotString);
+
     if (slotAttestationMap) {
-      if (slotAttestationMap.has(proposalId)) {
-        const numberOfAttestations = slotAttestationMap.get(proposalId)?.size() ?? 0;
+      // Remove the proposalId from the slot index
+      deletionPromises.push(this.attestations.deleteValue(slotString, proposalId));
 
-        slotAttestationMap.delete(proposalId);
+      // Delete all attestations for the proposalId
+      const proposalMap = this.getProposalMap(slotString, proposalId);
+      const numberOfAttestations = proposalMap.size();
+      deletionPromises.push(proposalMap.clear());
 
-        this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-        this.metrics.recordRemovedObjects(numberOfAttestations);
-      }
+      this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
+      this.metrics.recordRemovedObjects(numberOfAttestations);
     }
+
+    await Promise.all(deletionPromises);
     return Promise.resolve();
   }
 
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
+    const deletionPromises = [];
+
     for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
-      const slotAttestationMap = (slotNumber.toString());
-      if (slotAttestationMap) {
-        const proposalId = attestation.archive.toString();
-        const proposalAttestationMap = await getProposalOrDefault(this.store, slotAttestationMap, proposalId);
-        if (proposalAttestationMap) {
-          const address = attestation.getSender();
-          proposalAttestationMap.delete(address.toString());
-          this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
-        }
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
+      const proposalId = attestation.archive.toString();
+      const proposalMap = this.getProposalMap(slotNumber, proposalId);
+
+      if (proposalMap) {
+        const address = attestation.getSender().toString();
+        deletionPromises.push(proposalMap.delete(address));
+        this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
+      }
+
+      if (proposalMap.size() === 0) {
+        deletionPromises.push(this.attestations.deleteValue(slotNumber, proposalId));
       }
     }
+
+    await Promise.all(deletionPromises);
+
     this.metrics.recordRemovedObjects(attestations.length);
     return Promise.resolve();
   }
-}
-
-/**
- * Get Slot or Default
- *
- * Fetch the slot mapping, if it does not exist, then create a mapping and return it
- * @param store - The store to fetch from
- * @param map - The map to fetch from
- * @param slot - The slot to fetch
- * @returns The slot mapping
- */
-async function getSlotOrDefault(
-  store: AztecKVStore,
-  map: AztecMap<string, AztecMultiMapWithSize<string, AztecMultiMapWithSize<string, BlockAttestation>>>,
-  slot: string,
-): Promise<AztecMultiMapWithSize<string, AztecMultiMapWithSize<string, BlockAttestation>>> {
-  if (!map.has(slot)) {
-    const newMap = store.openMultiMapWithSize<string, AztecMultiMapWithSize<string, BlockAttestation>>(`slot-${slot}`);
-    await map.set(slot, newMap);
-    return newMap;
-  }
-  return map.get(slot)!;
-}
-
-/**
- * Get Proposal or Default
- *
- * Fetch the proposal mapping, if it does not exist, then create a mapping and return it
- * @param store - The store to fetch from
- * @param map - The map to fetch from
- * @param proposalId - The proposal id to fetch
- * @returns The proposal mapping
- */
-async function getProposalOrDefault(
-  store: AztecKVStore,
-  map: AztecMultiMapWithSize<string, AztecMultiMapWithSize<string, BlockAttestation>>,
-  proposalId: string,
-): Promise<AztecMultiMapWithSize<string, BlockAttestation>> {
-  if (!map.has(proposalId)) {
-    const newMap = store.openMultiMapWithSize<string, BlockAttestation>(`proposal-${proposalId}`);
-    await map.set(proposalId, newMap);
-    return newMap;
-  }
-  return map.get(proposalId)!;
 }
