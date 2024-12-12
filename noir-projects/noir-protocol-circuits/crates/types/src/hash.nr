@@ -42,7 +42,7 @@ pub fn private_functions_root_from_siblings(
     )
 }
 
-fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
+pub fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
     poseidon2_hash_with_separator(
         [tx_hash, note_index_in_tx as Field],

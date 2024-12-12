@@ -12,6 +12,7 @@ pub mod get_public_data_witness;
 pub mod get_membership_witness;
 pub mod keys;
 pub mod key_validation_request;
+pub mod management;
 pub mod get_sibling_path;
 pub mod random;
 pub mod enqueue_public_function_call;

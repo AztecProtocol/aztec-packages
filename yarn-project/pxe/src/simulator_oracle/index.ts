@@ -5,10 +5,12 @@ import {
   type L2Block,
   type L2BlockNumber,
   MerkleTreeId,
+  Note,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
   type TxEffect,
+  TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
@@ -26,7 +28,8 @@ import {
   computeAddressSecret,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { type FunctionArtifact, NoteSelector, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
@@ -34,7 +37,7 @@ import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -650,5 +653,103 @@ export class SimulatorOracle implements DBOracle {
         nullifier: noteDao.siloedNullifier.toString(),
       });
     });
+  }
+
+  public async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    const noteDao = await this.produceNoteDao(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
+
+    await this.db.addNotes([noteDao], recipient);
+    this.log.verbose(
+      `Added note for contract ${noteDao.contractAddress} at slot ${
+        noteDao.storageSlot
+      } with nullifier ${noteDao.siloedNullifier.toString()}`,
+    );
+
+    const scopedSiloedNullifier = await this.produceScopedSiloedNullifier(noteDao.siloedNullifier);
+
+    if (scopedSiloedNullifier !== undefined) {
+      await this.db.removeNullifiedNotes([scopedSiloedNullifier], recipient.toAddressPoint());
+      this.log.verbose(
+        `Removed note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
+      );
+    }
+  }
+
+  async produceNoteDao(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<IncomingNoteDao> {
+    const receipt = await this.aztecNode.getTxReceipt(TxHash.fromField(txHash));
+    if (receipt === undefined) {
+      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
+    }
+    const { blockNumber, blockHash } = receipt;
+
+    const siloedNoteHash = siloNoteHash(contractAddress, computeUniqueNoteHash(nonce, noteHash));
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+
+    const siloedNoteHashTreeIndex = (
+      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash])
+    )[0];
+    if (siloedNoteHashTreeIndex === undefined) {
+      throw new Error(
+        `Note hash ${noteHash} (siloed as ${siloedNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
+      );
+    }
+
+    return new IncomingNoteDao(
+      new Note(content),
+      contractAddress,
+      storageSlot,
+      NoteSelector.empty(), // todo: remove
+      new TxHash(txHash.toBuffer()), // todo: unwrap
+      blockNumber!,
+      blockHash!.toString(),
+      nonce,
+      noteHash,
+      siloedNullifier,
+      siloedNoteHashTreeIndex,
+      recipient.toAddressPoint(),
+    );
+  }
+
+  async produceScopedSiloedNullifier(siloedNullifier: Fr): Promise<InBlock<Fr> | undefined> {
+    const siloedNullifierTreeIndex = (
+      await this.aztecNode.findNullifiersIndexesWithBlock('latest', [siloedNullifier])
+    )[0];
+
+    if (siloedNullifierTreeIndex !== undefined) {
+      return {
+        data: siloedNullifier,
+        l2BlockNumber: siloedNullifierTreeIndex.l2BlockNumber,
+        l2BlockHash: siloedNullifierTreeIndex.l2BlockHash,
+      };
+    }
   }
 }

@@ -242,4 +242,15 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The recipient of the logs.
    */
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+
+  deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<void>;
 }

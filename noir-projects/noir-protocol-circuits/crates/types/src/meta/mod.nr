@@ -96,7 +96,8 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut fields = &[];
     let mut aux_vars = &[];
 
-    if omit.all(|to_omit| to_omit != name) {
+    // Proceed if none of the omit rules omis this name
+    if !omit.any(|to_omit| to_omit == name) {
         if typ.is_field() {
             // For field we just add the value to fields
             fields = fields.push_back(name);

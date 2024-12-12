@@ -318,4 +318,22 @@ export class ViewDataOracle extends TypedOracle {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
   }
+
+  public override async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ) {
+    // TODO: allow other contracts to deliver notes
+    if (this.contractAddress != contractAddress) {
+      throw new Error('');
+    }
+
+    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
 }
