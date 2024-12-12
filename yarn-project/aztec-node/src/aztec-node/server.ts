@@ -110,13 +110,7 @@ export class AztecNodeService implements AztecNode {
     this.packageVersion = getPackageInfo().version;
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
 
-    const message =
-      `Started Aztec Node against chain 0x${l1ChainId.toString(16)} with contracts - \n` +
-      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
-      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
-      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
-      `Outbox: ${config.l1Contracts.outboxAddress.toString()}`;
-    this.log.info(message);
+    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
 
   public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
@@ -163,7 +157,9 @@ export class AztecNodeService implements AztecNode {
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
-    log.info(`Aztec node accepting ${config.realProofs ? 'real' : 'test'} proofs`);
+    if (!config.realProofs) {
+      log.warn(`Aztec node is accepting fake proofs`);
+    }
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
@@ -784,7 +780,7 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to simulate.
    **/
   public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
-    this.log.info(`Simulating tx ${tx.getTxHash()}`);
+    const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
@@ -798,8 +794,13 @@ export class AztecNodeService implements AztecNode {
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
     const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
-
     const fork = await this.worldStateSynchronizer.fork();
+
+    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+      globalVariables: newGlobalVariables.toInspect(),
+      txHash,
+      blockNumber,
+    });
 
     try {
       const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
@@ -808,13 +809,11 @@ export class AztecNodeService implements AztecNode {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
+        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 
       const [processedTx] = processedTxs;
-      this.log.debug(`Simulated tx ${tx.getTxHash()} ${processedTx.revertReason ? 'Reverts' : 'Succeeds'}`);
-
       return new PublicSimulationOutput(
         processedTx.revertReason,
         processedTx.constants,

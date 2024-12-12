@@ -152,7 +152,7 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr): Promise<void> {
+  public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
     this.log.debug(`leafSlot=${leafSlot}`);
@@ -183,6 +183,7 @@ export class AvmPersistableStateManager {
         contractAddress,
         slot,
         value,
+        protocolWrite,
         lowLeafPreimage,
         new Fr(lowLeafIndex),
         lowLeafPath,
@@ -190,7 +191,7 @@ export class AvmPersistableStateManager {
         insertionPath,
       );
     } else {
-      this.trace.tracePublicStorageWrite(contractAddress, slot, value);
+      this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
     }
   }
 
@@ -378,8 +379,8 @@ export class AvmPersistableStateManager {
       } else {
         // Sanity check that the leaf value is skipped by low leaf when it doesn't exist
         assert(
-          siloedNullifier.toBigInt() > leafPreimage.nullifier.toBigInt() &&
-            siloedNullifier.toBigInt() < leafPreimage.nextNullifier.toBigInt(),
+          leafPreimage.nullifier.toBigInt() < siloedNullifier.toBigInt() &&
+            (leafPreimage.nextIndex === 0n || leafPreimage.nextNullifier.toBigInt() > siloedNullifier.toBigInt()),
           'Nullifier tree low leaf should skip the target leaf nullifier when the target leaf does not exist.',
         );
       }

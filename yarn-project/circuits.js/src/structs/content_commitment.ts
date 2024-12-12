@@ -51,6 +51,15 @@ export class ContentCommitment {
     return serializeToBuffer(this.numTxs, this.blobsHash, this.inHash, this.outHash);
   }
 
+  toInspect() {
+    return {
+      numTxs: this.numTxs.toNumber(),
+      blobsHash: bufferToHex(this.blobsHash),
+      inHash: bufferToHex(this.inHash),
+      outHash: bufferToHex(this.outHash),
+    };
+  }
+
   toFields(): Fr[] {
     const serialized = [
       this.numTxs,

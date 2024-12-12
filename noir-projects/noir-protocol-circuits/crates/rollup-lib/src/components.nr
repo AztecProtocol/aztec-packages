@@ -257,7 +257,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 7 fields for prefixes for each of the above categories
-pub global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
+pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX

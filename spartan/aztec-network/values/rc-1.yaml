@@ -3,7 +3,7 @@ network:
 
 aztec:
   slotDuration: 36
-  epochDuration: 32
+  epochDuration: 48
   realProofs: true
 
 images:
@@ -12,6 +12,7 @@ images:
 
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   storageSize: "100Gi"
@@ -128,7 +129,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 8
+  replicas: 24
   bb:
     hardwareConcurrency: 31
   gke:
@@ -141,7 +142,7 @@ proverAgent:
 bot:
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 200
+  txIntervalSeconds: 300
 
 jobs:
   deployL1Verifier:

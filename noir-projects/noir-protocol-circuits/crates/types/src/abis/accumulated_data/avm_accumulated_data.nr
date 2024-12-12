@@ -2,7 +2,8 @@ use crate::{
     abis::{log_hash::ScopedLogHash, public_data_write::PublicDataWrite},
     constants::{
         AVM_ACCUMULATED_DATA_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
@@ -20,7 +21,7 @@ pub struct AvmAccumulatedData {
     // The unencrypted logs emitted from private combining with those made in the AVM execution.
     pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     // The public data writes made in the AVM execution.
-    pub public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
 impl Empty for AvmAccumulatedData {
@@ -30,7 +31,9 @@ impl Empty for AvmAccumulatedData {
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
             l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
-            public_data_writes: [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_writes: [
+                PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+            ],
         }
     }
 }
@@ -82,7 +85,7 @@ impl Deserialize<AVM_ACCUMULATED_DATA_LENGTH> for AvmAccumulatedData {
             ),
             public_data_writes: reader.read_struct_array(
                 PublicDataWrite::deserialize,
-                [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
         };
         reader.finish();

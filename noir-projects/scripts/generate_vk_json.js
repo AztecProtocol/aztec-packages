@@ -3,8 +3,7 @@ const fs = require("fs/promises");
 const child_process = require("child_process");
 const crypto = require("crypto");
 
-const megaHonkPatterns = require("../mega_honk_circuits.json");
-const ivcIntegrationPatterns = require("../ivc_integration_circuits.json");
+const clientIvcPatterns = require("../client_ivc_circuits.json");
 const {
   readVKFromS3,
   writeVKToS3,
@@ -33,19 +32,13 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-async function getArtifactHash(
-  artifactPath,
-  isMegaHonk,
-  isIvcIntegration,
-  isRecursive
-) {
+async function getArtifactHash(artifactPath, isClientIvc, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
   return generateArtifactHash(
     barretenbergHash,
     bytecodeHash,
-    isMegaHonk,
-    isIvcIntegration,
+    isClientIvc,
     isRecursive
   );
 }
@@ -68,26 +61,19 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
   return true;
 }
 
-function isMegaHonkCircuit(artifactName) {
-  return megaHonkPatterns.some((pattern) =>
-    artifactName.match(new RegExp(pattern))
-  );
-}
-function isIvcIntegrationCircuit(artifactName) {
-  return ivcIntegrationPatterns.some((pattern) =>
+function isClientIvcCircuit(artifactName) {
+  return clientIvcPatterns.some((pattern) =>
     artifactName.match(new RegExp(pattern))
   );
 }
 
 async function processArtifact(artifactPath, artifactName, outputFolder) {
-  const isMegaHonk = isMegaHonkCircuit(artifactName);
-  const isIvcIntegration = isIvcIntegrationCircuit(artifactName);
+  const isClientIvc = isClientIvcCircuit(artifactName);
   const isRecursive = true;
 
   const artifactHash = await getArtifactHash(
     artifactPath,
-    isMegaHonk,
-    isIvcIntegration,
+    isClientIvc,
     isRecursive
   );
 
@@ -106,8 +92,7 @@ async function processArtifact(artifactPath, artifactName, outputFolder) {
       outputFolder,
       artifactPath,
       artifactHash,
-      isMegaHonk,
-      isIvcIntegration,
+      isClientIvc,
       isRecursive
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
@@ -123,14 +108,11 @@ async function generateVKData(
   outputFolder,
   artifactPath,
   artifactHash,
-  isMegaHonk,
-  isIvcIntegration,
+  isClientIvc,
   isRecursive
 ) {
-  if (isMegaHonk) {
-    console.log("Generating new mega honk vk for", artifactName);
-  } else if (isIvcIntegration) {
-    console.log("Generating new IVC vk for", artifactName);
+  if (isClientIvc) {
+    console.log("Generating new client ivc vk for", artifactName);
   } else {
     console.log("Generating new vk for", artifactName);
   }
@@ -142,8 +124,7 @@ async function generateVKData(
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
   function getVkCommand() {
-    if (isMegaHonk) return "write_vk_mega_honk";
-    if (isIvcIntegration) return "write_vk_for_ivc";
+    if (isClientIvc) return "write_vk_for_ivc";
     return "write_vk_ultra_honk";
   }
 
@@ -154,9 +135,7 @@ async function generateVKData(
   console.log("WRITE VK CMD: ", writeVkCommand);
 
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isMegaHonk || isIvcIntegration
-      ? "vk_as_fields_mega_honk"
-      : "vk_as_fields_ultra_honk"
+    isClientIvc ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {

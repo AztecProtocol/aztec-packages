@@ -9,7 +9,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
   AztecAddress,
   BlockHeader,
   Fr,
@@ -18,7 +17,6 @@ import {
   GlobalVariables,
   PublicDataWrite,
   RevertCode,
-  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -37,7 +35,6 @@ describe('public_processor', () => {
 
   let root: Buffer;
   let mockedEnqueuedCallsResult: PublicTxResult;
-  let mockedAvmOutput: AvmCircuitPublicInputs;
 
   let processor: PublicProcessor;
 
@@ -58,7 +55,6 @@ describe('public_processor', () => {
     root = Buffer.alloc(32, 5);
 
     const avmCircuitInputs = AvmCircuitInputs.empty();
-    mockedAvmOutput = avmCircuitInputs.output;
     mockedEnqueuedCallsResult = {
       avmProvingRequest: {
         type: ProvingRequestType.PUBLIC_VM,
@@ -207,70 +203,16 @@ describe('public_processor', () => {
       expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
     });
 
-    it('injects balance update with public enqueued call', async function () {
-      const txFee = new Fr(567);
-      mockedAvmOutput.transactionFee = txFee;
-
-      const tx = mockTxWithPublicCalls({
-        feePayer,
-      });
-
-      const [processed, failed] = await processor.process([tx], 1);
-
-      expect(processed).toHaveLength(1);
-      expect(processed[0].hash).toEqual(tx.getTxHash());
-      expect(processed[0].data.feePayer).toEqual(feePayer);
-      expect(processed[0].txEffect.transactionFee).toEqual(txFee);
-      expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
-      );
-      expect(failed).toEqual([]);
-
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
-    });
-
-    it('tweaks existing balance update from claim', async function () {
-      const txFee = new Fr(567);
-      const pendingBalance = new Fr(2000);
-      const pendingWrites = [
-        new PublicDataWrite(new Fr(888n), new Fr(999)),
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), pendingBalance),
-        new PublicDataWrite(new Fr(666n), new Fr(777)),
-      ];
-      mockedAvmOutput.transactionFee = txFee;
-      mockedAvmOutput.accumulatedData.publicDataWrites[0] = pendingWrites[0];
-      mockedAvmOutput.accumulatedData.publicDataWrites[1] = pendingWrites[1];
-      mockedAvmOutput.accumulatedData.publicDataWrites[2] = pendingWrites[2];
-
-      const tx = mockTxWithPublicCalls({
-        feePayer,
-      });
-
-      const [processed, failed] = await processor.process([tx], 1);
-
-      expect(processed).toHaveLength(1);
-      expect(processed[0].hash).toEqual(tx.getTxHash());
-      expect(processed[0].data.feePayer).toEqual(feePayer);
-      expect(countAccumulatedItems(processed[0].txEffect.publicDataWrites)).toBe(3);
-      expect(processed[0].txEffect.publicDataWrites.slice(0, 3)).toEqual([
-        pendingWrites[0],
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), pendingBalance.sub(txFee)),
-        pendingWrites[2],
-      ]);
-      expect(failed).toEqual([]);
-
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
-      expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
-    });
-
     it('rejects tx if fee payer has not enough balance', async function () {
-      const txFee = initialBalance.add(new Fr(1));
-      mockedAvmOutput.transactionFee = txFee;
-
-      const tx = mockTxWithPublicCalls({
+      const tx = mockPrivateOnlyTx({
         feePayer,
       });
+
+      const privateGasUsed = new Gas(initialBalance.toNumber(), initialBalance.toNumber());
+      if (privateGasUsed.computeFee(gasFees) < initialBalance) {
+        throw new Error('Test setup error: gas fees are too low');
+      }
+      tx.data.gasUsed = privateGasUsed;
 
       const [processed, failed] = await processor.process([tx], 1);
 

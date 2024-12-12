@@ -1739,27 +1739,6 @@ TEST_F(AvmExecutionTests, daGasLeft)
     validate_trace(std::move(trace), public_inputs);
 }
 
-TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
-{
-    GTEST_SKIP();
-    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) + // opcode GETENVVAR_16(sender)
-                               "00"                           // Indirect flag
-                               + "0007" + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)); // addr 7
-
-    std::vector<FF> calldata = {};
-    std::vector<FF> returndata = {};
-    public_inputs.gas_settings.gas_limits.l2_gas = MAX_L2_GAS_PER_ENQUEUED_CALL;
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto [instructions, error] = Deserialization::parse_bytecode_statically(bytecode);
-    ASSERT_TRUE(is_ok(error));
-
-    ExecutionHints execution_hints;
-    EXPECT_THROW_WITH_MESSAGE(gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints),
-                              "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for "
-                              "execution of an enqueued call");
-}
-
 // Should throw whenever the wrong number of public inputs are provided
 // TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 // {

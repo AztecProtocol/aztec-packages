@@ -36,7 +36,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
+import { type SetupOptions, createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
@@ -243,13 +243,18 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
-  await context.proverNode?.stop();
-  await context.aztecNode.stop();
-  await context.pxe.stop();
-  await context.acvmConfig?.cleanup();
-  await context.anvil.stop();
-  await context.watcher.stop();
-  context.timer?.uninstall();
+  try {
+    getLogger().info('Tearing down subsystems');
+    await context.proverNode?.stop();
+    await context.aztecNode.stop();
+    await context.pxe.stop();
+    await context.acvmConfig?.cleanup();
+    await context.anvil.stop();
+    await context.watcher.stop();
+    context.timer?.uninstall();
+  } catch (err) {
+    getLogger().error('Error during teardown', err);
+  }
 }
 
 /**
