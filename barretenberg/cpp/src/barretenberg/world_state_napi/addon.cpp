@@ -423,7 +423,8 @@ bool WorldStateAddon::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& 
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<FindLeafIndicesRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->find_leaf_indices<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaves, response.indices);
+        _ws->find_leaf_indices<bb::fr>(
+            request.value.revision, request.value.treeId, r1.value.leaves, response.indices, r1.value.startIndex);
         break;
     }
 
@@ -431,14 +432,14 @@ bool WorldStateAddon::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& 
         TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
         _ws->find_leaf_indices<PublicDataLeafValue>(
-            request.value.revision, request.value.treeId, r2.value.leaves, response.indices);
+            request.value.revision, request.value.treeId, r2.value.leaves, response.indices, r2.value.startIndex);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
         _ws->find_leaf_indices<NullifierLeafValue>(
-            request.value.revision, request.value.treeId, r3.value.leaves, response.indices);
+            request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
         break;
     }
     }

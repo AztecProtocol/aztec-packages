@@ -147,7 +147,8 @@ template <typename T> struct FindLeafIndicesRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     std::vector<T> leaves;
-    MSGPACK_FIELDS(treeId, revision, leaves);
+    index_t startIndex;
+    MSGPACK_FIELDS(treeId, revision, leaves, startIndex);
 };
 
 struct FindLeafIndicesResponse {
