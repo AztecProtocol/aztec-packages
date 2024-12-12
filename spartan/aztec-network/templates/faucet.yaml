@@ -114,7 +114,12 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
   type: ClusterIP
+  clusterIP: None
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: faucet
