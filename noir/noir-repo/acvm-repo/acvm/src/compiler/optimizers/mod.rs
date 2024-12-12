@@ -25,8 +25,6 @@ pub fn optimize<F: AcirField>(acir: Circuit<F>) -> (Circuit<F>, AcirTransformati
     // by applying the modifications done to the circuit opcodes and also to the opcode_positions (delete and insert)
     let acir_opcode_positions = (0..acir.opcodes.len()).collect();
 
-    let (mut acir, new_opcode_positions) = optimize_internal(acir, acir_opcode_positions);
-
     let transformation_map = AcirTransformationMap::new(&new_opcode_positions);
 
     acir.assert_messages = transform_assert_messages(acir.assert_messages, &transformation_map);
