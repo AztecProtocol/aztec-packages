@@ -231,7 +231,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns A Promise that resolves to a BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+    return this.db.getBlockHeader();
   }
 
   /**
@@ -521,7 +521,7 @@ export class SimulatorOracle implements DBOracle {
         });
         await this.db.setTaggingSecretsIndexesAsRecipient(
           Object.keys(secretsToIncrement).map(
-            secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
+            secret => new IndexedTaggingSecret(Fr.fromHexString(secret), secretsToIncrement[secret]),
           ),
         );
         currentTagggingSecrets = newTaggingSecrets;

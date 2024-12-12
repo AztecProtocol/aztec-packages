@@ -809,8 +809,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const json = JSON.parse(proofString);
       const fields = json
         .slice(0, 3)
-        .map(Fr.fromString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+        .map(Fr.fromHexString)
+        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
       return new RecursiveProof(
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
@@ -891,8 +891,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
-      .map(Fr.fromString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+      .map(Fr.fromHexString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

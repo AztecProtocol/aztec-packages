@@ -4,6 +4,19 @@ import { updateInlineTestData } from '@aztec/foundation/testing';
 import { PublicKeys } from './public_keys.js';
 
 describe('PublicKeys', () => {
+  it('serialization and deserialization', () => {
+    const pk = PublicKeys.random();
+    const serialized = pk.toString();
+    const deserialized = PublicKeys.fromString(serialized);
+
+    expect(pk).toEqual(deserialized);
+
+    const serializedWithoutPrefix = serialized.slice(2);
+    const deserializedWithoutPrefix = PublicKeys.fromString(serializedWithoutPrefix);
+
+    expect(pk).toEqual(deserializedWithoutPrefix);
+  });
+
   it('computes public keys hash', () => {
     const keys = new PublicKeys(
       new Point(new Fr(1n), new Fr(2n), false),
