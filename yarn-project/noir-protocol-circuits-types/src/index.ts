@@ -126,6 +126,7 @@ export async function executeInit(
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
@@ -136,6 +137,7 @@ export async function executeInit(
     inputs.vk_tree_root,
     inputs.protocol_contract_tree_root,
     inputs.private_call,
+    inputs.is_private_only,
     inputs.app_public_inputs,
     SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact as CompiledCircuit,
     foreignCallHandler,
@@ -274,6 +276,7 @@ export function convertPrivateKernelInitInputsToWitnessMap(
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),

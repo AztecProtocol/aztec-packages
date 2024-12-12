@@ -66,6 +66,14 @@ spec:
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
               echo "L2 contracts initialized"
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
