@@ -177,9 +177,6 @@ describe('benchmarks/proving', () => {
   });
 
   afterAll(async () => {
-    for (const pxe of provingPxes) {
-      await pxe.stop();
-    }
     await ctx.teardown();
     await acvmCleanup();
     await bbCleanup();

@@ -266,7 +266,7 @@ export function mapFieldToNoir(field: Fr): NoirField {
  * @returns The fr.
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
-  return Fr.fromString(field);
+  return Fr.fromHexString(field);
 }
 
 /** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
@@ -285,7 +285,7 @@ export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr 
  * @returns The number
  */
 export function mapNumberFromNoir(number: NoirField): number {
-  return Number(Fr.fromString(number).toBigInt());
+  return Number(Fr.fromHexString(number).toBigInt());
 }
 
 export function mapNumberToNoir(number: number): NoirField {
@@ -1396,6 +1396,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    inputs.is_private_only,
   );
 }
 
@@ -1409,6 +1410,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    is_private_only: inputs.isPrivateOnly,
   };
 }
 

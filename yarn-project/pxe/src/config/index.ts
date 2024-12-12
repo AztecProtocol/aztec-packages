@@ -28,8 +28,6 @@ export interface KernelProverConfig {
  * Configuration settings for the PXE.
  */
 export interface PXEConfig {
-  /** The interval to wait between polling for new blocks. */
-  l2BlockPollingIntervalMS: number;
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
 }
@@ -47,11 +45,6 @@ export type CliPXEOptions = {
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
-  l2BlockPollingIntervalMS: {
-    env: 'PXE_BLOCK_POLLING_INTERVAL_MS',
-    description: 'The interval to wait between polling for new blocks.',
-    ...numberConfigHelper(1_000),
-  },
   l2StartingBlock: {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),

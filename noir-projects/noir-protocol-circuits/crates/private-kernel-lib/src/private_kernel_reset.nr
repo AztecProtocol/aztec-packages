@@ -149,7 +149,7 @@ mod tests {
             private_log::PrivateLogData, side_effect::scoped::Scoped,
         },
         address::AztecAddress,
-        hash::{silo_note_hash, silo_nullifier, silo_private_log},
+        hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
         traits::is_empty_array,
@@ -245,14 +245,27 @@ mod tests {
         }
 
         pub fn compute_output_note_hashes<let N: u32>(
-            self,
+            self: Self,
             note_hashes: [ScopedNoteHash; N],
         ) -> [ScopedNoteHash; N] {
-            // First nullifier is tx hash.
-            let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
+            let first_nullifier = self.previous_kernel.nullifiers.get_unchecked(0).value();
+            let is_private_only = self.previous_kernel.is_private_only;
+            let min_revertible_side_effect_counter =
+                self.previous_kernel.min_revertible_side_effect_counter;
+
             let mut output = note_hashes;
             for i in 0..N {
-                output[i].note_hash.value = silo_note_hash(note_hashes[i], tx_hash, i);
+                let note_hash = note_hashes[i];
+                let siloed_note_hash = silo_note_hash(note_hash);
+                let unique_note_hash =
+                    compute_unique_siloed_note_hash(siloed_note_hash, first_nullifier, i);
+                // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
+                output[i].note_hash.value = if is_private_only
+                    | (note_hash.counter() < min_revertible_side_effect_counter) {
+                    unique_note_hash
+                } else {
+                    siloed_note_hash
+                };
                 output[i].contract_address = AztecAddress::zero();
             }
             output

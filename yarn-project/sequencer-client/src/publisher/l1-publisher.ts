@@ -779,7 +779,7 @@ export class L1Publisher {
       : proof.extractAggregationObject();
     const argsPublicInputs = [...publicInputs.toFields(), ...aggregationObject];
 
-    if (!areArraysEqual(rollupPublicInputs.map(Fr.fromString), argsPublicInputs, (a, b) => a.equals(b))) {
+    if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
       const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
       throw new Error(
         `Root rollup public inputs mismatch:\nRollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,

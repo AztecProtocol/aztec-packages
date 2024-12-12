@@ -4,7 +4,7 @@ use dep::types::address::AztecAddress;
 #[test]
 fn validate_initial_values_empty_data_succeeds() {
     let builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -16,7 +16,16 @@ fn validate_initial_values_constants_mismatch_chain_id_fails() {
 
     builder.output.tx_context.chain_id += 1;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
+}
+
+#[test(should_fail_with = "mismatch is_private_only")]
+fn validate_initial_values_is_private_only_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.is_private_only = true;
+
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "mismatch historical_header")]
@@ -25,7 +34,7 @@ fn validate_initial_values_constants_mismatch_out_hash_fails() {
 
     builder.output.historical_header.content_commitment.out_hash += 1;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -39,7 +48,7 @@ fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
     nullifier.nullifier.value += 1;
     builder.output.nullifiers.set(0, nullifier);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "first nullifier must be the tx request nullifier")]
@@ -48,7 +57,7 @@ fn validate_initial_values_constants_empty_first_nullifier_fails() {
 
     builder.output.nullifiers = BoundedVec::new();
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -61,7 +70,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_succeeds() {
     builder.private_call.min_revertible_side_effect_counter = 8989;
     builder.output.min_revertible_side_effect_counter = 8989;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
@@ -71,7 +80,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_mismatch_fails() {
     builder.private_call.min_revertible_side_effect_counter = 8989;
     builder.output.min_revertible_side_effect_counter = 50;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
@@ -80,7 +89,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_empty_output_fails
 
     builder.private_call.min_revertible_side_effect_counter = 8989;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial min_revertible_side_effect_counter")]
@@ -89,7 +98,7 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 
     builder.output.min_revertible_side_effect_counter = 8989;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -102,7 +111,7 @@ fn validate_initial_values_max_block_number_succeeds() {
     builder.private_call.set_max_block_number(123);
     builder.output.set_max_block_number(123);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial max_block_number")]
@@ -112,7 +121,7 @@ fn validate_initial_values_max_block_number_mismatch_fails() {
     builder.private_call.set_max_block_number(4567);
     builder.output.set_max_block_number(123);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial max_block_number")]
@@ -121,7 +130,7 @@ fn validate_initial_values_max_block_number_empty_output_fails() {
 
     builder.private_call.set_max_block_number(4567);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial max_block_number")]
@@ -130,7 +139,7 @@ fn validate_initial_values_max_block_number_random_output_fails() {
 
     builder.output.set_max_block_number(123);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -143,7 +152,7 @@ fn validate_initial_values_public_teardown_call_request_succeeds() {
     builder.private_call.set_public_teardown_call_request();
     builder.output.set_public_teardown_call_request();
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial public_teardown_call_request")]
@@ -155,7 +164,7 @@ fn validate_initial_values_public_teardown_call_request_mismatch_fails() {
     // Tweak the output.
     builder.output.public_teardown_call_request.args_hash += 1;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial public_teardown_call_request")]
@@ -164,7 +173,7 @@ fn validate_initial_values_public_teardown_call_request_empty_output_fails() {
 
     builder.private_call.set_public_teardown_call_request();
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial public_teardown_call_request")]
@@ -173,7 +182,7 @@ fn validate_initial_values_public_teardown_call_request_random_output_fails() {
 
     builder.output.set_public_teardown_call_request();
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 /**
@@ -186,7 +195,7 @@ fn validate_initial_values_fee_payer_succeeds() {
     let fee_payer = builder.private_call.make_fee_payer();
     builder.output.set_fee_payer(fee_payer);
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial fee_payer")]
@@ -198,7 +207,7 @@ fn validate_initial_values_fee_payer_mismatch_fails() {
     // Tweak the output.
     builder.output.fee_payer.inner += 1;
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial fee_payer")]
@@ -207,7 +216,7 @@ fn validate_initial_values_fee_payer_empty_output_fails() {
 
     let _ = builder.private_call.make_fee_payer();
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }
 
 #[test(should_fail_with = "incorrect initial fee_payer")]
@@ -216,5 +225,5 @@ fn validate_initial_values_fee_payer_random_output_fails() {
 
     builder.output.set_fee_payer(AztecAddress::from_field(123));
 
-    builder.validate_as_first_call();
+    builder.validate_as_first_call(false);
 }

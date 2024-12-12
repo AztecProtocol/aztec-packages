@@ -137,7 +137,7 @@ function generateContractAddresses(names: string[]) {
 function generateContractLeaves(names: string[], leaves: Fr[]) {
   return `
     export const ProtocolContractLeaf = {
-      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromString('${leaf.toString()}')`).join(',\n')}
+      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
     };
   `;
 }
@@ -145,7 +145,7 @@ function generateContractLeaves(names: string[], leaves: Fr[]) {
 function generateRoot(names: string[], leaves: Fr[]) {
   const root = computeRoot(names, leaves);
   return `
-    export const protocolContractTreeRoot = Fr.fromString('${root.toString()}');
+    export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
   `;
 }
 
@@ -154,7 +154,7 @@ function generateLogTags() {
   export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
   export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
   export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
-  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromString('${poseidon2Hash([
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');

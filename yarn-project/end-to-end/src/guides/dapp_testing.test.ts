@@ -133,7 +133,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
         // docs:start:unencrypted-logs
-        const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
+        const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
         const filter = {
           fromBlock: tx.blockNumber!,
