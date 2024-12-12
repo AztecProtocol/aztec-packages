@@ -393,4 +393,14 @@ export class Oracle {
   async syncNotes() {
     await this.typedOracle.syncNotes();
   }
+
+  testBoundedVecOracle(
+    vec: ACVMField[],
+    [vecLength]: ACVMField[],
+  ): ACVMField {
+    console.log('testBoundedVecOracle', vec);
+    console.log('vec_length', vecLength);
+
+    return toACVMField(0);
+  }
 }

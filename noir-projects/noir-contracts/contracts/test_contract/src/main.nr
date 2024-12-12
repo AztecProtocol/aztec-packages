@@ -1,4 +1,5 @@
 mod test_note;
+mod test_oracle;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 use dep::aztec::macros::aztec;
@@ -462,6 +463,19 @@ contract Test {
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
+
+    #[private]
+    fn test_bounded_vec_oracle_call() {
+        let mut v: BoundedVec<Field, 4> = BoundedVec::new();
+        v.push(1);
+        v.push(2);
+
+        test_bounded_vec(v);
+    }
+
+    // unconstrained fn call_with_bounded_vec(v: BoundedVec<Field, 4>) -> pub Field {
+    //     0
+    // }
 
     // Purely exists for testing
     unconstrained fn get_random(kinda_seed: Field) -> pub Field {
