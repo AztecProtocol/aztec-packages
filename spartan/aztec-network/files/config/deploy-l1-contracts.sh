@@ -8,6 +8,7 @@ CHAIN_ID=$2
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=60
+export LOG_LEVEL=debug
 
 for attempt in $(seq 1 $MAX_RETRIES); do
   # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
