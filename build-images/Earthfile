@@ -126,6 +126,7 @@ build:
           parallel \
           xz-utils \
           lsof \
+          xxd \
           # C++ (clang=18, which we will move to. 16 is for current build.)
           build-essential \
           cmake \
@@ -218,8 +219,6 @@ from-registry:
   ARG TARGETARCH
   # NOTE: match version string above
   FROM aztecprotocol/build:2.0-$TARGETARCH
-  # Temporary kludge until we move to a unified image.
-  RUN apt install xxd
 
 ########################################################################################################################
 # This builds on the build image. It acts as the image for all CI builds.
@@ -237,7 +236,6 @@ ci:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
   SAVE IMAGE --push aztecprotocol/ci:2.0
-
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
@@ -506,6 +504,7 @@ all-ci:
   BUILD +wasi-sdk
   BUILD +foundry
   BUILD +build
-  BUILD +ci
+  # TODO(#10677): this needs to be pushed while also updating our CI AMI
+  # BUILD +ci
   BUILD +aztec-base
   BUILD +end-to-end-base
