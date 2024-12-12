@@ -22,12 +22,12 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
-  type Header,
   type PrivateLog,
   type PublicFunction,
   type UnconstrainedFunctionWithMembershipProof,
@@ -40,7 +40,7 @@ import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
@@ -116,7 +116,7 @@ export class Archiver implements ArchiveSource {
     private readonly config: { pollingIntervalMs: number; batchSize: number },
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
-    private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
+    private readonly log: Logger = createLogger('archiver'),
   ) {
     this.store = new ArchiverStoreHelper(dataStore);
 
@@ -174,7 +174,7 @@ export class Archiver implements ArchiveSource {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      new ArchiverInstrumentation(telemetry, () => archiverStore.estimateSize()),
+      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -491,6 +491,8 @@ export class Archiver implements ArchiveSource {
         this.log.info(`Downloaded L2 block ${block.data.number}`, {
           blockHash: block.data.hash(),
           blockNumber: block.data.number,
+          txCount: block.data.body.txEffects.length,
+          globalVariables: block.data.header.globalVariables.toInspect(),
         });
       }
     } while (searchEndBlock < currentL1BlockNumber);
@@ -617,7 +619,7 @@ export class Archiver implements ArchiveSource {
     return blocks.length === 0 ? undefined : blocks[0].data;
   }
 
-  public async getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
@@ -836,7 +838,7 @@ class ArchiverStoreHelper
       | 'addFunctions'
     >
 {
-  #log = createDebugLogger('aztec:archiver:block-helper');
+  #log = createLogger('archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
 
@@ -1014,7 +1016,7 @@ class ArchiverStoreHelper
   getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
     return this.store.getBlocks(from, limit);
   }
-  getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
   getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {

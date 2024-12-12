@@ -5,7 +5,7 @@ import {
   type L2BlockStreamEventHandler,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 
 import { type PXEConfig } from '../config/index.js';
@@ -21,7 +21,7 @@ import { type PxeDatabase } from '../database/index.js';
 export class Synchronizer implements L2BlockStreamEventHandler {
   private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
-  private log: DebugLogger;
+  private log: Logger;
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -31,12 +31,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>> = {},
     logSuffix?: string,
   ) {
-    this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
+    this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
     this.blockStream = this.createBlockStream(config);
   }
 
   protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>>) {
-    return new L2BlockStream(this.node, this.l2TipsStore, this, {
+    return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       pollIntervalMS: config.l2BlockPollingIntervalMS,
       startingBlock: config.l2StartingBlock,
     });
@@ -47,12 +47,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
     switch (event.type) {
-      case 'blocks-added':
-        this.log.verbose(`Processing blocks ${event.blocks[0].number} to ${event.blocks.at(-1)!.number}`);
-        await this.db.setHeader(event.blocks.at(-1)!.header);
+      case 'blocks-added': {
+        const lastBlock = event.blocks.at(-1)!;
+        this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
+          blockHash: lastBlock.hash(),
+          archive: lastBlock.archive.root.toString(),
+          header: lastBlock.header.toInspect(),
+        });
+        await this.db.setHeader(lastBlock.header);
         break;
-      case 'chain-pruned':
-        this.log.info(`Pruning data after block ${event.blockNumber} due to reorg`);
+      }
+      case 'chain-pruned': {
+        this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         await this.db.unnullifyNotesAfter(event.blockNumber);
         await this.db.removeNotesAfter(event.blockNumber);
@@ -62,6 +68,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // Update the header to the last block.
         await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
         break;
+      }
     }
   }
 
@@ -79,8 +86,17 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
     this.running = true;
 
-    // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-    await this.db.setHeader(await this.node.getBlockHeader(0));
+    let currentHeader;
+
+    try {
+      currentHeader = await this.db.getBlockHeader();
+    } catch (e) {
+      this.log.debug('Header is not set, requesting from the node');
+    }
+    if (!currentHeader) {
+      // REFACTOR: We should know the header of the genesis block without having to request it from the node.
+      await this.db.setHeader(await this.node.getBlockHeader(0));
+    }
 
     await this.trigger();
     this.log.info('Initial sync complete');
@@ -106,8 +122,8 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.blockStream.sync();
   }
 
-  private getSynchedBlockNumber() {
-    return this.db.getBlockNumber() ?? this.initialSyncBlockNumber;
+  private async getSynchedBlockNumber() {
+    return (await this.db.getBlockNumber()) ?? this.initialSyncBlockNumber;
   }
 
   /**
@@ -118,15 +134,15 @@ export class Synchronizer implements L2BlockStreamEventHandler {
    */
   public async isGlobalStateSynchronized() {
     const latest = await this.node.getBlockNumber();
-    return latest <= this.getSynchedBlockNumber();
+    return latest <= (await this.getSynchedBlockNumber());
   }
 
   /**
    * Returns the latest block that has been synchronized by the synchronizer and each account.
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
-  public getSyncStatus() {
-    const lastBlockNumber = this.getSynchedBlockNumber();
+  public async getSyncStatus() {
+    const lastBlockNumber = await this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
     };

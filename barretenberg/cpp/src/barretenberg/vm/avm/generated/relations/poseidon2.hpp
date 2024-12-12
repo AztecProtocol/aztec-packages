@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class poseidon2Impl {
   public:
@@ -3085,4 +3085,4 @@ template <typename FF> class poseidon2 : public Relation<poseidon2Impl<FF>> {
     }
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

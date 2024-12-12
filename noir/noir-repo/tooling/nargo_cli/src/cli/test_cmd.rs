@@ -530,3 +530,31 @@ fn display_test_report(package_name: &String, test_report: &[TestResult]) -> std
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+    use std::{thread, time::Duration};
+    use termcolor::{ColorChoice, StandardStream};
+
+    #[test]
+    fn test_stderr_lock() {
+        for i in 0..4 {
+            thread::spawn(move || {
+                let mut writer = StandardStream::stderr(ColorChoice::Always);
+                //let mut writer = writer.lock();
+
+                let mut show = |msg| {
+                    thread::sleep(Duration::from_millis(10));
+                    //println!("{i} {msg}");
+                    writeln!(writer, "{i} {msg}").unwrap();
+                };
+
+                show("a");
+                show("b");
+                show("c");
+            });
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}

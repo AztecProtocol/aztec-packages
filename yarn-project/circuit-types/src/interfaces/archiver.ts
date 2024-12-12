@@ -1,8 +1,8 @@
 import {
+  BlockHeader,
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  Header,
   PrivateLog,
   PublicFunctionSchema,
 } from '@aztec/circuits.js';
@@ -38,7 +38,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeader: z
     .function()
     .args(z.union([schemas.Integer, z.literal('latest')]))
-    .returns(Header.schema.optional()),
+    .returns(BlockHeader.schema.optional()),
   getBlocks: z
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))

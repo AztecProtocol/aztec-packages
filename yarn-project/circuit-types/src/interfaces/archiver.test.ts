@@ -1,11 +1,11 @@
 import {
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  Header,
   PrivateLog,
   type PublicFunction,
   PublicKeys,
@@ -92,7 +92,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const result = await context.client.getBlockHeader(1);
-    expect(result).toBeInstanceOf(Header);
+    expect(result).toBeInstanceOf(BlockHeader);
   });
 
   it('getBlocks', async () => {
@@ -277,8 +277,8 @@ class MockArchiver implements ArchiverApi {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
-  getBlockHeader(_number: number | 'latest'): Promise<Header | undefined> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
   getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return Promise.resolve([L2Block.random(from)]);

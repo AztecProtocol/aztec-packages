@@ -82,8 +82,11 @@ export class TestBroker implements ProvingJobProducer {
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     return this.broker.getProvingJobStatus(id);
   }
-  removeAndCancelProvingJob(id: ProvingJobId): Promise<void> {
-    return this.broker.removeAndCancelProvingJob(id);
+  cleanUpProvingJobState(id: ProvingJobId): Promise<void> {
+    return this.broker.cleanUpProvingJobState(id);
+  }
+  cancelProvingJob(id: string): Promise<void> {
+    return this.broker.cancelProvingJob(id);
   }
   waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
     return this.broker.waitForJobToSettle(id);

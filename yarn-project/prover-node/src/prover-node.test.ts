@@ -16,7 +16,7 @@ import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type BootstrapNode,
   InMemoryAttestationPool,
@@ -173,6 +173,12 @@ describe('prover-node', () => {
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
 
       expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
+    });
+
+    it('does not send a quote if there are no blocks in the epoch', async () => {
+      l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
 
     it('does not send a quote on a finished epoch if the provider does not return one', async () => {

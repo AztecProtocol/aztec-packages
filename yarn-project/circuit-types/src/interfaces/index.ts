@@ -21,3 +21,5 @@ export * from './service.js';
 export * from './sync-status.js';
 export * from './world_state.js';
 export * from './prover-broker.js';
+export * from './p2p.js';
+export * from './p2p-bootstrap.js';

@@ -36,7 +36,7 @@ contract Claim {
         );
 
         // 2) Prove that the note hash exists in the note hash tree
-        let header = context.get_header();
+        let header = context.get_block_header();
         header.prove_note_inclusion(proof_note);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be

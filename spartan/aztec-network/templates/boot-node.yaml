@@ -11,6 +11,14 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: boot-node
+  volumeClaimTemplates:
+    - metadata:
+        name: boot-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bootNode.storageSize }}
   template:
     metadata:
       labels:
@@ -27,7 +35,7 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-ethereum
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -54,7 +62,7 @@ spec:
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
         - name: deploy-l1-contracts
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             [
               "/bin/bash",
@@ -86,10 +94,18 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       {{- end }}
       containers:
         - name: boot-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -119,6 +135,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: boot-node-data
+              mountPath: {{ .Values.bootNode.dataDir }}
             {{- if .Values.bootNode.deployContracts }}
             - name: scripts-output
               mountPath: /shared/contracts
@@ -132,6 +150,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
@@ -182,6 +208,9 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+        - name: boot-node-data
+          persistentVolumeClaim:
+            claimName: boot-node-data
       {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:
@@ -211,7 +240,6 @@ data:
     export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
-{{if not .Values.network.public }}
 ---
 # Headless service for StatefulSet DNS entries
 apiVersion: v1
@@ -221,16 +249,24 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
+  # If this is a public network, we want to expose the boot node as a LoadBalancer
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
   clusterIP: None
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
   ports:
+    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
+    {{- if not .Values.network.public }}
     - port: {{ .Values.bootNode.service.p2pTcpPort }}
       name: p2p-tpc
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    {{- end }}
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
-{{ end }}
