@@ -14,9 +14,10 @@ while true; do
     done
     # Check for imminent spot termination
     if curl -fs http://169.254.169.254/latest/meta-data/spot/termination-time >/dev/null 2>&1; then
-        # Termination notice found; kill the child and exit with 155
-        kill "$child_pid" && wait "$child_pid"
-        exit 155
+      # Termination notice found; kill the child and exit with 155
+      echo "Spot will be terminated! Exiting early."
+      kill "$child_pid" && wait "$child_pid"
+      exit 155
     fi
 done
 

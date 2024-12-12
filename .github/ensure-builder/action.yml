@@ -150,7 +150,7 @@ runs:
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-builder
-      if: steps.test.outputs.exit_code == '155' && inputs.spot_strategy != 'None'
+      if: (steps.test.outputs.exit_code == '155' || steps.test.outputs.exit_code == '255') && inputs.spot_strategy != 'None'
       with:
         username: ${{ inputs.username }}
         runner_type: ${{ inputs.runner_type}}
@@ -160,5 +160,5 @@ runs:
     # If we aren't rerunning, report exit code
     - name: Report Exit Code
       shell: bash
-      if: steps.test.outputs.exit_code != '155' || inputs.spot_strategy == 'None'
+      if: (steps.test.outputs.exit_code != '155' && steps.test.outputs.exit_code != '255') || inputs.spot_strategy == 'None'
       run: exit ${{ steps.test.outputs.exit_code }}
