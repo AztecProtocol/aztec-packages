@@ -516,7 +516,7 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
 
     signal.wait_for_level(0);
 
-    if (!local.success || local.inner.leaf_indices.empty()) {
+    if (!local.success || local.inner.leaf_indices.size() != leaves.size()) {
         throw std::runtime_error(local.message);
     }
 
