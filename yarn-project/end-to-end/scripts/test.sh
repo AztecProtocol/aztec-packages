@@ -12,12 +12,14 @@ export TEST=$2
 case "$TYPE" in
   "simple")
     container=$(docker run -d --rm \
+      --name ${TEST//\//_} \
       -v$PWD/../..:/root/aztec-packages \
       -v$HOME/.bb-crs:/root/.bb-crs \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST)
     trap "docker kill $container &> /dev/null" SIGINT SIGTERM
-    docker attach $container
+    docker logs -f $container
+    exit $(docker inspect --format='{{.State.ExitCode}}' $container)
   ;;
   "compose")
     docker compose -p "${TEST//[\/\.]/_}" -f ./scripts/docker-compose.yml up --exit-code-from=end-to-end --force-recreate
