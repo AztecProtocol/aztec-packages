@@ -82,6 +82,14 @@ export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
   deleteValue(key: K, val: V): Promise<void>;
 }
 
+export interface AztecMultiMapWithSize<K extends Key, V> extends AztecMultiMap<K, V> {
+  /**
+   * Gets the size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
+}
+
 /**
  * A map backed by a persistent store.
  */

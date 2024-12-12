@@ -9,13 +9,13 @@ import { join } from 'path';
 import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
 import { type Key } from '../interfaces/common.js';
 import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
-import { type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { AztecMultiMapWithSize, type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
 import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
 import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
-import { LmdbAztecMap } from './map.js';
+import { LmdbAztecMap, LmdbAztecMultiMapWithSize } from './map.js';
 import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
@@ -118,6 +118,15 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   openCounter<K extends Key>(name: string): AztecCounter<K> & AztecAsyncCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
   }
+  /**
+   * Creates a new AztecMultiMapWithSize in the store. A multi-map with size stores multiple values for a single key automatically.
+   * @param name - Name of the map
+   * @returns A new AztecMultiMapWithSize
+   */
+  openMultiMapWithSize<K extends Key, V>(name: string): AztecMultiMapWithSize<K, V> {
+    return new LmdbAztecMultiMapWithSize(this.#multiMapData, name);
+  }
+
 
   /**
    * Creates a new AztecArray in the store.
