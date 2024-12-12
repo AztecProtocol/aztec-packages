@@ -202,6 +202,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  * @brief Evaluates a doubling. Does not use Ultra double gate
  *
  * @tparam Builder
+ * @param unused param is due to interface-compatibility with the UltraArithmetic version of `dbl`
  * @return cycle_group<Builder>
  */
 template <typename Builder>
@@ -219,6 +220,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl([[maybe_unused]] const std::optio
  * @brief Evaluates a doubling. Uses Ultra double gate
  *
  * @tparam Builder
+ * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
