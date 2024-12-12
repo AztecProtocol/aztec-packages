@@ -127,6 +127,10 @@ describe('sequencer', () => {
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     blockBuilder = mock<BlockBuilder>();
 
+    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
+      return Promise.resolve([undefined]);
+    });
+
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({
         state: P2PClientState.IDLE,
