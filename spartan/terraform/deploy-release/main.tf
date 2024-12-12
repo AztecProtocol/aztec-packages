@@ -58,13 +58,6 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name = "validator.validatorKeys"
-    value = jsonencode({
-      for key in var.VALIDATOR_KEYS : key => true
-    })
-  }
-
-  set {
     name  = "bootNode.seqPublisherPrivateKey"
     value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
   }
@@ -72,6 +65,11 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "proverNode.proverPublisherPrivateKey"
     value = var.PROVER_PUBLISHER_PRIVATE_KEY
+  }
+
+  set_list {
+    name  = "validator.validatorKeys"
+    value = var.VALIDATOR_KEYS
   }
 
   set {
