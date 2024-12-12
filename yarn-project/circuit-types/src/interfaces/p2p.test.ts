@@ -1,19 +1,20 @@
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
+import { type P2PClientType } from '../p2p/client_type.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { Tx } from '../tx/tx.js';
 import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
 
 describe('P2PApiSchema', () => {
   let handler: MockP2P;
-  let context: JsonRpcTestContext<P2PApi>;
+  let context: JsonRpcTestContext<P2PApi<P2PClientType.Full>>;
 
   const tested = new Set<string>();
 
   beforeEach(async () => {
     handler = new MockP2P();
-    context = await createJsonRpcTestSetup<P2PApi>(handler, P2PApiSchema);
+    context = await createJsonRpcTestSetup<P2PApi<P2PClientType.Full>>(handler, P2PApiSchema);
   });
 
   afterEach(() => {
@@ -65,7 +66,7 @@ const peers: PeerInfo[] = [
   { status: 'cached', id: 'id', addresses: ['address'], enr: 'enr', dialAttempts: 1 },
 ];
 
-class MockP2P implements P2PApi {
+class MockP2P implements P2PApi<P2PClientType.Full> {
   getAttestationsForSlot(slot: bigint, proposalId?: string | undefined): Promise<BlockAttestation[]> {
     expect(slot).toEqual(1n);
     expect(proposalId).toEqual('proposalId');

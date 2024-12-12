@@ -3,6 +3,7 @@ import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas'
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
+import { type P2PClientType } from '../p2p/client_type.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { Tx } from '../tx/tx.js';
 
@@ -24,16 +25,7 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 ]);
 
 /** Exposed API to the P2P module. */
-export interface P2PApi {
-  /**
-   * Queries the Attestation pool for attestations for the given slot
-   *
-   * @param slot - the slot to query
-   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
-   * @returns BlockAttestations
-   */
-  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
-
+export interface P2PApiWithoutAttestations {
   /**
    * Queries the EpochProofQuote pool for quotes for the given epoch
    *
@@ -59,7 +51,22 @@ export interface P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 }
 
-export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
+export interface P2PClient extends P2PApiWithoutAttestations {
+  /**
+   * Queries the Attestation pool for attestations for the given slot
+   *
+   * @param slot - the slot to query
+   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
+   * @returns BlockAttestations
+   */
+  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+}
+
+export type P2PApi<T extends P2PClientType> = T extends P2PClientType.Full
+  ? P2PClient & P2PApiWithoutAttestations
+  : P2PApiWithoutAttestations;
+
+export const P2PApiSchema: ApiSchemaFor<P2PApi<P2PClientType.Full>> = {
   getAttestationsForSlot: z
     .function()
     .args(schemas.BigInt, optional(z.string()))

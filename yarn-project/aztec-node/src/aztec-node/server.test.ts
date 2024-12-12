@@ -7,6 +7,7 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type NullifierWithBlockSource,
+  type P2PClientType,
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -21,7 +22,7 @@ import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
 describe('aztec node', () => {
-  let p2p: MockProxy<P2P>;
+  let p2p: MockProxy<P2P<P2PClientType.Full>>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
 
@@ -34,7 +35,7 @@ describe('aztec node', () => {
   beforeEach(() => {
     lastBlockNumber = 0;
 
-    p2p = mock<P2P>();
+    p2p = mock<P2P<P2PClientType.Full>>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeReadOperations>();
