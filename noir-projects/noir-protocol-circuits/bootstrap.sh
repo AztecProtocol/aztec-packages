@@ -83,7 +83,7 @@ function compile {
     local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive | xxd -p -c 0"
     echo $vk_cmd >&2
     vk=$(dump_fail "$vk_cmd")
-    local vkf_cmd="echo '$vk' | base64 -d | $BB $vk_as_fields_cmd -k - -o -"
+    local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
     # echo $vkf_cmd >&2
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
