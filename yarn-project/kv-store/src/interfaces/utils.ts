@@ -12,6 +12,7 @@ export const mockLogger = {
   trace: (msg: string, data: any) => console.log(msg, data),
   level: 'trace' as const,
   isLevelEnabled: (_level: string) => true,
+  module: 'kv-store:mock-logger',
 };
 /* eslint-enable no-console */
 

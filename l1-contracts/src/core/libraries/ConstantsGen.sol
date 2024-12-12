@@ -92,7 +92,7 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_FIELDS = 18;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
-  uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
+  uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     1002640778211850180189505934749257244705296832326768971348723156503780793518;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000000000;
@@ -110,27 +110,6 @@ library Constants {
     24399338136397901754495080759185489776044879232766421623673792970137;
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     14061769416655647708490531650437236735160113654556896985372298487345;
-  uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
-  uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 12000000;
-  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
-  uint256 internal constant DA_BYTES_PER_FIELD = 32;
-  uint256 internal constant DA_GAS_PER_BYTE = 16;
-  uint256 internal constant FIXED_DA_GAS = 512;
-  uint256 internal constant FIXED_L2_GAS = 512;
-  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 1024;
-  uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
-  uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
-  uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
-  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 2624;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2624;
-  uint256 internal constant L2_GAS_PER_NULLIFIER = 4224;
-  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1200;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 1200;
-  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 2400;
-  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1170;
-  uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
-  uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
-  uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant MAX_PROTOCOL_CONTRACTS = 7;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS = 1;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS = 2;
@@ -138,6 +117,7 @@ library Constants {
   uint256 internal constant MULTI_CALL_ENTRYPOINT_ADDRESS = 4;
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant ROUTER_ADDRESS = 6;
+  uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =
@@ -208,7 +188,7 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 900;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 902;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 35;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 44;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
@@ -217,11 +197,11 @@ library Constants {
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1845;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 956;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 958;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 90;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 76;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 122;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 108;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -270,6 +250,27 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
+  uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
+  uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 6000000;
+  uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 6000000;
+  uint256 internal constant DA_BYTES_PER_FIELD = 32;
+  uint256 internal constant DA_GAS_PER_BYTE = 16;
+  uint256 internal constant FIXED_DA_GAS = 512;
+  uint256 internal constant FIXED_L2_GAS = 512;
+  uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 20000;
+  uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
+  uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 36;
+  uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 36;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 6784;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH = 3904;
+  uint256 internal constant L2_GAS_PER_NULLIFIER = 5344;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1440;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 1440;
+  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1440;
+  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1404;
+  uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
+  uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
+  uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

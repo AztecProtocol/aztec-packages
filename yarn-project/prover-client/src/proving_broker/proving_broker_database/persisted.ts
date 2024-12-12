@@ -14,13 +14,6 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     this.metrics = new LmdbMetrics(
       client.getMeter('KVBrokerDatabase'),
       {
-        description: 'Database map size for the proving broker',
-      },
-      {
-        description: 'Database used size for the proving broker',
-      },
-      { description: 'Number of items in the broker database' },
-      {
         [Attributes.DB_DATA_TYPE]: 'prover-broker',
       },
       () => store.estimateSize(),

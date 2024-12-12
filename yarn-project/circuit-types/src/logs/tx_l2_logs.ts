@@ -21,7 +21,7 @@ export abstract class TxL2Logs {
   abstract hash(): Buffer;
 
   constructor(
-    /** * An array containing logs emitted in individual function invocations in this tx. */
+    /** An array containing logs emitted in individual function invocations in this tx. */
     public readonly functionLogs: UnencryptedFunctionL2Logs[],
   ) {}
 
