@@ -153,7 +153,7 @@ impl InstructionArtifacts {
     }
 
     pub fn new_shr(first_variable: &Variable, second_variable: &Variable) -> Self {
-        return Self::new_binary(BinaryOp::Shl, "Binary::Shl".into(), first_variable, second_variable);
+        return Self::new_binary(BinaryOp::Shr, "Binary::Shr".into(), first_variable, second_variable);
     }
 }
 

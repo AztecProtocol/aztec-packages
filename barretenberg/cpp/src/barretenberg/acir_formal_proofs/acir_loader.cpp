@@ -46,7 +46,8 @@ bb::UltraCircuitBuilder AcirToSmtLoader::get_circuit_builder()
 smt_solver::Solver AcirToSmtLoader::get_smt_solver()
 {
     smt_circuit::CircuitSchema circuit_info = smt_circuit_schema::unpack_from_buffer(this->circuit_buf);
-    return smt_solver::Solver(circuit_info.modulus);
+    // for shl i have variable with bit length 197... for some reason
+    return smt_solver::Solver(circuit_info.modulus, smt_circuit::default_solver_config, 16, 240);
 }
 
 smt_circuit::UltraCircuit AcirToSmtLoader::get_smt_circuit(smt_solver::Solver* solver)

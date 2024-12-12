@@ -1,1 +1,1 @@
-barretenberg_module(acir_formal_proofs dsl circuit_checker smt_verification)
+barretenberg_module(acir_formal_proofs dsl circuit_checker smt_verification common)
