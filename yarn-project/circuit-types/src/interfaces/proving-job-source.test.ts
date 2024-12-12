@@ -1,6 +1,6 @@
 import {
   BaseOrMergeRollupPublicInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   VerificationKeyData,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
@@ -51,10 +51,13 @@ describe('ProvingJobSourceSchema', () => {
   it('resolveProvingJob', async () => {
     await context.client.resolveProvingJob('a-job-id', {
       type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
-      result: makePublicInputsAndRecursiveProof(
+      result: makePublicInputsAndRecursiveProof<
+        BaseOrMergeRollupPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >(
         BaseOrMergeRollupPublicInputs.empty(),
-        makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFake(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     });
   });

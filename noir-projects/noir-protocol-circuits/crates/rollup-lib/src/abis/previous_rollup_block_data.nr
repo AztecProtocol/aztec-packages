@@ -5,7 +5,7 @@ use dep::types::{
     proof::{
         rollup_recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
     traits::Empty,
     utils::arrays::find_index_hint,
@@ -14,7 +14,7 @@ use dep::types::{
 pub struct PreviousRollupBlockData {
     pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     pub proof: NestedRecursiveProof,
-    pub vk: HonkVerificationKey,
+    pub vk: RollupHonkVerificationKey,
     pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 

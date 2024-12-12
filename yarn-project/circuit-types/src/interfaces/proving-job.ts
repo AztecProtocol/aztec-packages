@@ -61,12 +61,12 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
 function schemaForPublicInputsAndRecursiveProof<T extends object>(
   inputs: ZodFor<T>,
   proofSize = NESTED_RECURSIVE_PROOF_LENGTH,
-): ZodFor<PublicInputsAndRecursiveProof<T>> {
+): ZodFor<PublicInputsAndRecursiveProof<T, typeof proofSize>> {
   return z.object({
     inputs,
     proof: RecursiveProof.schemaFor(proofSize),
     verificationKey: VerificationKeyData.schema,
-  }) as ZodFor<PublicInputsAndRecursiveProof<T>>;
+  }) as ZodFor<PublicInputsAndRecursiveProof<T, typeof proofSize>>;
 }
 
 export function makePublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH>(
