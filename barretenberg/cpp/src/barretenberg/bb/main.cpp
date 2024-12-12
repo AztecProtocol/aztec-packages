@@ -724,6 +724,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     if (!witnessPath.empty()) {
         program.witness = get_witness(witnessPath);
     }
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: only do this if the circuit does accumulation...
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);

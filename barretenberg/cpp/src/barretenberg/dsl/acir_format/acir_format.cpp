@@ -1,5 +1,4 @@
 #include "acir_format.hpp"
-#include "barretenberg/bb/init_srs.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
@@ -381,7 +380,6 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     // Accumulate the claims
     if (nested_ipa_claims.size() == 2) {
         // init Grumpkin CRS
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
         auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
