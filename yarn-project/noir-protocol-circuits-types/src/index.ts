@@ -199,6 +199,7 @@ export async function executeReset<
     NUM_TRANSIENT_DATA_HINTS
   >,
   dimensions: PrivateKernelResetDimensions,
+  // TODO: This input is a hack so we can write full reset inputs to a Prover.toml. Ideally we remove it in favour of adding a test that runs a full reset.
   untrimmedPrivateKernelResetCircuitPrivateInputs?: PrivateKernelResetCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const artifact = SimulatedClientCircuitArtifacts[getPrivateKernelResetArtifactName(dimensions)];
