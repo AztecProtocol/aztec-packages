@@ -95,13 +95,6 @@ export async function buildBaseRollupHints(
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
 
-  // Create data hint for reading fee payer initial balance in Fee Juice
-  // If no fee payer is set, read hint should be empty
-  const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-  const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
-    ? PublicDataHint.empty()
-    : await getPublicDataHint(db, leafSlot.toBigInt());
-
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
   const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
@@ -184,7 +177,6 @@ export async function buildBaseRollupHints(
     return PublicBaseRollupHints.from({
       start,
       stateDiffHints,
-      feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
       archiveRootMembershipWitness,
       constants,
     });
@@ -196,6 +188,13 @@ export async function buildBaseRollupHints(
     ) {
       throw new Error(`More than one public data write in a private only tx`);
     }
+
+    // Create data hint for reading fee payer initial balance in Fee Juice
+    // If no fee payer is set, read hint should be empty
+    const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+    const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
+      ? PublicDataHint.empty()
+      : await getPublicDataHint(db, leafSlot.toBigInt());
 
     const feeWriteLowLeafPreimage =
       txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();

@@ -10,17 +10,16 @@ describe('e2e_static_calls', () => {
   let childContract: StaticChildContract;
   let teardown: () => Promise<void>;
   let owner: AztecAddress;
-  let outgoingViewer: AztecAddress;
+  let sender: AztecAddress;
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
     owner = wallet.getCompleteAddress().address;
-    // Setting the outgoing viewer to owner not have to bother with setting up another account.
-    (outgoingViewer = owner), (parentContract = await StaticParentContract.deploy(wallet).send().deployed());
+    (sender = owner), (parentContract = await StaticParentContract.deploy(wallet).send().deployed());
     childContract = await StaticChildContract.deploy(wallet).send().deployed();
 
     // We create a note in the set, such that later reads doesn't fail due to get_notes returning 0 notes
-    await childContract.methods.private_set_value(42n, owner, outgoingViewer).send().wait();
+    await childContract.methods.private_set_value(42n, owner, sender).send().wait();
   });
 
   afterAll(() => teardown());
@@ -115,7 +114,7 @@ describe('e2e_static_calls', () => {
           .private_static_call_3_args(childContract.address, childContract.methods.private_set_value.selector, [
             42n,
             owner,
-            outgoingViewer,
+            sender,
           ])
           .send()
           .wait(),
@@ -137,7 +136,7 @@ describe('e2e_static_calls', () => {
           .private_nested_static_call_3_args(childContract.address, childContract.methods.private_set_value.selector, [
             42n,
             owner,
-            outgoingViewer,
+            sender,
           ])
           .send()
           .wait(),

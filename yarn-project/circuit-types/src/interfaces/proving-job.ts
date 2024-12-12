@@ -241,7 +241,7 @@ export type ProvingJobId = z.infer<typeof ProvingJobId>;
 export const ProvingJob = z.object({
   id: ProvingJobId,
   type: z.nativeEnum(ProvingRequestType),
-  blockNumber: z.number().optional(),
+  epochNumber: z.number(),
   inputsUri: ProofUri,
 });
 

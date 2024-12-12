@@ -7,7 +7,6 @@ contract Child {
 
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{internal, private, public}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
@@ -56,12 +55,9 @@ contract Child {
 
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
-
         let mut note = ValueNote::new(new_value, owner);
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            owner_ovpk_m,
             owner,
             owner,
         ));

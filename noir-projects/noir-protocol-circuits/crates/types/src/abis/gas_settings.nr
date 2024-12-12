@@ -1,14 +1,14 @@
 use crate::{
     abis::{gas::Gas, gas_fees::GasFees},
-    constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH},
+    constants::GAS_SETTINGS_LENGTH,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
 pub struct GasSettings {
-    gas_limits: Gas,
-    teardown_gas_limits: Gas,
-    max_fees_per_gas: GasFees,
+    pub gas_limits: Gas,
+    pub teardown_gas_limits: Gas,
+    pub max_fees_per_gas: GasFees,
 }
 
 impl GasSettings {

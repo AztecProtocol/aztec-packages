@@ -115,6 +115,7 @@ template <typename FF> class binary : public Relation<binaryImpl<FF>> {
         return std::to_string(index);
     }
 
+    // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_OP_ID_REL = 1;
     static constexpr size_t SR_MEM_TAG_REL = 2;
     static constexpr size_t SR_SEL_BIN_CTR_REL = 3;

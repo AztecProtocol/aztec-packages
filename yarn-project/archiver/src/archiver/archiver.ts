@@ -174,7 +174,7 @@ export class Archiver implements ArchiveSource {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      new ArchiverInstrumentation(telemetry, () => archiverStore.estimateSize()),
+      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -491,6 +491,8 @@ export class Archiver implements ArchiveSource {
         this.log.info(`Downloaded L2 block ${block.data.number}`, {
           blockHash: block.data.hash(),
           blockNumber: block.data.number,
+          txCount: block.data.body.txEffects.length,
+          globalVariables: block.data.header.globalVariables.toInspect(),
         });
       }
     } while (searchEndBlock < currentL1BlockNumber);

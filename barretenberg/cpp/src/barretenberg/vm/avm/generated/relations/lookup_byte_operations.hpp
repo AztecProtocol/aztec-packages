@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class lookup_byte_operations_lookup_settings {
   public:
@@ -73,4 +73,4 @@ class lookup_byte_operations_relation : public GenericLookupRelation<lookup_byte
 };
 template <typename FF_> using lookup_byte_operations = GenericLookup<lookup_byte_operations_lookup_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

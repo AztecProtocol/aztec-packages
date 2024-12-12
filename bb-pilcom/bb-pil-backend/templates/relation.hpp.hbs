@@ -58,6 +58,7 @@ template <typename FF> class {{name}} : public Relation<{{name}}Impl<FF>> {
             return std::to_string(index);
         }
 
+        {{#if (len labels)}}// Subrelation indices constants, to be used in tests.{{/if}}
         {{#each labels as |label|}}
         static constexpr size_t SR_{{label.1}} = {{label.0}};
         {{/each}}

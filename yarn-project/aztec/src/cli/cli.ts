@@ -95,7 +95,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         await startArchiver(options, signalHandlers, services);
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
-        await startP2PBootstrap(options, userLog, debugLogger);
+        await startP2PBootstrap(options, signalHandlers, services, userLog);
       } else if (options.proverAgent) {
         const { startProverAgent } = await import('./cmds/start_prover_agent.js');
         await startProverAgent(options, signalHandlers, services, userLog);
@@ -108,6 +108,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       } else if (options.sequencer) {
         userLog(`Cannot run a standalone sequencer without a node`);
         process.exit(1);
+      } else if (options.faucet) {
+        const { startFaucet } = await import('./cmds/start_faucet.js');
+        await startFaucet(options, signalHandlers, services, userLog);
       } else {
         userLog(`No module specified to start`);
         process.exit(1);
