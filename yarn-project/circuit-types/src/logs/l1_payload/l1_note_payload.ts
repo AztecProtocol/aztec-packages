@@ -37,6 +37,8 @@ export class L1NotePayload {
      * we need access to the contract ABI (that is done in the NoteProcessor).
      */
     public publicNoteValues: Fr[],
+
+    public plaintext: Fr[],
   ) {}
 
   static fromIncomingBodyPlaintextContractAndPublicValues(
@@ -53,7 +55,7 @@ export class L1NotePayload {
 
       const privateNoteValues = fields.slice(2);
 
-      return new L1NotePayload(contractAddress, storageSlot, noteTypeId, privateNoteValues, publicNoteValues);
+      return new L1NotePayload(contractAddress, storageSlot, noteTypeId, privateNoteValues, publicNoteValues, fields);
     } catch (e) {
       return undefined;
     }
@@ -111,7 +113,12 @@ export class L1NotePayload {
     const numPublicNoteValues = randomInt(2) + 1;
     const publicNoteValues = Array.from({ length: numPublicNoteValues }, () => Fr.random());
 
-    return new L1NotePayload(contract, Fr.random(), NoteSelector.random(), privateNoteValues, publicNoteValues);
+    // Note that this plaintext will not correspond to the private and public values above, nor the storage slot and
+    // note type id.
+    const plaintextLen = randomInt(5) + 1;
+    const plaintext = Array.from({ length: plaintextLen }, () => Fr.random());
+
+    return new L1NotePayload(contract, Fr.random(), NoteSelector.random(), privateNoteValues, publicNoteValues, plaintext);
   }
 
   public equals(other: L1NotePayload) {
@@ -131,6 +138,7 @@ export class L1NotePayload {
       this.noteTypeId,
       new Vector(this.privateNoteValues),
       new Vector(this.publicNoteValues),
+      new Vector(this.plaintext),
     );
   }
 
@@ -140,6 +148,7 @@ export class L1NotePayload {
       reader.readObject(AztecAddress),
       reader.readObject(Fr),
       reader.readObject(NoteSelector),
+      reader.readVector(Fr),
       reader.readVector(Fr),
       reader.readVector(Fr),
     );
