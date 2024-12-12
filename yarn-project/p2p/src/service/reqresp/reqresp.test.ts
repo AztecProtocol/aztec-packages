@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -86,8 +86,14 @@ describe('ReqResp', () => {
     void nodes[1].req.stop();
     void nodes[2].req.stop();
 
+    const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
+
     // send from the first node
     const res = await nodes[0].req.sendRequest(PING_PROTOCOL, PING_REQUEST);
+
+    // We expect the logger to have been called twice with the peer ids citing the inability to connect
+    expect(loggerSpy).toHaveBeenCalledWith(`Connection reset: ${nodes[1].p2p.peerId.toString()}`);
+    expect(loggerSpy).toHaveBeenCalledWith(`Connection reset: ${nodes[2].p2p.peerId.toString()}`);
 
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
   });
@@ -139,6 +145,29 @@ describe('ReqResp', () => {
       expect(res).toEqual(tx);
     });
 
+    it('Handle returning empty buffers', async () => {
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Buffer> => {
+        return Promise.resolve(Buffer.alloc(0));
+      };
+
+      nodes = await createNodes(peerManager, 2);
+
+      const spySendRequestToPeer = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      expect(spySendRequestToPeer).toHaveBeenCalledTimes(1);
+      expect(res).toEqual(undefined);
+    });
+
     it('Does not crash if tx hash returns undefined', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
@@ -170,7 +199,7 @@ describe('ReqResp', () => {
       });
 
       // Spy on the logger to make sure the error message is logged
-      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'error');
+      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 
       await sleep(500);
       await connectToPeers(nodes);
@@ -183,9 +212,9 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Error sending request to peer/i),
-        expect.any(Error),
-        { peerId, subProtocol: '/aztec/req/tx/0.1.0' },
+        `Timeout error: ${
+          new IndiviualReqRespTimeoutError().message
+        } | peerId: ${peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`,
       );
 
       // Expect the peer to be penalized for timing out
@@ -209,7 +238,7 @@ describe('ReqResp', () => {
       }
 
       // Spy on the logger to make sure the error message is logged
-      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'error');
+      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 
       await sleep(500);
       await connectToPeers(nodes);

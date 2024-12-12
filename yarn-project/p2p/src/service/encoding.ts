@@ -49,13 +49,31 @@ export function getMsgIdFn(message: Message) {
   return sha256(Buffer.concat(vec)).subarray(0, 20);
 }
 
+/**
+ * Snappy transform for libp2p gossipsub
+ */
 export class SnappyTransform implements DataTransform {
+  // Topic string included to satisfy DataTransform interface
   inboundTransform(_topicStr: string, data: Uint8Array): Uint8Array {
-    const uncompressed = Buffer.from(uncompressSync(Buffer.from(data), { asBuffer: true }));
-    return new Uint8Array(uncompressed);
+    return this.inboundTransformNoTopic(Buffer.from(data));
   }
 
+  public inboundTransformNoTopic(data: Buffer): Buffer {
+    if (data.length === 0) {
+      return data;
+    }
+    return Buffer.from(uncompressSync(data));
+  }
+
+  // Topic string included to satisfy DataTransform interface
   outboundTransform(_topicStr: string, data: Uint8Array): Uint8Array {
-    return new Uint8Array(compressSync(Buffer.from(data)));
+    return this.outboundTransformNoTopic(Buffer.from(data));
+  }
+
+  public outboundTransformNoTopic(data: Buffer): Buffer {
+    if (data.length === 0) {
+      return data;
+    }
+    return Buffer.from(compressSync(data));
   }
 }

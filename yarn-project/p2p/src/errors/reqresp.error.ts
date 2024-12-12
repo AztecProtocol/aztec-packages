@@ -19,3 +19,17 @@ export class CollectiveReqRespTimeoutError extends Error {
     super(`Request to all peers timed out`);
   }
 }
+
+/** Invalid response error
+ *
+ * This error will be thrown when a response is received that is not valid.
+ *
+ * This error does not need to be punished as message validators will handle punishing invalid
+ * requests
+ * @category Errors
+ */
+export class InvalidResponseError extends Error {
+  constructor() {
+    super(`Invalid response received`);
+  }
+}
