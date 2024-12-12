@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
@@ -268,7 +269,7 @@ template <typename Flavor> struct ZKSumcheckData {
             coeffs_lagrange_basis[idx] = FF{ 0 };
         }
 
-        for (size_t idx_poly = 0; idx_poly < log_circuit_size; idx_poly++) {
+        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
             for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
                 size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly + idx;
                 coeffs_lagrange_basis[current_idx] = multivariate_challenge[idx_poly].pow(idx);
@@ -361,17 +362,11 @@ template <typename Flavor> struct ZKSumcheckData {
             result.at(idx) = result.at(idx - 1);
         }
         result.at(0) = FF(0);
-
+        info("last element of the domain prover ", interpolation_domain[SUBGROUP_SIZE - 1]);
         // subtract g from result to get (X- 1)(A(gX) - A(X) - F(X) * G(X))
         for (size_t idx = 0; idx < result.size() - 1; idx++) {
             result.at(idx) -= result.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
         }
-
-        info("======");
-        info(result.evaluate(interpolation_domain[4]));
-        info(big_sum_lagrange_coeffs[5] - big_sum_lagrange_coeffs[4] -
-             libra_concatenated_lagrange_form.at(4) * challenge_polynomial_lagrange.at(4));
-        info("======");
 
         lagrange_first_monomial += lagrange_last_monomial;
 
@@ -381,31 +376,29 @@ template <typename Flavor> struct ZKSumcheckData {
                 result.at(i + j) += big_sum_polynomial.at(i) * lagrange_first_monomial.at(j);
             }
         }
-        info("(lagrange first + last ) A(X) + () at 1 ", result.evaluate(interpolation_domain[SUBGROUP_SIZE - 1]));
-
-        info("======");
-        info(result.evaluate(interpolation_domain[4]));
-        info(big_sum_lagrange_coeffs[5] - big_sum_lagrange_coeffs[4] -
-             libra_concatenated_lagrange_form.at(4) * challenge_polynomial_lagrange.at(4));
-        info("======");
         FF claimed_sum = big_sum_lagrange_coeffs[SUBGROUP_SIZE - 2];
-        info(claimed_sum);
+        info("claimed sum as a coeff of big sum poly ", claimed_sum);
         info("=====");
         for (size_t idx = 0; idx < lagrange_last_monomial.size(); idx++) {
             result.at(idx) -= lagrange_last_monomial.at(idx) * claimed_sum;
         }
-
+        // info("=== Batched poly evals in the domain");
         // for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
         //     info(result.evaluate(interpolation_domain[idx]));
         // }
         info(" ====");
+        for (size_t idx = 0; idx < BATCHED_POLYNOMIAL_LENGTH; idx++) {
+            info("idx ", idx, "   ", result.at(idx));
+        }
+        info("=====");
         batched_polynomial = result;
     }
     // Compute the quotient by Z_H = X^87 - 1
     void compute_batched_quotient()
-    {
+    { //
         auto remainder = batched_polynomial;
-        for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx > QUOTIENT_LENGTH; idx--) {
+        for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx >= SUBGROUP_SIZE; idx--) {
+            info(idx - SUBGROUP_SIZE);
             batched_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
             remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
         }
@@ -415,6 +408,7 @@ template <typename Flavor> struct ZKSumcheckData {
         for (size_t idx = 0; idx < SUBGROUP_SIZE + 1; idx++) {
             Z_H[idx] = FF(0);
         }
+
         Z_H[0] = FF(-1);
         Z_H[SUBGROUP_SIZE] = FF(1);
         for (size_t i = 0; i < batched_quotient.size(); ++i) {
@@ -422,10 +416,13 @@ template <typename Flavor> struct ZKSumcheckData {
                 result.at(i + j) += batched_quotient.at(i) * Z_H[j];
             }
         }
-        // for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-        //     info("product", result.evaluate(interpolation_domain[idx]));
-        //     // info("source poly", batched_polynomial.at(idx));
-        // }
+        info(" ====");
+        for (size_t idx = 0; idx < BATCHED_POLYNOMIAL_LENGTH; idx++) {
+            info("idx ", idx, "   ", result.at(idx));
+        }
+        info("=====");
+        info("difference : ", batched_polynomial.evaluate(FF(2)) - result.evaluate(FF(2)));
     }
 };
+
 } // namespace bb

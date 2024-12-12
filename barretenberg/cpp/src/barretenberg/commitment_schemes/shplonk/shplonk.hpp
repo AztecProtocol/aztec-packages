@@ -147,7 +147,7 @@ template <typename Curve> class ShplonkProver_ {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            info("prover denom", inverse_vanishing_evals[idx]);
+            // info("prover denom", inverse_vanishing_evals[idx]);
 
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
             info("current nu ", current_nu);
