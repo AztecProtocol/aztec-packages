@@ -1,7 +1,7 @@
 import { type Database, type RangeOptions } from 'lmdb';
 
 import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap, type AztecMultiMap, type AztecMapWithSize } from '../interfaces/map.js';
+import { type AztecAsyncMultiMap, type AztecMapWithSize, type AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -165,16 +165,16 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
 
     const iterator = this.db.getRange(lmdbRange);
 
-    for (const {
-      key,
-    } of iterator) {
+    for (const { key } of iterator) {
       await this.db.remove(key);
     }
   }
-
 }
 
-export class LmdbAztecMapWithSize<K extends Key, V> extends LmdbAztecMap<K, V> implements AztecMapWithSize<K, V>, AztecAsyncMultiMap<K, V> {
+export class LmdbAztecMapWithSize<K extends Key, V>
+  extends LmdbAztecMap<K, V>
+  implements AztecMapWithSize<K, V>, AztecAsyncMultiMap<K, V>
+{
   #sizeCache?: number;
 
   constructor(rootDb: Database, mapName: string) {
@@ -185,7 +185,7 @@ export class LmdbAztecMapWithSize<K extends Key, V> extends LmdbAztecMap<K, V> i
     await this.db.childTransaction(() => {
       const exists = this.db.doesExist(this.slot(key));
       this.db.putSync(this.slot(key), [key, val], {
-        appendDup: true
+        appendDup: true,
       });
       if (!exists) {
         this.#sizeCache = undefined; // Invalidate cache

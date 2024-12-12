@@ -9,7 +9,14 @@ import { join } from 'path';
 import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
 import { type Key } from '../interfaces/common.js';
 import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
-import { type AztecMapWithSize, type AztecMultiMapWithSize, type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import {
+  type AztecAsyncMap,
+  type AztecAsyncMultiMap,
+  type AztecMap,
+  type AztecMapWithSize,
+  type AztecMultiMap,
+  type AztecMultiMapWithSize,
+} from '../interfaces/map.js';
 import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
 import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
