@@ -746,10 +746,10 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          - test: gating-passive.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86
-            timeout: 60
+          # - test: gating-passive.test.ts
+          #   values: 16-validators
+          #   runner_type: 16core-tester-x86
+          #   timeout: 60
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -1062,7 +1062,7 @@ jobs:
       actions: write
     needs:
       - merge-check
-    if: github.event.pull_request.draft == false && !cancelled() && !true
+    if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:

@@ -125,7 +125,7 @@ export const browserTestSuite = (
         async (rpcUrl, secretKeyString) => {
           const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const secretKey = Fr.fromString(secretKeyString);
+          const secretKey = Fr.fromHexString(secretKeyString);
           const account = getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
           const completeAddress = account.getCompleteAddress();

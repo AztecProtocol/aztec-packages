@@ -20,9 +20,10 @@ fn new_from_tx_request_succeeds() {
     builder.private_call.historical_header.content_commitment.out_hash = 122122;
     let historical_header = builder.private_call.historical_header;
 
-    let output = builder.new_from_tx_request().public_inputs.finish();
+    let output = builder.new_from_tx_request(false).public_inputs.finish();
 
     // Check output constants.
+    assert_eq(output.is_private_only, false);
     assert_eq(output.constants.tx_context, tx_request.tx_context);
     assert_eq(output.constants.historical_header, historical_header);
 

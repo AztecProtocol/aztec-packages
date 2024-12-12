@@ -319,7 +319,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { noteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
@@ -328,7 +328,7 @@ export class PXEService implements PXE {
         note.note,
       );
 
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
+      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
@@ -368,7 +368,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { noteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
@@ -381,7 +381,7 @@ export class PXEService implements PXE {
         throw new Error('Unexpectedly received non-zero nullifier.');
       }
 
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
+      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
@@ -427,7 +427,7 @@ export class PXEService implements PXE {
       }
 
       const nonce = computeNoteHashNonce(firstNullifier, i);
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+      const { uniqueNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
@@ -435,7 +435,7 @@ export class PXEService implements PXE {
         false,
         note.note,
       );
-      if (hash.equals(siloedNoteHash)) {
+      if (hash.equals(uniqueNoteHash)) {
         nonces.push(nonce);
       }
     }
