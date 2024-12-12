@@ -15,7 +15,7 @@ for attempt in $(seq 1 $MAX_RETRIES); do
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
     base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    base_cmd="$base_cmd --mnemonic \"$MNEMONIC\""
+    base_cmd="$base_cmd --mnemonic \"${MNEMONIC//\"/}\""
   fi
 
   # Add validators if INIT_VALIDATORS is true
