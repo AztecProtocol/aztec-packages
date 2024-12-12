@@ -1,5 +1,5 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
-import { CompleteAddress, Header } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -55,7 +55,7 @@ describe('Unconstrained Execution test suite', () => {
 
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
       oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getHeader.mockResolvedValue(Header.empty());
+      oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,

@@ -19,6 +19,7 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
       volumes:
         - name: config
@@ -37,6 +38,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               until curl --head --silent ${BOOT_NODE_HOST}/status; do
                 echo "Waiting for boot node..."
                 sleep 5
@@ -59,7 +61,7 @@ spec:
         {{- end }}
       containers:
         - name: pxe
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -68,6 +70,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.network.public }}
               # If the network is public, we need to use the boot node URL
               export AZTEC_NODE_URL=${BOOT_NODE_HOST}
@@ -78,14 +81,20 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.pxe.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.pxe.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.pxe.debug }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
           ports:

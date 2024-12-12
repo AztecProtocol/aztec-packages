@@ -53,11 +53,19 @@ struct RollupStore {
   IVerifier epochProofVerifier;
 }
 
+struct CheatDepositArgs {
+  address attester;
+  address proposer;
+  address withdrawer;
+  uint256 amount;
+}
+
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
+  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
     view

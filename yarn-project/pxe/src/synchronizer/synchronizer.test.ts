@@ -1,6 +1,6 @@
 import { type AztecNode, L2Block, type L2BlockStream } from '@aztec/circuit-types';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
-import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -24,11 +24,11 @@ describe('Synchronizer', () => {
     }
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const store = openTmpStore();
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
-    database = new KVPxeDatabase(store);
+    database = await KVPxeDatabase.create(store);
     tipsStore = new L2TipsStore(store, 'pxe');
     synchronizer = new TestSynchronizer(aztecNode, database, tipsStore);
   });
@@ -37,7 +37,7 @@ describe('Synchronizer', () => {
     const block = L2Block.random(1, 4);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = database.getHeader();
+    const obtainedHeader = await database.getBlockHeader();
     expect(obtainedHeader).toEqual(block.header);
   });
 

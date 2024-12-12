@@ -1,6 +1,6 @@
 import { InboxLeaf } from '@aztec/circuit-types';
 import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -14,7 +14,7 @@ export class MessageStore {
   #lastSynchedL1Block: AztecSingleton<bigint>;
   #totalMessageCount: AztecSingleton<bigint>;
 
-  #log = createDebugLogger('aztec:archiver:message_store');
+  #log = createLogger('archiver:message_store');
 
   #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 

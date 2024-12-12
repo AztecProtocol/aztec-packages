@@ -8,15 +8,15 @@ import {
   type PublicDataWitness,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
@@ -33,7 +33,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
-    protected log = createDebugLogger('aztec:simulator:client_view_context'),
+    protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
     super();
@@ -139,7 +139,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public override async getHeader(blockNumber: number): Promise<Header | undefined> {
+  public override async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     const block = await this.db.getBlock(blockNumber);
     if (!block) {
       return undefined;
@@ -290,8 +290,7 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    const formattedStr = applyStringFormatting(message, fields);
-    this.log.verbose(`debug_log ${formattedStr}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**

@@ -18,7 +18,7 @@ use crate::{
     traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
-use super::utils::field::field_from_bytes;
+use super::utils::{arrays::array_concat, field::field_from_bytes};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -230,18 +230,8 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
-    let in_len = N + 1;
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-    sponge.absorb(separator.to_field());
-
-    for i in 0..inputs.len() {
-        sponge.absorb(inputs[i]);
-    }
-
-    sponge.squeeze()
+    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    poseidon2_hash(inputs_with_separator)
 }
 
 pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
@@ -263,32 +253,22 @@ where
 
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
-    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of Math.ceil(N/31)
-    let mut in_len = N / 31;
-    let mut has_padding = false;
-    if N % 31 != 0 {
-        in_len += 1;
-        has_padding = true;
-    }
-
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-
+    let mut fields = [0; (N + 30) / 31];
+    let mut field_index = 0;
     let mut current_field = [0; 31];
     for i in 0..inputs.len() {
         let index = i % 31;
         current_field[index] = inputs[i];
         if index == 30 {
-            sponge.absorb(field_from_bytes(current_field, false));
+            fields[field_index] = field_from_bytes(current_field, false);
             current_field = [0; 31];
+            field_index += 1;
         }
     }
-    if has_padding {
-        sponge.absorb(field_from_bytes(current_field, false));
+    if field_index != fields.len() {
+        fields[field_index] = field_from_bytes(current_field, false);
     }
-
-    sponge.squeeze()
+    poseidon2_hash(fields)
 }
 
 #[test]

@@ -4,7 +4,7 @@
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 
-using FF = bb::AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 
 struct EthAddress {
     std::array<uint8_t, 20> value{};
@@ -18,8 +18,8 @@ struct Gas {
 inline void read(uint8_t const*& it, Gas& gas)
 {
     using serialize::read;
-    read(it, gas.l2_gas);
     read(it, gas.da_gas);
+    read(it, gas.l2_gas);
 }
 
 struct GasFees {
@@ -87,6 +87,7 @@ inline void read(uint8_t const*& it, GlobalVariables& global_variables)
 struct AppendOnlyTreeSnapshot {
     FF root{};
     uint32_t size = 0;
+    inline bool operator==(const AppendOnlyTreeSnapshot& rhs) const { return root == rhs.root && size == rhs.size; }
 };
 
 inline void read(uint8_t const*& it, AppendOnlyTreeSnapshot& tree_snapshot)
@@ -101,6 +102,32 @@ struct TreeSnapshots {
     AppendOnlyTreeSnapshot note_hash_tree;
     AppendOnlyTreeSnapshot nullifier_tree;
     AppendOnlyTreeSnapshot public_data_tree;
+    inline bool operator==(const TreeSnapshots& rhs) const
+    {
+        return l1_to_l2_message_tree == rhs.l1_to_l2_message_tree && note_hash_tree == rhs.note_hash_tree &&
+               nullifier_tree == rhs.nullifier_tree && public_data_tree == rhs.public_data_tree;
+    }
+    inline TreeSnapshots copy()
+    {
+        return {
+        .l1_to_l2_message_tree = {
+          .root = l1_to_l2_message_tree.root,
+          .size = l1_to_l2_message_tree.size,
+        },
+        .note_hash_tree = {
+          .root = note_hash_tree.root,
+          .size = note_hash_tree.size,
+        },
+        .nullifier_tree = {
+          .root = nullifier_tree.root,
+          .size = nullifier_tree.size,
+        },
+        .public_data_tree = {
+          .root = public_data_tree.root,
+          .size = public_data_tree.size,
+        },
+      };
+    }
 };
 
 inline void read(uint8_t const*& it, TreeSnapshots& tree_snapshots)
@@ -130,6 +157,10 @@ struct PublicCallRequest {
      */
     bool is_static_call = false;
     FF args_hash{};
+    inline bool is_empty() const
+    {
+        return msg_sender == 0 && contract_address == 0 && function_selector == 0 && !is_static_call && args_hash == 0;
+    }
 };
 
 inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
@@ -155,9 +186,24 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedDataArrayLengths& le
     read(it, lengths.nullifiers);
     read(it, lengths.l2_to_l1_msgs);
 }
+struct L2ToL1Message {
+    FF recipient{}; // This is an eth address so it's actually only 20 bytes
+    FF content{};
+    uint32_t counter = 0;
+};
+
+inline void read(uint8_t const*& it, L2ToL1Message& l2_to_l1_message)
+{
+    using serialize::read;
+    std::array<uint8_t, 20> recipient;
+    read(it, recipient);
+    l2_to_l1_message.recipient = FF::serialize_from_buffer(recipient.data());
+    read(it, l2_to_l1_message.content);
+    read(it, l2_to_l1_message.counter);
+}
 
 struct ScopedL2ToL1Message {
-    FF l2_to_l1_message{};
+    L2ToL1Message l2_to_l1_message{};
     FF contract_address{};
 };
 
@@ -170,27 +216,21 @@ inline void read(uint8_t const*& it, ScopedL2ToL1Message& l2_to_l1_message)
 
 struct PrivateToAvmAccumulatedData {
     std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> l2_to_l1_msgs;
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs;
 };
 
 inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_data)
 {
     using serialize::read;
-    for (size_t i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        read(it, accumulated_data.note_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
-        read(it, accumulated_data.nullifiers[i]);
-    }
-    for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
-        read(it, accumulated_data.l2_to_l1_msgs[i]);
-    }
+    read(it, accumulated_data.note_hashes);
+    read(it, accumulated_data.nullifiers);
+    read(it, accumulated_data.l2_to_l1_msgs);
 }
 
 struct LogHash {
     FF value{};
-    FF counter{};
+    uint32_t counter = 0;
     FF length{};
 };
 
@@ -234,39 +274,30 @@ struct AvmAccumulatedData {
     /**
      * The nullifiers from private combining with those made in the AVM execution.
      */
-    std::array<FF, MAX_NULLIFIERS_PER_CALL> nullifiers{};
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
     /**
      * The L2 to L1 messages from private combining with those made in the AVM execution.
      */
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> l2_to_l1_msgs;
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
     /**
      * The unencrypted logs emitted from the AVM execution.
      */
-    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> unencrypted_logs_hashes;
+    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX> unencrypted_logs_hashes{};
     /**
      * The public data writes made in the AVM execution.
      */
-    std::array<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_writes;
+    std::array<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_writes{};
 };
 
 inline void read(uint8_t const*& it, AvmAccumulatedData& accumulated_data)
 {
     using serialize::read;
-    for (size_t i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        read(it, accumulated_data.note_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
-        read(it, accumulated_data.nullifiers[i]);
-    }
-    for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
-        read(it, accumulated_data.l2_to_l1_msgs[i]);
-    }
-    for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
-        read(it, accumulated_data.unencrypted_logs_hashes[i]);
-    }
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        read(it, accumulated_data.public_data_writes[i]);
-    }
+
+    read(it, accumulated_data.note_hashes);
+    read(it, accumulated_data.nullifiers);
+    read(it, accumulated_data.l2_to_l1_msgs);
+    read(it, accumulated_data.unencrypted_logs_hashes);
+    read(it, accumulated_data.public_data_writes);
 };
 
 class AvmPublicInputs {
@@ -275,6 +306,7 @@ class AvmPublicInputs {
     TreeSnapshots start_tree_snapshots;
     Gas start_gas_used;
     GasSettings gas_settings;
+    FF fee_payer;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_setup_call_requests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_app_logic_call_requests;
     PublicCallRequest public_teardown_call_request;
@@ -299,6 +331,7 @@ class AvmPublicInputs {
         read(it, public_inputs.start_tree_snapshots);
         read(it, public_inputs.start_gas_used);
         read(it, public_inputs.gas_settings);
+        read(it, public_inputs.fee_payer);
         read(it, public_inputs.public_setup_call_requests);
         read(it, public_inputs.public_app_logic_call_requests);
         read(it, public_inputs.public_teardown_call_request);

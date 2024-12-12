@@ -19,12 +19,12 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupHints,
+  type BlockHeader,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
-  type Header,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -42,7 +42,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -77,7 +77,7 @@ import {
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';
 
-const logger = createDebugLogger('aztec:prover:proving-orchestrator');
+const logger = createLogger('prover-client:orchestrator');
 
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
@@ -279,7 +279,7 @@ export class ProvingOrchestrator implements EpochProver {
   @trackSpan('ProvingOrchestrator.setBlockCompleted', (blockNumber: number) => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async setBlockCompleted(blockNumber: number, expectedHeader?: Header): Promise<L2Block> {
+  public async setBlockCompleted(blockNumber: number, expectedHeader?: BlockHeader): Promise<L2Block> {
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -407,7 +407,7 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  private async buildBlock(provingState: BlockProvingState, expectedHeader?: Header) {
+  private async buildBlock(provingState: BlockProvingState, expectedHeader?: BlockHeader) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
     const txs = provingState!.allTxs.map(a => a.processedTx);
 

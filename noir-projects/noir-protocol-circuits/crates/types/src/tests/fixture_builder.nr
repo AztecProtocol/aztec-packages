@@ -37,6 +37,7 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
@@ -44,7 +45,7 @@ use crate::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
@@ -52,7 +53,6 @@ use crate::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         silo_note_hash,
     },
-    header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
@@ -101,7 +101,7 @@ pub struct FixtureBuilder {
     pub end_gas_left: Gas,
 
     // Constant data.
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -114,7 +114,7 @@ pub struct FixtureBuilder {
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
-    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
@@ -1017,19 +1017,19 @@ impl FixtureBuilder {
         fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
-    fn to_private_tube_data(self) -> PrivateTubeData {
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
         let mut result: PrivateTubeData = std::mem::zeroed();
         result.public_inputs = self.to_kernel_circuit_public_inputs();
         result
     }
 
-    fn to_public_tube_data(self) -> PublicTubeData {
+    pub fn to_public_tube_data(self) -> PublicTubeData {
         let mut result: PublicTubeData = std::mem::zeroed();
         result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
         result
     }
 
-    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
         AvmAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
@@ -1039,7 +1039,7 @@ impl FixtureBuilder {
         }
     }
 
-    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
         let mut result: AvmProofData = std::mem::zeroed();
 
         result.public_inputs.reverted = reverted;
@@ -1059,7 +1059,7 @@ impl Empty for FixtureBuilder {
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),

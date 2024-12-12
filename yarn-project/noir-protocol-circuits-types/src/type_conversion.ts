@@ -9,6 +9,7 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  BlockHeader,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -32,7 +33,6 @@ import {
   GlobalVariables,
   GrumpkinScalar,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  Header,
   KernelCircuitPublicInputs,
   type KeyValidationHint,
   KeyValidationRequest,
@@ -49,7 +49,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   type MembershipWitness,
@@ -138,6 +138,7 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
+  BlockHeader as BlockHeaderNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
@@ -159,7 +160,6 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
@@ -1233,7 +1233,7 @@ export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: Comb
     mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_writes,
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataWriteFromNoir,
     ),
   );
@@ -1606,6 +1606,7 @@ function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCir
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     public_setup_call_requests: mapTuple(inputs.publicSetupCallRequests, mapPublicCallRequestToNoir),
     public_app_logic_call_requests: mapTuple(inputs.publicAppLogicCallRequests, mapPublicCallRequestToNoir),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
@@ -1864,11 +1865,11 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
 }
 
 /**
- * Maps header to Noir
- * @param header - The header.
- * @returns Header.
+ * Maps a block header to Noir
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderToNoir(header: Header): HeaderNoir {
+export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
     content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
@@ -1880,12 +1881,12 @@ export function mapHeaderToNoir(header: Header): HeaderNoir {
 }
 
 /**
- * Maps header from Noir.
- * @param header - The header.
- * @returns Header.
+ * Maps a block header from Noir.
+ * @param header - The block header.
+ * @returns BlockHeader.
  */
-export function mapHeaderFromNoir(header: HeaderNoir): Header {
-  return new Header(
+export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
+  return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
     mapContentCommitmentFromNoir(header.content_commitment),
     mapStateReferenceFromNoir(header.state),
@@ -2178,7 +2179,6 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
 
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
-    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
   };
 }
 

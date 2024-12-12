@@ -62,7 +62,7 @@ export class EventSelector extends Selector {
   static fromString(selector: string) {
     const buf = fromHex(selector);
     if (buf.length !== Selector.SIZE) {
-      throw new Error(`Invalid Selector length ${buf.length} (expected ${Selector.SIZE}).`);
+      throw new Error(`Invalid EventSelector length ${buf.length} (expected ${Selector.SIZE}).`);
     }
     return EventSelector.fromBuffer(buf);
   }

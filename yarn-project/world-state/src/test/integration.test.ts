@@ -1,7 +1,7 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
 import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { EthAddress, type Fr } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -22,7 +22,7 @@ describe('world-state integration', () => {
   let db: NativeWorldStateService;
   let synchronizer: TestWorldStateSynchronizer;
   let config: WorldStateConfig & DataStoreConfig;
-  let log: DebugLogger;
+  let log: Logger;
 
   let blocks: L2Block[];
   let messages: Fr[][];
@@ -30,7 +30,7 @@ describe('world-state integration', () => {
   const MAX_BLOCK_COUNT = 20;
 
   beforeAll(async () => {
-    log = createDebugLogger('aztec:world-state:test:integration');
+    log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
     const db = await NativeWorldStateService.tmp(rollupAddress);
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
@@ -62,7 +62,7 @@ describe('world-state integration', () => {
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 30000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();

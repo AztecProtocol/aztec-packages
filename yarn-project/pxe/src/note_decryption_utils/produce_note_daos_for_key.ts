@@ -1,7 +1,7 @@
 import { type L1NotePayload, type Note, type TxHash } from '@aztec/circuit-types';
 import { type Fr, type PublicKey } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
-import { type AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { type PxeDatabase } from '../database/pxe_database.js';
 import { getOrderedNoteItems } from './add_public_values_to_payload.js';
