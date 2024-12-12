@@ -498,7 +498,7 @@ export class PXEService implements PXE {
         `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
         txInfo,
       );
-      await this.synchronizer.trigger();
+      await this.synchronizer.sync();
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
       let publicInputs: PrivateKernelTailCircuitPublicInputs;
