@@ -1377,7 +1377,7 @@ void test_unwind(std::string directory,
 
         // Trying to find leaves appended in the block that was removed should fail
         check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
-        // check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
+        check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
 
         for (index_t j = 0; j < numBlocks; j++) {
             index_t historicBlockNumber = j + 1;
