@@ -43,6 +43,8 @@ contract Test {
     use std::meta::derive;
 
     use crate::test_note::TestNote;
+    use crate::test_oracle::test_bounded_vec;
+
     #[derive(Serialize)]
     #[event]
     struct ExampleEvent {
@@ -473,13 +475,15 @@ contract Test {
         test_bounded_vec(v);
     }
 
-    // unconstrained fn call_with_bounded_vec(v: BoundedVec<Field, 4>) -> pub Field {
-    //     0
-    // }
+    unconstrained fn call_with_bounded_vec(v: BoundedVec<Field, 4>) -> pub Field {
+        unsafe {
+            dep::aztec::oracle::debug_log::debug_log_format(
+                "{0}, {1}, len: {2}",
+                [v.get(0), v.get(1), v.len() as Field],
+            );
+        }
 
-    // Purely exists for testing
-    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * random()
+        0
     }
 
     pub struct DummyNote {
