@@ -174,7 +174,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // IPA Proof
     if (is_rollup_honk_recursion_constraint) {
         // Poly length
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(1), proof_fields[offset].witness_index);
         offset++;
 
         // Ls and Rs
