@@ -143,14 +143,7 @@
         }
       ]
     },
-    "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
-    ],
+    "reporters": [],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
