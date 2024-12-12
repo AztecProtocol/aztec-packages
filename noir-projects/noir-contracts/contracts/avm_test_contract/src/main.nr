@@ -676,10 +676,10 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

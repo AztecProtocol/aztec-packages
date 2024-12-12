@@ -11,6 +11,14 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: boot-node
+  volumeClaimTemplates:
+    - metadata:
+        name: boot-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bootNode.storageSize }}
   template:
     metadata:
       labels:
@@ -27,7 +35,7 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-ethereum
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -54,7 +62,7 @@ spec:
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
         - name: deploy-l1-contracts
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             [
               "/bin/bash",
@@ -89,7 +97,7 @@ spec:
       {{- end }}
       containers:
         - name: boot-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -119,6 +127,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: boot-node-data
+              mountPath: {{ .Values.bootNode.dataDir }}
             {{- if .Values.bootNode.deployContracts }}
             - name: scripts-output
               mountPath: /shared/contracts
@@ -182,6 +192,9 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+        - name: boot-node-data
+          persistentVolumeClaim:
+            claimName: boot-node-data
       {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:

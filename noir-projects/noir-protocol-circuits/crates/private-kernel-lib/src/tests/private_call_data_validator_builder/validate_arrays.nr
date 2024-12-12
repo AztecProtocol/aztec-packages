@@ -1,11 +1,14 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
+use dep::types::traits::Empty;
 
-fn unshift_empty_item<T, let N: u32>(vec: &mut BoundedVec<T, N>) {
-    let len = vec.len();
-    let empty_item = vec.storage[len];
+fn unshift_empty_item<T, let N: u32>(vec: &mut BoundedVec<T, N>)
+where
+    T: Empty,
+{
+    let empty_item = T::empty();
     let first_item = vec.get(0);
     vec.push(first_item);
-    vec.storage[0] = empty_item;
+    vec.set(0, empty_item);
 }
 
 #[test(should_fail_with = "invalid array")]

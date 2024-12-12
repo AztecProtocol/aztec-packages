@@ -1,7 +1,7 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
 import { type Hex } from 'viem';
@@ -18,7 +18,7 @@ export class EthCheatCodes {
     /**
      * The logger to use for the eth cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:eth'),
+    public logger = createLogger('ethereum:cheat_codes'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {

@@ -5,7 +5,7 @@ import {
   type L2BlockStreamEventHandler,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 
 import { type PXEConfig } from '../config/index.js';
@@ -21,7 +21,7 @@ import { type PxeDatabase } from '../database/index.js';
 export class Synchronizer implements L2BlockStreamEventHandler {
   private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
-  private log: DebugLogger;
+  private log: Logger;
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -31,7 +31,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>> = {},
     logSuffix?: string,
   ) {
-    this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
+    this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
     this.blockStream = this.createBlockStream(config);
   }
 
@@ -82,14 +82,13 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = this.db.getBlockHeader();
+      currentHeader = await this.db.getBlockHeader();
     } catch (e) {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      const storedBlockNumber = await this.db.getBlockNumber();
-      await this.db.setHeader(await this.node.getBlockHeader(storedBlockNumber ?? 0));
+      await this.db.setHeader(await this.node.getBlockHeader(0));
     }
 
     await this.trigger();

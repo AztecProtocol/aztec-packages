@@ -60,7 +60,10 @@
         }
       ]
     ],
-    "testTimeout": 15000
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",

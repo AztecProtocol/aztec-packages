@@ -1,4 +1,4 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';
 import { type Database, type RootDatabase, open } from 'lmdb';
@@ -27,7 +27,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #log = createDebugLogger('aztec:kv-store:lmdb');
+  #log = createLogger('kv-store:lmdb');
 
   constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
     this.#rootDb = rootDb;
@@ -62,7 +62,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     path?: string,
     mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:lmdb'),
+    log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
     if (path) {
       mkdirSync(path, { recursive: true });
@@ -212,11 +212,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
 
   private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
     const stats = db.getStats();
-    let branchPages = 0;
-    let leafPages = 0;
-    let overflowPages = 0;
-    let pageSize = 0;
-    let totalSize = 0;
+    let actualSize = 0;
     let numItems = 0;
     // This is the total number of key/value pairs present in the DB
     if ('entryCount' in stats && typeof stats.entryCount === 'number') {
@@ -233,12 +229,12 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
       'pageSize' in stats &&
       typeof stats.pageSize === 'number'
     ) {
-      branchPages = stats.treeBranchPageCount;
-      leafPages = stats.treeLeafPageCount;
-      overflowPages = stats.overflowPages;
-      pageSize = stats.pageSize;
-      totalSize = (branchPages + leafPages + overflowPages) * pageSize;
+      const branchPages = stats.treeBranchPageCount;
+      const leafPages = stats.treeLeafPageCount;
+      const overflowPages = stats.overflowPages;
+      const pageSize = stats.pageSize;
+      actualSize = (branchPages + leafPages + overflowPages) * pageSize;
     }
-    return { actualSize: totalSize, numItems };
+    return { actualSize, numItems };
   }
 }

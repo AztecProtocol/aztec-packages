@@ -8,7 +8,7 @@ import {
   ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -39,7 +39,7 @@ export class ProvingAgent {
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    private log = createDebugLogger('aztec:prover-client:proving-agent'),
+    private log = createLogger('prover-client:proving-agent'),
   ) {
     this.instrumentation = new ProvingAgentInstrumentation(client);
     this.runningPromise = new RunningPromise(this.safeWork, this.pollIntervalMs);

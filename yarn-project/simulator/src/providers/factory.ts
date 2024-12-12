@@ -1,4 +1,4 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
@@ -21,7 +21,7 @@ export function getSimulationProviderConfigFromEnv() {
 
 export async function createSimulationProvider(
   config: SimulationProviderConfig,
-  logger: DebugLogger = createDebugLogger('aztec:simulator'),
+  logger: Logger = createLogger('simulator'),
 ): Promise<SimulationProvider> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {
