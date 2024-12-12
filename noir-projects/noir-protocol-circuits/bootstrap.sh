@@ -80,8 +80,12 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
-    vk=$(dump_fail "jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - | base64 -w 0")
-    vk_fields=$(dump_fail "echo '$vk' | base64 -d | $BB $vk_as_fields_cmd -k - -o -")
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive | xxd -p -c 0"
+    echo $vk_cmd >&2
+    vk=$(dump_fail "$vk_cmd")
+    local vkf_cmd="echo '$vk' | base64 -d | $BB $vk_as_fields_cmd -k - -o -"
+    # echo $vkf_cmd >&2
+    vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo "Key output at: $key_path (${SECONDS}s)"
     cache_upload vk-$hash.tar.gz $key_path &> /dev/null
