@@ -231,7 +231,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns A Promise that resolves to a BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+    return this.db.getBlockHeader();
   }
 
   /**
