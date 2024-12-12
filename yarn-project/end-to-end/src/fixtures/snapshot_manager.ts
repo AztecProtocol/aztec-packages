@@ -247,7 +247,6 @@ async function teardown(context: SubsystemsContext | undefined) {
     getLogger().info('Tearing down subsystems');
     await context.proverNode?.stop();
     await context.aztecNode.stop();
-    await context.pxe.stop();
     await context.acvmConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();

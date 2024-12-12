@@ -81,8 +81,7 @@ describe('benchmarks/process_history', () => {
         context.logger.info(`Registering fresh account on new pxe`);
         await pxe.registerAccount(Fr.random(), Fr.random());
 
-        // Stop the external node and pxe
-        await pxe.stop();
+        // Stop the external node
         await node.stop();
 
         lastBlock = chainLength;

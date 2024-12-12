@@ -69,7 +69,7 @@ export class PrivateEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
-    const server = new PXEService(
+    const pxe = new PXEService(
       keyStore,
       aztecNode,
       db,
@@ -77,8 +77,8 @@ export class PrivateEnv {
       proofCreator,
       config,
     );
-    await server.init();
-    return server;
+    await pxe.init();
+    return pxe;
   }
 
   async getWallet() {

@@ -18,7 +18,6 @@ import { type PxeDatabase } from '../database/index.js';
  * details, and fetch transactions by hash.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
-  private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
   protected readonly blockStream: L2BlockStream;
@@ -27,16 +26,15 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private db: PxeDatabase,
     private l2TipsStore: L2TipsStore,
-    config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>> = {},
+    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
     logSuffix?: string,
   ) {
     this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>>) {
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
-      pollIntervalMS: config.l2BlockPollingIntervalMS,
       startingBlock: config.l2StartingBlock,
     });
   }
@@ -75,9 +73,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
    * Syncs PXE and the node by dowloading the metadata of the latest blocks, allowing simulations to use
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
-  public async trigger() {
-    this.running = true;
-
+  public async sync() {
     let currentHeader;
 
     try {
@@ -90,7 +86,6 @@ export class Synchronizer implements L2BlockStreamEventHandler {
       await this.db.setHeader(await this.node.getBlockHeader(0));
     }
     await this.blockStream.sync();
-    this.running = false;
   }
 
   public async getSynchedBlockNumber() {

@@ -23,9 +23,8 @@ async function main() {
   const nodeRpcClient = createAztecNodeClient(AZTEC_NODE_URL);
   const pxeService = await createPXEService(nodeRpcClient, pxeConfig);
 
-  const shutdown = async () => {
+  const shutdown = () => {
     logger.info('Shutting down...');
-    await pxeService.stop();
     process.exit(0);
   };
 
