@@ -137,10 +137,10 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     row_slice += row_slice;
     row_slice += w3;
     auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
-
+    const auto check_sum = scalar_sum_new - sum_delta;
     const auto precompute_select_scaled_transition = precompute_select * scaled_transition;
     const auto precompute_select_scaled = precompute_select * scaling_factor;
-    std::get<8>(accumulator) += sum_delta * (precompute_select_scaled - precompute_select_scaled_transition);
+    std::get<8>(accumulator) += check_sum * (precompute_select_scaled - precompute_select_scaled_transition);
 
     /**
      * @brief Round transition logic.
