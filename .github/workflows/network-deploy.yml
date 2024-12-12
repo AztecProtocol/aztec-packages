@@ -160,11 +160,11 @@ jobs:
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
-              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
               -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.ETHEREUM_EXTERNAL_HOST }}" \
+              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
             -lock=${{ inputs.respect_tf_lock }}
           else
             terraform destroy -auto-approve \
@@ -185,11 +185,11 @@ jobs:
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
-              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
               -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.ETHEREUM_EXTERNAL_HOST }}" \
+              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           else

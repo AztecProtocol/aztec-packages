@@ -127,11 +127,20 @@ jobs:
           # wait for port-forwards to establish
           sleep 5
 
-          docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
-            --rpc-url http://127.0.0.1:$PXE_PORT \
-            --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
-            --l1-chain-id "$L1_CHAIN_ID" \
-            --mnemonic "$MNEMONIC" \
-            --json | tee ./basic_contracts.json
+          if ${{ inputs.sepolia_deployment }}; then
+            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
+              --rpc-url http://127.0.0.1:$PXE_PORT \
+              --l1-rpc-url ${{ secrets.SEPOLIA_EXTERNAL_HOST }} \
+              --l1-chain-id "$L1_CHAIN_ID" \
+              --l1-private-key ${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }} \
+              --json | tee ./basic_contracts.json
+          else
+            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
+              --rpc-url http://127.0.0.1:$PXE_PORT \
+              --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
+              --l1-chain-id "$L1_CHAIN_ID" \
+              --mnemonic "$MNEMONIC" \
+              --json | tee ./basic_contracts.json
+          fi
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json
