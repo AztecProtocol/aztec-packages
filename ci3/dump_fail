@@ -1,16 +1,35 @@
 #!/bin/bash
-# If you want to completely silence a command, unless it fails, wrap with a call to this.
+# If you want to silence a commands stderr, unless it fails, wrap with a call to this.
+# stdout is output as normal. The caller can redirect to /dev/null if they want to silence that also.
+# This enables use in captures:
+#   my_var=$(dump_fail some_command)
+# Or as a denoiser where you want no output unless the command fails:
+#   dump_fail some_command > /dev/null
+
 set -uo pipefail
+source $(git rev-parse --show-toplevel)/ci3/source_color
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 <command> [args...]"
   exit 1
 fi
 
-output=$(bash -c "$*" 2>&1)
+# Need a temp to capture stderr.
+stderr=$(mktemp)
+trap "rm $stderr" EXIT
+
+output=$(eval "$*" 2>$stderr)
 status=$?
 
 if [ "$status" -ne 0 ]; then
+  {
+    echo -e "${red}command failed${reset}: $*"
+    echo -e "${blue}--- stdout ---${reset}"
+    echo -e "$output"
+    echo -e "${blue}--- stderr ---${reset}"
+    cat "$stderr"
+  } >&2
+else
   echo "$output"
 fi
 
