@@ -61,7 +61,7 @@ export class AvmPersistableStateManager {
     private readonly doMerkleOperations: boolean = false,
     /** Ephmeral forest for merkle tree operations */
     public merkleTrees: AvmEphemeralForest,
-    private readonly txHash: TxHash,
+    public readonly txHash: TxHash,
   ) {}
 
   /**

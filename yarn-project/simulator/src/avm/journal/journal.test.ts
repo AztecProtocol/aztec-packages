@@ -1,5 +1,5 @@
 import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -84,7 +84,10 @@ describe('journal', () => {
       mockNoteHashCount(trace, 1);
       persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(/*noteHash=*/ utxo);
+      const siloedNotehash = siloNoteHash(address, utxo);
+      const nonce = computeNoteHashNonce(Fr.fromBuffer(persistableState.txHash.toBuffer()), 1);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {

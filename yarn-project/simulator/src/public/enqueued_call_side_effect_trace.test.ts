@@ -102,7 +102,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     trace.traceNewNoteHash(utxo, leafIndex, siblingPath);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new NoteHash(utxo, startCounter).scope(address)];
+    const expected = [new NoteHash(utxo, startCounter)];
     expect(trace.getSideEffects().noteHashes).toEqual(expected);
 
     const expectedHint = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);

@@ -8,7 +8,14 @@ import {
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  computeVarArgsHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -630,7 +637,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.output).toEqual([]);
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ value0);
+      const siloedNotehash = siloNoteHash(address, value0);
+      const nonce = computeNoteHashNonce(Fr.fromBuffer(context.persistableState.txHash.toBuffer()), 0);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('Should append a new nullifier correctly', async () => {
