@@ -36,7 +36,7 @@ import {
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
   computeContractClassId,
-  computeTaggingSecret,
+  computeTaggingSuperSecret,
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -890,24 +890,24 @@ export class TXE implements TypedOracle {
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
-    const appSecret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+    const appSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
     const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([appSecret]);
     await this.txeDatabase.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appSecret, index + 1)]);
   }
 
-  async getAppTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    const secret = await this.#calculateTaggingSecret(this.contractAddress, sender, recipient);
+  async getIndexedTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const secret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
     const [index] = await this.txeDatabase.getTaggingSecretsIndexesAsSender([secret]);
     return new IndexedTaggingSecret(secret, index);
   }
 
-  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    const superSecret = computeTaggingSuperSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
-    const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    return siloedSecret;
+    const appSecret = poseidon2Hash([superSecret.x, superSecret.y, contractAddress]);
+    return appSecret;
   }
 
   async syncNotes() {

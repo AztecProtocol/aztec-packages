@@ -18,7 +18,7 @@ import {
   IndexedTaggingSecret,
   MAX_NOTE_HASHES_PER_TX,
   computeAddress,
-  computeTaggingSecret,
+  computeTaggingSuperSecret,
   deriveKeys,
 } from '@aztec/circuits.js';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -103,9 +103,9 @@ function computeSiloedTagForIndex(
   contractAddress: AztecAddress,
   index: number,
 ) {
-  const sharedSecret = computeTaggingSecret(sender.completeAddress, sender.ivsk, recipient);
-  const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-  const tag = poseidon2Hash([siloedSecret, recipient, index]);
+  const superSecret = computeTaggingSuperSecret(sender.completeAddress, sender.ivsk, recipient);
+  const appSecret = poseidon2Hash([superSecret.x, superSecret.y, contractAddress]);
+  const tag = poseidon2Hash([appSecret, recipient, index]);
   return poseidon2Hash([contractAddress, tag]);
 }
 
@@ -240,12 +240,12 @@ describe('Simulator oracle', () => {
 
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders hould also have index 1 = offset + 1
+      // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
       const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
 
@@ -269,8 +269,8 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       const indexesAsSender = await database.getTaggingSecretsIndexesAsSender(secrets);
@@ -320,8 +320,8 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
@@ -344,8 +344,8 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       // Increase our indexes to 2
@@ -377,8 +377,8 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       await database.setTaggingSecretsIndexesAsRecipient(
@@ -408,8 +408,8 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = senders.map(sender => {
-        const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
+        const firstSenderSuperSecret = computeTaggingSuperSecret(recipient, ivsk, sender.completeAddress.address);
+        return poseidon2Hash([firstSenderSuperSecret.x, firstSenderSuperSecret.y, contractAddress]);
       });
 
       await database.setTaggingSecretsIndexesAsRecipient(

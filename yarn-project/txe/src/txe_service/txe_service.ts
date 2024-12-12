@@ -584,8 +584,8 @@ export class TXEService {
     return toForeignCallResult([toArray(witness.toFields())]);
   }
 
-  async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
-    const secret = await this.typedOracle.getAppTaggingSecretAsSender(
+  async getIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
+    const secret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromField(fromSingle(sender)),
       AztecAddress.fromField(fromSingle(recipient)),
     );

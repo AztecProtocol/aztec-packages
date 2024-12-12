@@ -24,7 +24,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   PrivateLog,
   computeAddressSecret,
-  computeTaggingSecret,
+  computeTaggingSuperSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -38,6 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { INDEX_OFFSET, getInitialSearchState } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -257,28 +258,28 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A siloed tagging secret that can be used to tag notes.
+   * @returns An indexed tagging secret that can be used to tag notes.
    */
-  public async getAppTaggingSecretAsSender(
+  public async getIndexedTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
-    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
+    const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
+    const [index] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    return new IndexedTaggingSecret(secret, index);
+    return new IndexedTaggingSecret(appTaggingSecret, index);
   }
 
   /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -288,7 +289,7 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const secret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
       secret,
@@ -302,25 +303,25 @@ export class SimulatorOracle implements DBOracle {
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
   }
 
-  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
-    // Silo the secret to the app so it can't be used to track other app's notes
-    const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    return siloedSecret;
+    const superSecret = computeTaggingSuperSecret(senderCompleteAddress, senderIvsk, recipient);
+    // Silo the secret so it can't be used to track other app's notes
+    const appSecret = poseidon2Hash([superSecret.x, superSecret.y, contractAddress]);
+    return appSecret;
   }
 
   /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * Returns the indexed tagging secrets for a given recipient and all the senders in the address book
    * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
    * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
    * so we're keeping it private for now.
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
+   * @returns A list of indexed tagging secrets
    */
-  async #getAppTaggingSecretsForContacts(
+  async #getIndexedTaggingSecretsForContacts(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
@@ -332,7 +333,7 @@ export class SimulatorOracle implements DBOracle {
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
     const appTaggingSecrets = contacts.map(contact => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
+      const sharedSecret = computeTaggingSuperSecret(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
@@ -351,7 +352,7 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const appTaggingSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
     let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
     const INDEX_OFFSET = 10;
@@ -409,7 +410,8 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Synchronizes the logs tagged with scoped addresses and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs
+   * to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
@@ -430,57 +432,30 @@ export class SimulatorOracle implements DBOracle {
       // know how many logs we will get back. Furthermore, these logs are of undetermined
       // length, since we don't really know the note they correspond to until we decrypt them.
 
-      // 1. Get all the secrets for the recipient and sender pairs (#9365)
-      const appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
+      // 1. Get all the secrets for the recipient and sender pairs
+      const indexedTaggingSecrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
 
       // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
-      // and inadvertently incremented their index without use getting any logs (for example, in case
-      // of a revert). If we stopped looking for logs the first time
-      // we receive 0 for a tag, we might never receive anything from that sender again.
-      // Also there's a possibility that we have advanced our index, but the sender has reused it, so
-      // we might have missed some logs. For these reasons, we have to look both back and ahead of the
-      // stored index
-      const INDEX_OFFSET = 10;
-      type SearchState = {
-        currentTagggingSecrets: IndexedTaggingSecret[];
-        maxIndexesToCheck: { [k: string]: number };
-        initialSecretIndexes: { [k: string]: number };
-        secretsToIncrement: { [k: string]: number };
-      };
-      const searchState = appTaggingSecrets.reduce<SearchState>(
-        (acc, appTaggingSecret) => ({
-          // Start looking for logs before the stored index
-          currentTagggingSecrets: acc.currentTagggingSecrets.concat([
-            new IndexedTaggingSecret(appTaggingSecret.secret, Math.max(0, appTaggingSecret.index - INDEX_OFFSET)),
-          ]),
-          // Keep looking for logs beyond the stored index
-          maxIndexesToCheck: {
-            ...acc.maxIndexesToCheck,
-            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
-          },
-          // Keeps track of the secrets we have to increment in the database
-          secretsToIncrement: {},
-          // Store the initial set of indexes for the secrets
-          initialSecretIndexes: {
-            ...acc.initialSecretIndexes,
-            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
-          },
-        }),
-        { currentTagggingSecrets: [], maxIndexesToCheck: {}, secretsToIncrement: {}, initialSecretIndexes: {} },
-      );
+      // and inadvertently incremented their index without us getting any logs (for example, in case
+      // of a revert). If we stopped looking for logs the first time we don't receive any logs for a tag,
+      // we might never receive anything from that sender again.
+      //    Also there's a possibility that we have advanced our index, but the sender has reused it,
+      // so we might have missed some logs. For these reasons, we have to look both back and ahead of
+      // the stored index.
+      const searchState = getInitialSearchState(indexedTaggingSecrets);
 
-      let { currentTagggingSecrets } = searchState;
+      let { currentTaggingSecrets } = searchState;
       const { maxIndexesToCheck, secretsToIncrement, initialSecretIndexes } = searchState;
 
-      while (currentTagggingSecrets.length > 0) {
+      while (currentTaggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = currentTagggingSecrets.map(taggingSecret =>
+        const currentTags = currentTaggingSecrets.map(taggingSecret =>
           taggingSecret.computeSiloedTag(recipient, contractAddress),
         );
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
         const newTaggingSecrets: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
-          const { secret: currentSecret, index: currentIndex } = currentTagggingSecrets[logIndex];
+          const { appTaggingSecret: currentSecret, index: currentIndex } = currentTaggingSecrets[logIndex];
           const currentSecretAsStr = currentSecret.toString();
           this.log.debug(`Syncing logs for recipient ${recipient} at contract ${contractName}(${contractAddress})`, {
             recipient,
@@ -524,7 +499,7 @@ export class SimulatorOracle implements DBOracle {
             secret => new IndexedTaggingSecret(Fr.fromHexString(secret), secretsToIncrement[secret]),
           ),
         );
-        currentTagggingSecrets = newTaggingSecrets;
+        currentTaggingSecrets = newTaggingSecrets;
       }
 
       result.set(
