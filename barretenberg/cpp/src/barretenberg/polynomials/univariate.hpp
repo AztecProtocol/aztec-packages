@@ -102,21 +102,6 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         evaluations[domain_end - 1] = prev;
     }
 
-    // explicit operator UnivariateCoefficientBasis<Fr, 2, 0, 0>() const
-    // {
-    //     static_assert(domain_end >= 2);
-    //     static_assert(domain_start == 0);
-    //     // (1 - X)a0 + Xa1
-    //     // a0
-    //     if constexpr (skip_count > 0) {
-    //         UnivariateCoefficientBasis<Fr, 2, 0, 0> result{ .evaluations = { evaluations[0], 0 } };
-    //         return result;
-    //     } else {
-    //         UnivariateCoefficientBasis<Fr, 2, 0, 0> result{ .evaluations = { evaluations[0],
-    //                                                                  evaluations[1] - evaluations[0] } };
-    //         return result;
-    //     }
-    // }
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
      * locations)
