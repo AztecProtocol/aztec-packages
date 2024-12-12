@@ -13,6 +13,7 @@ import {
   mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
+  mockNoteHashCount,
   mockNoteHashExists,
   mockNullifierExists,
   mockStorageRead,
@@ -80,9 +81,10 @@ describe('journal', () => {
     });
 
     it('writeNoteHash works', () => {
+      mockNoteHashCount(trace, 1);
       persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ utxo);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(/*noteHash=*/ utxo);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {

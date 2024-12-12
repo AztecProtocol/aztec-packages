@@ -66,6 +66,7 @@ import {
   mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
+  mockNoteHashCount,
   mockNoteHashExists,
   mockNullifierExists,
   mockStorageRead,
@@ -155,6 +156,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     const trace = mock<PublicSideEffectTraceInterface>();
     const nestedTrace = mock<PublicSideEffectTraceInterface>();
+    mockNoteHashCount(trace, 0);
     mockTraceFork(trace, nestedTrace);
     const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
@@ -621,6 +623,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata = [value0];
       const context = createContext(calldata);
       const bytecode = getAvmTestContractBytecode('new_note_hash');
+      mockNoteHashCount(trace, 0);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
       expect(results.reverted).toBe(false);

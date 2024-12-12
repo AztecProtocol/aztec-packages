@@ -102,7 +102,12 @@ export class PublicTxContext {
     );
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, enqueuedCallTrace, doMerkleOperations);
+    const txStateManager = await AvmPersistableStateManager.create(
+      worldStateDB,
+      enqueuedCallTrace,
+      doMerkleOperations,
+      fetchTxHash(nonRevertibleAccumulatedDataFromPrivate),
+    );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
@@ -186,12 +191,7 @@ export class PublicTxContext {
    * @returns The transaction's hash.
    */
   getTxHash(): TxHash {
-    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
-    if (!firstNullifier || firstNullifier.isZero()) {
-      throw new Error(`Cannot get tx hash since first nullifier is missing`);
-    }
-    return new TxHash(firstNullifier.toBuffer());
+    return fetchTxHash(this.nonRevertibleAccumulatedDataFromPrivate);
   }
 
   /**
@@ -424,4 +424,13 @@ function applyMaxToAvailableGas(availableGas: Gas) {
     /*daGas=*/ availableGas.daGas,
     /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
   );
+}
+
+function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData): TxHash {
+  // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+  const firstNullifier = nonRevertibleAccumulatedData.nullifiers[0];
+  if (!firstNullifier || firstNullifier.isZero()) {
+    throw new Error(`Cannot get tx hash since first nullifier is missing`);
+  }
+  return new TxHash(firstNullifier.toBuffer());
 }

@@ -99,7 +99,7 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   it('Should trace note hashes', () => {
-    trace.traceNewNoteHash(address, utxo, leafIndex, siblingPath);
+    trace.traceNewNoteHash(utxo, leafIndex, siblingPath);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = [new NoteHash(utxo, startCounter).scope(address)];
@@ -285,11 +285,9 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     it('Should enforce maximum number of new note hashes', () => {
       for (let i = 0; i < MAX_NOTE_HASHES_PER_TX; i++) {
-        trace.traceNewNoteHash(AztecAddress.fromNumber(i), new Fr(i), Fr.ZERO, []);
+        trace.traceNewNoteHash(new Fr(i), Fr.ZERO, []);
       }
-      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), Fr.ZERO, [])).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() => trace.traceNewNoteHash(new Fr(42), Fr.ZERO, [])).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of new nullifiers', () => {
@@ -339,9 +337,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceNewNoteHash(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewNullifier(new Fr(42))).toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
@@ -366,7 +362,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       testCounter++;
       nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
       // counter does not increment for note hash checks
-      nestedTrace.traceNewNoteHash(address, utxo, Fr.ZERO, []);
+      nestedTrace.traceNewNoteHash(utxo, Fr.ZERO, []);
       testCounter++;
       nestedTrace.traceNullifierCheck(utxo, true, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
