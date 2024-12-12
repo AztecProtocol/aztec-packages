@@ -6,11 +6,11 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.67.0
 
 ### L2 Gas limit of 6M enforced for public portion of TX
 
-A 12M limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 6,000,000 L2 gas. 
+A 12M limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 6,000,000 L2 gas.
 
 ### [aztec.nr] Renamed `Header` and associated helpers
 
