@@ -673,8 +673,6 @@ export async function deployL1Contract(
 
   const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
 
-  logger?.info(`Deploying contract with salt [${maybeSalt}] and args ${args}`);
-
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
 
