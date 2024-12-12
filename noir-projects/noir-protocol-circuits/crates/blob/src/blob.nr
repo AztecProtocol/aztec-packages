@@ -403,11 +403,9 @@ unconstrained fn __compute_partial_sums(
 
     // Need to split off the first iteration.
     let mut partial_sum: F = BigNum::new();
-    for j in 0..8 {
-        let k = 8 + j;
-
+    for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
-        let summand = ROOTS[k].__mul(fracs[k]);
+        let summand = ROOTS[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
