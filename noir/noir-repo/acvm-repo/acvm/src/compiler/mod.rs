@@ -92,7 +92,6 @@ pub fn compile<F: AcirField>(
     let mut prev_acir = acir;
     let mut prev_acir_opcode_positions = initial_opcode_positions;
 
-
     // For most test programs it would be enough to only loop `transform_internal`,
     // but some of them don't stabilize unless we also repeat the backend agnostic optimizations.
     let (mut acir, acir_opcode_positions) = loop {
