@@ -141,7 +141,7 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
 
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
-    requires IsMegaFlavor<Flavor>
+    requires HasDataBus<Flavor>
 {
     proving_key.polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
@@ -179,7 +179,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
  */
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires IsMegaFlavor<Flavor>
+    requires HasDataBus<Flavor>
 {
     auto& calldata_poly = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;

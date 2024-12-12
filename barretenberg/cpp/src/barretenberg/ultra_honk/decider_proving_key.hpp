@@ -215,7 +215,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         requires IsMegaFlavor<Flavor>;
 
     void allocate_databus_polynomials(const Circuit&)
-        requires IsMegaFlavor<Flavor>;
+        requires HasDataBus<Flavor>;
 
     /**
      * @brief Compute dyadic size based on a structured trace with fixed block size
@@ -224,7 +224,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
 
     void construct_databus_polynomials(Circuit&)
-        requires IsMegaFlavor<Flavor>;
+        requires HasDataBus<Flavor>;
 
     static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
 };
