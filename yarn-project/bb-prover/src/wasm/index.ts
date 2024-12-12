@@ -134,14 +134,15 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
 
   async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     const timer = new Timer();
-    this.log.debug(`Generating ClientIVC proof...`);
+    this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
       acirs.map(acir => ungzip(acir)),
       { threads: this.threads },
     );
 
     const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => ungzip(serializeWitness(witnessMap))));
-    this.log.debug(`Generated ClientIVC proof`, {
+    await backend.destroy();
+    this.log.info(`Generated ClientIVC proof`, {
       eventName: 'client-ivc-proof-generation',
       duration: timer.ms(),
       proofSize: proof.length,

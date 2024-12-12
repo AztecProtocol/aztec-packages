@@ -17,11 +17,7 @@ import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
 
-import createDebug from "debug";
-
 const SECRET_KEY = Fr.random();
-
-createDebug.enable("*");
 
 export class PrivateEnv {
   pxe;
