@@ -1,36 +1,32 @@
 import { IndexedTaggingSecret } from '@aztec/circuits.js';
 
-type SearchState = {
-  currentTaggingSecrets: IndexedTaggingSecret[];
-  maxIndexesToCheck: { [k: string]: number };
-  initialSecretIndexes: { [k: string]: number };
-  secretsToIncrement: { [k: string]: number };
-};
+export const WINDOW_HALF_SIZE = 10;
 
-export const INDEX_OFFSET = 10;
-
-export function getInitialSearchState(appTaggingSecrets: IndexedTaggingSecret[]) {
-  const searchState = appTaggingSecrets.reduce<SearchState>(
-    (acc, appTaggingSecret) => ({
-      // Start looking for logs before the stored index
-      currentTaggingSecrets: acc.currentTaggingSecrets.concat([
-        new IndexedTaggingSecret(appTaggingSecret.appTaggingSecret, Math.max(0, appTaggingSecret.index - INDEX_OFFSET)),
-      ]),
-      // Keep looking for logs beyond the stored index
-      maxIndexesToCheck: {
-        ...acc.maxIndexesToCheck,
-        ...{ [appTaggingSecret.appTaggingSecret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
-      },
-      // Keeps track of the secrets we have to increment in the database
-      secretsToIncrement: {},
-      // Store the initial set of indexes for the secrets
-      initialSecretIndexes: {
-        ...acc.initialSecretIndexes,
-        ...{ [appTaggingSecret.appTaggingSecret.toString()]: appTaggingSecret.index },
-      },
-    }),
-    { currentTaggingSecrets: [], maxIndexesToCheck: {}, secretsToIncrement: {}, initialSecretIndexes: {} },
+export function getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets: IndexedTaggingSecret[]): IndexedTaggingSecret[] {
+  return indexedTaggingSecrets.map(indexedTaggingSecret =>
+    new IndexedTaggingSecret(
+      indexedTaggingSecret.appTaggingSecret,
+      Math.max(0, indexedTaggingSecret.index - WINDOW_HALF_SIZE)
+    )
   );
+}
 
-  return searchState;
+export function getRightMostIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
+  const maxIndexesToCheck: { [k: string]: number } = {};
+
+  for (const indexedTaggingSecret of indexedTaggingSecrets) {
+    maxIndexesToCheck[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index + WINDOW_HALF_SIZE;
+  }
+
+  return maxIndexesToCheck;
+}
+
+export function getInitialSecretIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
+  const initialSecretIndexes: { [k: string]: number } = {};
+
+  for (const indexedTaggingSecret of indexedTaggingSecrets) {
+    initialSecretIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index;
+  }
+
+  return initialSecretIndexes;
 }

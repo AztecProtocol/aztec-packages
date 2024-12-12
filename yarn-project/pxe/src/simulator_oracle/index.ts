@@ -38,7 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { INDEX_OFFSET, getInitialSearchState } from './tagging_utils.js';
+import { WINDOW_HALF_SIZE, getLeftMostIndexedTaggingSecrets, getInitialSecretIndexes, getRightMostIndexes } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -432,7 +432,7 @@ export class SimulatorOracle implements DBOracle {
       // know how many logs we will get back. Furthermore, these logs are of undetermined
       // length, since we don't really know the note they correspond to until we decrypt them.
 
-      // 1. Get all the secrets for the recipient and sender pairs
+      // 1. Get all the secrets for the recipient and sender pairs (#9365)
       const indexedTaggingSecrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
 
       // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
@@ -442,10 +442,12 @@ export class SimulatorOracle implements DBOracle {
       //    Also there's a possibility that we have advanced our index, but the sender has reused it,
       // so we might have missed some logs. For these reasons, we have to look both back and ahead of
       // the stored index.
-      const searchState = getInitialSearchState(indexedTaggingSecrets);
-
-      let { currentTaggingSecrets } = searchState;
-      const { maxIndexesToCheck, secretsToIncrement, initialSecretIndexes } = searchState;
+      let currentTaggingSecrets = getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets);
+      // Max indexes to check sorted in a key-value map where key is the app tagging secret and value is the max index
+      // to check (the right-most index in the window).
+      const indexedRightMostIndexes = getRightMostIndexes(indexedTaggingSecrets);
+      const initialSecretIndexes = getInitialSecretIndexes(indexedTaggingSecrets);
+      const secretsToIncrement: { [k: string]: number } = {};
 
       while (currentTaggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
@@ -484,12 +486,12 @@ export class SimulatorOracle implements DBOracle {
               // we have stored in the db (#9380)
               secretsToIncrement[currentSecretAsStr] = newIndex;
               // 3.3. Slide the window forwards if we have found logs beyond the initial index
-              maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
+              indexedRightMostIndexes[currentSecretAsStr] = currentIndex + WINDOW_HALF_SIZE;
             }
           }
           // 3.4 Keep increasing the index (inside the window) temporarily for the tags that have no logs
           // There's a chance the sender missed some and we want to catch up
-          if (currentIndex < maxIndexesToCheck[currentSecretAsStr]) {
+          if (currentIndex < indexedRightMostIndexes[currentSecretAsStr]) {
             const newTaggingSecret = new IndexedTaggingSecret(currentSecret, currentIndex + 1);
             newTaggingSecrets.push(newTaggingSecret);
           }
