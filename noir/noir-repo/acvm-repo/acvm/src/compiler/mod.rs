@@ -92,11 +92,11 @@ pub fn compile<F: AcirField>(
     let mut prev_acir = acir;
     let mut prev_acir_opcode_positions = initial_opcode_positions;
 
-
     // For most test programs it would be enough to only loop `transform_internal`,
     // but some of them don't stabilize unless we also repeat the backend agnostic optimizations.
     let (mut acir, acir_opcode_positions) = loop {
-        let (acir, acir_opcode_positions) = optimize_internal(prev_acir, prev_acir_opcode_positions);
+        let (acir, acir_opcode_positions) =
+            optimize_internal(prev_acir, prev_acir_opcode_positions);
 
         // Stop if we have already done at least one transform and an extra optimization changed nothing.
         if pass > 0 && prev_opcodes_hash == fxhash::hash64(&acir.opcodes) {
