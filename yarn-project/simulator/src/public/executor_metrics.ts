@@ -6,7 +6,6 @@ import {
   type Tracer,
   type UpDownCounter,
   ValueType,
-  linearBuckets,
 } from '@aztec/telemetry-client';
 
 export class ExecutorMetrics {
