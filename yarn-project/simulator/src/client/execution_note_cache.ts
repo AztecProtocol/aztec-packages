@@ -1,6 +1,6 @@
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
 
@@ -145,5 +145,15 @@ export class ExecutionNoteCache {
     const notes = this.noteMap.get(note.note.contractAddress.toBigInt()) ?? [];
     notes.push(note);
     this.noteMap.set(note.note.contractAddress.toBigInt(), notes);
+  }
+
+  getAllNotes(): PendingNote[] {
+    return this.notes;
+  }
+
+  getAllNullifiers(): Fr[] {
+    return [...this.nullifierMap.values()].flatMap(nullifierArray =>
+      [...nullifierArray.values()].map(val => new Fr(val)),
+    );
   }
 }

@@ -420,7 +420,14 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
+      `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
+      {
+        sideEffectCounter,
+        isStaticCall,
+        functionSelector,
+        targetContractAddress,
+        callType,
+      },
     );
 
     const request = PublicExecutionRequest.from({
@@ -538,7 +545,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]) {
-    this.log.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   public getDebugFunctionName() {

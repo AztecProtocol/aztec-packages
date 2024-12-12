@@ -191,7 +191,10 @@ pub struct AvmProofData {
 // The number of columns for the AVM recursive verifier we want to fake, i.e., the resulting
 // verify() routine below will create a similar number of gates as a real AVM recursive verifier
 // with the number of columns set by this constant.
-pub global DUMMY_AVM_VERIFIER_NUM_COLUMNS: u32 = 2200;
+// NOTE: It was decided to reduce the number of gates of the fake recursive verifier to 5 millions
+// as this would be the target for main net. Therefore, the number of columns was artificially adjusted
+// to 550. Zac has some ideas on how to improve the gate counts for the AVM recursive verifier until then.
+pub global DUMMY_AVM_VERIFIER_NUM_COLUMNS: u32 = 550;
 
 // Current AVM recursive verifier has 9500 gates per column.
 // Note that the addition of a single column in AVM recursive verifier incurs 8500 gates.
