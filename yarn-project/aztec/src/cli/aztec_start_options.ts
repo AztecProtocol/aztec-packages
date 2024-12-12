@@ -1,4 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
+import { faucetConfigMapping } from '@aztec/aztec-faucet';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
 import { botConfigMappings } from '@aztec/bot';
 import {
@@ -75,6 +76,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'ENABLE_GAS',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--sandbox.noPXE',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
+      ...booleanConfigHelper(),
+    },
   ],
   API: [
     {
@@ -142,6 +149,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',
@@ -323,5 +336,27 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
+  ],
+  FAUCET: [
+    {
+      flag: '--faucet',
+      description: 'Starts the Aztec faucet',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServer',
+      description: 'Starts a simple HTTP server to access the faucet',
+      defaultValue: true,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServerPort <value>',
+      description: 'The port on which to start the api server on',
+      defaultValue: 8080,
+      envVar: undefined,
+      parseVal: val => parseInt(val, 10),
+    },
+    ...getOptions('faucet', faucetConfigMapping),
   ],
 };

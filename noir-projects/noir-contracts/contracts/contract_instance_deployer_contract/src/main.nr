@@ -54,6 +54,7 @@ contract ContractInstanceDeployer {
     //   isInfinite: false,
     //   kind: 'point'
     // }
+
     impl Serialize<15> for ContractInstanceDeployed {
         fn serialize(self) -> [Field; 15] {
             [

@@ -65,6 +65,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
     ) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let validation_request_processor = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
@@ -227,8 +231,9 @@ mod tests {
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
             let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
-            self.previous_kernel.nullifiers.storage[nullifier_index].nullifier.note_hash =
-                note_hash.value;
+            let mut nullifier = self.previous_kernel.nullifiers.get(nullifier_index);
+            nullifier.nullifier.note_hash = note_hash.value;
+            self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
             let num_hints = unsafe {
                 find_index_hint(
                     self.transient_data_index_hints,
@@ -512,7 +517,7 @@ mod tests {
         builder.previous_kernel.note_hashes.set(2, tmp);
 
         builder.previous_kernel.append_nullifiers(3);
-        // Shuffle the nullifers so they will have to be re-ordered.
+        // Shuffle the nullifiers so they will have to be re-ordered.
         let tmp = builder.previous_kernel.nullifiers.get(1);
         builder.previous_kernel.nullifiers.set(1, builder.previous_kernel.nullifiers.get(3));
         builder.previous_kernel.nullifiers.set(3, builder.previous_kernel.nullifiers.get(2));
@@ -584,7 +589,9 @@ mod tests {
         builder.previous_kernel.append_note_hashes(1);
         builder.previous_kernel.append_nullifiers(3);
         // The nullifier at index 2 is nullifying a note hash that doesn't exist yet.
-        builder.previous_kernel.nullifiers.storage[2].nullifier.note_hash = 9988;
+        let mut nullifier = builder.previous_kernel.nullifiers.get(2);
+        nullifier.nullifier.note_hash = 9988;
+        builder.previous_kernel.nullifiers.set(2, nullifier);
         // Get ordered items before shuffling.
         let note_hashes = builder.previous_kernel.note_hashes.storage();
         let nullifiers = builder.previous_kernel.nullifiers.storage();
@@ -626,7 +633,9 @@ mod tests {
         builder.previous_kernel.append_note_hashes_with_logs(2);
 
         // The note hash at index 0 is siloed.
-        builder.previous_kernel.note_hashes.storage[0].contract_address = AztecAddress::zero();
+        let mut note_hash = builder.previous_kernel.note_hashes.get(0);
+        note_hash.contract_address = AztecAddress::zero();
+        builder.previous_kernel.note_hashes.set(0, note_hash);
 
         builder.failed();
     }
@@ -638,7 +647,9 @@ mod tests {
         builder.previous_kernel.append_nullifiers(2);
 
         // The nullifier at index 1 is siloed.
-        builder.previous_kernel.nullifiers.storage[1].contract_address = AztecAddress::zero();
+        let mut nullifier = builder.previous_kernel.nullifiers.get(1);
+        nullifier.contract_address = AztecAddress::zero();
+        builder.previous_kernel.nullifiers.set(1, nullifier);
 
         let nullifiers = builder.previous_kernel.nullifiers.storage();
 

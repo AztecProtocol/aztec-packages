@@ -6,7 +6,6 @@ import {
   type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
-  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -43,6 +42,8 @@ import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
  */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
+
+  abstract isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -131,9 +132,6 @@ export abstract class BaseWallet implements Wallet {
   getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    return this.pxe.getOutgoingNotes(filter);
-  }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
@@ -200,10 +198,7 @@ export abstract class BaseWallet implements Wallet {
     event: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[] = [
-      this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
-      this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
-    ],
+    vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
   ): Promise<T[]> {
     return this.pxe.getEncryptedEvents(event, from, limit, vpks);
   }

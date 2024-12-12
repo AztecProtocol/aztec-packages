@@ -2,6 +2,7 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  type BlockHeader,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   Fr,
@@ -9,9 +10,8 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type Header,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicCircuitPublicInputs,
   PublicDataWrite,
   RevertCode,
@@ -42,7 +42,7 @@ export function makeBloatedProcessedTx({
   privateOnly = false,
 }: {
   seed?: number;
-  header?: Header;
+  header?: BlockHeader;
   db?: MerkleTreeReadOperations;
   chainId?: Fr;
   version?: Fr;
@@ -109,7 +109,7 @@ export function makeBloatedProcessedTx({
     );
     avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
     avmOutput.accumulatedData.publicDataWrites = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
       seed + 0x2000,
     );
@@ -133,7 +133,6 @@ export function makeBloatedProcessedTx({
         type: ProvingRequestType.PUBLIC_VM,
         inputs: avmCircuitInputs,
       },
-      undefined /* feePaymentPublicDataWrite */,
       gasUsed,
       RevertCode.OK,
       undefined /* revertReason */,

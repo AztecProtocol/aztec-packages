@@ -2,7 +2,7 @@ import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types'
 import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { EthCheatCodes, type L1ContractAddresses } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -51,7 +51,7 @@ export class RollupCheatCodes {
   private client: WalletClient & PublicClient;
   private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
 
-  private logger = createDebugLogger('aztec:js:cheat_codes');
+  private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
     this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
@@ -82,8 +82,11 @@ export class RollupCheatCodes {
     /** The pending chain tip */ pending: bigint;
     /** The proven chain tip */ proven: bigint;
   }> {
-    const [pending, proven] = await this.rollup.read.tips();
-    return { pending, proven };
+    const res = await this.rollup.read.getTips();
+    return {
+      pending: res.pendingBlockNumber,
+      proven: res.provenBlockNumber,
+    };
   }
 
   /** Fetches the epoch and slot duration config from the rollup contract */
@@ -125,8 +128,13 @@ export class RollupCheatCodes {
   /** Returns the current proof claim (if any) */
   public async getProofClaim(): Promise<EpochProofClaim | undefined> {
     // REFACTOR: This code is duplicated from l1-publisher
-    const [epochToProve, basisPointFee, bondAmount, bondProviderHex, proposerClaimantHex] =
-      await this.rollup.read.proofClaim();
+    const {
+      epochToProve,
+      basisPointFee,
+      bondAmount,
+      bondProvider: bondProviderHex,
+      proposerClaimant: proposerClaimantHex,
+    } = await this.rollup.read.getProofClaim();
 
     const bondProvider = EthAddress.fromString(bondProviderHex);
     const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
@@ -151,7 +159,7 @@ export class RollupCheatCodes {
   public async markAsProven(maybeBlockNumber?: number | bigint) {
     const blockNumber = maybeBlockNumber
       ? BigInt(maybeBlockNumber)
-      : await this.rollup.read.tips().then(([pending]) => pending);
+      : await this.rollup.read.getTips().then(({ pendingBlockNumber }) => pendingBlockNumber);
 
     await this.asOwner(async account => {
       await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
@@ -189,7 +197,7 @@ export class AztecCheatCodes {
     /**
      * The logger to use for the aztec cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:aztec'),
+    public logger = createLogger('aztecjs:cheat_codes'),
   ) {}
 
   /**

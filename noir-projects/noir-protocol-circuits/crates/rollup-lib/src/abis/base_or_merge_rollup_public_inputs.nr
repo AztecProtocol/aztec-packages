@@ -12,23 +12,23 @@ pub(crate) global MERGE_ROLLUP_TYPE: u32 = 1;
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
-    rollup_type: u32,
-    num_txs: u32,
-    constants: ConstantRollupData,
+    pub(crate) rollup_type: u32,
+    pub(crate) num_txs: u32,
+    pub(crate) constants: ConstantRollupData,
 
-    start: PartialStateReference,
-    end: PartialStateReference,
+    pub(crate) start: PartialStateReference,
+    pub(crate) end: PartialStateReference,
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    txs_effects_hash: Field,
-    out_hash: Field,
+    pub(crate) txs_effects_hash: Field,
+    pub(crate) out_hash: Field,
 
-    accumulated_fees: Field,
-    accumulated_mana_used: Field,
+    pub(crate) accumulated_fees: Field,
+    pub(crate) accumulated_mana_used: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {

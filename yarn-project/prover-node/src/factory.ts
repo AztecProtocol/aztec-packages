@@ -2,7 +2,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
@@ -31,7 +31,7 @@ export async function createProverNode(
   config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
-    log?: DebugLogger;
+    log?: Logger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
     publisher?: L1Publisher;
@@ -39,7 +39,7 @@ export async function createProverNode(
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-  const log = deps.log ?? createDebugLogger('aztec:prover');
+  const log = deps.log ?? createLogger('prover-node');
   const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
@@ -47,7 +47,7 @@ export async function createProverNode(
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config));
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package

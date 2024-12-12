@@ -11,8 +11,8 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX];
 
 pub struct RootRollupInputs {
-    previous_rollup_data: [PreviousRollupBlockData; 2],
-    prover_id: Field,
+    pub previous_rollup_data: [PreviousRollupBlockData; 2],
+    pub prover_id: Field,
 }
 
 impl Empty for RootRollupInputs {

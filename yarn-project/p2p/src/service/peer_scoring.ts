@@ -1,3 +1,5 @@
+import { median } from '@aztec/foundation/collection';
+
 import { type P2PConfig } from '../config.js';
 
 export enum PeerErrorSeverity {
@@ -43,7 +45,7 @@ export class PeerScoring {
     };
   }
 
-  updateScore(peerId: string, scoreDelta: number): void {
+  updateScore(peerId: string, scoreDelta: number): number {
     const currentTime = Date.now();
     const lastUpdate = this.lastUpdateTime.get(peerId) || currentTime;
     const timePassed = currentTime - lastUpdate;
@@ -59,6 +61,7 @@ export class PeerScoring {
 
     this.scores.set(peerId, currentScore);
     this.lastUpdateTime.set(peerId, currentTime);
+    return currentScore;
   }
 
   decayAllScores(): void {
@@ -77,5 +80,9 @@ export class PeerScoring {
 
   getScore(peerId: string): number {
     return this.scores.get(peerId) || 0;
+  }
+
+  getStats(): { medianScore: number } {
+    return { medianScore: median(Array.from(this.scores.values())) ?? 0 };
   }
 }

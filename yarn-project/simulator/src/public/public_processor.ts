@@ -13,17 +13,17 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type ContractDataSource,
   Fr,
   type GlobalVariables,
-  type Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -47,13 +47,19 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: Header | undefined,
+    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = new PublicTxSimulator(merkleTree, worldStateDB, this.telemetryClient, globalVariables);
+    const publicTxSimulator = new PublicTxSimulator(
+      merkleTree,
+      worldStateDB,
+      this.telemetryClient,
+      globalVariables,
+      /*doMerkleOperations=*/ true,
+    );
 
     return new PublicProcessor(
       merkleTree,
@@ -75,11 +81,11 @@ export class PublicProcessor {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     telemetryClient: TelemetryClient,
-    private log = createDebugLogger('aztec:simulator:public-processor'),
+    private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -115,12 +121,26 @@ export class PublicProcessor {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
           ? await this.processPrivateOnlyTx(tx)
           : await this.processTxWithPublicCalls(tx);
-        this.log.debug(`Processed tx`, {
-          txHash: processedTx.hash,
-          historicalHeaderHash: processedTx.constants.historicalHeader.hash(),
-          blockNumber: processedTx.constants.globalVariables.blockNumber,
-          lastArchiveRoot: processedTx.constants.historicalHeader.lastArchive.root,
-        });
+
+        this.log.verbose(
+          !tx.hasPublicCalls()
+            ? `Processed tx ${processedTx.hash} with no public calls`
+            : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls`,
+          {
+            txHash: processedTx.hash,
+            txFee: processedTx.txEffect.transactionFee.toBigInt(),
+            revertCode: processedTx.txEffect.revertCode.getCode(),
+            revertReason: processedTx.revertReason,
+            gasUsed: processedTx.gasUsed,
+            publicDataWriteCount: processedTx.txEffect.publicDataWrites.length,
+            nullifierCount: processedTx.txEffect.nullifiers.length,
+            noteHashCount: processedTx.txEffect.noteHashes.length,
+            contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
+            unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
+            privateLogCount: processedTx.txEffect.privateLogs.length,
+            l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
+          },
+        );
 
         // Commit the state updates from this transaction
         await this.worldStateDB.commit();
@@ -188,16 +208,11 @@ export class PublicProcessor {
   }
 
   /**
-   * Creates the final set of data update requests for the transaction. This includes the
-   * set of public data update requests as returned by the public kernel, plus a data update
-   * request for updating fee balance. It also updates the local public state db.
-   * See build_or_patch_payment_update_request in base_rollup_inputs.nr for more details.
+   * Creates the public data write for paying the tx fee.
+   * This is used in private only txs, since for txs with public calls
+   * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(
-    publicDataWrites: PublicDataWrite[],
-    txFee: Fr,
-    feePayer: AztecAddress,
-  ): Promise<PublicDataWrite | undefined> {
+  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
       this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
       return;
@@ -209,11 +224,7 @@ export class PublicProcessor {
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
-
-    const balance = existingBalanceWrite
-      ? existingBalanceWrite.value
-      : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(
@@ -234,12 +245,7 @@ export class PublicProcessor {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
-    const accumulatedData = tx.data.forRollup!.end;
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      accumulatedData.publicDataWrites,
-      transactionFee,
-      tx.data.feePayer,
-    );
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
     const processedTx = makeProcessedTxFromPrivateOnlyTx(
       tx,
@@ -283,21 +289,7 @@ export class PublicProcessor {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs);
 
-    const data = avmProvingRequest.inputs.output;
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
-      data.accumulatedData.publicDataWrites,
-      data.transactionFee,
-      tx.data.feePayer,
-    );
-
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(
-      tx,
-      avmProvingRequest,
-      feePaymentPublicDataWrite,
-      gasUsed,
-      revertCode,
-      revertReason,
-    );
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

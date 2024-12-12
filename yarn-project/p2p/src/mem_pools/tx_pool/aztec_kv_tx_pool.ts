@@ -1,6 +1,6 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -30,14 +30,14 @@ export class AztecKVTxPool implements TxPool {
    * @param store - A KV store.
    * @param log - A logger.
    */
-  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createDebugLogger('aztec:tx_pool')) {
+  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createLogger('p2p:tx_pool')) {
     this.#txs = store.openMap('txs');
     this.#minedTxs = store.openMap('minedTxs');
     this.#pendingTxs = store.openSet('pendingTxs');
 
     this.#store = store;
     this.#log = log;
-    this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
+    this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
 
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
@@ -53,8 +53,6 @@ export class AztecKVTxPool implements TxPool {
       }
       this.#metrics.recordRemovedObjects(deleted, 'pending');
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
-      const storeSizes = this.#store.estimateSize();
-      this.#metrics.recordDBMetrics(storeSizes);
     });
   }
 
@@ -127,7 +125,7 @@ export class AztecKVTxPool implements TxPool {
       let pendingCount = 0;
       for (const [i, tx] of txs.entries()) {
         const txHash = txHashes[i];
-        this.#log.info(`Adding tx with id ${txHash.toString()}`, {
+        this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
           eventName: 'tx-added-to-pool',
           ...tx.getStats(),
         } satisfies TxAddedToPoolStats);

@@ -32,7 +32,7 @@ import type {
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -57,7 +57,7 @@ const defaultTimeSource = () => Date.now();
  * The queue accumulates jobs and provides them to agents prioritized by block number.
  */
 export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource {
-  private log = createDebugLogger('aztec:prover-client:prover-pool:queue');
+  private log = createLogger('prover-client:prover-pool:queue');
   private queue = new PriorityMemoryQueue<ProvingJobWithResolvers>(
     (a, b) => (a.epochNumber ?? 0) - (b.epochNumber ?? 0),
   );
@@ -120,6 +120,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         id: job.id,
         type: job.type,
         inputsUri: job.inputsUri,
+        epochNumber: job.epochNumber,
       };
     } catch (err) {
       if (err instanceof TimeoutError) {
@@ -244,7 +245,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
       reject,
       attempts: 1,
       heartbeat: 0,
-      epochNumber,
+      epochNumber: epochNumber ?? 0,
     };
 
     if (signal) {

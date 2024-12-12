@@ -17,13 +17,13 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
 
-    using NativeFlavor = AvmFlavor;
+    using NativeFlavor = bb::avm::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
 
-    using Relations = AvmFlavor::Relations_<FF>;
+    using Relations = bb::avm::AvmFlavor::Relations_<FF>;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = NativeFlavor::USE_SHORT_MONOMIALS;
@@ -48,13 +48,14 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
      */
-    class AllValues : public AvmFlavor::AllEntities<FF> {
+    class AllValues : public bb::avm::AvmFlavor::AllEntities<FF> {
       public:
-        using Base = AvmFlavor::AllEntities<FF>;
+        using Base = bb::avm::AvmFlavor::AllEntities<FF>;
         using Base::Base;
     };
 
-    class VerificationKey : public VerificationKey_<AvmFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey
+        : public VerificationKey_<bb::avm::AvmFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -97,9 +98,9 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
         }
     };
 
-    using WitnessCommitments = AvmFlavor::WitnessEntities<Commitment>;
-    using CommitmentLabels = AvmFlavor::CommitmentLabels;
-    using VerifierCommitments = AvmFlavor::VerifierCommitments_<Commitment, VerificationKey>;
+    using WitnessCommitments = bb::avm::AvmFlavor::WitnessEntities<Commitment>;
+    using CommitmentLabels = bb::avm::AvmFlavor::CommitmentLabels;
+    using VerifierCommitments = bb::avm::AvmFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 

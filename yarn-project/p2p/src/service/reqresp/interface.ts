@@ -16,7 +16,7 @@ export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL |
  * A handler for a sub protocol
  * The message will arrive as a buffer, and the handler must return a buffer
  */
-export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Uint8Array>;
+export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Buffer>;
 
 /**
  * A type mapping from supprotocol to it's rate limits
@@ -83,8 +83,8 @@ export type SubProtocolMap = {
  * Default handler for unimplemented sub protocols, this SHOULD be overwritten
  * by the service, but is provided as a fallback
  */
-const defaultHandler = (_msg: any): Promise<Uint8Array> => {
-  return Promise.resolve(Uint8Array.from(Buffer.from('unimplemented')));
+const defaultHandler = (_msg: any): Promise<Buffer> => {
+  return Promise.resolve(Buffer.from('unimplemented'));
 };
 
 /**

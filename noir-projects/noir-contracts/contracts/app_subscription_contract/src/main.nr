@@ -10,7 +10,6 @@ contract AppSubscription {
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::constants::MAX_FIELD_VALUE,
@@ -43,12 +42,8 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
-        // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
-        let keys = get_public_keys(user_address);
         storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            keys.ovpk_m,
             user_address,
             user_address,
         ));
@@ -109,17 +104,10 @@ contract AppSubscription {
             &mut context,
         );
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-
         let mut subscription_note =
             SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_ovpk_m,
-                subscriber,
-                context.msg_sender(),
-            ),
+            encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
         );
     }
 

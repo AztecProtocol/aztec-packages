@@ -185,7 +185,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
         non_native_field_identity *= ShortAccumulator(q_2_m);
 
-        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
+        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * q_4
         // deg 2
         auto limb_accumulator_1_m = w_2_shift_m * SUBLIMB_SHIFT;
         limb_accumulator_1_m += w_1_shift_m;
@@ -198,7 +198,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         limb_accumulator_1_m -= w_4_m;
         auto limb_accumulator_1_m_full = limb_accumulator_1_m * q_4_m;
 
-        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * qm
+        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * q_m
         // deg 2
         auto limb_accumulator_2_m = w_3_shift_m * SUBLIMB_SHIFT;
         limb_accumulator_2_m += w_2_shift_m;
@@ -249,7 +249,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Partial degree: 1
          * Total degree: 2
          *
-         * A ROM/ROM access gate can be evaluated with the identity:
+         * A ROM/RAM access gate can be evaluated with the identity:
          *
          * qc + w1 \eta + w2 η₂ + w3 η₃ - w4 = 0
          *

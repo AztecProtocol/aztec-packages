@@ -8,7 +8,7 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
 import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
-import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {HeaderLib, Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 /**
@@ -39,7 +39,7 @@ contract DecodersTest is DecoderBase {
     // Header
     {
       DecoderBase.DecodedHeader memory referenceHeader = data.block.decodedHeader;
-      HeaderLib.Header memory header = headerHelper.decode(data.block.header);
+      Header memory header = headerHelper.decode(data.block.header);
 
       // GlobalVariables
       {

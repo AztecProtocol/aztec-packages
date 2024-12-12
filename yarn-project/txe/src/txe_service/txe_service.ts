@@ -1,9 +1,9 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   Fr,
   FunctionSelector,
-  Header,
   PublicDataTreeLeaf,
   PublicKeys,
   computePartialAddress,
@@ -14,7 +14,7 @@ import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
@@ -70,9 +70,12 @@ export class TXEService {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
+
+    await (this.typedOracle as TXE).commitState();
+
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
-      const header = Header.empty();
+      const header = BlockHeader.empty();
       const l2Block = L2Block.empty();
       header.state = await trees.getStateReference(true);
       header.globalVariables.blockNumber = new Fr(blockNumber);
@@ -550,8 +553,8 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async getHeader(blockNumber: ForeignCallSingle) {
-    const header = await this.typedOracle.getHeader(fromSingle(blockNumber).toNumber());
+  async getBlockHeader(blockNumber: ForeignCallSingle) {
+    const header = await this.typedOracle.getBlockHeader(fromSingle(blockNumber).toNumber());
     if (!header) {
       throw new Error(`Block header not found for block ${blockNumber}.`);
     }
@@ -569,6 +572,16 @@ export class TXEService {
       );
     }
     return toForeignCallResult([toArray(witness)]);
+  }
+
+  async getLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+
+    const witness = await this.typedOracle.getLowNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
+    if (!witness) {
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
+    }
+    return toForeignCallResult([toArray(witness.toFields())]);
   }
 
   async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
@@ -659,11 +672,6 @@ export class TXEService {
   async avmOpcodeBlockNumber() {
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  avmOpcodeFunctionSelector() {
-    const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
-    return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
   avmOpcodeIsStaticCall() {

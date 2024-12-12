@@ -1,5 +1,5 @@
 import { type ProverCache } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { InMemoryProverCache } from '@aztec/prover-client';
 
@@ -14,7 +14,7 @@ const EPOCH_DIR_SEPARATOR = '_';
 const EPOCH_HASH_FILENAME = 'epoch_hash.txt';
 
 export class ProverCacheManager {
-  constructor(private cacheDir?: string, private log = createDebugLogger('aztec:prover-node:cache-manager')) {}
+  constructor(private cacheDir?: string, private log = createLogger('prover-node:cache-manager')) {}
 
   public async openCache(epochNumber: bigint, epochHash: Buffer): Promise<ProverCache> {
     if (!this.cacheDir) {
