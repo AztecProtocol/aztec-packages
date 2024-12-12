@@ -22,9 +22,9 @@ global TWO_POW_64: Field = 0x10000000000000000;
 unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
     let mut accumulator: F = BigNum::one();
 
-    let mut temporaries: [F] = &[];
-    for i in 0..x.len() {
-        temporaries = temporaries.push_back(accumulator);
+    let mut temporaries: [F; N] = std::mem::zeroed();
+    for i in 0..N {
+        temporaries[i] = accumulator;
         if (x[i].__is_zero() == false) {
             accumulator = accumulator.__mul(x[i]);
         }
@@ -32,8 +32,8 @@ unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
 
     accumulator = accumulator.__invmod();
     let mut T0: F = BigNum::new();
-    for i in 0..x.len() {
-        let idx = x.len() - 1 - i;
+    for i in 0..N {
+        let idx = N - 1 - i;
         if (x[idx].__is_zero() == false) {
             T0 = accumulator.__mul(temporaries[idx]);
             accumulator = accumulator.__mul(x[idx]);
@@ -186,39 +186,134 @@ pub fn evaluate_blobs(
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
     let ROOTS = unsafe { compute_roots_of_unity() };
-    // z ^ D:
-    let mut t1 = unsafe { z.__mul(z) };
 
-    BigNum::evaluate_quadratic_expression([[z]], [[false]], [[z]], [[false]], [t1], [true]);
+    // Note: it's more efficient (saving 30k constraints) to compute:
+    //    ___d-1
+    //    \     /    y_i    \
+    //    /    |  ---------  | . omega^i
+    //   /____  \  z - omega^i  /
+    //    i=0
+    //            ^^^^^^^^^
+    //              frac
+    //
+    // ... than to compute:
+    //
+    //    ___d-1
+    //    \          /    omega^i    \
+    //    /   y_i . |  ---------  |
+    //   /____       \  z - omega^i  /
+    //    i=0
+    //
+    // perhaps because all the omega^i terms are constant witnesses?
+    let fracs = compute_fracs(z, ys, ROOTS);
 
-    let mut t2: F = BigNum::new();
-    for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-        t2 = unsafe { t1.__mul(t1) };
+    // OK so...we can add multiple product terms into a sum...but I am not sure how many!
+    // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
+    // each limb is 120 bits => 120 * 120 = 240 bits.
+    // however when computing a mul we add up to 5 product terms into a single field element => 243 bits (ish)
+    // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
+    // which implies...we can accommodate up to EIGHT additions of product terms before we risk overflowing
+    // (this is really messy! I never considered the case of giant linear sequences of products)
 
-        // GRATUITOUS USAGE OF as_witness, LIKE THROWING DARTS AT A DARTBOARD AND HOPING THIS HELPS
-        std::as_witness(t2.limbs[0]);
-        std::as_witness(t2.limbs[1]);
-        std::as_witness(t2.limbs[2]);
+    // Seeking:
+    //                    ___d-1
+    //                    \            omega^i
+    //              sum = /   y_i . ---------
+    //                   /____       z - omega^i
+    //                    i=0
+    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
+        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+        __compute_partial_sums(fracs, ROOTS)
+    };
 
-        BigNum::evaluate_quadratic_expression([[t1]], [[false]], [[t1]], [[false]], [t2], [true]);
+    // We split off the first term to check the initial sum
 
-        t1 = t2;
-        std::as_witness(t1.limbs[0]);
-        std::as_witness(t1.limbs[1]);
-        std::as_witness(t1.limbs[2]);
+    //    partial_sums[0] <- (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
+    // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) - partial_sums[0] == 0
+    let lhs = [
+        [ROOTS[0]], [ROOTS[1]], [ROOTS[2]], [ROOTS[3]], [ROOTS[4]], [ROOTS[5]], [ROOTS[6]],
+        [ROOTS[7]],
+    ];
+    let rhs = [
+        [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
+        [fracs[7]],
+    ];
+    BigNum::evaluate_quadratic_expression(
+        lhs,
+        [[false], [false], [false], [false], [false], [false], [false], [false]],
+        rhs,
+        [[false], [false], [false], [false], [false], [false], [false], [false]],
+        [partial_sums[0]],
+        [true],
+    );
+    for i in 1..NUM_PARTIAL_SUMS {
+        // Seeking:
+        //                    ___i*8 - 1              ___i*8 + 7
+        //                    \            omega^i        \            /    y_k    \
+        //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
+        //                   /____       z - omega^i     /____         \  z - omega^k  /
+        //                       0                    k = i*8
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //                          sum                         partial_sum
+        //
+        // ... that is:
+        //
+        //                    ___i*8 - 1              ___ 7
+        //                    \            omega^i        \
+        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
+        //                   /____       z - omega^i     /____
+        //                       0                    j = 0
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+        //                          sum                   partial_sum
+        //
+
+        let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+        let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+        for j in 0..8 {
+            let k = i * 8 + j;
+            lhs[j] = [ROOTS[k]]; // omega^k
+            rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
+        }
+
+        let linear_terms = [partial_sums[i - 1], partial_sums[i]];
+
+        //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
+        // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
+        BigNum::evaluate_quadratic_expression(
+            lhs,
+            [[false], [false], [false], [false], [false], [false], [false], [false]],
+            rhs,
+            [[false], [false], [false], [false], [false], [false], [false], [false]],
+            linear_terms,
+            [false, true],
+        );
     }
 
-    let z_pow_d = t1;
+    let factor = compute_factor(z);
+    let sum = partial_sums[FIELDS_PER_BLOB / 8 - 1];
+    factor.mul(sum)
+}
 
-    // factor:
+unconstrained fn __compute_factor_helper(z_pow_d: F) -> F {
     let one: F = BigNum::one();
+    z_pow_d.__sub(one).__mul(D_INV)
+}
 
-    t1 = unsafe { z_pow_d.__sub(one) };
-    std::as_witness(t1.limbs[0]);
-    std::as_witness(t1.limbs[1]);
-    std::as_witness(t1.limbs[2]);
+fn compute_factor(z: F) -> F {
+    // z ^ D:
+    let mut t = z.mul(z);
 
-    let factor = unsafe { t1.__mul(D_INV) };
+    for _ in 0..LOG_FIELDS_PER_BLOB - 1 {
+        t = t.mul(t);
+    }
+
+    let z_pow_d = t;
+
+    let factor = unsafe {
+        // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
+        __compute_factor_helper(z_pow_d)
+    };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
@@ -240,51 +335,43 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //     [factor],
     //     [true]
     // );
-    // sum:
-    let mut sum: F = BigNum::new();
 
-    // Making a call to this function causes a "stack too deep" error, so I've put the body of that function here, instead:
-    // let fracs = __compute_fracs(z, ys); // { y_i / (z - omega^i) }
-    // Note: it's more efficient (saving 30k constraints) to compute:
-    //    ___d-1
-    //    \     /    y_i    \
-    //    /    |  ---------  | . omega^i
-    //   /____  \  z - omega^i  /
-    //    i=0
-    //            ^^^^^^^^^
-    //              frac
-    //
-    // ... than to compute:
-    //
-    //    ___d-1
-    //    \          /    omega^i    \
-    //    /   y_i . |  ---------  |
-    //   /____       \  z - omega^i  /
-    //    i=0
-    //
-    // perhaps because all the omega^i terms are constant witnesses?
-    //*****************************************************************
-    // This section is only needed because `__compute_fracs` isn't working (stack too deep error).
-    let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB]; // y_i / (z - omega^i), for all i
+    factor
+}
+
+unconstrained fn __compute_fracs(
+    z: F,
+    ys: [F; FIELDS_PER_BLOB],
+    ROOTS: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB] {
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = unsafe { z.__sub(ROOTS[i]) }; // (z - omega^i)
+        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
     }
+    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
 
-    // If you're seeing a `bug` warning for this line, I think it's fine.
-    // Ideally, we'd be using `__compute_fracs`, anyway, but we're getting a "stack too deep" error.
-    let inv_denoms = unsafe { __batch_invert_impl(denoms) }; // 1 / (z - omega^i), for all i
+    // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
+    let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let num = ys[i];
         let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-        let frac = unsafe { num.__mul(inv_denom) }; // y_i * (1 / (z - omega^i))
-        fracs[i] = frac; // y_i / (z - omega^i)
-        std::as_witness(fracs[i].limbs[0]);
-        std::as_witness(fracs[i].limbs[1]);
-        std::as_witness(fracs[i].limbs[2]);
+        fracs[i] = num.__mul(inv_denom); // y_i * (1 / (z - omega^i))
+    }
 
-        //End of section that is only needed because `__compute_fracs` isn't working
-        //*****************************************************************
+    fracs
+}
+
+fn compute_fracs(
+    z: F,
+    ys: [F; FIELDS_PER_BLOB],
+    ROOTS: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB] {
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
+        // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
+        __compute_fracs(z, ys, ROOTS)
+    };
+
+    for i in 0..FIELDS_PER_BLOB {
         // frac <-- ys[i] / (z + neg_roots[i])
         // frac * (z + neg_roots[i]) - ys[i] = 0
         BigNum::evaluate_quadratic_expression(
@@ -297,27 +384,37 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         );
     }
 
-    // OK so...we can add multiple product terms into a sum...but I am not sure how many!
-    // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
-    // each limb is 120 bits => 120 * 120 = 240 bits.
-    // however when computing a mul we add up to 5 product terms into a single field element => 243 bits (ish)
-    // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
-    // which implies...we can accomodate up to EIGHT additions of product terms before we risk overflowing
-    // (this is really messy! I never considered the case of giant linear sequences of products)
-    let mut sum: F = BigNum::new();
+    fracs
+}
+
+// TODO: Clean me
+unconstrained fn __compute_partial_sums(
+    fracs: [F; FIELDS_PER_BLOB],
+    ROOTS: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB / 8] {
+    let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
-    //                    ___d-1
-    //                    \            omega^i
-    //              sum = /   y_i . ---------
-    //                   /____       z - omega^i
-    //                    i=0
-    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-    for i in 0..NUM_PARTIAL_SUMS {
-        let mut partial_sum: F = BigNum::new();
-        let mut lhs: [F; 8] = [BigNum::new(); 8];
-        let mut rhs = lhs;
+    //                    ___i*8 + 7
+    //                    \            omega^k
+    //      partial_sum = /   y_k . ---------
+    //                   /____       z - omega^k
+    //                    k=i*8 + 0
 
+    // Need to split off the first iteration.
+    let mut partial_sum: F = BigNum::new();
+    for i in 0..8 {
+        // y_k * ( omega^k / (z - omega^k) )
+        let summand = ROOTS[i].__mul(fracs[i]);
+
+        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+        partial_sum = partial_sum.__add(summand);
+    }
+    partial_sums[0] = partial_sum;
+
+    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    for i in 1..NUM_PARTIAL_SUMS {
+        let mut partial_sum: F = partial_sums[i - 1];
         // Seeking:
         //                    ___i*8 + 7
         //                    \            omega^k
@@ -326,75 +423,15 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                    k=i*8 + 0
         for j in 0..8 {
             let k = i * 8 + j;
-            lhs[j] = ROOTS[k]; // omega^k
-            rhs[j] = fracs[k]; // y_k / (z - omega^k)
-            std::as_witness(lhs[j].limbs[0]);
-            std::as_witness(lhs[j].limbs[1]);
-            std::as_witness(lhs[j].limbs[2]);
-            std::as_witness(rhs[j].limbs[0]);
-            std::as_witness(rhs[j].limbs[1]);
-            std::as_witness(rhs[j].limbs[2]);
-
             // y_k * ( omega^k / (z - omega^k) )
-            let summand = unsafe { ROOTS[k].__mul(fracs[k]) };
-
+            let summand = ROOTS[k].__mul(fracs[k]);
             // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
-            partial_sum = unsafe { partial_sum.__add(summand) };
-            std::as_witness(partial_sum.limbs[0]);
-            std::as_witness(partial_sum.limbs[1]);
-            std::as_witness(partial_sum.limbs[2]);
+            partial_sum = partial_sum.__add(summand);
         }
-
-        // Seeking:
-        //                    ___i*8 - 1              ___i*8 + 7
-        //                    \            omega^i        \            /    y_k    \
-        //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
-        //                   /____       z - omega^i     /____         \  z - omega^k  /
-        //                       0                    k = i*8
-        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        //                          sum                         partial_sum
-        //
-        // ... that is:
-        //
-        //                    ___i*8 - 1              ___ 7
-        //                    \            omega^i        \
-        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-        //                   /____       z - omega^i     /____
-        //                       0                    j = 0
-        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
-        //                          sum                   partial_sum
-        //
-        let mut sum_out = unsafe { sum.__add(partial_sum) };
-
-        std::as_witness(sum_out.limbs[0]);
-        std::as_witness(sum_out.limbs[1]);
-        std::as_witness(sum_out.limbs[2]);
-
-        //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
-        // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
-        BigNum::evaluate_quadratic_expression(
-            [[lhs[0]], [lhs[1]], [lhs[2]], [lhs[3]], [lhs[4]], [lhs[5]], [lhs[6]], [lhs[7]]],
-            [[false], [false], [false], [false], [false], [false], [false], [false]],
-            [[rhs[0]], [rhs[1]], [rhs[2]], [rhs[3]], [rhs[4]], [rhs[5]], [rhs[6]], [rhs[7]]],
-            [[false], [false], [false], [false], [false], [false], [false], [false]],
-            [sum, sum_out],
-            [false, true],
-        );
-
-        sum = sum_out;
-        std::as_witness(sum.limbs[0]);
-        std::as_witness(sum.limbs[1]);
-        std::as_witness(sum.limbs[2]);
+        partial_sums[i] = partial_sum;
     }
 
-    // y:
-    let y = unsafe { factor.__mul(sum) };
-
-    //    y <- factor * sum
-    // => factor * sum - y == 0
-    BigNum::evaluate_quadratic_expression([[factor]], [[false]], [[sum]], [[false]], [y], [true]);
-
-    y
+    partial_sums
 }
 
 mod tests {
