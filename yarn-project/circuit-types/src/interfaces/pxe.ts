@@ -372,6 +372,19 @@ export interface PXE {
    */
   getContractArtifact(id: Fr): Promise<ContractArtifact | undefined>;
 
+
+  /**
+   * Returns a contract instance from the node given its address.
+   * @param address - Address of the deployed contract.
+   */
+  getContractInstanceFromNode(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /**
+   * Returns a contract artifact from the node given its address.
+   * @param address - Address of the deployed contract.
+   */
+  getContractArtifactFromNode(address: AztecAddress): Promise<ContractArtifact | undefined>;
+
   /**
    * Queries the node to check whether the contract class with the given id has been publicly registered.
    * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
@@ -534,6 +547,14 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getContractArtifact: z
     .function()
     .args(schemas.Fr)
+    .returns(z.union([ContractArtifactSchema, z.undefined()])),
+  getContractInstanceFromNode: z
+    .function()
+    .args(schemas.AztecAddress)
+    .returns(z.union([ContractInstanceWithAddressSchema, z.undefined()])),
+  getContractArtifactFromNode: z
+    .function()
+    .args(schemas.AztecAddress)
     .returns(z.union([ContractArtifactSchema, z.undefined()])),
   isContractClassPubliclyRegistered: z.function().args(schemas.Fr).returns(z.boolean()),
   isContractPubliclyDeployed: z.function().args(schemas.AztecAddress).returns(z.boolean()),

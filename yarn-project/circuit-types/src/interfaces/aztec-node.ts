@@ -410,6 +410,12 @@ export interface AztecNode
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 
   /**
+   * Returns a publicly deployed contract artifact given its address.
+   * @param address - Address of the deployed contract.
+   */
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+
+  /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
    */
@@ -569,6 +575,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+
+  getContractArtifact: z.function().args(schemas.AztecAddress).returns(ContractArtifactSchema.optional()),
 
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 

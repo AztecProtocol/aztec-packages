@@ -150,6 +150,14 @@ export class PXEService implements PXE {
     return this.db.getContractArtifact(id);
   }
 
+  public async getContractInstanceFromNode(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return await this.node.getContract(address);
+  }
+
+  public async getContractArtifactFromNode(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return await this.node.getContractArtifact(address);
+  }
+
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);

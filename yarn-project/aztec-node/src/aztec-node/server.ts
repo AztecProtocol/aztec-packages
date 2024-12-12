@@ -332,6 +332,10 @@ export class AztecNodeService implements AztecNode {
     return this.contractDataSource.getContract(address);
   }
 
+  public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return this.contractDataSource.getContractArtifact(address);
+  }
+
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
    * @param from - The block number from which to begin retrieving logs.
