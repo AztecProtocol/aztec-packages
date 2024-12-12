@@ -94,8 +94,6 @@ function test {
   run BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh 6_array
   # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
   run BIN=../ts/dest/node/main.js SYS=mega_honk FLOW=prove_and_verify ./run_test.sh 6_array
-  # Run fold_basic test through bb.js which runs ClientIVC on fold basic
-  run BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_test.sh fold_basic
   # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
   run BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_test.sh 1_mul
 

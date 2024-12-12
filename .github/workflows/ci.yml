@@ -23,7 +23,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
+<<<<<<< HEAD
   CI: 1
+=======
+>>>>>>> origin/cl/ci3
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -32,18 +35,134 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+<<<<<<< HEAD
   GITHUB_RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNNER_CONCURRENCY: 0
 jobs:
   configure:
     runs-on: ubuntu-latest
+=======
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  # kludge until we move away from runners
+  WAIT_FOR_RUNNERS: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-20.04
+>>>>>>> origin/cl/ci3
     if: github.event.pull_request.draft == false
     # Required permissions.
     permissions:
       pull-requests: read
     # Set job outputs to values from filter step.
     # Set username to a value derived from our github username.
+<<<<<<< HEAD
+=======
+    outputs:
+      username: ${{ steps.compute_username.outputs.username }}
+      avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
+      build-images: ${{ steps.filter.outputs.build-images }}
+      barretenberg: ${{ steps.filter.outputs.barretenberg }}
+      barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
+      noir: ${{ steps.filter.outputs.noir }}
+      noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      yarn-project: ${{ steps.filter.outputs.yarn-project }}
+      txe: ${{ steps.filter.outputs.txe }}
+      l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
+      non-docs: ${{ steps.filter.outputs.non-docs }}
+      non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
+      non-barretenberg-cpp: ${{ steps.filter.outputs.non-barretenberg-cpp }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Compute Username
+        id: compute_username
+        shell: bash
+        env:
+          REPO: "${{ github.repository }}"
+          BRANCH: "${{ github.ref_name }}"
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "username=${{ github.event.pull_request.user.login }}"
+            echo "username=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          else
+            GIT_HASH="${{ github.sha }}"
+            GIT_HASH_LAST8=${GIT_HASH: -8}
+            GIT_HASH_LAST8_DEC=$(printf "%d" 0x$GIT_HASH_LAST8)
+            GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
+            echo "username=master-${GIT_HASH_MODULO_8}"
+            echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
+          fi
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
+        with:
+          filters: |
+            barretenberg:
+              - 'barretenberg/**'
+            barretenberg-cpp:
+              - 'barretenberg/cpp/**'
+            build-images:
+              - 'build-images/**'
+            noir:
+              - 'noir/**'
+            avm-transpiler:
+              - 'avm-transpiler/**'
+            l1-contracts:
+              - 'l1-contracts/**'
+            noir-projects:
+              - 'noir-projects/**'
+            yarn-project:
+              - 'yarn-project/**'
+            txe:
+              - 'yarn-project/txe/**'
+            non-barretenberg-cpp:
+              - '!(barretenberg/cpp/**)'
+              # don't consider AVM stuff 'core bb'
+              - barretenberg/cpp/pil/**
+              - barretenberg/cpp/src/barretenberg/vm/**
+              - barretenberg/cpp/src/barretenberg/**/generated/*
+              - barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/bb/main.cpp
+            non-docs:
+              - '!(docs/**)'
+            non-misc-ci:
+              - '!(.github/**)'
+              # Always rebuild when this file changes
+              - .github/workflows/ci.yml
+
+  setup:
+    needs: [configure]
+    if: github.event.pull_request.draft == false
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ needs.configure.outputs.username }}
+      runner_type: builder-x86
+    secrets: inherit
+
+  build-images:
+    needs: [setup, configure]
+    # Note we don't but the 'if' here as that would also apply to dependent jobs, instead we just copy it into each step
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        if: needs.configure.outputs.build-images == 'true'
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        if: needs.configure.outputs.build-images == 'true'
+        with:
+          concurrency_key: build-images-x86
+      - name: "Push Build Images If Changed"
+        if: needs.configure.outputs.build-images == 'true'
+        timeout-minutes: 40
+        run: |
+          earthly-ci --push ./build-images/+build
+
+  build:
+    needs: [build-images, configure]
+    # NOTE: we don't skip this job here instead using if's below to avoid gotcha if dependent jobs have their own if's
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+>>>>>>> origin/cl/ci3
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
       avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
@@ -680,6 +799,7 @@ jobs:
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
         env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
           if [[ $FAIL == true ]]; then
@@ -699,7 +819,7 @@ jobs:
       actions: write
     needs:
       - merge-check
-    if: github.event.pull_request.draft == false && !cancelled() && !true
+    if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
