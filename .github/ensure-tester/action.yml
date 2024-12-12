@@ -136,7 +136,7 @@ runs:
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-tester
-      if: steps.test.outputs.exit_code == '155' && inputs.spot_strategy != "None"
+      if: steps.test.outputs.exit_code == '155' && inputs.spot_strategy != 'None'
       with:
         username: ${{ inputs.username }}
         runner_type: ${{ inputs.runner_type}}
