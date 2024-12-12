@@ -2,6 +2,7 @@ import {
   type BlockAttestation,
   type BlockProposal,
   type L2Block,
+  type P2PClientType,
   type ProcessedTx,
   type Tx,
   type TxHash,
@@ -74,7 +75,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   constructor(
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
-    private p2pClient: P2P,
+    private p2pClient: P2P<P2PClientType.Full>,
     private config: ValidatorClientConfig,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
     private log = createLogger('validator'),
@@ -106,7 +107,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   static new(
     config: ValidatorClientConfig,
     epochCache: EpochCache,
-    p2pClient: P2P,
+    p2pClient: P2P<P2PClientType.Full>,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
   ) {
     if (!config.validatorPrivateKey) {

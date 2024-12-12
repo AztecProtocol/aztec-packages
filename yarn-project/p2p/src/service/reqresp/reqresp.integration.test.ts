@@ -1,6 +1,11 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
+import {
+  type ClientProtocolCircuitVerifier,
+  P2PClientType,
+  type WorldStateSynchronizer,
+  mockTx,
+} from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -90,8 +95,11 @@ describe('Req Resp p2p client integration', () => {
 
   const getPorts = (numberOfPeers: number) => Promise.all(Array.from({ length: numberOfPeers }, () => getPort()));
 
-  const createClients = async (numberOfPeers: number, alwaysTrueVerifier: boolean = true): Promise<P2PClient[]> => {
-    const clients: P2PClient[] = [];
+  const createClients = async (
+    numberOfPeers: number,
+    alwaysTrueVerifier: boolean = true,
+  ): Promise<P2PClient<P2PClientType.Full>[]> => {
+    const clients: P2PClient<P2PClientType.Full>[] = [];
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
 
     const ports = await getPorts(numberOfPeers);
@@ -148,7 +156,15 @@ describe('Req Resp p2p client integration', () => {
         epochProofQuotePool: epochProofQuotePool as unknown as EpochProofQuotePool,
         store: kvStore,
       };
-      const client = await createP2PClient(config, l2BlockSource, proofVerifier, worldState, undefined, deps);
+      const client = await createP2PClient(
+        P2PClientType.Full,
+        config,
+        l2BlockSource,
+        proofVerifier,
+        worldState,
+        undefined,
+        deps,
+      );
 
       await client.start();
       clients.push(client);
@@ -163,7 +179,7 @@ describe('Req Resp p2p client integration', () => {
   };
 
   // Shutdown all test clients
-  const shutdown = async (clients: P2PClient[]) => {
+  const shutdown = async (clients: P2PClient<P2PClientType.Full>[]) => {
     await Promise.all([...clients.map(client => client.stop())]);
     await sleep(1000);
   };

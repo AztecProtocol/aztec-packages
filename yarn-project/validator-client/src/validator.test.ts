@@ -1,7 +1,7 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash, mockTx } from '@aztec/circuit-types';
+import { type P2PClientType, TxHash, mockTx } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -27,12 +27,12 @@ import { ValidatorClient } from './validator.js';
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
   let validatorClient: ValidatorClient;
-  let p2pClient: MockProxy<P2P>;
+  let p2pClient: MockProxy<P2P<P2PClientType.Full>>;
   let epochCache: MockProxy<EpochCache>;
   let validatorAccount: PrivateKeyAccount;
 
   beforeEach(() => {
-    p2pClient = mock<P2P>();
+    p2pClient = mock<P2P<P2PClientType.Full>>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     epochCache = mock<EpochCache>();
 
