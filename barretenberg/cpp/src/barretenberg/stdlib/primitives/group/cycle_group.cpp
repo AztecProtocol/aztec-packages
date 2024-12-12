@@ -314,6 +314,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(
  *
  * @tparam Builder
  * @param other
+ * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
@@ -383,6 +384,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
  *
  * @tparam Builder
  * @param other
+ * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
@@ -458,6 +460,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
  *
  * @tparam Builder
  * @param other
+ * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
@@ -479,6 +482,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
  *
  * @tparam Builder
  * @param other
+ * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
@@ -943,6 +947,9 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
     // convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits.
     // this also performs an implicit range check on the input slices
     const auto slice_scalar = [&](const field_t& scalar, const size_t num_bits) {
+        // we record the scalar slices both as field_t circuit elements and u64 values
+        // (u64 values are used to index arrays and we don't want to repeatedly cast a stdlib value to a numeric
+        // primitive as this gets expensive when repeated enough times)
         std::pair<std::vector<field_t>, std::vector<uint64_t>> result;
         result.first.reserve(static_cast<size_t>(1ULL) << table_bits);
         result.second.reserve(static_cast<size_t>(1ULL) << table_bits);
@@ -1036,6 +1043,19 @@ std::optional<field_t<Builder>> cycle_group<Builder>::straus_scalar_slice::read(
     return slices[index];
 }
 
+/**
+ * @brief Compute the output points generated when computing the Straus lookup table
+ * @details When performing an MSM, we first compute all the witness values as Element types (with a Z-coordinate),
+ *          and then we batch-convert the points into affine representation `AffineElement`
+ *          This avoids the need to compute a modular inversion for every group operation,
+ *          which dramatically cuts witness generation times
+ *
+ * @tparam Builder
+ * @param base_point
+ * @param offset_generator
+ * @param table_bits
+ * @return std::vector<typename cycle_group<Builder>::Element>
+ */
 template <typename Builder>
 std::vector<typename cycle_group<Builder>::Element> cycle_group<
     Builder>::straus_lookup_table::compute_straus_lookup_table_hints(const Element& base_point,
@@ -1238,6 +1258,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     std::vector<straus_scalar_slice> scalar_slices;
 
+    /**
+     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
+     * We then batch-convert to AffineElement types, and feed this points as "hints" into the cycle_group methods.
+     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
+     * generation times
+     */
     std::vector<Element> operation_transcript;
     std::vector<std::vector<Element>> native_straus_tables;
     Element offset_generator_accumulator = offset_generators[0];
@@ -1282,6 +1308,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
+    // Normalize the computed witness points and convert into AffineElement type
     Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
 
     std::vector<AffineElement> operation_hints;
@@ -1312,8 +1339,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     for (size_t i = 0; i < num_rounds; ++i) {
         for (size_t j = 0; j < num_points; ++j) {
             const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar
-            // bits for a given round and a given scalar
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
+            // given round and a given scalar
             if (scalar_slice.has_value()) {
                 const cycle_group point = point_tables[j].read(scalar_slice.value());
                 points_to_add.emplace_back(point);
@@ -1347,7 +1374,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    // U cannot be zero
+    // validate that none of the x-coordinate differences are zero
+    // we batch the x-coordinate checks together
+    // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
     field_t coordinate_check_product = 1;
     for (auto& [x1, x2] : x_coordinate_checks) {
         auto x_diff = x2 - x1;
@@ -1427,7 +1456,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         ASSERT(offset_1.has_value());
         offset_generator_accumulator += offset_1.value();
     }
-
+    /**
+     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
+     * We then batch-convert to AffineElement types, and feed this points as "hints" into the cycle_group methods.
+     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
+     * generation times
+     */
     std::vector<Element> operation_transcript;
     {
         Element accumulator = lookup_points[0].get_value();

@@ -19,12 +19,12 @@ using namespace bb::crypto::merkle_tree;
 /* Old join-split tests below. The value of having all of these logic tests is unclear, but we'll
    leave them around, at least for a while. */
 
-// #ifdef CI
-// constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
-// #else
+#ifdef CI
+constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
+#else
 // During development, if the circuit vk hash/gate count is expected to change, set the following to true.
-// constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
-// #endif
+constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
+#endif
 
 using namespace bb;
 using namespace bb::stdlib;
@@ -688,31 +688,32 @@ TEST_F(join_split_tests, test_withdraw_but_different_input_note_2_asset_id_fails
 // Input note combinations. Deposit/Send/Withdraw.
 // *************************************************************************************************************
 
-// TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
-// {
-//     join_split_tx tx = zero_input_setup();
-//     tx.proof_id = proof_ids::DEPOSIT;
-//     tx.public_value = 30;
-//     tx.public_owner = fr::random_element();
-//     tx.output_note[0].value = 30;
+TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
+{
+    join_split_tx tx = zero_input_setup();
+    tx.proof_id = proof_ids::DEPOSIT;
+    tx.public_value = 30;
+    tx.public_owner = fr::random_element();
+    tx.output_note[0].value = 30;
 
-//     auto result = sign_and_verify_logic(tx, user.owner);
+    auto result = sign_and_verify_logic(tx, user.owner);
 
-//     EXPECT_TRUE(result.valid);
+    EXPECT_TRUE(result.valid);
 
-//     // The below part detects any changes in the join-split circuit
+    // The below part detects any changes in the join-split circuit
+    constexpr size_t DYADIC_CIRCUIT_SIZE = 1 << 16;
 
-//     constexpr uint256_t CIRCUIT_HASH("0x2b30566e4d921ea9b0c76802d86ea5b8381ffa78ef143af1b0d0e3045862cb6b");
+    constexpr uint256_t CIRCUIT_HASH("0x727924c3ea2266dc2b6a38f335019c26a941911d5991f25adb3ce9c288af7751");
 
-//     const uint256_t circuit_hash = circuit.hash_circuit();
-//     // circuit is finalized now
-//     if (!CIRCUIT_CHANGE_EXPECTED) {
-//         EXPECT_LT(circuit.get_estimated_num_finalized_gates(), DYADIC_CIRCUIT_SIZE)
-//             << "The gate count for the join-split circuit has crossed a power-of-two boundary.";
-//         EXPECT_EQ(circuit_hash, CIRCUIT_HASH)
-//             << "The circuit hash for the join_split circuit has changed to: " << circuit_hash;
-//     }
-// }
+    const uint256_t circuit_hash = circuit.hash_circuit();
+    // circuit is finalized now
+    if (!CIRCUIT_CHANGE_EXPECTED) {
+        EXPECT_LT(circuit.get_estimated_num_finalized_gates(), DYADIC_CIRCUIT_SIZE)
+            << "The gate count for the join-split circuit has crossed a power-of-two boundary.";
+        EXPECT_EQ(circuit_hash, CIRCUIT_HASH)
+            << "The circuit hash for the join_split circuit has changed to: " << circuit_hash;
+    }
+}
 
 // Bespoke test seeking bug.
 TEST_F(join_split_tests, test_0_input_notes_create_dupicate_output_notes_fails)
