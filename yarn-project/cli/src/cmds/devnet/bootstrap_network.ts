@@ -1,6 +1,13 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { BatchCall, type PXE, type WaitOpts, type Wallet, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
-import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
+import {
+  BatchCall,
+  L1FeeJuicePortalManager,
+  type PXE,
+  type WaitOpts,
+  type Wallet,
+  createCompatibleClient,
+  retryUntil,
+} from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
@@ -22,7 +29,7 @@ type ContractDeploymentInfo = {
 
 const waitOpts: WaitOpts = {
   timeout: 120,
-  provenTimeout: 1200,
+  provenTimeout: 2400,
   interval: 1,
 };
 
