@@ -153,13 +153,5 @@
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
-  },
-  "reporters": [
-    [
-      "jest-silent-reporter",
-      {
-        "useDots": true
-      }
-    ]
-  ]
+  }
 }
