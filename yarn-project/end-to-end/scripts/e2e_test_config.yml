@@ -3,7 +3,6 @@ tests:
   bench_prover:
     env:
       HARDWARE_CONCURRENCY: '32'
-      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
       LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
     command: './scripts/e2e_compose_test.sh bench_prover'
   bench_publish_rollup:
