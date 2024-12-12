@@ -1,119 +1,9 @@
 VERSION 0.8
 
-test-base:
-    FROM ../../+bootstrap-noir-bb
-    ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-    WORKDIR /usr/src/barretenberg/acir_tests
-    ENV VERBOSE=1
-    RUN mkdir -p ~/.bb-crs
-    ENV RECURSIVE=1
-    # Avoid race conditions with bb.
-    RUN bash -c 'curl -s -H "Range: bytes=0-$(((2**21+1)*64-1))" https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat -o ~/.bb-crs/bn254_g1.dat'
-
-test-bb:
-    FROM +test-base
-    # Fold and verify an ACIR program stack using ClientIvc
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh fold_basic
-    # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
-    # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-    RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
-    # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
-    RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
-
-test-bb-ultra-plonk:
-    FROM +test-base
-    # Do not pass with plonk!
-    RUN cd acir_tests && rm -rf verify_honk_proof double_verify_honk_proof
-    # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
-    # This ensures we test independent pk construction through real/garbage witness data paths.
-    RUN FLOW=prove_then_verify ./run_acir_tests.sh
-    RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
-
-test-bb-ultra-honk:
-    FROM +test-base
-    # Do not pass with honk!
-    RUN cd acir_tests && rm -rf single_verify_proof double_verify_proof double_verify_nested_proof
-    # Run the acir test through native bb build prove_then_verify_ultra_honk flow
-    # Note that the script will skip the Plonk related tests
-    RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
-    RUN FLOW=prove_then_verify_ultra_honk HONK=true RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_honk_proof
-
-    # Construct and verify a UltraHonk proof for a single program
-    RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash
-    # Construct and verify a MegaHonk proof on one non-recursive program using the new witness stack workflow
-    RUN FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert
-    # Construct and separately verify a UltraHonk proof for a single program that recursively verifies a Honk proof
-    RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
-    # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
-    RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
-
-test-bb-client-ivc:
-    FROM +test-base
-    # Do not pass with honk!
-    RUN cd acir_tests && rm -rf fold_basic_nested_call fold_fibonacci fold_numeric_generic_poseidon ram_blowup_regression
-    # Construct and verify a ClientIVC proof for a single arbitrary program
-    RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
-    # Construct and separately verify a ClientIVC proof for all acir programs
-    RUN FLOW=prove_then_verify_client_ivc CLIENT_IVC_SKIPS=true ./run_acir_tests.sh
-
-test-sol:
-    FROM +test-base
-    COPY ../cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    RUN (cd sol-test && yarn)
-    RUN FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
-
-test-sol-honk:
-    FROM +test-base
-    COPY ../cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
-    RUN (cd sol-test && yarn)
-    RUN FLOW=sol_honk ./run_acir_tests.sh assert_statement 1_mul slices verify_honk_proof
-
-test-bb.js:
-    FROM +test-base
-    # Build/install ts apps.
-    RUN (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn && yarn build)
-    RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
-    RUN cd ../ts && yarn
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672): Try to enable double_verify
-    # Run UltraHonk recursive verification through bb.js on chrome testing multi-threaded browser support.
-    # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
-    RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh verify_honk_proof
-    # Run UltraHonk recursive verification through bb.js on chrome testing single-threaded browser support.
-    RUN BROWSER=chrome THREAD_MODEL=st ./run_acir_tests_browser.sh verify_honk_proof
-    # Commenting for now as fails intermittently. Unreproducable on mainframe.
-    # See https://github.com/AztecProtocol/aztec-packages/issues/2104
-    #RUN BROWSER=webkit THREAD_MODEL=st ./run_acir_tests_browser.sh 1_mul
-    # TODO(https://github.com/noir-lang/noir/issues/5106)
-    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
-    # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x
-    # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
-    # Run the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
-    # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
-    RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Run fold_basic test through bb.js which runs ClientIVC on fold basic
-    RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
-    # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
-    RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
-
 test:
     FROM ../../+bootstrap-noir-bb
     WORKDIR /usr/src/barretenberg/acir_tests
     RUN ./bootstrap.sh ci
-    # # cleaner output:
-    # WAIT
-    #   BUILD +test-base
-    # END
-    # BUILD +test-bb
-    # BUILD +test-bb-ultra-plonk
-    # BUILD +test-bb-ultra-honk
-    # BUILD +test-bb-client-ivc
-    # BUILD +test-sol
-    # BUILD +test-sol-honk
-    # BUILD +test-bb.js
 
 benches-bb:
   FROM ../../+bootstrap-noir-bb
@@ -122,7 +12,7 @@ benches-bb:
 bench:
   # This target is used for debugging the benchmarking target.
   # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +benches-bb
+  FROM +test
   RUN ./bench_acir_tests.sh
 
 export-bench-acir-bb:
