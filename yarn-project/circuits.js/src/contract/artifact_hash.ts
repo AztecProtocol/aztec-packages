@@ -83,17 +83,23 @@ function computeFunctionLeaves(artifact: ContractArtifact, fnType: FunctionType)
     .filter(f => f.functionType === fnType)
     .map(f => ({ ...f, selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters) }))
     .sort((a, b) => a.selector.value - b.selector.value)
-    .map(computeFunctionArtifactHash);
+    .map(fn => computeFunctionArtifactHash(fn, fn.functionType));
 }
 
 export function computeFunctionArtifactHash(
   fn:
     | FunctionArtifact
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
+  fnType: FunctionType,
 ) {
   const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
 
-  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  let bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  // TODO: Disable when we have deterministic unconstrained fn bytecode generation
+  if (fnType === FunctionType.UNCONSTRAINED) {
+    bytecodeHash = Fr.ZERO.toBuffer();
+  }
+
   const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
   return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }

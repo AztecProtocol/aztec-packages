@@ -54,7 +54,10 @@ export function createPrivateFunctionMembershipProof(
 
   // And the "artifact tree" captures function bytecode and metadata, and is used by the pxe to check that its executing the code it's supposed to be executing, but it never goes into circuits.
   const functionMetadataHash = computeFunctionMetadataHash(privateFunctionArtifact);
-  const functionArtifactHash = computeFunctionArtifactHash({ ...privateFunctionArtifact, functionMetadataHash });
+  const functionArtifactHash = computeFunctionArtifactHash(
+    { ...privateFunctionArtifact, functionMetadataHash },
+    FunctionType.PRIVATE,
+  );
   const artifactTree = computeArtifactFunctionTree(artifact, FunctionType.PRIVATE)!;
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
@@ -129,7 +132,7 @@ export function isValidPrivateFunctionMembershipProof(
   }
 
   // Check artifact hash
-  const functionArtifactHash = computeFunctionArtifactHash(fn);
+  const functionArtifactHash = computeFunctionArtifactHash(fn, FunctionType.PRIVATE);
   const computedArtifactPrivateFunctionTreeRoot = Fr.fromBuffer(
     computeRootFromSiblingPath(
       functionArtifactHash.toBuffer(),

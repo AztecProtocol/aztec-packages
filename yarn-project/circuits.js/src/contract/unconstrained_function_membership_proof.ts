@@ -42,7 +42,7 @@ export function createUnconstrainedFunctionMembershipProof(
 
   // Compute the sibling path for the "artifact tree"
   const functionMetadataHash = computeFunctionMetadataHash(fn);
-  const functionArtifactHash = computeFunctionArtifactHash({ ...fn, functionMetadataHash });
+  const functionArtifactHash = computeFunctionArtifactHash({ ...fn, functionMetadataHash }, FunctionType.UNCONSTRAINED);
   const artifactTree = computeArtifactFunctionTree(artifact, FunctionType.UNCONSTRAINED)!;
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
@@ -87,7 +87,7 @@ export function isValidUnconstrainedFunctionMembershipProof(
 ) {
   const log = createLogger('circuits:function_membership_proof');
 
-  const functionArtifactHash = computeFunctionArtifactHash(fn);
+  const functionArtifactHash = computeFunctionArtifactHash(fn, FunctionType.UNCONSTRAINED);
   const computedArtifactFunctionTreeRoot = Fr.fromBuffer(
     computeRootFromSiblingPath(
       functionArtifactHash.toBuffer(),
