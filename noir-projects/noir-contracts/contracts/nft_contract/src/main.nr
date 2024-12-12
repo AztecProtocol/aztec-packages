@@ -30,13 +30,13 @@ contract NFT {
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
-    use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+    use std::meta::derive;
     // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct NFTTransfer {
         from: AztecAddress,
         to: AztecAddress,

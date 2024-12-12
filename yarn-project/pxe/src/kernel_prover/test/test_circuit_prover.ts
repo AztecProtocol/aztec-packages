@@ -73,7 +73,9 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     privateInputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantPrivateInputs = privateInputs.trimToSizes();
-    const [duration, result] = await elapsed(() => executeReset(variantPrivateInputs, privateInputs.dimensions));
+    const [duration, result] = await elapsed(() =>
+      executeReset(variantPrivateInputs, privateInputs.dimensions, privateInputs),
+    );
     this.log.debug(`Simulated private kernel reset`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-reset',

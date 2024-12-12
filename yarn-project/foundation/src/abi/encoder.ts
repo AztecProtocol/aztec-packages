@@ -49,7 +49,7 @@ class ArgumentEncoder {
         } else if (typeof arg === 'bigint') {
           this.flattened.push(new Fr(arg));
         } else if (typeof arg === 'string') {
-          this.flattened.push(Fr.fromString(arg));
+          this.flattened.push(Fr.fromHexString(arg));
         } else if (typeof arg === 'boolean') {
           this.flattened.push(new Fr(arg ? 1n : 0n));
         } else if (typeof arg === 'object') {
@@ -58,7 +58,7 @@ class ArgumentEncoder {
           } else if (typeof arg.toField === 'function') {
             this.flattened.push(arg.toField());
           } else if (typeof arg.value === 'string') {
-            this.flattened.push(Fr.fromString(arg.value));
+            this.flattened.push(Fr.fromHexString(arg.value));
           } else {
             throw new Error(`Argument for ${name} cannot be serialized to a field`);
           }

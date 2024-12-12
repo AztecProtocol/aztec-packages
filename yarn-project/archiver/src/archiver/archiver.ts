@@ -491,6 +491,8 @@ export class Archiver implements ArchiveSource {
         this.log.info(`Downloaded L2 block ${block.data.number}`, {
           blockHash: block.data.hash(),
           blockNumber: block.data.number,
+          txCount: block.data.body.txEffects.length,
+          globalVariables: block.data.header.globalVariables.toInspect(),
         });
       }
     } while (searchEndBlock < currentL1BlockNumber);
@@ -919,7 +921,7 @@ class ArchiverStoreHelper
     for (const [classIdString, classEvents] of Object.entries(
       groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
     )) {
-      const contractClassId = Fr.fromString(classIdString);
+      const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.getContractClass(contractClassId);
       if (!contractClass) {
         this.#log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);

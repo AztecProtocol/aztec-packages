@@ -32,7 +32,7 @@ export function toACVMField(
   } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
     buffer = new Fr(value).toBuffer();
   } else if (typeof value === 'string') {
-    buffer = Fr.fromString(value).toBuffer();
+    buffer = Fr.fromHexString(value).toBuffer();
   } else {
     buffer = value.toBuffer();
   }

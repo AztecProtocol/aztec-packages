@@ -105,7 +105,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   public getContractClassIds(): Promise<Fr[]> {
-    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromString(key)));
+    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

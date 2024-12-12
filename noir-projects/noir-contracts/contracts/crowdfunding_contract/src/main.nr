@@ -26,8 +26,8 @@ contract Crowdfunding {
     use token::Token;
     // docs:end:all-deps
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
         amount: u64,

@@ -93,8 +93,8 @@ export async function addPXE(
       l2Contracts[key] = {
         name: key,
         address: AztecAddress.fromString(basicContractsInfo[key].address),
-        initHash: Fr.fromString(basicContractsInfo[key].initHash),
-        salt: Fr.fromString(basicContractsInfo[key].salt),
+        initHash: Fr.fromHexString(basicContractsInfo[key].initHash),
+        salt: Fr.fromHexString(basicContractsInfo[key].salt),
         artifact: await getContractArtifact(artifactName, userLog),
       };
     }
@@ -116,9 +116,6 @@ export async function addPXE(
 
   // Add PXE to services list
   services.pxe = [pxe, PXESchema];
-
-  // Add PXE stop function to signal handlers
-  signalHandlers.push(pxe.stop);
 
   return pxe;
 }
