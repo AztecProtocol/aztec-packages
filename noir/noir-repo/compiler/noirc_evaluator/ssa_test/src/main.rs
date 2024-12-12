@@ -35,7 +35,7 @@ fn save_artifacts(all_artifacts: Vec<InstructionArtifacts>) {
 
 fn main() {
     let mut all_artifacts: Vec<InstructionArtifacts> = Vec::new();
-    let u64_var = Variable{ variable_type: VariableType::Unsigned, variable_size: 64};
+    let u64_var = Variable{ variable_type: VariableType::Unsigned, variable_size: 32};
     let u8_var = Variable{ variable_type: VariableType::Unsigned, variable_size: 8};
     all_artifacts.push(InstructionArtifacts::new_add(&u64_var, &u64_var));
     all_artifacts.push(InstructionArtifacts::new_sub(&u64_var, &u64_var));
