@@ -4,8 +4,8 @@ export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_rollup
 
 const UltraKeccakHonkCircuits = ['RootRollupArtifact'] as const satisfies ProtocolArtifact[];
 const UltraHonkCircuits = [
-  'EmptyNestedArtifact',
-  'PrivateKernelEmptyArtifact',
+  // 'EmptyNestedArtifact',
+  // 'PrivateKernelEmptyArtifact',
   'BaseParityArtifact',
   'RootParityArtifact',
 ] as const satisfies ProtocolArtifact[];
