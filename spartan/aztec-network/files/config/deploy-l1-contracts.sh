@@ -7,6 +7,7 @@ CHAIN_ID=$1
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=60
+
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
   base_cmd="node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts"
@@ -15,14 +16,14 @@ for attempt in $(seq 1 $MAX_RETRIES); do
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
     base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    base_cmd="$base_cmd --mnemonic \"${MNEMONIC//\"/}\""
+    base_cmd="$base_cmd --mnemonic '$MNEMONIC'"
   fi
 
   # Add validators if INIT_VALIDATORS is true
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$($base_cmd --validators $2 --l1-chain-id $CHAIN_ID) && break
+    output=$(eval $base_cmd --validators $2 --l1-chain-id $CHAIN_ID) && break
   else
-    output=$($base_cmd --l1-chain-id $CHAIN_ID) && break
+    output=$(eval $base_cmd --l1-chain-id $CHAIN_ID) && break
   fi
 
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
