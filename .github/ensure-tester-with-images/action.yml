@@ -21,7 +21,7 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - name: Pull Docker Images
+    - name: Run with Images
       uses: ./.github/ensure-tester
       with:
         username: ${{ inputs.username }}
@@ -33,9 +33,4 @@ runs:
           for image in ${{ inputs.images_to_pull }}; do
             docker pull $image
           done
-
-    - name: Test
-      uses: ./.github/run-on-tester
-      if: ${{ env.CACHE_SUCCESS != 'true' }}
-      with:
-        run: ${{ inputs.run }}
+          ${{ inputs.run }}

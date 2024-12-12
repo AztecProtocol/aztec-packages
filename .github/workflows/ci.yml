@@ -123,16 +123,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "Build Images"
         uses: ./.github/ensure-builder
-        timeout-minutes: 40
+        timeout-minutes: 120
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "Build Images"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 120
-        with:
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             ./build-images/bootstrap.sh ci
@@ -145,19 +141,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "CI (noir and bb)"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "CI (noir and bb)"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
           run: scripts/earthly-ci +ci-noir-bb
 
-  # CI for l1-contracts, avm-transpiler, noir-projects, yarn-project.
   ci-rest:
     needs: [ci-noir-bb, configure]
     runs-on: ubuntu-latest
@@ -165,16 +156,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "CI (rest)"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
           run: scripts/earthly-ci +ci-rest
 
   images-e2e:
@@ -187,16 +174,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "E2E Images"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "E2E Images"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
           run: ./bootstrap.sh image-e2e
       - name: Create Job Lists
         id: e2e_list
@@ -241,16 +224,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "Docs"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "Docs"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
           run: scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
             --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
             --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
@@ -365,14 +344,11 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: bench-summary-x86
-      - name: "Setup"
+      - name: "Build and upload bench aggregate file"
         uses: ./.github/ensure-builder
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "Build and upload bench aggregate file"
-        uses: ./.github/run-on-builder
-        with:
           run: scripts/earthly-ci ./yarn-project/scripts/+bench-aggregate
       - name: "Download base benchmark and package into earthly"
         if: github.event_name == 'pull_request'
@@ -420,7 +396,7 @@ jobs:
         run: |
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
           if ci3/test_should_run barretenberg-test-$(./barretenberg/cpp/bootstrap.sh hash); then
-            ./ci.sh ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
+            ci3/bootstrap_ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
           fi
 
   network-4epochs-test:
@@ -430,16 +406,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Setup"
+      - name: "Local Network Tests"
         uses: ./.github/ensure-builder
-        timeout-minutes: 40
+        timeout-minutes: 60
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-      - name: "Local Network Tests"
-        uses: ./.github/run-on-builder
-        timeout-minutes: 60
-        with:
           run: sudo shutdown -P 60 && scripts/earthly-ci +network-test --test=./test-4epochs.sh
 
   kind-smoke-test:
@@ -567,17 +539,12 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: boxes
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
+        timeout-minutes: 40
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-      - name: Box test
-        uses: ./.github/run-on-builder
-        timeout-minutes: 40
-        with:
           run: |
             export CI=1
             export USE_CACHE=1
@@ -607,15 +574,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: Setup
+      - name: "Noir Protocol Circuits Report"
         uses: ./.github/ensure-builder
+        timeout-minutes: 40
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-      - name: "Noir Protocol Circuits Report"
-        timeout-minutes: 40
-        uses: ./.github/run-on-builder
-        with:
           run: |
             scripts/earthly-ci --artifact ./noir-projects/+gates-report/gates_report.json
       - name: Copy Report
@@ -648,16 +612,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: Setup
+      - name: "Aztec Public Functions Bytecode Size Report"
+        timeout-minutes: 40
         uses: ./.github/ensure-builder
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-      - uses: ./.github/ci-setup-action
-      - name: "Aztec Public Functions Bytecode Size Report"
-        timeout-minutes: 40
-        uses: ./.github/run-on-builder
-        with:
           run: |
             scripts/earthly-ci --artifact ./noir-projects/+public-functions-report/public_functions_report.json
       - name: Copy Report

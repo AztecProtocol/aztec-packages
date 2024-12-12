@@ -143,7 +143,14 @@
         }
       ]
     },
-    "reporters": [],
+    "reporters": [
+      [
+        "jest-silent-reporter",
+        {
+          "useDots": true
+        }
+      ]
+    ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
@@ -153,5 +160,13 @@
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
-  }
+  },
+  "reporters": [
+    [
+      "jest-silent-reporter",
+      {
+        "useDots": true
+      }
+    ]
+  ]
 }

@@ -78,14 +78,7 @@ runs:
         ec2_subnet_id: subnet-4cfabd25
         ec2_security_group_id: sg-0ccd4e5df0dcca0c9
         ec2_key_name: "build-instance"
-        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
-
-    - name: Print Startup Log
-      shell: bash
-      run:
-        # Try 6 times to see if .user-data-finished has been written to
-        for i in {0..6} ; do scripts/run_on_tester "cat /home/ubuntu/.user-data-finished" && break ; sleep 5 ; done ;
-        scripts/run_on_tester "cat /run/log.out"
+        ec2_instance_tags: '[{"Key" "Keep-Alive", "Value": "true"}]'
 
     # Set up a context for this run
     - name: Initialize Tester
@@ -123,9 +116,36 @@ runs:
       with:
         post: scripts/run_on_tester "sudo shutdown now" || true
 
-    - name: Test
-      shell: bash
+    - name: Run On Tester
+      id: test
       env:
         # avoid double shell interpolation
-        RUN_SCRIPT: export GITHUB_REF_NAME=${{ github.ref_name }} ; cd ~/run-${{ env.RUN_ID }} ; ${{ inputs.run }}
-      run: scripts/run_on_tester "$RUN_SCRIPT"
+        RUN_SCRIPT: |
+          export GITHUB_REF_NAME=${{ github.ref_name }};
+          cd ~/run-${{ env.RUN_ID }};
+          ci3/aws_handle_evict "${{ inputs.run }}"
+      shell: bash
+      run:
+        set +e
+        scripts/run_on_tester "$RUN_SCRIPT"
+        exit_code=$!
+        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+        if [ $exit_code = 155 ]; then
+          echo "Spot eviction detected - retrying with on-demand."
+        fi
+
+    - name: Re-run with On-Demand
+      uses: ./.github/ensure-tester
+      if: steps.test.outputs.exit_code == '155' && inputs.spot_strategy != "None"
+      with:
+        username: ${{ inputs.username }}
+        runner_type: ${{ inputs.runner_type}}
+        spot_strategy: None
+        ttl: ${{ inputs.ttl }}
+        run: ${{ inputs.run }}
+
+    # If we aren't rerunning, report exit code
+    - name: Report Exit Code
+      shell: bash
+      if: steps.test.outputs.exit_code != '155' || inputs.spot_strategy == "None"
+      run: exit ${{ steps.test.outputs.exit_code }}

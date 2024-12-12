@@ -64,6 +64,7 @@ else
   if [ -n "$custom_command" ]; then
     /bin/bash -c "$custom_command" || [ "$ignore_failures" = "true" ]
   else
+    set -x
     # Run the default docker command
     docker run \
       -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
