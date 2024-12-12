@@ -921,7 +921,7 @@ class ArchiverStoreHelper
     for (const [classIdString, classEvents] of Object.entries(
       groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
     )) {
-      const contractClassId = Fr.fromString(classIdString);
+      const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.getContractClass(contractClassId);
       if (!contractClass) {
         this.#log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);

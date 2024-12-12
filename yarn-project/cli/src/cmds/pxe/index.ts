@@ -54,11 +54,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .option('-f, --follow', 'Keep polling for new blocks')
     .addOption(pxeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+      await getBlock(options.rpcUrl, blockNumber, debugLogger, log);
     });
 
   program
