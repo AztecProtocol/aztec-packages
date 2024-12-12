@@ -17,6 +17,11 @@ on:
         description: Whether to respect the Terraform lock
         required: false
         default: "true"
+      sepolia_deployment:
+        description: "Whether to deploy on Sepolia network (default: false)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,6 +45,7 @@ jobs:
       aztec_docker_image: ${{ github.event.inputs.aztec_docker_image }}
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
+      sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
