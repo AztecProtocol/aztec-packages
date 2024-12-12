@@ -18,9 +18,6 @@ export class NodeMetrics {
       description: 'The duration of the receiveTx method',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: [10, 50, 100, 200, 500, 1000, 2000, 5000],
-      },
     });
   }
 
