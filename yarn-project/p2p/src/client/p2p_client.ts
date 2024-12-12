@@ -221,7 +221,7 @@ export class P2PClient extends WithTracer implements P2P {
 
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
-    this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
+    this.blockStream = new L2BlockStream(l2BlockSource, this, this, createLogger('p2p:block_stream'), {
       batchSize: blockRequestBatchSize,
       pollIntervalMS: blockCheckIntervalMS,
     });
@@ -359,7 +359,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.verbose(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
+      this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
     }
 
     // publish any txs in TxPool after its doing initial sync

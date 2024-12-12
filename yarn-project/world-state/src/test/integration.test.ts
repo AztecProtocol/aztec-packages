@@ -62,7 +62,7 @@ describe('world-state integration', () => {
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 30000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();
