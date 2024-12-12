@@ -149,8 +149,23 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           run: scripts/earthly-ci +ci-noir-bb
 
-  ci-rest:
+  bootstrap:
     needs: [ci-noir-bb, configure]
+    runs-on: ubuntu-latest
+    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          runner_type: builder-x86
+          username: ${{ needs.configure.outputs.username }}
+          run: scripts/earthly-ci +bootstrap
+
+  ci-rest:
+    needs: [bootstrap, configure]
     runs-on: ubuntu-latest
     if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
     steps:
@@ -165,7 +180,7 @@ jobs:
           run: scripts/earthly-ci +ci-rest
 
   images-e2e:
-    needs: [ci-rest, configure]
+    needs: [bootstrap, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     outputs:
