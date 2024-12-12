@@ -129,7 +129,7 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
-pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
+pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
@@ -582,9 +582,8 @@ pub global START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET: u32 =
 
 // GAS DEFAULTS
 pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
-pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
-pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 12_000_000;
-pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
+pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 6_000_000;
+pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects

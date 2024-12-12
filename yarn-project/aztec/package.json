@@ -30,6 +30,7 @@
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
+    "@aztec/aztec-faucet": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
