@@ -68,19 +68,17 @@ bootstrap:
 
 bootstrap-aztec:
   FROM +bootstrap
-  WORKDIR /usr/src/yarn-project
-  ENV DENOISE=1
-  LET ci3=$(git rev-parse --show-toplevel)/ci3
-  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
-  WORKDIR /usr/src
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
+  WORKDIR /usr/src/yarn-project
+  ENV DENOISE=1
+  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
+  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
+  WORKDIR /usr/src
   RUN rm -rf \
     .git \
     .github \
-    .yarn \
     noir-projects \
     barretenberg/cpp/src \
     barretenberg/ts/node-cjs \
@@ -94,7 +92,6 @@ bootstrap-aztec:
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
   FROM +bootstrap
-  WORKDIR /usr/src
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
@@ -107,7 +104,6 @@ bootstrap-end-to-end:
     build-system \
     noir-projects \
     docs \
-    barretenberg/ts/src \
     barretenberg/ts/dest/node-cjs
   SAVE ARTIFACT /usr/src /usr/src
   SAVE ARTIFACT /opt/foundry/bin/anvil
