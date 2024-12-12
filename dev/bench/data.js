@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733977185636,
+  "lastUpdate": 1734020170075,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "089c34cc3e9fb5cb493096246525c2205e646204",
-          "message": "refactor: CIVC VK (#10223)\n\nAs a step toward a consistent API, we add to `ClientIVC`\r\n```\r\n    struct VerificationKey {\r\n        std::shared_ptr<MegaVerificationKey> mega;\r\n        std::shared_ptr<ECCVMVerificationKey> eccvm;\r\n        std::shared_ptr<TranslatorVerificationKey> translator;\r\n\r\n        MSGPACK_FIELDS(mega, eccvm, translator);\r\n    };\r\n```\r\n\r\nClientIVC API before;\r\n```\r\n    static bool verify(const Proof& proof,\r\n                       const std::shared_ptr<MegaVerificationKey>& mega_vk,\r\n                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,\r\n                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);\r\n```\r\n(three vk paths need to be provided to CLI)\r\n\r\nClientIVC API after: \r\n```\r\n    static bool verify(const Proof& proof, const VerificationKey& vk);`\r\n```\r\n(and one vk path needs to be provided to CLI)",
-          "timestamp": "2024-11-27T10:46:11-05:00",
-          "tree_id": "15bb5742f4af493ce0e60e3e6fe1989266ad1597",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/089c34cc3e9fb5cb493096246525c2205e646204"
-        },
-        "date": 1732724330465,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28005.986659000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26315.656614 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5032.924441999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4713.488985 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83547.696289,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83547697000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15144.496462,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15144496000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3052192836,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3052192836 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140263845,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140263845 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 135633649,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135633649 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b1d8b978871948fbba639476465f4de6fb471292",
+          "message": "feat: remove auto verify mode from ClientIVC (#10599)\n\nRemoves auto verify mode from `ClientIVC`. Auto verify mode was a\r\ntemporary feature designed to append kernel logic (recursive\r\nverifications etc.) to kernel circuits generated from noir kernel\r\nprograms before the `verify_proof()` calls were integrated into those\r\nprograms. Now that these calls are present in the kernels (mock and\r\ngenuine), the kernel logic is automatically constructed via\r\nivc_recursion_constraints via the normal `create_circuit()` pathway. If\r\nin the future there is need for a backend which automatically appends\r\nrecursive verification logic, it should be implemented in an entirely\r\nseparate class.\r\n\r\nNote: This change means we can no longer generate an IVC proof from the\r\nnoir `fold_*` programs since they do not contain explicit recursive\r\nverifiers. All such tests/flows have been removed.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1116 (remove\r\nmanual setting of is_kernel)\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1101 (remove\r\nauto-verify)",
+          "timestamp": "2024-12-12T08:34:34-07:00",
+          "tree_id": "cd1ca9db8a576e0d7ccdcc9332438bd2096e3730",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b1d8b978871948fbba639476465f4de6fb471292"
+        },
+        "date": 1734020162955,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24597.569082999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22368.714204 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4534.642659999974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4256.634741 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89412.031254,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89412031000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16556.181210000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16556182000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2774314315,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2774314315 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132429386,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132429386 ns\nthreads: 1"
           }
         ]
       }
