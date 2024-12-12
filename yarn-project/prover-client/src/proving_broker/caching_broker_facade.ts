@@ -59,6 +59,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
+    epochNumber = 0,
     signal?: AbortSignal,
   ): Promise<ProvingJobResultsMap[T]> {
     // first try the cache
@@ -95,6 +96,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
           id,
           type,
           inputsUri,
+          epochNumber,
         });
         await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
       } catch (err) {
@@ -107,7 +109,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     // notify broker of cancelled job
     const abortFn = async () => {
       signal?.removeEventListener('abort', abortFn);
-      await this.broker.removeAndCancelProvingJob(id);
+      await this.broker.cancelProvingJob(id);
     };
 
     signal?.addEventListener('abort', abortFn);
@@ -147,18 +149,21 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       }
     } finally {
       signal?.removeEventListener('abort', abortFn);
+      // we've saved the result in our cache. We can tell the broker to clear its state
+      await this.broker.cleanUpProvingJobState(id);
     }
   }
 
   getAvmProof(
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
-    _blockNumber?: number,
+    epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs),
       ProvingRequestType.PUBLIC_VM,
       inputs,
+      epochNumber,
       signal,
     );
   }
@@ -166,12 +171,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getBaseParityProof(
     inputs: BaseParityInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BASE_PARITY, inputs),
       ProvingRequestType.BASE_PARITY,
       inputs,
+      epochNumber,
       signal,
     );
   }
@@ -179,12 +185,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input),
       ProvingRequestType.BLOCK_MERGE_ROLLUP,
       input,
+      epochNumber,
       signal,
     );
   }
@@ -192,12 +199,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getBlockRootRollupProof(
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input),
       ProvingRequestType.BLOCK_ROOT_ROLLUP,
       input,
+      epochNumber,
       signal,
     );
   }
@@ -205,12 +213,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
       input,
+      epochNumber,
       signal,
     );
   }
@@ -218,12 +227,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs),
       ProvingRequestType.PRIVATE_KERNEL_EMPTY,
       inputs,
+      epochNumber,
       signal,
     );
   }
@@ -231,24 +241,26 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getMergeRollupProof(
     input: MergeRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.MERGE_ROLLUP, input),
       ProvingRequestType.MERGE_ROLLUP,
       input,
+      epochNumber,
       signal,
     );
   }
   getPrivateBaseRollupProof(
     baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput),
       ProvingRequestType.PRIVATE_BASE_ROLLUP,
       baseRollupInput,
+      epochNumber,
       signal,
     );
   }
@@ -256,12 +268,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs),
       ProvingRequestType.PUBLIC_BASE_ROLLUP,
       inputs,
+      epochNumber,
       signal,
     );
   }
@@ -269,12 +282,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getRootParityProof(
     inputs: RootParityInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.ROOT_PARITY, inputs),
       ProvingRequestType.ROOT_PARITY,
       inputs,
+      epochNumber,
       signal,
     );
   }
@@ -282,12 +296,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.ROOT_ROLLUP, input),
       ProvingRequestType.ROOT_ROLLUP,
       input,
+      epochNumber,
       signal,
     );
   }
@@ -295,12 +310,13 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   getTubeProof(
     tubeInput: TubeInputs,
     signal?: AbortSignal,
-    _epochNumber?: number,
+    epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput),
       ProvingRequestType.TUBE_PROOF,
       tubeInput,
+      epochNumber,
       signal,
     );
   }

@@ -152,6 +152,17 @@ export class BlockHeader {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 
+  toInspect() {
+    return {
+      lastArchive: this.lastArchive.root.toString(),
+      contentCommitment: this.contentCommitment.toInspect(),
+      state: this.state.toInspect(),
+      globalVariables: this.globalVariables.toInspect(),
+      totalFees: this.totalFees.toBigInt(),
+      totalManaUsed: this.totalManaUsed.toBigInt(),
+    };
+  }
+
   [inspect.custom]() {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},

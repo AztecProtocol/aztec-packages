@@ -15,8 +15,6 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { inspect } from 'util';
-
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
@@ -39,7 +37,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 
   async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    this.logger.verbose('Starting new block', { globalVariables: inspect(globalVariables), l1ToL2Messages });
+    this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     this.txs = [];
@@ -54,7 +52,9 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.numTxs = Math.max(2, txs.length);
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
+      this.logger.debug(tx.hash.isZero() ? 'Adding padding tx to block' : 'Adding new tx to block', {
+        txHash: tx.hash.toString(),
+      });
       this.txs.push(tx);
       await buildBaseRollupHints(tx, this.globalVariables!, this.db, this.spongeBlobState!);
     }
@@ -62,7 +62,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   async setBlockCompleted(): Promise<L2Block> {
     const paddingTxCount = this.numTxs! - this.txs.length;
-    this.logger.verbose(`Setting block as completed and adding ${paddingTxCount} padding txs`);
     for (let i = 0; i < paddingTxCount; i++) {
       await this.addTxs([
         makeEmptyProcessedTx(
@@ -79,8 +78,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
   }
 
   private async buildBlock(): Promise<L2Block> {
-    this.logger.verbose(`Finalising block`);
-
     const { header, body } = await buildHeaderAndBodyFromTxs(
       this.txs,
       this.globalVariables!,
@@ -92,6 +89,12 @@ export class LightweightBlockBuilder implements BlockBuilder {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
     const block = new L2Block(newArchive, header, body);
+    this.logger.debug(`Built block ${block.number}`, {
+      globalVariables: this.globalVariables?.toInspect(),
+      archiveRoot: newArchive.root.toString(),
+      blockHash: block.hash.toString(),
+    });
+
     return block;
   }
 }

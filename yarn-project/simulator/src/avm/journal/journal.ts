@@ -379,8 +379,8 @@ export class AvmPersistableStateManager {
       } else {
         // Sanity check that the leaf value is skipped by low leaf when it doesn't exist
         assert(
-          siloedNullifier.toBigInt() > leafPreimage.nullifier.toBigInt() &&
-            siloedNullifier.toBigInt() < leafPreimage.nextNullifier.toBigInt(),
+          leafPreimage.nullifier.toBigInt() < siloedNullifier.toBigInt() &&
+            (leafPreimage.nextIndex === 0n || leafPreimage.nextNullifier.toBigInt() > siloedNullifier.toBigInt()),
           'Nullifier tree low leaf should skip the target leaf nullifier when the target leaf does not exist.',
         );
       }
