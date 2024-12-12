@@ -219,7 +219,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,

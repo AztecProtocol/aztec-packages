@@ -7,6 +7,7 @@ import {
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type Proof,
   type RecursiveProof,
@@ -30,8 +31,8 @@ enum PROVING_STATE_LIFECYCLE {
 export type BlockMergeRollupInputData = {
   inputs: [BlockRootOrBlockMergePublicInputs | undefined, BlockRootOrBlockMergePublicInputs | undefined];
   proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
   ];
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
@@ -151,7 +152,7 @@ export class EpochProvingState {
   public storeMergeInputs(
     mergeInputs: [
       BlockRootOrBlockMergePublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
     indexWithinMerge: number,
