@@ -152,7 +152,7 @@ mod tests {
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
             vk_tree.get_sibling_path(BLOCK_ROOT_ROLLUP_INDEX);
@@ -165,7 +165,7 @@ mod tests {
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
             vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
@@ -178,7 +178,7 @@ mod tests {
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(ROOT_PARITY_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
             vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
