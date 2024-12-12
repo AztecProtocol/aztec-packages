@@ -2,7 +2,6 @@ import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { type PXEService } from '@aztec/pxe';
 
 import { Argument, Command, Option } from 'commander';
 import { readFileSync } from 'fs';
