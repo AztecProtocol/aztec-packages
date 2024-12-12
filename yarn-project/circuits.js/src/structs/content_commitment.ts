@@ -54,7 +54,7 @@ export class ContentCommitment {
   toInspect() {
     return {
       numTxs: this.numTxs.toNumber(),
-      txsEffectsHash: bufferToHex(this.txsEffectsHash),
+      blobsHash: bufferToHex(this.blobsHash),
       inHash: bufferToHex(this.inHash),
       outHash: bufferToHex(this.outHash),
     };
