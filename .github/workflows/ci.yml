@@ -1062,7 +1062,7 @@ jobs:
       actions: write
     needs:
       - merge-check
-    if: github.event.pull_request.draft == false && !cancelled() && !true
+    if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
