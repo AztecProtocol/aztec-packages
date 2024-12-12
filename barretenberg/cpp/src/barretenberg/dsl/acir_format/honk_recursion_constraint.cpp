@@ -1,4 +1,5 @@
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -9,6 +10,8 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
+
+#include <cstddef>
 
 namespace acir_format {
 
@@ -111,9 +114,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     if (is_rollup_honk_recursion_constraint) {
-        IPAClaimIndices ipa_claim; // WORKTODO: initialize this to something?
-        for (auto idx : ipa_claim) {
-            builder.assert_equal(idx, proof_fields[offset].witness_index);
+        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
             offset++;
         }
     }
@@ -168,6 +170,35 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
         builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
         offset += 4;
+    }
+    // IPA Proof
+    if (is_rollup_honk_recursion_constraint) {
+        // Poly length
+        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        offset++;
+
+        // Ls and Rs
+        for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
+            auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            offset += 2;
+        }
+
+        // G_zero
+        auto G_zero = curve::Grumpkin::AffineElement::one() * fq::random_element();
+        auto G_zero_frs = field_conversion::convert_to_bn254_frs(G_zero);
+        builder.assert_equal(builder.add_variable(G_zero_frs[0]), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(G_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        offset += 2;
+
+        // a_zero
+        auto a_zero = fq::random_element();
+        auto a_zero_frs = field_conversion::convert_to_bn254_frs(a_zero);
+        builder.assert_equal(builder.add_variable(a_zero_frs[0]), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(a_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        offset += 2;
     }
     ASSERT(offset == proof_size + public_inputs_size);
 }
