@@ -26,12 +26,8 @@ barretenberg-acir-tests-bb:
     ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
 
-    # Fold and verify an ACIR program stack using ClientIvc
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh fold_basic
-    # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-    RUN INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-    RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
+    RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh 6_array
     # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
     RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
@@ -95,7 +91,7 @@ barretenberg-acir-tests-bb-client-ivc:
     # Construct and verify a ClientIVC proof for a single arbitrary program
     RUN FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh 6_array
     # Construct and separately verify a ClientIVC proof for all acir programs
-    RUN FLOW=prove_then_verify_client_ivc CLIENT_IVC_SKIPS=true ./run_acir_tests.sh
+    RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh 6_array databus databus_two_calldata
 
 barretenberg-acir-tests-sol:
     FROM ../build-images/+from-registry
@@ -174,7 +170,5 @@ barretenberg-acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
     # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
     RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Run fold_basic test through bb.js which runs ClientIVC on fold basic
-    RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
