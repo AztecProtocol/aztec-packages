@@ -147,5 +147,5 @@ runs:
     # If we aren't rerunning, report exit code
     - name: Report Exit Code
       shell: bash
-      if: steps.test.outputs.exit_code != '155' || inputs.spot_strategy == "None"
+      if: steps.test.outputs.exit_code != '155' || inputs.spot_strategy == 'None'
       run: exit ${{ steps.test.outputs.exit_code }}
