@@ -1,21 +1,22 @@
+#pragma once
 #include "get_bn254_crs.hpp"
 #include "get_grumpkin_crs.hpp"
 
 namespace bb {
-std::string getHomeDir()
+inline std::string getHomeDir()
 {
     char* home = std::getenv("HOME");
     return home != nullptr ? std::string(home) : "./";
 }
 
-std::string CRS_PATH = getHomeDir() + "/.bb-crs";
+static std::string CRS_PATH = getHomeDir() + "/.bb-crs";
 
 /**
  * @brief Initialize the global crs_factory for bn254 based on a known dyadic circuit size
  *
  * @param dyadic_circuit_size power-of-2 circuit size
  */
-void init_bn254_crs(size_t dyadic_circuit_size)
+inline void init_bn254_crs(size_t dyadic_circuit_size)
 {
     // Must +1 for Plonk only!
     auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
@@ -29,7 +30,7 @@ void init_bn254_crs(size_t dyadic_circuit_size)
  *
  * @param dyadic_circuit_size power-of-2 circuit size
  */
-void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
+inline void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
     auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + 1);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
