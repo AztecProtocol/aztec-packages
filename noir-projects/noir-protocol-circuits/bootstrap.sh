@@ -30,7 +30,6 @@ ivc_patterns=(
   "^private_kernel_inner"
   "^private_kernel_reset.*"
   "^private_kernel_tail.*"
-  "^parity-base"
 )
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 

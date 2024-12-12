@@ -218,6 +218,8 @@ from-registry:
   ARG TARGETARCH
   # NOTE: match version string above
   FROM aztecprotocol/build:2.0-$TARGETARCH
+  # Temporary kludge until we move to a unified image.
+  RUN apt install xxd
 
 ########################################################################################################################
 # This builds on the build image. It acts as the image for all CI builds.
