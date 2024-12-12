@@ -37,7 +37,7 @@ describe('L2BlockStream', () => {
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
-    blockStream = new TestL2BlockStream(blockSource, localData, handler, { batchSize: 10 });
+    blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
   });
 
   const makeBlock = (number: number) => ({ number } as L2Block);

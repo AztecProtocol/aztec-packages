@@ -69,8 +69,9 @@ export class PublicTxSimulator {
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
    */
-  async simulate(tx: Tx): Promise<PublicTxResult> {
-    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
+  public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const txHash = tx.getTxHash();
+    this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
       this.db,
@@ -207,7 +208,12 @@ export class PublicTxSimulator {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
 
-    this.log.debug(`Beginning processing in phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`);
+    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`, {
+      txHash: context.getTxHash().toString(),
+      phase: TxExecutionPhase[phase],
+      callRequests: callRequests.length,
+      executionRequests: executionRequests.length,
+    });
 
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
@@ -276,8 +282,8 @@ export class PublicTxSimulator {
 
     const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
-    this.log.verbose(
-      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+    this.log.debug(
+      `Simulated enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
@@ -320,8 +326,8 @@ export class PublicTxSimulator {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
 
-    this.log.verbose(
-      `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    this.log.debug(
+      `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
@@ -338,10 +344,10 @@ export class PublicTxSimulator {
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
 
-    this.log.verbose(
-      `[AVM] Simulation of enqueued public call ${fnName} completed. reverted: ${result.reverted}${
-        result.reverted ? ', reason: ' + result.revertReason : ''
-      }.`,
+    this.log.debug(
+      result.reverted
+        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
+        : `Simulation of enqueued public call ${fnName} completed successfully.`,
       {
         eventName: 'avm-simulation',
         appCircuitName: fnName,
