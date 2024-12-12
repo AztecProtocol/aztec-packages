@@ -15,7 +15,7 @@ for attempt in $(seq 1 $MAX_RETRIES); do
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
     base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    base_cmd="$base_cmd --mnemonic $MNEMONIC"
+    base_cmd="$base_cmd --mnemonic \"$MNEMONIC\""
   fi
 
   # Add validators if INIT_VALIDATORS is true
@@ -48,7 +48,7 @@ governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Addr
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts/contracts.env
+cat <<EOF >/shared/contracts/contracts.env
 export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
 export INBOX_CONTRACT_ADDRESS=$inbox_address
