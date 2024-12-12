@@ -1262,7 +1262,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     /**
      * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed this points as "hints" into the cycle_group methods.
+     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
      * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
      * generation times
      */
@@ -1460,7 +1460,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
     /**
      * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed this points as "hints" into the cycle_group methods.
+     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
      * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
      * generation times
      */
