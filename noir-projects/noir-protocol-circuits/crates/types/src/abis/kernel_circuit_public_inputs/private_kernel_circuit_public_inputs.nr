@@ -85,6 +85,7 @@ pub struct PrivateKernelCircuitPublicInputs {
     pub end: PrivateAccumulatedData,
     pub public_teardown_call_request: PublicCallRequest,
     pub fee_payer: AztecAddress,
+    pub is_private_only: bool,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
@@ -98,6 +99,7 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
         fields.extend_from_array(self.end.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
+        fields.push(self.is_private_only as Field);
 
         assert_eq(fields.len(), PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -117,6 +119,7 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
             end: reader.read_struct(PrivateAccumulatedData::deserialize),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
+            is_private_only: reader.read_bool(),
         };
 
         reader.finish();
@@ -143,6 +146,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
             end: PrivateAccumulatedData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
+            is_private_only: false,
         }
     }
 }

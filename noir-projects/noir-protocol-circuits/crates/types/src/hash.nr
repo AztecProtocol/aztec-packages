@@ -50,27 +50,39 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
-    let inputs = [nonce, note_hash];
+pub fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
-pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
+pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
     poseidon2_hash_with_separator(
-        [app.to_field(), unique_note_hash],
+        [app.to_field(), note_hash],
         GENERATOR_INDEX__SILOED_NOTE_HASH,
     )
 }
 
-/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
-/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
-pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
-    if note_hash.contract_address.is_zero() {
+/// Computes unique note hashes from siloed note hashes
+pub fn compute_unique_siloed_note_hash(
+    siloed_note_hash: Field,
+    tx_hash: Field,
+    note_index_in_tx: u32,
+) -> Field {
+    if siloed_note_hash == 0 {
         0
     } else {
         let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
-        let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
-        compute_siloed_note_hash(note_hash.contract_address, unique_note_hash)
+        compute_unique_note_hash(nonce, siloed_note_hash)
+    }
+}
+
+/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
+pub fn silo_note_hash(note_hash: ScopedNoteHash) -> Field {
+    if note_hash.contract_address.is_zero() {
+        0
+    } else {
+        compute_siloed_note_hash(note_hash.contract_address, note_hash.value())
     }
 }
 

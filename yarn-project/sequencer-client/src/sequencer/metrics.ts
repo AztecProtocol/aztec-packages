@@ -7,7 +7,6 @@ import {
   type Tracer,
   type UpDownCounter,
   ValueType,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 import { type SequencerState, type SequencerStateCallback, sequencerStateToNumber } from './utils.js';
@@ -32,18 +31,12 @@ export class SequencerMetrics {
       unit: 'ms',
       description: 'Duration to build a block',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(2),
-      },
     });
     this.stateTransitionBufferDuration = meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION, {
       unit: 'ms',
       description:
         'The time difference between when the sequencer needed to transition to a new state and when it actually did.',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(2),
-      },
     });
 
     const currentState = meter.createObservableGauge(Metrics.SEQUENCER_CURRENT_STATE, {

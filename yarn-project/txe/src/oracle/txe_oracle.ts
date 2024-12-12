@@ -7,6 +7,8 @@ import {
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
+  TxEffect,
+  TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
@@ -29,6 +31,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
+  type PrivateLog,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
@@ -38,7 +41,13 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -52,10 +61,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
-import { ContractDataOracle, enrichPublicSimulationError } from '@aztec/pxe';
+import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionError,
-  type ExecutionNoteCache,
+  ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
@@ -76,6 +85,7 @@ import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
+import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -91,9 +101,19 @@ export class TXE implements TypedOracle {
   private nestedCallReturndata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
+  private simulatorOracle: SimulatorOracle;
 
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
+
+  private uniqueNoteHashesFromPublic: Fr[] = [];
+  private siloedNullifiersFromPublic: Fr[] = [];
+  private privateLogs: PrivateLog[] = [];
+  private publicLogs: UnencryptedL2Log[] = [];
+
+  private committedBlocks = new Set<number>();
+
+  private node = new TXENode(this.blockNumber);
 
   constructor(
     private logger: Logger,
@@ -107,6 +127,7 @@ export class TXE implements TypedOracle {
     this.contractAddress = AztecAddress.random();
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
+    this.simulatorOracle = new SimulatorOracle(this.contractDataOracle, txeDatabase, keyStore, this.node);
   }
 
   // Utils
@@ -157,6 +178,7 @@ export class TXE implements TypedOracle {
 
   setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
+    this.node.setBlockNumber(blockNumber);
   }
 
   getTrees() {
@@ -237,18 +259,66 @@ export class TXE implements TypedOracle {
     );
   }
 
+  async addSiloedNullifiersFromPublic(siloedNullifiers: Fr[]) {
+    this.siloedNullifiersFromPublic.push(...siloedNullifiers);
+
+    await this.addSiloedNullifiers(siloedNullifiers);
+  }
+
   async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier));
     await this.addSiloedNullifiers(siloedNullifiers);
   }
 
-  async addSiloedNoteHashes(siloedNoteHashes: Fr[]) {
+  async addUniqueNoteHashes(siloedNoteHashes: Fr[]) {
     const db = await this.trees.getLatest();
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
+
+  async addUniqueNoteHashesFromPublic(siloedNoteHashes: Fr[]) {
+    this.uniqueNoteHashesFromPublic.push(...siloedNoteHashes);
+    await this.addUniqueNoteHashes(siloedNoteHashes);
+  }
+
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
     const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
-    await this.addSiloedNoteHashes(siloedNoteHashes);
+
+    await this.addUniqueNoteHashes(siloedNoteHashes);
+  }
+
+  addPrivateLogs(contractAddress: AztecAddress, privateLogs: PrivateLog[]) {
+    privateLogs.forEach(privateLog => {
+      privateLog.fields[0] = poseidon2Hash([contractAddress, privateLog.fields[0]]);
+    });
+
+    this.privateLogs.push(...privateLogs);
+  }
+
+  addPublicLogs(logs: UnencryptedL2Log[]) {
+    logs.forEach(log => {
+      if (log.data.length < 32 * 33) {
+        // TODO remove when #9835 and #9836 are fixed
+        this.logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
+        return;
+      }
+      try {
+        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
+        // This means that for every 32 bytes of payload, we only have 1 byte of data.
+        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
+        const correctedBuffer = Buffer.alloc(32);
+        const initialOffset = 32;
+        for (let i = 0; i < 32; i++) {
+          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
+          correctedBuffer.writeUInt8(byte, i);
+        }
+        const tag = new Fr(correctedBuffer);
+
+        this.logger.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${this.blockNumber}`);
+        this.publicLogs.push(log);
+      } catch (err) {
+        this.logger.warn(`Failed to add tagged log to store: ${err}`);
+      }
+    });
   }
 
   // TypedOracle
@@ -299,11 +369,13 @@ export class TXE implements TypedOracle {
 
   async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     const db = await this.#getTreesAt(blockNumber);
+
     const index = await db.findLeafIndex(treeId, leafValue.toBuffer());
-    if (!index) {
+    if (index === undefined) {
       throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
     }
     const siblingPath = await db.getSiblingPath(treeId, index);
+
     return [new Fr(index), ...siblingPath.toFields()];
   }
 
@@ -356,11 +428,26 @@ export class TXE implements TypedOracle {
     }
   }
 
-  getLowNullifierMembershipWitness(
-    _blockNumber: number,
-    _nullifier: Fr,
+  async getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    throw new Error('Method not implemented.');
+    const committedDb = await this.#getTreesAt(blockNumber);
+    const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!findResult) {
+      return undefined;
+    }
+    const { index, alreadyPresent } = findResult;
+    if (alreadyPresent) {
+      this.logger.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+    }
+    const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
+
+    const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+      MerkleTreeId.NULLIFIER_TREE,
+      BigInt(index),
+    );
+    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
   async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
@@ -383,7 +470,7 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  getNotes(
+  async getNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -399,10 +486,12 @@ export class TXE implements TypedOracle {
     offset: number,
     _status: NoteStatus,
   ) {
-    // Nullified pending notes are already removed from the list.
+    const syncedNotes = await this.simulatorOracle.getNotes(this.contractAddress, storageSlot, _status);
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
-    const notes = pickNotes<NoteData>(pendingNotes, {
+    const notesToFilter = [...pendingNotes, ...syncedNotes];
+
+    const notes = pickNotes<NoteData>(notesToFilter, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
         value: selectValues[i],
@@ -422,10 +511,10 @@ export class TXE implements TypedOracle {
         .join(', ')}`,
     );
 
-    return Promise.resolve(notes);
+    return notes;
   }
 
-  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  notifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -507,6 +596,52 @@ export class TXE implements TypedOracle {
     return publicDataWrites.map(write => write.value);
   }
 
+  async commitState() {
+    const blockNumber = await this.getBlockNumber();
+    if (this.committedBlocks.has(blockNumber)) {
+      throw new Error('Already committed state');
+    } else {
+      this.committedBlocks.add(blockNumber);
+    }
+
+    const txEffect = TxEffect.empty();
+
+    let i = 0;
+    txEffect.noteHashes = [
+      ...this.noteCache
+        .getAllNotes()
+        .map(pendingNote =>
+          computeUniqueNoteHash(
+            computeNoteHashNonce(new Fr(this.blockNumber + 6969), i++),
+            siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption),
+          ),
+        ),
+      ...this.uniqueNoteHashesFromPublic,
+    ];
+    txEffect.nullifiers = [new Fr(blockNumber + 6969), ...this.noteCache.getAllNullifiers()];
+
+    // Using block number itself, (without adding 6969) gets killed at 1 as it says the slot is already used,
+    // it seems like we commit a 1 there to the trees before ? To see what I mean, uncomment these lines below
+    // let index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.ONE.toBuffer());
+    // console.log('INDEX OF ONE', index);
+    // index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.random().toBuffer());
+    // console.log('INDEX OF RANDOM', index);
+
+    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber).toBuffer()), txEffect);
+    this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
+    this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
+    this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
+
+    await this.addUniqueNoteHashes(txEffect.noteHashes);
+    await this.addSiloedNullifiers(txEffect.nullifiers);
+
+    this.privateLogs = [];
+    this.publicLogs = [];
+    this.uniqueNoteHashesFromPublic = [];
+    this.siloedNullifiersFromPublic = [];
+    this.noteCache = new ExecutionNoteCache(new Fr(1));
+  }
+
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
@@ -571,14 +706,9 @@ export class TXE implements TypedOracle {
     const endSideEffectCounter = publicInputs.endSideEffectCounter;
     this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
 
-    await this.addNullifiers(
+    this.addPrivateLogs(
       targetContractAddress,
-      publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
-    );
-
-    await this.addNoteHashes(
-      targetContractAddress,
-      publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
+      publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
     );
 
     this.setContractAddress(currentContractAddress);
@@ -668,6 +798,9 @@ export class TXE implements TypedOracle {
     const tx = createTxForPublicCall(executionRequest, gasUsedByPrivate, isTeardown);
 
     const result = await simulator.simulate(tx);
+
+    this.addPublicLogs(tx.unencryptedLogs.unrollLogs());
+
     return Promise.resolve(result);
   }
 
@@ -720,7 +853,7 @@ export class TXE implements TypedOracle {
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
     const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
     await this.addPublicDataWrites(publicDataWrites);
-    await this.addSiloedNoteHashes(noteHashes);
+    await this.addUniqueNoteHashesFromPublic(noteHashes);
     await this.addSiloedNullifiers(nullifiers);
 
     this.setContractAddress(currentContractAddress);
@@ -778,8 +911,17 @@ export class TXE implements TypedOracle {
     return siloedSecret;
   }
 
-  syncNotes() {
-    // TODO: Implement
+  async syncNotes() {
+    const taggedLogsByRecipient = await this.simulatorOracle.syncTaggedLogs(
+      this.contractAddress,
+      await this.getBlockNumber(),
+      undefined,
+    );
+
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.simulatorOracle.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
+
     return Promise.resolve();
   }
 
@@ -810,7 +952,7 @@ export class TXE implements TypedOracle {
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
       const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
       await this.addPublicDataWrites(publicDataWrites);
-      await this.addSiloedNoteHashes(noteHashes);
+      await this.addUniqueNoteHashes(noteHashes);
       await this.addSiloedNullifiers(nullifiers);
     }
 

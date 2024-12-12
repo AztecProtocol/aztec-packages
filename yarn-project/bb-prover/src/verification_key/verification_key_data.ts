@@ -23,7 +23,7 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
   ]);
   const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
+  const fields = fieldsJson.map(Fr.fromHexString);
   // The hash is not included in the BB response
   const vkHash = hashVK(fields);
   const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
@@ -37,7 +37,7 @@ export async function extractAvmVkData(vkDirectoryPath: string): Promise<Verific
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
   ]);
   const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
+  const fields = fieldsJson.map(Fr.fromHexString);
   // The first item is the hash, this is not part of the actual VK
   // TODO: is the above actually the case?
   const vkHash = fields[0];

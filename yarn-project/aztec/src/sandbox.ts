@@ -157,7 +157,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   const stop = async () => {
-    await pxe.stop();
     await node.stop();
     await watcher?.stop();
   };

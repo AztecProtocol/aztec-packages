@@ -34,12 +34,14 @@ impl PrivateKernelCircuitOutputValidator {
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) {
         self.validate_initial_values(
             tx_request,
             private_call,
             vk_tree_root,
             protocol_contract_tree_root,
+            is_private_only,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
         offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
@@ -77,8 +79,10 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) {
         // Constants.
+        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
             self.output.constants.historical_header,
@@ -193,6 +197,11 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
     ) {
+        assert_eq(
+            self.output.is_private_only,
+            previous_kernel.is_private_only,
+            "mismatch is_private_only",
+        );
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 
         assert_eq(
