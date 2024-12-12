@@ -508,7 +508,7 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
             wrapper.tree->find_leaf_indices_from(
-                leaves, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
