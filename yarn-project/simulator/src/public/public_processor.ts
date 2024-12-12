@@ -121,12 +121,26 @@ export class PublicProcessor {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
           ? await this.processPrivateOnlyTx(tx)
           : await this.processTxWithPublicCalls(tx);
-        this.log.debug(`Processed tx`, {
-          txHash: processedTx.hash,
-          historicalHeaderHash: processedTx.constants.historicalHeader.hash(),
-          blockNumber: processedTx.constants.globalVariables.blockNumber,
-          lastArchiveRoot: processedTx.constants.historicalHeader.lastArchive.root,
-        });
+
+        this.log.verbose(
+          !tx.hasPublicCalls()
+            ? `Processed tx ${processedTx.hash} with no public calls`
+            : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls`,
+          {
+            txHash: processedTx.hash,
+            txFee: processedTx.txEffect.transactionFee.toBigInt(),
+            revertCode: processedTx.txEffect.revertCode.getCode(),
+            revertReason: processedTx.revertReason,
+            gasUsed: processedTx.gasUsed,
+            publicDataWriteCount: processedTx.txEffect.publicDataWrites.length,
+            nullifierCount: processedTx.txEffect.nullifiers.length,
+            noteHashCount: processedTx.txEffect.noteHashes.length,
+            contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
+            unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
+            privateLogCount: processedTx.txEffect.privateLogs.length,
+            l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
+          },
+        );
 
         // Commit the state updates from this transaction
         await this.worldStateDB.commit();

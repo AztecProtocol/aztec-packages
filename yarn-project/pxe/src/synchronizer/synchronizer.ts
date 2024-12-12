@@ -35,7 +35,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   }
 
   protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>>) {
-    return new L2BlockStream(this.node, this.l2TipsStore, this, {
+    return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       pollIntervalMS: config.l2BlockPollingIntervalMS,
       startingBlock: config.l2StartingBlock,
     });
@@ -46,12 +46,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
     switch (event.type) {
-      case 'blocks-added':
-        this.log.verbose(`Processing blocks ${event.blocks[0].number} to ${event.blocks.at(-1)!.number}`);
-        await this.db.setHeader(event.blocks.at(-1)!.header);
+      case 'blocks-added': {
+        const lastBlock = event.blocks.at(-1)!;
+        this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
+          blockHash: lastBlock.hash(),
+          archive: lastBlock.archive.root.toString(),
+          header: lastBlock.header.toInspect(),
+        });
+        await this.db.setHeader(lastBlock.header);
         break;
-      case 'chain-pruned':
-        this.log.info(`Pruning data after block ${event.blockNumber} due to reorg`);
+      }
+      case 'chain-pruned': {
+        this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         await this.db.unnullifyNotesAfter(event.blockNumber);
         await this.db.removeNotesAfter(event.blockNumber);
@@ -61,6 +67,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // Update the header to the last block.
         await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
         break;
+      }
     }
   }
 

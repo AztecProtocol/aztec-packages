@@ -510,6 +510,19 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue
       .put(async () => {
+        const txInfo = {
+          origin: txRequest.origin,
+          functionSelector: txRequest.functionSelector,
+          simulatePublic,
+          msgSender,
+          chainId: txRequest.txContext.chainId,
+          version: txRequest.txContext.version,
+          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+        };
+        this.log.verbose(
+          `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+          txInfo,
+        );
         await this.synchronizer.trigger();
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
@@ -538,13 +551,19 @@ export class PXEService implements PXE {
           }
         }
 
-        // We log only if the msgSender is undefined, as simulating with a different msgSender
-        // is unlikely to be a real transaction, and likely to be only used to read data.
-        // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
-        // If we log, the `getTxHash` function will throw.
-        if (!msgSender) {
-          this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
-        }
+        this.log.info(`Simulation completed for ${simulatedTx.tryGetTxHash()}`, {
+          txHash: simulatedTx.tryGetTxHash(),
+          ...txInfo,
+          ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
+          ...(publicOutput
+            ? {
+                gasUsed: publicOutput.gasUsed,
+                revertCode: publicOutput.txEffect.revertCode.getCode(),
+                revertReason: publicOutput.revertReason,
+              }
+            : {}),
+        });
+
         return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
           privateSimulationResult,
           publicOutput,
@@ -569,7 +588,7 @@ export class PXEService implements PXE {
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
-    this.log.info(`Sending transaction ${txHash}`);
+    this.log.debug(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
     });
@@ -699,12 +718,14 @@ export class PXEService implements PXE {
   }
 
   async #registerProtocolContracts() {
+    const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
       const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
-      this.log.verbose(`Added protocol contract ${name} at ${address.toString()}`);
+      registered[name] = address.toString();
     }
+    this.log.verbose(`Registered protocol contracts in pxe`, registered);
   }
 
   /**
@@ -736,13 +757,11 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
-
     const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
 
-    this.log.debug('Executing simulator...');
     try {
       const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender, scopes);
-      this.log.verbose(`Simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
+      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {

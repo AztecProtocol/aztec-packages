@@ -754,7 +754,7 @@ export class TXE implements TypedOracle {
   }
 
   debugLog(message: string, fields: Fr[]): void {
-    this.logger.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
+    this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {

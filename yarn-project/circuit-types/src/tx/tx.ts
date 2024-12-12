@@ -179,6 +179,15 @@ export class Tx extends Gossipable {
     return new TxHash(firstNullifier.toBuffer());
   }
 
+  /** Returns the tx hash, or undefined if none is set. */
+  tryGetTxHash(): TxHash | undefined {
+    try {
+      return this.getTxHash();
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Returns stats about this tx. */
   getStats(): TxStats {
     return {
