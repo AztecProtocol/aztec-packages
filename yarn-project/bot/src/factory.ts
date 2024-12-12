@@ -6,7 +6,6 @@ import {
   type DeployOptions,
   createLogger,
   createPXEClient,
-  retryUntil,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
@@ -67,16 +66,6 @@ export class BotFactory {
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
-      const blockNumber = await this.pxe.getBlockNumber();
-      await retryUntil(
-        async () => {
-          const status = await this.pxe.getSyncStatus();
-          return blockNumber <= status.blocks;
-        },
-        'pxe synch',
-        3600,
-        1,
-      );
       return wallet;
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
