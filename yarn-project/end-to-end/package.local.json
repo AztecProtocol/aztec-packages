@@ -1,6 +1,6 @@
 {
   "scripts": {
     "build": "yarn clean && tsc -b && webpack",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules --testTimeout=300000 --forceExit --runInBand ../node_modules/.bin/jest src/fixtures"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit --runInBand src/fixtures"
   }
 }

@@ -100,6 +100,7 @@ bootstrap-end-to-end:
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
   WORKDIR /usr/src/yarn-project
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
+  RUN yarn install jest-silent-reporter
   COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   RUN rm -rf \
     .git .github \
