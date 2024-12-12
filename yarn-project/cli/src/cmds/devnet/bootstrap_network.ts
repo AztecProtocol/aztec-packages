@@ -274,7 +274,12 @@ async function fundFPC(
     true,
   );
 
-  await retryUntil(async () => await wallet.isL1ToL2MessageSynced(Fr.fromString(messageHash)), 'message sync', 600, 1);
+  await retryUntil(
+    async () => await wallet.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)),
+    'message sync',
+    600,
+    1,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 

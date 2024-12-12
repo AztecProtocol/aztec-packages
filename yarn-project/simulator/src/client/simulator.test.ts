@@ -20,7 +20,7 @@ describe('Simulator', () => {
   let appNullifierSecretKey: Fr;
 
   beforeEach(() => {
-    const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
     const allOwnerKeys = deriveKeys(ownerSk);
 
     ownerMasterNullifierPublicKey = allOwnerKeys.publicKeys.masterNullifierPublicKey;
