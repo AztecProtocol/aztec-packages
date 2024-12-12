@@ -56,7 +56,6 @@ import {
 } from '@aztec/foundation/abi';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import {
