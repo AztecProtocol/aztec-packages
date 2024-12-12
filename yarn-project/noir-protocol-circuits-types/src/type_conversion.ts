@@ -2199,6 +2199,6 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
 function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
   return {
     proof: mapRecursiveProofToNoir(inputs.proof),
-    vk: mapVerificationKeyToNoir(inputs.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(inputs.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }

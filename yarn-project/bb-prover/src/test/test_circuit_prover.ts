@@ -95,9 +95,11 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const emptyNested = new EmptyNestedData(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
       ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
     const kernelInputs = new PrivateKernelEmptyInputs(
@@ -112,7 +114,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       kernelInputs,
       'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
     );
@@ -156,7 +158,10 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getTubeProof(_tubeInput: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     await this.delay();
-    return makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeHonk());
+    return makeProofAndVerificationKey(
+      makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeRollupHonk(),
+    );
   }
 
   @trackSpan('TestCircuitProver.getPrivateBaseRollupProof')

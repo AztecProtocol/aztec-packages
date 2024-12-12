@@ -220,11 +220,13 @@ export class MockProver implements ServerCircuitProver {
     _inputs: PrivateKernelEmptyInputData,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeKernelCircuitPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),
     );

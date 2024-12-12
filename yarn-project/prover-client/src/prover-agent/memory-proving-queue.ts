@@ -269,7 +269,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, signal, epochNumber);
   }
 

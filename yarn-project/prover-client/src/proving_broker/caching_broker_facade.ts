@@ -235,7 +235,9 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs),
       ProvingRequestType.PRIVATE_KERNEL_EMPTY,
