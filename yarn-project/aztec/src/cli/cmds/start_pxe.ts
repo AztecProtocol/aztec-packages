@@ -117,8 +117,5 @@ export async function addPXE(
   // Add PXE to services list
   services.pxe = [pxe, PXESchema];
 
-  // Add PXE stop function to signal handlers
-  signalHandlers.push(pxe.stop);
-
   return pxe;
 }

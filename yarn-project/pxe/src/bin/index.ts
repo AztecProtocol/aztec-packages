@@ -25,7 +25,6 @@ async function main() {
 
   const shutdown = async () => {
     logger.info('Shutting down...');
-    await pxeService.stop();
     process.exit(0);
   };
 

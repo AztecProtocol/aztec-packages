@@ -146,9 +146,7 @@ export async function setupPXEService(
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
   const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
-  const teardown = async () => {
-    await pxe.stop();
-  };
+  const teardown = async () => {};
 
   return {
     pxe,
@@ -444,9 +442,6 @@ export async function setup(
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
-    }
-    if (pxe instanceof PXEService) {
-      await pxe?.stop();
     }
 
     if (acvmConfig?.cleanup) {

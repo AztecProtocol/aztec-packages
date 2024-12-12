@@ -94,11 +94,6 @@ async function main() {
         await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
       }
       db.init(AztecLmdbStore.open(dataDir));
-    })
-    .hook('postAction', async () => {
-      if (pxeWrapper.getPXE()) {
-        await (pxeWrapper.getPXE() as PXEService).stop();
-      }
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);
