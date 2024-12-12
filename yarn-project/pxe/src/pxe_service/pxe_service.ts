@@ -578,7 +578,7 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
     try {
-      await this.synchronizer.trigger();
+      await this.synchronizer.sync();
       // TODO - Should check if `from` has the permission to call the view function.
       const functionCall = await this.#getFunctionCall(functionName, args, to);
       const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
