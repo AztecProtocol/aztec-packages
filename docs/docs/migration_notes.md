@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### L2 Gas limit of 6M enforced for public portion of TX
+
+A 12M limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 6,000,000 L2 gas. 
+
 ### [aztec.nr] Renamed `Header` and associated helpers
 
 The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` family of functions have been similarly renamed to `get_block_header()`.

@@ -25,12 +25,14 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -83,6 +85,7 @@ export type SideEffects = {
 export class SideEffectArrayLengths {
   constructor(
     public readonly publicDataWrites: number,
+    public readonly protocolPublicDataWrites: number,
     public readonly noteHashes: number,
     public readonly nullifiers: number,
     public readonly l2ToL1Msgs: number,
@@ -90,7 +93,7 @@ export class SideEffectArrayLengths {
   ) {}
 
   static empty() {
-    return new this(0, 0, 0, 0, 0);
+    return new this(0, 0, 0, 0, 0, 0);
   }
 }
 
@@ -106,6 +109,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private enqueuedCalls: PublicCallRequest[] = [];
 
   private publicDataWrites: PublicDataUpdateRequest[] = [];
+  private protocolPublicDataWritesLength: number = 0;
+  private userPublicDataWritesLength: number = 0;
   private noteHashes: ScopedNoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
@@ -134,7 +139,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new PublicEnqueuedCallSideEffectTrace(
       this.sideEffectCounter,
       new SideEffectArrayLengths(
-        this.previousSideEffectArrayLengths.publicDataWrites + this.publicDataWrites.length,
+        this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
+        this.previousSideEffectArrayLengths.protocolPublicDataWrites + this.protocolPublicDataWritesLength,
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
@@ -207,20 +213,35 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyPublicDataPath(),
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
   ) {
-    if (
-      this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError(
-        'public data (contract storage) write',
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
+    if (protocolWrite) {
+      if (
+        this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
+        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'protocol public data (contract storage) write',
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.protocolPublicDataWritesLength++;
+    } else {
+      if (
+        this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'public data (contract storage) write',
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.userPublicDataWritesLength++;
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
@@ -233,7 +254,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
 
     this.log.debug(
-      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
   }
@@ -471,6 +492,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     startGasUsed: Gas,
     /** How much gas was available for this public execution. */
     gasLimits: GasSettings,
+    /** Address of the fee payer. */
+    feePayer: AztecAddress,
     /** Call requests for setup phase. */
     publicSetupCallRequests: PublicCallRequest[],
     /** Call requests for app logic phase. */
@@ -494,6 +517,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       startTreeSnapshots,
       startGasUsed,
       gasLimits,
+      feePayer,
       padArrayEnd(publicSetupCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       padArrayEnd(publicAppLogicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       publicTeardownCallRequest,
@@ -549,7 +573,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       padArrayEnd(
         this.publicDataWrites.map(w => new PublicDataWrite(w.leafSlot, w.newValue)),
         PublicDataWrite.empty(),
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
     );
   }

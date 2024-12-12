@@ -6,8 +6,8 @@ use super::verification_key::VerificationKey;
 
 pub struct VkData<let VK_LENGTH: u32> {
     pub vk: VerificationKey<VK_LENGTH>,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 impl<let VK_LENGTH: u32> VkData<VK_LENGTH> {

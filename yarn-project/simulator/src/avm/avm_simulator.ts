@@ -1,4 +1,4 @@
-import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
@@ -47,8 +47,8 @@ export class AvmSimulator {
   // only. Otherwise, use build() below.
   constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
     assert(
-      context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
-      `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
+      context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+      `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
     );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
     // TODO(palla/log): Should tallies be printed on debug, or only on trace?

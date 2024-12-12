@@ -7,10 +7,6 @@ import {
   ValueType,
 } from './telemetry.js';
 
-export type LmdbMetricDescriptor = {
-  description: string;
-};
-
 export type LmdbStatsCallback = () => { mappingSize: number; numItems: number; actualSize: number };
 
 export class LmdbMetrics {
@@ -18,24 +14,17 @@ export class LmdbMetrics {
   private dbUsedSize: ObservableGauge;
   private dbNumItems: ObservableGauge;
 
-  constructor(
-    meter: Meter,
-    dbMapSizeDescriptor: LmdbMetricDescriptor,
-    dbUsedSizeDescriptor: LmdbMetricDescriptor,
-    dbNumItemsDescriptor: LmdbMetricDescriptor,
-    private attributes?: Attributes,
-    private getStats?: LmdbStatsCallback,
-  ) {
+  constructor(meter: Meter, private attributes?: Attributes, private getStats?: LmdbStatsCallback) {
     this.dbMapSize = meter.createObservableGauge(DB_MAP_SIZE, {
-      description: dbMapSizeDescriptor.description,
+      description: 'LMDB Map Size',
       valueType: ValueType.INT,
     });
     this.dbUsedSize = meter.createObservableGauge(DB_USED_SIZE, {
-      description: dbUsedSizeDescriptor.description,
+      description: 'LMDB Used Size',
       valueType: ValueType.INT,
     });
     this.dbNumItems = meter.createObservableGauge(DB_NUM_ITEMS, {
-      description: dbNumItemsDescriptor.description,
+      description: 'LMDB Num Items',
       valueType: ValueType.INT,
     });
 

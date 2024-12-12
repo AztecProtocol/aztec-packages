@@ -45,7 +45,7 @@ spec:
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -69,8 +69,7 @@ spec:
               mountPath: /shared/config
       containers:
         - name: prover-agent
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -81,6 +80,14 @@ spec:
               source /shared/config/service-addresses && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.proverAgent.service.nodePort }}"
             - name: LOG_LEVEL

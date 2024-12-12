@@ -256,3 +256,13 @@ proverBroker:
 jobs:
   deployL1Verifier:
     enable: false
+
+faucet:
+  replicas: 1
+  service:
+    nodePort: 8085
+  apiServerPort: 8086
+  accountIndex: 0
+  l1Assets: ""
+  logLevel: ""
+  resources: {}

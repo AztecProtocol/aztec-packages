@@ -70,6 +70,9 @@ export class TXEService {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
+
+    await (this.typedOracle as TXE).commitState();
+
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
       const header = BlockHeader.empty();
@@ -569,6 +572,16 @@ export class TXEService {
       );
     }
     return toForeignCallResult([toArray(witness)]);
+  }
+
+  async getLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+
+    const witness = await this.typedOracle.getLowNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
+    if (!witness) {
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
+    }
+    return toForeignCallResult([toArray(witness.toFields())]);
   }
 
   async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
