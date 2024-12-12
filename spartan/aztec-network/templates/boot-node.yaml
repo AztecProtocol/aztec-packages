@@ -63,9 +63,7 @@ spec:
               chmod +x /tmp/deploy-l1-contracts.sh
               source /shared/config/service-addresses
 
-              SALT=${SALT:-$RANDOM}
-              echo "Using SALT=$SALT"
-              /tmp/deploy-l1-contracts.sh $SALT {{ .Values.ethereum.chainId }} "{{ join "," .Values.validator.validatorAddresses }}"
+              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -74,8 +72,6 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
-            - name: SALT
-              value: "{{ .Values.aztec.l1Salt }}"
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: INIT_VALIDATORS

@@ -1,14 +1,14 @@
 #!/bin/bash
 set -exu
 
-SALT=$1
+SALT=${1:-$RANDOM}
 CHAIN_ID=$2
-
 
 # Run the deploy-l1-contracts command and capture the output
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=60
+
 for attempt in $(seq 1 $MAX_RETRIES); do
   # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
