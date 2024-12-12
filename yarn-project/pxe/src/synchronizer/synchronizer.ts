@@ -85,7 +85,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.db.setHeader(await this.node.getBlockHeader(0));
     }
-    await this.blockStream.triggerOnce();
+    await this.blockStream.sync();
   }
 
   public async getSynchedBlockNumber() {
