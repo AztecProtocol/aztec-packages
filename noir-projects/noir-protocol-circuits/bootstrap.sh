@@ -18,12 +18,7 @@ export NARGO_HASH=$(cache_content_hash)
 tmp_dir=./target/tmp
 key_dir=./target/keys
 
-# Circuits matching these patterns we have megahonk keys computed, rather than ultrahonk.
-megahonk_patterns=(
-  "^private_kernel_init"
-  "^private_kernel_inner"
-  "^private_kernel_tail.*"
-)
+# Circuits matching these patterns we have IVC keys computed, rather than ultrahonk.
 ivc_patterns=(
   "mock_private_kernel_init"
   "mock_private_kernel_inner"
@@ -31,9 +26,11 @@ ivc_patterns=(
   "mock_private_kernel_tail.*"
   "app_creator"
   "app_reader"
+  "^private_kernel_init"
+  "^private_kernel_inner"
   "^private_kernel_reset.*"
+  "^private_kernel_tail.*"
 )
-megahonk_regex=$(IFS="|"; echo "${megahonk_patterns[*]}")
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 
 function on_exit() {
@@ -66,11 +63,7 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  if echo "$name" | grep -qE "${megahonk_regex}"; then
-    local proto="mega_honk"
-    local write_vk_cmd="write_vk_mega_honk"
-    local vk_as_fields_cmd="vk_as_fields_mega_honk"
-  elif echo "$name" | grep -qE "${ivc_regex}"; then
+  if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
