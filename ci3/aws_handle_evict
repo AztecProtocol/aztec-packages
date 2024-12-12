@@ -7,7 +7,9 @@ child_pid=$!
 while true; do
     # Wait for process to come up, makes check below happen every 5 seconds
     for i in {1..5}; do
-      kill -0 "$child_pid" 2>/dev/null || (wait "$child_pid"; exit $?)
+      if ! kill -0 "$child_pid" 2>/dev/null; then
+        wait "$child_pid"; exit $?
+      fi
       sleep 1
     done
     # Check for imminent spot termination
