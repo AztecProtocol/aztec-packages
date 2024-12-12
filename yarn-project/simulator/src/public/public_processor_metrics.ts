@@ -53,14 +53,6 @@ export class PublicProcessorMetrics {
     this.bytecodeDeployed = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE, {
       description: 'Size of deployed bytecode',
       unit: 'By',
-      advice: {
-        // from 0.5KB to 1.8MB. One ETH block can have at most 2MB of blobs
-        explicitBucketBoundaries: [
-          512, 768, 896, 1024, 1536, 1792, 2048, 3072, 3584, 4096, 6144, 7168, 8192, 12288, 14336, 16384, 24576, 28672,
-          32768, 49152, 57344, 65536, 98304, 114688, 131072, 196608, 229376, 262144, 393216, 458752, 524288, 786432,
-          917504, 1048576, 1572864, 1835008,
-        ],
-      },
     });
   }
 
