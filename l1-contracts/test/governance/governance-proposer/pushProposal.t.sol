@@ -30,7 +30,7 @@ contract PushProposalTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalInstanceHoldCode() {
-    leonidas = new Leonidas(address(this));
+    leonidas = new Leonidas();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(leonidas));
 
@@ -164,12 +164,16 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.prank(proposer);
     governanceProposer.vote(proposal);
 
+    uint256 votesNeeded = governanceProposer.N();
+
     vm.warp(
       Timestamp.unwrap(
         leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
       )
     );
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientVotes.selector));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientVotes.selector, 1, votesNeeded)
+    );
     governanceProposer.pushProposal(1);
   }
 
@@ -204,7 +208,7 @@ contract PushProposalTest is GovernanceProposerBase {
     // it revert
 
     // When using a new registry we change the governanceProposer's interpetation of time :O
-    Leonidas freshInstance = new Leonidas(address(this));
+    Leonidas freshInstance = new Leonidas();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(freshInstance));
 

@@ -4,10 +4,8 @@ pragma solidity >=0.8.27;
 
 import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 /**
@@ -17,7 +15,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
  *          This also means that the implementation here will need to be "updated" if
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
-contract GovernanceProposer is IGovernanceProposer {
+abstract contract EmpireBase is IGovernanceProposer {
   using SlotLib for Slot;
 
   struct RoundAccounting {
@@ -29,14 +27,12 @@ contract GovernanceProposer is IGovernanceProposer {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
 
-  IRegistry public immutable REGISTRY;
   uint256 public immutable N;
   uint256 public immutable M;
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
 
-  constructor(IRegistry _registry, uint256 _n, uint256 _m) {
-    REGISTRY = _registry;
+  constructor(uint256 _n, uint256 _m) {
     N = _n;
     M = _m;
 
@@ -57,11 +53,12 @@ contract GovernanceProposer is IGovernanceProposer {
    * @return True if executed successfully, false otherwise
    */
   function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
-    require(
+    // For now, skipping this as the check is not really needed but there were not full agreement
+    /*require(
       address(_proposal).code.length > 0, Errors.GovernanceProposer__ProposalHaveNoCode(_proposal)
-    );
+    );*/
 
-    address instance = REGISTRY.getRollup();
+    address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
     ILeonidas selection = ILeonidas(instance);
@@ -102,7 +99,7 @@ contract GovernanceProposer is IGovernanceProposer {
    */
   function pushProposal(uint256 _roundNumber) external override(IGovernanceProposer) returns (bool) {
     // Need to ensure that the round is not active.
-    address instance = REGISTRY.getRollup();
+    address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
     ILeonidas selection = ILeonidas(instance);
@@ -120,16 +117,14 @@ contract GovernanceProposer is IGovernanceProposer {
     require(
       round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero()
     );
-    require(round.yeaCount[round.leader] >= N, Errors.GovernanceProposer__InsufficientVotes());
+    uint256 votesCast = round.yeaCount[round.leader];
+    require(votesCast >= N, Errors.GovernanceProposer__InsufficientVotes(votesCast, N));
 
     round.executed = true;
 
     emit ProposalPushed(round.leader, _roundNumber);
 
-    require(
-      getGovernance().propose(round.leader),
-      Errors.GovernanceProposer__FailedToPropose(round.leader)
-    );
+    require(_execute(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
     return true;
   }
 
@@ -162,7 +157,8 @@ contract GovernanceProposer is IGovernanceProposer {
     return _slot.unwrap() / M;
   }
 
-  function getGovernance() public view override(IGovernanceProposer) returns (IGovernance) {
-    return IGovernance(REGISTRY.getGovernance());
-  }
+  // Virtual functions
+  function getInstance() public view virtual override(IGovernanceProposer) returns (address);
+  function getExecutor() public view virtual override(IGovernanceProposer) returns (address);
+  function _execute(IPayload _proposal) internal virtual returns (bool);
 }

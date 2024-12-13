@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -61,6 +61,7 @@ export class P2PNetworkTest {
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     metricsPort?: number,
+    assumeProvenThrough?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -72,12 +73,24 @@ export class P2PNetworkTest {
 
     this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
-    this.snapshotManager = createSnapshotManager(`e2e_p2p_network/${testName}`, process.env.E2E_DATA_PATH, {
-      ...initialValidatorConfig,
-      ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
-      salt: 420,
-      metricsPort: metricsPort,
-    });
+    this.snapshotManager = createSnapshotManager(
+      `e2e_p2p_network/${testName}`,
+      process.env.E2E_DATA_PATH,
+      {
+        ...initialValidatorConfig,
+        ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
+        salt: 420,
+        metricsPort: metricsPort,
+      },
+      {
+        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        aztecEpochProofClaimWindowInL2Slots:
+          initialValidatorConfig.aztecEpochProofClaimWindowInL2Slots ??
+          l1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
+        assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
+        initialValidators: [],
+      },
+    );
   }
 
   static async create({
@@ -85,11 +98,15 @@ export class P2PNetworkTest {
     numberOfNodes,
     basePort,
     metricsPort,
+    initialConfig,
+    assumeProvenThrough,
   }: {
     testName: string;
     numberOfNodes: number;
     basePort?: number;
     metricsPort?: number;
+    initialConfig?: Partial<AztecNodeConfig>;
+    assumeProvenThrough?: number;
   }) {
     const port = basePort || (await getPort());
 
@@ -97,9 +114,20 @@ export class P2PNetworkTest {
     const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
-    const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
+    const initialValidatorConfig = await createValidatorConfig(
+      (initialConfig ?? {}) as AztecNodeConfig,
+      bootstrapNodeEnr,
+    );
 
-    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
+    return new P2PNetworkTest(
+      testName,
+      bootstrapNode,
+      port,
+      numberOfNodes,
+      initialValidatorConfig,
+      metricsPort,
+      assumeProvenThrough,
+    );
   }
 
   /**
@@ -148,7 +176,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.walletClient,
         });
 
-        const stakeNeeded = MINIMUM_STAKE * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.minimumStake * BigInt(this.numberOfNodes);
         await Promise.all(
           [
             await stakingAsset.write.mint(
@@ -171,7 +199,7 @@ export class P2PNetworkTest {
             attester: attester.address,
             proposer: proposer.address,
             withdrawer: attester.address,
-            amount: MINIMUM_STAKE,
+            amount: l1ContractsConfig.minimumStake,
           } as const);
 
           this.logger.verbose(

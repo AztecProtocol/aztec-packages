@@ -45,20 +45,20 @@ library Errors {
   error Governance__ProposalLib__ZeroYeaVotesNeeded();
   error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error GovernanceProposer__CanOnlyPushProposalInPast(); // 0x49fdf611"
-  error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x6ca2a2ed
-  error GovernanceProposer__InstanceHaveNoCode(address instance); // 0x20a3b441
-  error GovernanceProposer__InsufficientVotes(); // 0xba1e05ef
+  error GovernanceProposer__CanOnlyPushProposalInPast(); // 0x84a5b5ae
+  error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x8d94fbfc
+  error GovernanceProposer__InstanceHaveNoCode(address instance); // 0x5fa92625
+  error GovernanceProposer__InsufficientVotes(uint256 votesCast, uint256 votesNeeded); // 0xd4ad89c2
   error GovernanceProposer__InvalidNAndMValues(uint256 n, uint256 m); // 0x520d9704
   error GovernanceProposer__NCannotBeLargerTHanM(uint256 n, uint256 m); // 0x2fdfc063
   error GovernanceProposer__OnlyProposerCanVote(address caller, address proposer); // 0xba27df38
   error GovernanceProposer__ProposalAlreadyExecuted(uint256 roundNumber); // 0x7aeacb17
-  error GovernanceProposer__ProposalCannotBeAddressZero(); // 0xdb3e4b6e
-  error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xdce0615b
-  error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); //0x02283b1a
-  error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); //0xc2201452
+  error GovernanceProposer__ProposalCannotBeAddressZero(); // 0x16ac1942
+  error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xb69440a1
+  error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); // 0xc3d7aa4f
+  error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); // 0x3a6150ca
 
-  error CoinIssuer__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
+  error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
 
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
   error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
