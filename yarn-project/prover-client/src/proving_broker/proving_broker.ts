@@ -3,7 +3,7 @@ import {
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobFilter,
-  ProvingJobId,
+  type ProvingJobId,
   type ProvingJobProducer,
   type ProvingJobSettledResult,
   type ProvingJobStatus,

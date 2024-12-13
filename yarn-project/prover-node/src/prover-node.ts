@@ -262,8 +262,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
 
-    const cleanUp = async () => {
+    const cleanUp = () => {
       this.jobs.delete(job.getId());
+      return Promise.resolve();
     };
 
     const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicProcessorFactory, cleanUp);

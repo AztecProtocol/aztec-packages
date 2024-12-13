@@ -2,7 +2,7 @@ import {
   type ProofUri,
   type ProvingJob,
   type ProvingJobId,
-  ProvingJobStatus,
+  type ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
