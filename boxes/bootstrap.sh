@@ -11,6 +11,7 @@ export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
 function build {
   # Moved to test for now as there was no cache here.
+  return
 }
 
 function test {
