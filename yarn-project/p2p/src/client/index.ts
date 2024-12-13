@@ -4,6 +4,7 @@ import {
   P2PClientType,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -39,6 +40,7 @@ export const createP2PClient = async <T extends P2PClientType>(
   l2BlockSource: L2BlockSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
+  epochCache: EpochCache,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
   deps: P2PClientDeps<T> = {},
 ) => {
@@ -75,6 +77,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       peerId,
       mempools,
       l2BlockSource,
+      epochCache,
       proofVerifier,
       worldStateSynchronizer,
       store,
