@@ -203,9 +203,12 @@ struct ProgramMetadata {
                             // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
                             // for hashing in its transcript, while we still want a prove that uses Keccak for its
                             // transcript in order to be able to verify SNARKs on Ethereum.
-    bool honk_recursion = false; // honk_recursion means we will honk to recursively verify this
+    uint32_t honk_recursion = 0; // honk_recursion means we will honk to recursively verify this
                                  // circuit. This distinction is needed to not add the default
                                  // aggregation object when we're not using the honk RV.
+                                 // 0 means we are not proving with honk
+                                 // 1 means we are using the UltraHonk flavor
+                                 // 2 means we are using the UltraRollupHonk flavor
     bool collect_gates_per_opcode = false;
     size_t size_hint = 0;
 };
@@ -225,7 +228,7 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool recursive,
                        const size_t size_hint = 0,
                        const WitnessVector& witness = {},
-                       bool honk_recursion = false,
+                       uint32_t honk_recursion = 0,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
@@ -274,7 +277,8 @@ void process_plonk_recursion_constraints(Builder& builder,
 void process_honk_recursion_constraints(Builder& builder,
                                         AcirFormat& constraint_system,
                                         bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter);
+                                        GateCounter<Builder>& gate_counter,
+                                        uint32_t honk_recursion);
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,

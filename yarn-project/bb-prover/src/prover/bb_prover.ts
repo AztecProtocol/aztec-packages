@@ -78,6 +78,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -892,7 +893,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const json = JSON.parse(proofString);
 
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
+    let numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
+      numPublicInputs -= IPA_CLAIM_LENGTH;
+    }
+
+    assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)

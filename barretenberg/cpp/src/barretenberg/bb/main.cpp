@@ -23,7 +23,9 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
+#include <cstdint>
 
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm/generated/flavor.hpp"
@@ -82,7 +84,7 @@ std::string honk_vk_to_json(std::vector<bb::fr>& data)
  */
 bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/0);
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -144,7 +146,12 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirProgram program, acir_format:
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
-    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor>;
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
     // Populate the acir constraint system and witness from gzipped data
@@ -166,7 +173,12 @@ bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, c
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
-    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor>;
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
     auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, metadata.honk_recursion);
@@ -296,7 +308,7 @@ void prove(const std::string& bytecodePath,
            const std::string& outputPath,
            const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/0);
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -325,7 +337,7 @@ void prove(const std::string& bytecodePath,
  * @param bytecodePath Path to the file containing the serialized circuit
  */
 template <typename Builder = UltraCircuitBuilder>
-void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recursion)
+void gateCount(const std::string& bytecodePath, bool recursive, uint32_t honk_recursion)
 {
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: only do this if the circuit does accumulation...
 
@@ -436,7 +448,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath, co
 
 void write_pk(const std::string& bytecodePath, const std::string& outputPath, const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/0);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive);
     acir_composer.finalize_circuit();
@@ -720,7 +732,12 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
 
-    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
@@ -876,7 +893,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     init_bn254_crs(1 << 20);
     init_grumpkin_crs(1 << 15);
 
-    Program program{ get_constraint_system(bytecodePath, /*honk_recursion=*/false), /*witness=*/{} };
+    Program program{ get_constraint_system(bytecodePath, /*honk_recursion=*/0), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
@@ -925,7 +942,13 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
 
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = true };
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program;
     program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
@@ -1016,7 +1039,7 @@ void prove_output_all(const std::string& bytecodePath,
                       const std::string& outputPath,
                       const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
+    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/0);
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -1078,7 +1101,13 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    constexpr bool honk_recursion = IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>;
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
+
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
@@ -1158,7 +1187,8 @@ int main(int argc, char* argv[])
         const std::string vk_path = get_option(args, "-k", "./target/vk");
         const std::string pk_path = get_option(args, "-r", "./target/pk");
 
-        const bool honk_recursion = flag_present(args, "-h");
+        const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
+        info("honk recursion is: ", honk_recursion);
         const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
