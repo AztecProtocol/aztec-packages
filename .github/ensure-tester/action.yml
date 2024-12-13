@@ -99,6 +99,14 @@ runs:
           mkdir -p ~/.ssh
           echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+          while ! systemctl is-active --quiet docker; do
+            sleep 2
+            if [ $(( i++ )) -gt 60 ]; then
+              echo "Docker service not found! Report this."
+              exit 1
+            fi
+          done
+          echo "Docker service is active!"
           echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
         "
 
@@ -112,14 +120,6 @@ runs:
           ci3/earthly_install
           echo "Waiting for Docker service to become active..."
           i=0
-          while ! systemctl is-active --quiet docker; do
-            sleep 2
-            if [ $(( i++ )) -gt 60 ]; then
-              echo "Docker service not found! Report this."
-              exit 1
-            fi
-          done
-          echo "Docker service is active!"
 
     - name: Ensure Tester Cleanup
       uses: gacts/run-and-post-run@v1
