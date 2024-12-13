@@ -127,7 +127,7 @@ runs:
       shell: bash
       run:
         set +e;
-        scripts/run_on_builder "$RUN_SCRIPT";
+        scripts/run_on_tester "$RUN_SCRIPT";
         exit_code=$?;
         echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
         if [ $exit_code = 155 ]; then

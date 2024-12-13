@@ -226,7 +226,7 @@ jobs:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
-    needs: [images-e2e, configure]
+    needs: [ci-rest, configure]
     if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-20.04
     steps:
