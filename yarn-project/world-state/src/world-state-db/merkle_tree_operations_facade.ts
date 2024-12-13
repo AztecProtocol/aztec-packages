@@ -110,8 +110,11 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * @param value - The leaf value to look for.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined> {
-    return this.trees.findLeafIndex(treeId, value, this.includeUncommitted);
+  findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]> {
+    return Promise.all(values.map(leaf => this.trees.findLeafIndex(treeId, leaf, this.includeUncommitted)));
   }
 
   /**
@@ -120,12 +123,14 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * @param value - The value to search for in the tree.
    * @param startIndex - The index to start searching from (used when skipping nullified messages)
    */
-  findLeafIndexAfter<ID extends MerkleTreeId>(
+  findLeafIndicesAfter<ID extends MerkleTreeId>(
     treeId: ID,
-    value: MerkleTreeLeafType<ID>,
+    values: MerkleTreeLeafType<ID>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined> {
-    return this.trees.findLeafIndexAfter(treeId, value, startIndex, this.includeUncommitted);
+  ): Promise<(bigint | undefined)[]> {
+    return Promise.all(
+      values.map(leaf => this.trees.findLeafIndexAfter(treeId, leaf, startIndex, this.includeUncommitted)),
+    );
   }
 
   /**
