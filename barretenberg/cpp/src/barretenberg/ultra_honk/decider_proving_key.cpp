@@ -153,11 +153,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
     proving_key.polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1107): Restricting databus_id to
-    // databus_size leads to failure.
-    // const size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(),
-    // return_data.size() });
-    proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
+    proving_key.polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
 
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
