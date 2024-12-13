@@ -88,6 +88,7 @@ export class ProverClient implements EpochProverManager {
     }
 
     this.running = true;
+    this.queue.start();
     await this.createAndStartAgents();
   }
 

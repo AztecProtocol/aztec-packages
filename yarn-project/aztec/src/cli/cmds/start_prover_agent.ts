@@ -33,7 +33,7 @@ export async function startProverAgent(
     process.exit(1);
   }
 
-  const proverNode = createProvingJobSourceClient(process.env.PROVER_NODE_ADDR!);
+  const proverNode = createProvingJobSourceClient(process.env.PROVER_NODE_HOST!);
 
   const telemetry = await createAndStartTelemetryClient(
     extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
