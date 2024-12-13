@@ -99,6 +99,8 @@ class AvmMerkleTreeTraceBuilder {
     static FF unconstrained_hash_public_data_preimage(const PublicDataTreeLeafPreimage& preimage);
 
     static FF unconstrained_silo_note_hash(FF contract_address, FF note_hash);
+    static FF unconstrained_compute_note_hash_nonce(FF tx_hash, FF note_index_in_tx);
+    static FF unconstrained_compute_unique_note_hash(FF nonce, FF siloed_note_hash);
     static FF unconstrained_silo_nullifier(FF contract_address, FF nullifier);
     static FF unconstrained_compute_public_tree_leaf_slot(FF contract_address, FF leaf_index);
     // Could probably template these

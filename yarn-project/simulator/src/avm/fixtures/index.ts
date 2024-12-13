@@ -1,4 +1,4 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { TxHash, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -45,6 +45,7 @@ export function initPersistableStateManager(overrides?: {
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
   merkleTrees?: AvmEphemeralForest;
+  txHash?: TxHash;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -54,6 +55,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
     overrides?.merkleTrees || mock<AvmEphemeralForest>(),
+    overrides?.txHash || new TxHash(new Fr(27).toBuffer()),
   );
 }
 

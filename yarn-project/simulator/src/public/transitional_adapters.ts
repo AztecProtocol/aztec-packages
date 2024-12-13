@@ -6,7 +6,6 @@ import {
   type GasSettings,
   type GlobalVariables,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -19,7 +18,6 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { assertLength } from '@aztec/foundation/serialize';
 
@@ -85,55 +83,6 @@ export function generateAvmCircuitPublicInputs(
   avmCircuitPublicInputs.previousRevertibleAccumulatedData = convertAccumulatedData(
     revertibleAccumulatedDataFromPrivate,
   );
-
-  const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
-
-  // Add nonces to revertible note hashes from private. These don't have nonces since we don't know
-  // the final position in the tx until the AVM has executed.
-  // TODO: Use the final position in the tx
-  for (
-    let revertibleIndex = 0;
-    revertibleIndex < avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes.length;
-    revertibleIndex++
-  ) {
-    const noteHash = avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes[revertibleIndex];
-    if (noteHash.isZero()) {
-      continue;
-    }
-    const indexInTx =
-      revertibleIndex + avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
-
-    const nonce = computeNoteHashNonce(txHash, indexInTx);
-    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-    avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes[revertibleIndex] = uniqueNoteHash;
-  }
-
-  // merge all revertible & non-revertible side effects into output accumulated data
-  const noteHashesFromPrivate = revertCode.isOK()
-    ? mergeAccumulatedData(
-        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes,
-        avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes,
-      )
-    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes;
-  avmCircuitPublicInputs.accumulatedData.noteHashes = assertLength(
-    mergeAccumulatedData(noteHashesFromPrivate, avmCircuitPublicInputs.accumulatedData.noteHashes),
-    MAX_NOTE_HASHES_PER_TX,
-  );
-
-  // Silo and add nonces for note hashes emitted by the AVM
-  const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;
-  for (let i = 0; i < scopedNoteHashesFromPublic.length; i++) {
-    const scopedNoteHash = scopedNoteHashesFromPublic[i];
-    const noteHash = scopedNoteHash.value;
-    if (!noteHash.isZero()) {
-      const noteHashIndexInTx = i + countAccumulatedItems(noteHashesFromPrivate);
-      const nonce = computeNoteHashNonce(txHash, noteHashIndexInTx);
-      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, noteHash);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
-
-      avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = uniqueNoteHash;
-    }
-  }
 
   const msgsFromPrivate = revertCode.isOK()
     ? mergeAccumulatedData(
