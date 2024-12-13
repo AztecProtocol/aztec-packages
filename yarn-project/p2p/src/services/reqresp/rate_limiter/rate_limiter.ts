@@ -5,8 +5,8 @@
  */
 import { type PeerId } from '@libp2p/interface';
 
+import { PeerErrorSeverity } from '../../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../../peer_manager.js';
-import { PeerErrorSeverity } from '../../peer_scoring.js';
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 

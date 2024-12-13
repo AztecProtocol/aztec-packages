@@ -26,8 +26,8 @@ import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
-import { PeerErrorSeverity } from '../peer_scoring.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../discv5/discV5_service.js';
+import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 
 /**
  * Mockify helper for testing purposes.

@@ -14,7 +14,8 @@ import {
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
 import { type PeerManager } from '../peer_manager.js';
-import { PeerErrorSeverity } from '../peer_scoring.js';
+import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
+import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,

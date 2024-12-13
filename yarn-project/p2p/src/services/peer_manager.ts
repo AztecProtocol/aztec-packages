@@ -9,7 +9,7 @@ import { inspect } from 'util';
 
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
-import { type PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
+import { type PeerErrorSeverity, PeerScoring } from './peer-scoring/peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
