@@ -492,6 +492,8 @@ export class SimulatorOracle implements DBOracle {
                 contractAddress,
               },
             );
+            // There can be multiple logs for 1 tag because it could happen that a tag would be reused
+            // --> e.g. when sending a note from multiple unsynched devices.
             logs.push(...logsByTag);
 
             if (currentIndex >= initialIndexesMap[currentSecretAsStr]) {
