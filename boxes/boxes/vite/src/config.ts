@@ -17,6 +17,12 @@ import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
 
+process.env = Object.keys(import.meta.env).reduce((acc, key) => {
+  console.log(key);
+  acc[key.replace("VITE_", "")] = import.meta.env[key];
+  return acc;
+}, {});
+
 const SECRET_KEY = Fr.random();
 
 export class PrivateEnv {
@@ -82,14 +88,13 @@ export class PrivateEnv {
   }
 
   async getWallet() {
-    // taking advantage that register is no-op if already registered
-    return await this.account.register();
+    return await this.account.getWallet();
   }
 }
 
 export const deployerEnv = new PrivateEnv(
   SECRET_KEY,
-  process.env.PXE_URL || "http://localhost:8080",
+  process.env.AZTEC_NODE_URL,
 );
 
 const IGNORE_FUNCTIONS = [
