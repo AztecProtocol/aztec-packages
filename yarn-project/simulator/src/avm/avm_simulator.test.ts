@@ -58,6 +58,7 @@ import {
   SStore,
   SendL2ToL1Message,
   Set,
+  Div,
 } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
@@ -119,8 +120,23 @@ describe('AVM simulator: injected bytecode', () => {
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
     expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
-    expect(context.machineState.l2GasLeft).toEqual(0);
-    expect(context.machineState.daGasLeft).toEqual(0);
+    expect(results.gasLeft.l2Gas).toEqual(0);
+    expect(results.gasLeft.daGas).toEqual(0);
+  });
+
+  it('An exceptional halt should consume all allocated gas', async () => {
+    const context = initContext();
+
+    // should halt with tag mismatch
+    const badBytecode = encodeToBytecode([
+      new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 0).as(Opcode.DIV_8, Div.wireFormat8),
+    ]);
+    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(badBytecode));
+    expect(results.reverted).toBe(true);
+    expect(results.output).toEqual([]);
+    expect(results.revertReason?.message).toMatch(/Tag mismatch/);
+    expect(results.gasLeft.l2Gas).toEqual(0);
+    expect(results.gasLeft.daGas).toEqual(0);
   });
 });
 

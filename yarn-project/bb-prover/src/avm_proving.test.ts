@@ -85,6 +85,39 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+  it(
+    'Should prove and verify a top-level exceptional halt',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'divide_by_zero',
+        /*calldata=*/ [],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that propagates to top-level',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'external_call_to_divide_by_zero',
+        /*calldata=*/ [],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that is recovered from in caller',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'external_call_to_divide_by_zero_recovers',
+        /*calldata=*/ [],
+        /*expectRevert=*/ false,
+      );
+    },
+    TIMEOUT,
+  );
 });
 
 async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = [], expectRevert = false) {

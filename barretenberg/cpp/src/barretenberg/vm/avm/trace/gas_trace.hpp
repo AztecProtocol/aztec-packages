@@ -21,6 +21,7 @@ class AvmGasTraceBuilder {
         uint32_t dyn_gas_multiplier = 0;
         uint32_t remaining_l2_gas = 0;
         uint32_t remaining_da_gas = 0;
+        bool is_halt = false;
     };
 
     AvmGasTraceBuilder() = default;
@@ -33,12 +34,23 @@ class AvmGasTraceBuilder {
     void finalize_lookups(std::vector<AvmFullRow<FF>>& trace);
 
     static std::tuple<uint32_t, uint32_t> unconstrained_compute_gas(OpCode opcode, uint32_t dyn_gas_multiplier);
-    void constrain_gas(uint32_t clk,
+    bool constrain_gas(uint32_t clk,
                        OpCode opcode,
                        uint32_t dyn_gas_multiplier = 0,
                        uint32_t nested_l2_gas_cost = 0,
                        uint32_t nested_da_gas_cost = 0);
+    void constrain_gas_for_halt(OpCode opcode,
+                                bool exceptional_halt,
+                                uint32_t parent_l2_gas_left,
+                                uint32_t parent_da_gas_left,
+                                uint32_t l2_gas_allocated_to_nested_call,
+                                uint32_t da_gas_allocated_to_nested_call);
+    void constrain_gas_for_top_level_exceptional_halt(OpCode opcode,
+                                                      uint32_t l2_gas_allocated,
+                                                      uint32_t da_gas_allocated);
     void set_initial_gas(uint32_t l2_gas, uint32_t da_gas);
+    void set_remaining_gas(uint32_t l2_gas, uint32_t da_gas);
+    void consume_all_gas();
 
     uint32_t get_l2_gas_left() const;
     uint32_t get_da_gas_left() const;

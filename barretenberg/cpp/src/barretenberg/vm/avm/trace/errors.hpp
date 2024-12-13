@@ -20,6 +20,7 @@ enum class AvmError : uint32_t {
     RADIX_OUT_OF_BOUNDS,
     DUPLICATE_NULLIFIER,
     SIDE_EFFECT_LIMIT_REACHED,
+    OUT_OF_GAS,
 };
 
 } // namespace bb::avm_trace

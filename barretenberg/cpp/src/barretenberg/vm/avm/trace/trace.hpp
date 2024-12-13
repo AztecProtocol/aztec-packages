@@ -236,6 +236,9 @@ class AvmTraceBuilder {
     std::unordered_set<FF> bytecode_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
     void pay_fee();
+    void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
+    void consume_all_gas();
+    void handle_exceptional_halt();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -266,8 +269,10 @@ class AvmTraceBuilder {
         std::vector<FF> nested_returndata;
         uint32_t last_pc;
         uint32_t success_offset;
-        uint32_t l2_gas;
-        uint32_t da_gas;
+        uint32_t start_l2_gas_left;
+        uint32_t start_da_gas_left;
+        uint32_t l2_gas_left;
+        uint32_t da_gas_left;
         std::stack<uint32_t> internal_return_ptr_stack;
     };
 

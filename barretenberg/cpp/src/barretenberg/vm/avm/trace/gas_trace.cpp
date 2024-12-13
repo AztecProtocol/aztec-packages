@@ -24,6 +24,13 @@ void AvmGasTraceBuilder::set_initial_gas(uint32_t l2_gas, uint32_t da_gas)
     remaining_da_gas = da_gas;
 }
 
+void AvmGasTraceBuilder::set_remaining_gas(uint32_t l2_gas, uint32_t da_gas)
+{
+    // Remaining gas will be mutated on each opcode
+    remaining_l2_gas = l2_gas;
+    remaining_da_gas = da_gas;
+}
+
 uint32_t AvmGasTraceBuilder::get_l2_gas_left() const
 {
     if (gas_trace.empty()) {
@@ -54,7 +61,7 @@ std::tuple<uint32_t, uint32_t> AvmGasTraceBuilder::unconstrained_compute_gas(OpC
              base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost };
 }
 
-void AvmGasTraceBuilder::constrain_gas(
+bool AvmGasTraceBuilder::constrain_gas(
     uint32_t clk, OpCode opcode, uint32_t dyn_gas_multiplier, uint32_t nested_l2_gas_cost, uint32_t nested_da_gas_cost)
 {
     uint32_t effective_nested_l2_gas_cost = 0;
@@ -76,8 +83,17 @@ void AvmGasTraceBuilder::constrain_gas(
     auto dyn_da_gas_cost = static_cast<uint32_t>(gas_info.dyn_da_gas_fixed_table);
 
     // Decrease the gas left
-    remaining_l2_gas -= (base_l2_gas_cost + dyn_gas_multiplier * dyn_l2_gas_cost) + effective_nested_l2_gas_cost;
-    remaining_da_gas -= (base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost) + effective_nested_da_gas_cost;
+    bool out_of_gas = false;
+    const auto l2_cost = (base_l2_gas_cost + dyn_gas_multiplier * dyn_l2_gas_cost) + effective_nested_l2_gas_cost;
+    const auto da_cost = (base_da_gas_cost + dyn_gas_multiplier * dyn_da_gas_cost) + effective_nested_da_gas_cost;
+    if (l2_cost > remaining_l2_gas) {
+        remaining_l2_gas = 0;
+        remaining_da_gas = 0;
+        out_of_gas = true;
+    } else {
+        remaining_l2_gas -= l2_cost;
+        remaining_da_gas -= da_cost;
+    }
 
     // Create a gas trace entry
     gas_trace.push_back({
@@ -91,6 +107,82 @@ void AvmGasTraceBuilder::constrain_gas(
         .remaining_l2_gas = remaining_l2_gas,
         .remaining_da_gas = remaining_da_gas,
     });
+    return out_of_gas;
+}
+
+void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
+                                                bool exceptional_halt,
+                                                uint32_t parent_l2_gas_left,
+                                                uint32_t parent_da_gas_left,
+                                                uint32_t l2_gas_allocated_to_nested_call,
+                                                uint32_t da_gas_allocated_to_nested_call)
+{
+    gas_opcode_lookup_counter[opcode]++;
+
+    // how much gas did the nested call consume
+    auto l2_gas_consumed = l2_gas_allocated_to_nested_call - remaining_l2_gas;
+    auto da_gas_consumed = da_gas_allocated_to_nested_call - remaining_da_gas;
+    if (exceptional_halt) {
+        // on error (exceptional halt), consume all gas allocated to nested call
+        l2_gas_consumed = l2_gas_allocated_to_nested_call;
+        da_gas_consumed = da_gas_allocated_to_nested_call;
+    }
+
+    // We reload to the parent's l2 gas left minus however much gas consumed by the nested call
+    remaining_l2_gas = parent_l2_gas_left - l2_gas_consumed;
+    remaining_da_gas = parent_da_gas_left - da_gas_consumed;
+
+    // modify the last row of the gas trace to return to the parent's latest gas
+    // with the nested call's gas consumption applied
+    auto& halting_entry = gas_trace.back();
+    halting_entry.base_l2_gas_cost = l2_gas_consumed;
+    halting_entry.base_da_gas_cost = da_gas_consumed;
+    halting_entry.remaining_l2_gas = remaining_l2_gas;
+    halting_entry.remaining_da_gas = remaining_da_gas;
+    halting_entry.is_halt = true;
+    // Create a gas trace entry
+    // gas_trace.push_back({
+    //    .clk = clk,
+    //    .opcode = opcode,
+    //    .base_l2_gas_cost = l2_gas_consumed,
+    //    .base_da_gas_cost = da_gas_consumed,
+    //    .remaining_l2_gas = remaining_l2_gas,
+    //    .remaining_da_gas = remaining_da_gas,
+    //});
+}
+
+void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opcode,
+                                                                      uint32_t l2_gas_allocated,
+                                                                      uint32_t da_gas_allocated)
+{
+    gas_opcode_lookup_counter[opcode]++;
+
+    remaining_l2_gas = 0;
+    remaining_da_gas = 0;
+
+    // modify the last row of the gas trace to consume all remaining gas
+    auto& halting_entry = gas_trace.back();
+    halting_entry.base_l2_gas_cost = l2_gas_allocated;
+    halting_entry.base_da_gas_cost = da_gas_allocated;
+    halting_entry.remaining_l2_gas = remaining_l2_gas;
+    halting_entry.remaining_da_gas = remaining_da_gas;
+    halting_entry.is_halt = true;
+    // Create a gas trace entry
+    // gas_trace.push_back({
+    //    .clk = clk,
+    //    .opcode = opcode,
+    //    // consume all allocated gas
+    //    .base_l2_gas_cost = l2_gas_allocated,
+    //    .base_da_gas_cost = da_gas_allocated,
+    //    .remaining_l2_gas = remaining_l2_gas,
+    //    .remaining_da_gas = remaining_da_gas,
+    //});
+}
+
+void AvmGasTraceBuilder::consume_all_gas()
+{
+    remaining_l2_gas = 0;
+    remaining_da_gas = 0;
 }
 
 void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
@@ -124,6 +216,7 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         // Here, main_trace is not prepended with the extra row yet and therefore the index
         // of the row pertaining to clk is clk - 1.
 
+        // bool is_fake_row = (gas_it == gas_trace.end() || gas_it->clk != current_clk || gas_it->is_halt);
         bool is_fake_row = (gas_it == gas_trace.end() || gas_it->clk != current_clk);
 
         if (is_fake_row) {
@@ -136,8 +229,13 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             auto& dest = main_trace.at(gas_entry.clk - 1);
             auto& next = main_trace.at(gas_entry.clk);
 
-            // Temporary. Will be removed once "fake" rows are purged.
-            dest.main_is_gas_accounted = 1;
+            if (gas_entry.is_halt) {
+                // main_trace.at(current_clk).main_is_fake_row = 1;
+                main_trace.at(current_clk - 1).main_is_fake_row = 1;
+            } else {
+                // Temporary. Will be removed once "fake" rows are purged.
+                dest.main_is_gas_accounted = 1;
+            }
 
             // Write each of the relevant gas accounting values
             dest.main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
