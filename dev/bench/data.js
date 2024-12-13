@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734113899080,
+  "lastUpdate": 1734122814935,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c22be8b23e6d16cf4a60509494b979c3edfdba9b",
-          "message": "fix: Don't store indices of zero leaves. (#10270)\n\nThis PR ensures we don't store indices of zero leaves as this could be\r\nmisleading. Requesting the index of a zero leaf is deemed invalid.\r\n\r\nIt also adds tests that ensure we can unwind blocks of zero leaves",
-          "timestamp": "2024-11-28T14:22:54Z",
-          "tree_id": "e2e218a7dde2adc2d1a8f08c848f0235e80a1b93",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c22be8b23e6d16cf4a60509494b979c3edfdba9b"
-        },
-        "date": 1732805781859,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28077.81052499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26478.350335 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4994.416454999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4641.7432229999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83494.305385,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83494306000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15162.920884,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15162922000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3065184537,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3065184537 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139364858,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139364858 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 142163165,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142163165 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e077980f8cce1fc7922c27d368b6dbced956aad2",
+          "message": "feat: Note hash management in the AVM (#10666)\n\n- Removes old siloing and nonce application from transitional adapters\n- Handling of note hashes from private: nonrevertibles are inserted in\nsetup and revertibles at the start of app logic both in simulator and\nwitgen\n- Makes unique emitted note hashes from public inside the AVM itself,\nboth in simulator and witgen",
+          "timestamp": "2024-12-13T19:31:04+01:00",
+          "tree_id": "cd6fe26c8b8d8c54cf0045dc141e4bc31520ade1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e077980f8cce1fc7922c27d368b6dbced956aad2"
+        },
+        "date": 1734122807222,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24927.223591,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23006.678515 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4994.324048999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4623.70481 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 87041.487295,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 87041487000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15383.449391,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15383449000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2845381257,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2845381257 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142408584,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142408584 ns\nthreads: 1"
           }
         ]
       }
