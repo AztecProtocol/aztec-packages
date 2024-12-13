@@ -3,12 +3,11 @@ import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   type ExtendedNote,
   Fr,
+  type Logger,
   type PXE,
   type Wallet,
-  retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -28,7 +27,7 @@ describe('e2e_2_pxes', () => {
   let pxeB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
@@ -47,6 +46,9 @@ describe('e2e_2_pxes', () => {
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
      What is a more robust solution? */
     await sleep(5000);
+
+    await walletA.registerContact(walletB.getAddress());
+    await walletB.registerContact(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -99,20 +101,11 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const awaitServerSynchronized = async (server: PXE) => {
-    const isServerSynchronized = async () => {
-      return await server.isGlobalStateSynchronized();
-    };
-    await retryUntil(isServerSynchronized, 'server sync', 10);
-  };
-
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
     pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
-
-    await awaitServerSynchronized(pxeA);
 
     // Add Child to PXE B
     await pxeB.registerContract({
@@ -124,8 +117,6 @@ describe('e2e_2_pxes', () => {
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pub_inc_value(newValueToSet).send().wait({ interval: 0.1 });
-
-    await awaitServerSynchronized(pxeA);
 
     const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
     expect(storedValueOnB).toEqual(newValueToSet);
@@ -152,30 +143,10 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, walletB.getAddress(), userBBalance, logger);
 
     // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S SECRET KEYS ARE NOT REGISTERED
-    // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
-    const checkIfSynchronized = false;
     // Check that user A balance is 0 on server B
-    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger, checkIfSynchronized);
+    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger);
     // Check that user B balance is 0 on server A
-    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger, checkIfSynchronized);
-  });
-
-  it('permits migrating an account from one PXE to another', async () => {
-    const secretKey = Fr.random();
-    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
-    const completeAddress = account.getCompleteAddress();
-    const wallet = await account.waitSetup();
-
-    await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
-    const walletOnB = await accountOnB.getWallet();
-
-    // need to register first otherwise the new PXE won't know about the account
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).rejects.toThrow();
-
-    await accountOnB.register();
-    // registering should wait for the account to be synchronized
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
+    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger);
   });
 
   it('permits sending funds to a user before they have registered the contract', async () => {
@@ -208,11 +179,14 @@ describe('e2e_2_pxes', () => {
     const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
-    await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
+
+    await sharedWalletOnA.registerContact(walletA.getAddress());
 
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
+
+    await sharedWalletOnB.registerContact(sharedWalletOnA.getAddress());
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);
@@ -242,7 +216,6 @@ describe('e2e_2_pxes', () => {
     // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
     await pxeB.registerContract(token);
     await expectTokenBalance(walletB, token, walletB.getAddress(), transferAmount2, logger);
-    await expect(sharedWalletOnB.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
     await expectTokenBalance(
       sharedWalletOnB,
       token,
@@ -262,19 +235,16 @@ describe('e2e_2_pxes', () => {
     let note: ExtendedNote;
     {
       const owner = walletA.getAddress();
-      const outgoingViewer = owner;
+      const sender = owner;
 
       const receipt = await testContract.methods
-        .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
+        .call_create_note(noteValue, owner, sender, noteStorageSlot)
         .send()
-        .wait({ debug: true });
-      const { visibleIncomingNotes, visibleOutgoingNotes } = receipt.debugInfo!;
-      expect(visibleIncomingNotes).toHaveLength(1);
-      note = visibleIncomingNotes![0];
-
-      // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
-      expect(visibleOutgoingNotes).toHaveLength(1);
-      expect(visibleOutgoingNotes![0]).toEqual(note);
+        .wait();
+      await testContract.methods.sync_notes().simulate();
+      const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
+      expect(incomingNotes).toHaveLength(1);
+      note = incomingNotes[0];
     }
 
     // 3. Nullify the note

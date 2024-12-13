@@ -44,7 +44,11 @@ runs:
         elif [[ $TYPE == 128core-* ]]; then
           SIZE=32xlarge
         fi
-        echo "instance_type=m6a.$SIZE m6in.$SIZE r6a.$SIZE r6i.$SIZE r6in.$SIZE" >> $GITHUB_OUTPUT
+        INSTANCE_TYPES="m6a.$SIZE m6in.$SIZE r6a.$SIZE r6i.$SIZE r6in.$SIZE"
+        if [[ $TYPE == *high-memory* ]]; then
+          INSTANCE_TYPES="r6a.$SIZE r6i.$SIZE r6in.$SIZE"
+        fi
+        echo "instance_type=$INSTANCE_TYPES" >> $GITHUB_OUTPUT
 
     - name: Start Tester
       uses: ./.github/spot-runner-action
@@ -67,7 +71,7 @@ runs:
         ec2_subnet_id: subnet-4cfabd25
         ec2_security_group_id: sg-0ccd4e5df0dcca0c9
         ec2_key_name: "build-instance"
-        ec2_instance_tags: "[]"
+        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
 
     - name: Print Startup Log
       shell: bash

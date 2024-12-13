@@ -4,8 +4,14 @@ import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
-import { type DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  type DeployL1Contracts,
+  NULL_KEY,
+  createEthereumChain,
+  deployL1Contracts,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -21,7 +27,7 @@ import { foundry } from 'viem/chains';
 
 export const defaultMnemonic = 'test test test test test test test test test test test junk';
 
-const logger = createDebugLogger('aztec:sandbox');
+const logger = createLogger('sandbox');
 
 const localAnvil = foundry;
 
@@ -80,6 +86,7 @@ export async function deployContractsToL1(
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
+      ...getL1ContractsConfigEnvVars(),
     }),
   );
 
@@ -150,7 +157,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   const stop = async () => {
-    await pxe.stop();
     await node.stop();
     await watcher?.stop();
   };
@@ -164,7 +170,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  */
 export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry: telemetryClient });
   return node;
 }
 

@@ -6,6 +6,8 @@ import {
 } from '@aztec/circuit-types';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractClassFromArtifact } from '@aztec/circuits.js';
 
+import omit from 'lodash.omit';
+
 export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {
     let pxe: PXE;
@@ -54,7 +56,9 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const instance = randomContractInstanceWithAddress({ contractClassId });
 
       await pxe.registerContractClass(artifact);
-      expect(await pxe.getContractClass(contractClassId)).toEqual(contractClass);
+      expect(await pxe.getContractClass(contractClassId)).toMatchObject(
+        omit(contractClass, 'privateFunctionsRoot', 'publicBytecodeCommitment'),
+      );
 
       await pxe.registerContract({ instance });
       expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
@@ -69,7 +73,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
         pxe.registerContract({
           instance: {
             ...instance,
-            address: Fr.random(),
+            address: AztecAddress.random(),
           },
           artifact,
         }),
@@ -111,8 +115,5 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       expect(typeof nodeInfo.l1ChainId).toEqual('number');
       expect(nodeInfo.l1ContractAddresses.rollupAddress.toString()).toMatch(/0x[a-fA-F0-9]+/);
     });
-
-    // Note: Not testing `isGlobalStateSynchronized`, `isAccountStateSynchronized` and `getSyncStatus` as these methods
-    //       only call synchronizer.
   });
 };

@@ -2,7 +2,7 @@ use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
 use crate::traits::{Deserialize, FromField, Serialize, ToField};
 
 pub struct ContractClassId {
-    inner: Field,
+    pub inner: Field,
 }
 
 impl Eq for ContractClassId {

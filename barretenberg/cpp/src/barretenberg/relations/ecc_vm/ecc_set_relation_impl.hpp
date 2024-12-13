@@ -374,7 +374,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 }
 
 /**
- * @brief Expression for the StandardArithmetic gate.
+ * @brief Expression for the standard arithmetic gate.
  * @dbetails The relation is defined as C(in(X)...) =
  *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
  *

@@ -1,0 +1,36 @@
+##########
+# BEWARE #
+##########
+# You need to deploy the metrics helm chart before using this values file.
+# head to spartan/metrics and run `./install.sh`
+# (then `./forward.sh` if you want to see it)
+telemetry:
+  enabled: true
+
+validator:
+  external: true
+
+bootNode:
+  debug: "discv5:*"
+  validator:
+    disabled: true
+
+proverAgent:
+  replicas: 1
+  bb:
+    hardwareConcurrency: 16
+
+pxe:
+  external: false
+
+bot:
+  enabled: false
+  txIntervalSeconds: 200
+
+jobs:
+  deployL1Verifier:
+    enable: false
+
+ethereum:
+  external: true
+  externalHost: ""

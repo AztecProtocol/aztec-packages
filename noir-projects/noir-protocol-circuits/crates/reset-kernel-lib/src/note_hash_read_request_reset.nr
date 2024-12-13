@@ -9,9 +9,9 @@ use dep::types::{
 };
 
 pub struct NoteHashSettledReadHint {
-    read_request_index: u32,
-    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
-    leaf_preimage: NoteHashLeafPreimage,
+    pub read_request_index: u32,
+    pub membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    pub leaf_preimage: NoteHashLeafPreimage,
 }
 
 impl ReadValueHint for NoteHashSettledReadHint {
@@ -39,9 +39,9 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
 }
 
 pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
-    read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
+    pub read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
+    pub settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
 }
 
 mod tests {
@@ -81,13 +81,14 @@ mod tests {
             let note_hashes = [10, 11, 12, 13];
             let siloed_note_hashes =
                 note_hashes.map(|n| compute_siloed_note_hash(contract_address, n));
-
+            // We don't need to hash it with a real nonce
+            let unique_note_hashes = siloed_note_hashes.map(|note_hash| note_hash + 1000);
             // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
             let read_requests = [
-                ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[1], counter: 11 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 13 }.scope(contract_address), // pending
                 ReadRequest { value: note_hashes[2], counter: 39 }.scope(contract_address), // pending
-                ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[0], counter: 46 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 78 }.scope(contract_address), // pending
             ];
 
@@ -113,8 +114,8 @@ mod tests {
             ];
 
             let leaf_preimages = [
-                NoteHashLeafPreimage { value: siloed_note_hashes[0] },
-                NoteHashLeafPreimage { value: siloed_note_hashes[1] },
+                NoteHashLeafPreimage { value: unique_note_hashes[0] },
+                NoteHashLeafPreimage { value: unique_note_hashes[1] },
             ];
 
             TestBuilder {

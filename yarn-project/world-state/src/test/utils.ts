@@ -3,7 +3,6 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  PublicDataWrite,
   TxEffect,
 } from '@aztec/circuit-types';
 import {
@@ -11,11 +10,8 @@ import {
   Fr,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
@@ -46,16 +42,10 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
   {
     // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
     for (const txEffect of paddedTxEffects) {
-      const publicDataWrites = padArrayEnd(
-        txEffect.publicDataWrites,
-        PublicDataWrite.empty(),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
-
       await fork.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
-        PUBLIC_DATA_SUBTREE_HEIGHT,
+        txEffect.publicDataWrites.map(write => write.toBuffer()),
+        0,
       );
 
       const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);

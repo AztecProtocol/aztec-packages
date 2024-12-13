@@ -19,7 +19,7 @@ function getTree() {
 
 export function getProtocolContractSiblingPath(address: AztecAddress) {
   const tree = getTree();
-  const index = address.toNumber();
+  const index = address.toField().toNumber();
   return assertLength<Fr, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>(
     tree.getSiblingPath(index).map(buf => new Fr(buf)),
     PROTOCOL_CONTRACT_TREE_HEIGHT,

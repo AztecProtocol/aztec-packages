@@ -1,5 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
+
+import { z } from 'zod';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
@@ -27,12 +31,34 @@ export class ContentCommitment {
     }
   }
 
+  static get schema() {
+    return z
+      .object({
+        numTxs: schemas.Fr,
+        txsEffectsHash: schemas.Buffer,
+        inHash: schemas.Buffer,
+        outHash: schemas.Buffer,
+      })
+      .transform(
+        ({ numTxs, txsEffectsHash, inHash, outHash }) => new ContentCommitment(numTxs, txsEffectsHash, inHash, outHash),
+      );
+  }
+
   getSize() {
     return this.toBuffer().length;
   }
 
   toBuffer() {
     return serializeToBuffer(this.numTxs, this.txsEffectsHash, this.inHash, this.outHash);
+  }
+
+  toInspect() {
+    return {
+      numTxs: this.numTxs.toNumber(),
+      txsEffectsHash: bufferToHex(this.txsEffectsHash),
+      inHash: bufferToHex(this.inHash),
+      outHash: bufferToHex(this.outHash),
+    };
   }
 
   toFields(): Fr[] {
@@ -88,7 +114,7 @@ export class ContentCommitment {
   }
 
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string): ContentCommitment {

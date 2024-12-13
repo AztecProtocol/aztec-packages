@@ -4,5 +4,5 @@
 
 namespace bb {
 template class ECCVMLookupRelationImpl<grumpkin::fr>;
-DEFINE_ZK_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, ECCVMFlavor);
 } // namespace bb

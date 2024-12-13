@@ -6,6 +6,7 @@ import {
   type L2LogsSource,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  type NullifierWithBlockSource,
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -38,6 +39,10 @@ describe('aztec node', () => {
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeReadOperations>();
 
+    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
+      return Promise.resolve([undefined]);
+    });
+
     const worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
@@ -52,6 +57,8 @@ describe('aztec node', () => {
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
+
+    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -69,9 +76,9 @@ describe('aztec node', () => {
       p2p,
       l2BlockSource,
       l2LogsSource,
-      l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
+      nullifierWithBlockSource,
       worldState,
       undefined,
       12345,
@@ -103,9 +110,9 @@ describe('aztec node', () => {
 
       // We make a nullifier from `doubleSpendWithExistingTx` a part of the nullifier tree, so it gets rejected as double spend
       const doubleSpendNullifier = doubleSpendWithExistingTx.data.forRollup!.end.nullifiers[0].toBuffer();
-      merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: any) => {
+      merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, value: any[]) => {
         return Promise.resolve(
-          treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
+          treeId === MerkleTreeId.NULLIFIER_TREE && value[0].equals(doubleSpendNullifier) ? [1n] : [undefined],
         );
       });
 
@@ -135,16 +142,18 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
-      validMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        toString: () => Fr.ZERO.toString(),
       };
 
       lastBlockNumber = 3;

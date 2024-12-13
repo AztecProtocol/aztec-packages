@@ -106,6 +106,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
+        await token.methods.sync_notes().simulate();
         const notes = await pxe.getIncomingNotes({
           owner: owner.getAddress(),
           contractAddress: token.address,
@@ -120,8 +121,11 @@ describe('guides/dapp/testing', () => {
 
       it('checks public storage', async () => {
         // docs:start:public-storage
-        await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:public-storage
@@ -129,7 +133,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
         // docs:start:unencrypted-logs
-        const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
+        const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
         const filter = {
           fromBlock: tx.blockNumber!,
@@ -169,17 +173,20 @@ describe('guides/dapp/testing', () => {
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       });
 
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
-        const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
+        const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+          TokenContract.storage.public_balances.slot,
+          owner.getAddress(),
+        );
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:pub-reverted

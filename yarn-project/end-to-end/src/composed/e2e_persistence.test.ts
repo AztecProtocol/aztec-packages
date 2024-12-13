@@ -6,7 +6,6 @@ import {
   Note,
   type TxHash,
   computeSecretHash,
-  waitForAccountSynch,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
 import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
@@ -243,8 +242,6 @@ describe('Aztec persistence', () => {
       const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
 
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 1, timeout: 10 });
-
       // check that notes total more than 0 so that this test isn't dependent on run order
       await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toBeGreaterThan(0n);
     });
@@ -297,8 +294,6 @@ describe('Aztec persistence', () => {
       const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
-
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 0.1, timeout: 5 });
     });
 
     afterEach(async () => {

@@ -1,38 +1,63 @@
 import {
   AztecAddress,
   Fr,
-  GrumpkinScalar,
-  type KeyValidationRequest,
+  type GrumpkinScalar,
   NotOnCurveError,
-  PRIVATE_LOG_SIZE_IN_BYTES,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
   Point,
+  PrivateLog,
   type PublicKey,
-  computeOvskApp,
-  computePoint,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { decrypt, encrypt } from './encryption_util.js';
-import { derivePoseidonAESSecret } from './shared_secret_derivation.js';
 
-// Both the incoming and the outgoing header are 48 bytes../shared_secret_derivation.js
+// Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
+
+const ENCRYPTED_PAYLOAD_SIZE_IN_BYTES = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
+
+// The incoming header is 48 bytes
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
 
-// The outgoing body is constant size of 144 bytes.
-// 128 bytes for the secret key, address and public key, and 16 bytes padding to follow PKCS#7
-const OUTGOING_BODY_SIZE = 144;
+// Padding added to the overhead to make the size of the incoming body ciphertext a multiple of 16.
+const OVERHEAD_PADDING = 15;
 
-const ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE =
-  32 /* incoming_tag */ +
-  32 /* eph_pk */ +
-  HEADER_SIZE /* incoming_header */ +
-  HEADER_SIZE /* outgoing_header */ +
-  OUTGOING_BODY_SIZE; /* outgoing_body */
+const OVERHEAD_SIZE = 32 /* eph_pk */ + HEADER_SIZE /* incoming_header */ + OVERHEAD_PADDING; /* padding */
 
-const INCOMING_BODY_SIZE = PRIVATE_LOG_SIZE_IN_BYTES - ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE;
+const PLAINTEXT_LENGTH_SIZE = 2;
+
+const MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES =
+  ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - PLAINTEXT_LENGTH_SIZE - 1; /* aes padding */
+
+function encryptedBytesToFields(encrypted: Buffer): Fr[] {
+  const fields = [];
+  const numFields = Math.ceil(encrypted.length / 31);
+  for (let i = 0; i < numFields; i++) {
+    fields.push(new Fr(encrypted.subarray(i * 31, (i + 1) * 31)));
+  }
+  return fields;
+}
+
+function fieldsToEncryptedBytes(fields: Fr[]) {
+  return Buffer.concat(fields.map(f => f.toBuffer().subarray(1)));
+}
+
+class Overhead {
+  constructor(public ephPk: Point, public incomingHeader: Buffer) {}
+
+  static fromBuffer(reader: BufferReader) {
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+    const incomingHeader = reader.readBytes(HEADER_SIZE);
+
+    // Advance the index to skip the padding.
+    reader.readBytes(OVERHEAD_PADDING);
+
+    return new Overhead(ephPk, incomingHeader);
+  }
+}
 
 /**
  * Encrypted log payload with a tag used for retrieval by clients.
@@ -53,116 +78,81 @@ export class EncryptedLogPayload {
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
-  public encrypt(
+  public generatePayload(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
-    ovKeys: KeyValidationRequest,
     rand: (len: number) => Buffer = randomBytes,
-  ): Buffer {
-    const addressPoint = computePoint(recipient);
+  ): PrivateLog {
+    const addressPoint = recipient.toAddressPoint();
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
     const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
-    const outgoingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ovKeys.pkM);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
       throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
     }
-    if (outgoingHeaderCiphertext.length !== HEADER_SIZE) {
-      throw new Error(`Invalid outgoing header size: ${outgoingHeaderCiphertext.length}`);
-    }
-
-    // The serialization of Fq is [high, low] check `outgoing_body.nr`
-    const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, addressPoint.toCompressedBuffer());
-    const outgoingBodyCiphertext = encrypt(
-      outgoingBodyPlaintext,
-      ovKeys.skAppAsGrumpkinScalar,
-      ephPk,
-      derivePoseidonAESSecret,
-    );
-    if (outgoingBodyCiphertext.length !== OUTGOING_BODY_SIZE) {
-      throw new Error(`Invalid outgoing body size: ${outgoingBodyCiphertext.length}`);
-    }
 
     const overhead = serializeToBuffer(
-      this.tag,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
-      outgoingHeaderCiphertext,
-      outgoingBodyCiphertext,
+      Buffer.alloc(OVERHEAD_PADDING),
     );
-    if (overhead.length !== ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE) {
-      throw new Error(
-        `Invalid ciphertext overhead size. Expected ${ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE}. Got ${overhead.length}.`,
-      );
+    if (overhead.length !== OVERHEAD_SIZE) {
+      throw new Error(`Invalid ciphertext overhead size. Expected ${OVERHEAD_SIZE}. Got ${overhead.length}.`);
     }
 
-    const numPaddedBytes =
-      PRIVATE_LOG_SIZE_IN_BYTES -
-      ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE -
-      1 /* 1 byte for this.incomingBodyPlaintext.length */ -
-      15 /* aes padding */ -
-      this.incomingBodyPlaintext.length;
+    if (this.incomingBodyPlaintext.length > MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES) {
+      throw new Error(`Incoming body plaintext cannot be more than ${MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES} bytes.`);
+    }
+
+    const numPaddedBytes = MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES - this.incomingBodyPlaintext.length;
     const paddedIncomingBodyPlaintextWithLength = Buffer.concat([
-      numToUInt8(this.incomingBodyPlaintext.length),
+      numToUInt16BE(this.incomingBodyPlaintext.length),
       this.incomingBodyPlaintext,
       rand(numPaddedBytes),
     ]);
     const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
-    if (incomingBodyCiphertext.length !== INCOMING_BODY_SIZE) {
+
+    const encryptedPayload = serializeToBuffer(overhead, incomingBodyCiphertext);
+
+    const logFields = [this.tag, ...encryptedBytesToFields(encryptedPayload)] as Tuple<
+      Fr,
+      typeof PRIVATE_LOG_SIZE_IN_FIELDS
+    >;
+    if (logFields.length !== PRIVATE_LOG_SIZE_IN_FIELDS) {
       throw new Error(
-        `Invalid incoming body size. Expected ${INCOMING_BODY_SIZE}. Got ${incomingBodyCiphertext.length}`,
+        `Expected private log payload to have ${PRIVATE_LOG_SIZE_IN_FIELDS} fields. Got ${logFields.length}.`,
       );
     }
 
-    return serializeToBuffer(overhead, incomingBodyCiphertext);
+    return new PrivateLog(logFields);
   }
 
   /**
    * Decrypts a ciphertext as an incoming log.
    *
    * This is executable by the recipient of the note, and uses the addressSecret to decrypt the payload.
-   * The outgoing parts of the log are ignored entirely.
    *
-   * Produces the same output as `decryptAsOutgoing`.
-   *
-   * @param ciphertext - The ciphertext for the log
+   * @param payload - The payload for the log
    * @param addressSecret - The address secret, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(
-    ciphertext: Buffer | BufferReader,
-    addressSecret: GrumpkinScalar,
-  ): EncryptedLogPayload | undefined {
-    const reader = BufferReader.asReader(ciphertext);
-
+  public static decryptAsIncoming(payload: PrivateLog, addressSecret: GrumpkinScalar): EncryptedLogPayload | undefined {
     try {
-      const tag = reader.readObject(Fr);
+      const logFields = payload.fields;
+      const tag = logFields[0];
+      const reader = BufferReader.asReader(fieldsToEncryptedBytes(logFields.slice(1)));
 
-      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const overhead = Overhead.fromBuffer(reader);
+      const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
-      const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), addressSecret, ephPk);
-
-      // Skipping the outgoing header and body
-      reader.readBytes(HEADER_SIZE);
-      reader.readBytes(OUTGOING_BODY_SIZE);
-
-      // The incoming can be of variable size, so we read until the end
       const ciphertext = reader.readToEnd();
-      const decrypted = decrypt(ciphertext, addressSecret, ephPk);
-      const length = decrypted.readUint8(0);
-      const incomingBodyPlaintext = decrypted.subarray(1, 1 + length);
+      const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
-      return new EncryptedLogPayload(tag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
+      return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
-      if (
-        !(e instanceof NotOnCurveError) &&
-        !e.message.endsWith('is greater or equal to field modulus.') &&
-        !e.message.startsWith('Invalid AztecAddress length') &&
-        !e.message.startsWith('Selector must fit in') &&
-        !e.message.startsWith('Attempted to read beyond buffer length')
-      ) {
+      if (!this.isAcceptableError(e)) {
         // If we encounter an unexpected error, we rethrow it
         throw e;
       }
@@ -171,64 +161,29 @@ export class EncryptedLogPayload {
   }
 
   /**
-   * Decrypts a ciphertext as an outgoing log.
-   *
-   * This is executable by the sender of the event, and uses the ovsk to decrypt the payload.
-   * The outgoing parts are decrypted to retrieve information that allows the sender to
-   * decrypt the incoming log, and learn about the event contents.
-   *
-   * Produces the same output as `decryptAsIncoming`.
-   *
-   * @param ciphertext - The ciphertext for the log
-   * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
-   * @returns The decrypted log payload
+   * Similar to `decryptAsIncoming`. Except that this is for the payload coming from public, which has tightly packed
+   * bytes that don't have 0 byte at the beginning of every 32 bytes.
+   * And the incoming body is of variable size.
    */
-  public static decryptAsOutgoing(
-    ciphertext: Buffer | BufferReader,
-    ovsk: GrumpkinScalar,
+  public static decryptAsIncomingFromPublic(
+    payload: Buffer,
+    addressSecret: GrumpkinScalar,
   ): EncryptedLogPayload | undefined {
-    const reader = BufferReader.asReader(ciphertext);
-
     try {
+      const reader = BufferReader.asReader(payload);
       const tag = reader.readObject(Fr);
 
-      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const overhead = Overhead.fromBuffer(reader);
+      const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
-      // We skip the incoming header
-      reader.readBytes(HEADER_SIZE);
+      // The incoming can be of variable size, so we read until the end
+      const ciphertext = reader.readToEnd();
+      const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
-      const outgoingHeader = decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
-      const contractAddress = AztecAddress.fromBuffer(outgoingHeader);
-
-      const ovskApp = computeOvskApp(ovsk, contractAddress);
-
-      let ephSk: GrumpkinScalar;
-      let recipientAddressPoint: PublicKey;
-      {
-        const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
-        const obReader = BufferReader.asReader(outgoingBody);
-
-        // From outgoing body we extract ephSk, recipient and recipientAddressPoint
-        ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
-        const _recipient = obReader.readObject(AztecAddress);
-        recipientAddressPoint = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
-      }
-
-      // Now we decrypt the incoming body using the ephSk and recipientIvpk
-      const decryptedIncomingBody = decrypt(reader.readToEnd(), ephSk, recipientAddressPoint);
-      const length = decryptedIncomingBody.readUint8(0);
-      const incomingBody = decryptedIncomingBody.subarray(1, 1 + length);
-
-      return new EncryptedLogPayload(tag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
-      if (
-        !(e instanceof NotOnCurveError) &&
-        !e.message.endsWith('is greater or equal to field modulus.') &&
-        !e.message.startsWith('Invalid AztecAddress length') &&
-        !e.message.startsWith('Selector must fit in') &&
-        !e.message.startsWith('Attempted to read beyond buffer length')
-      ) {
+      if (!this.isAcceptableError(e)) {
         // If we encounter an unexpected error, we rethrow it
         throw e;
       }
@@ -236,7 +191,37 @@ export class EncryptedLogPayload {
     }
   }
 
+  private static isAcceptableError(e: any) {
+    return (
+      e instanceof NotOnCurveError ||
+      e.message.endsWith('is greater or equal to field modulus.') ||
+      e.message.startsWith('Invalid AztecAddress length') ||
+      e.message.startsWith('Selector must fit in') ||
+      e.message.startsWith('Attempted to read beyond buffer length') ||
+      e.message.startsWith('RangeError [ERR_BUFFER_OUT_OF_BOUNDS]:')
+    );
+  }
+
   public toBuffer() {
     return serializeToBuffer(this.tag, this.contractAddress.toBuffer(), this.incomingBodyPlaintext);
+  }
+
+  static #decryptOverhead(overhead: Overhead, { addressSecret }: { addressSecret: GrumpkinScalar }) {
+    let contractAddress = AztecAddress.ZERO;
+
+    if (addressSecret) {
+      const incomingHeader = decrypt(overhead.incomingHeader, addressSecret, overhead.ephPk);
+      contractAddress = AztecAddress.fromBuffer(incomingHeader);
+    }
+
+    return {
+      contractAddress,
+    };
+  }
+
+  static #decryptIncomingBody(ciphertext: Buffer, secret: GrumpkinScalar, publicKey: PublicKey) {
+    const decrypted = decrypt(ciphertext, secret, publicKey);
+    const length = decrypted.readUint16BE(0);
+    return decrypted.subarray(2, 2 + length);
   }
 }

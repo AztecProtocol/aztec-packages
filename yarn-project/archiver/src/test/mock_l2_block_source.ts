@@ -1,8 +1,16 @@
-import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { EthAddress, type Header } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-
-import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSource,
+  type L2Tips,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
+import { getSlotRangeForEpoch } from '@aztec/circuit-types';
+import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { createLogger } from '@aztec/foundation/log';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -13,7 +21,7 @@ export class MockL2BlockSource implements L2BlockSource {
   private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
-  private log = createDebugLogger('aztec:archiver:mock_l2_block_source');
+  private log = createLogger('archiver:mock_l2_block_source');
 
   public createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
@@ -98,12 +106,13 @@ export class MockL2BlockSource implements L2BlockSource {
     );
   }
 
-  getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+  getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
   }
 
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
+    const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
       const slot = b.header.globalVariables.slotNumber.toBigInt();
       return slot >= start && slot <= end;
@@ -117,8 +126,14 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns The requested tx effect.
    */
   public getTxEffect(txHash: TxHash) {
-    const txEffect = this.l2Blocks.flatMap(b => b.body.txEffects).find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(txEffect);
+    const match = this.l2Blocks
+      .flatMap(b => b.body.txEffects.map(tx => [tx, b] as const))
+      .find(([tx]) => tx.txHash.equals(txHash));
+    if (!match) {
+      return Promise.resolve(undefined);
+    }
+    const [txEffect, block] = match;
+    return Promise.resolve({ data: txEffect, l2BlockNumber: block.number, l2BlockHash: block.hash().toString() });
   }
 
   /**
@@ -136,7 +151,7 @@ export class MockL2BlockSource implements L2BlockSource {
               TxStatus.SUCCESS,
               '',
               txEffect.transactionFee.toBigInt(),
-              block.hash().toBuffer(),
+              L2BlockHash.fromField(block.hash()),
               block.number,
             ),
           );

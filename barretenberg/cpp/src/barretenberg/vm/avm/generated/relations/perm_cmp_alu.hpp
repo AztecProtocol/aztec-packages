@@ -6,12 +6,12 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_cmp_alu_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 6;
+    constexpr static size_t COLUMNS_PER_SET = 7;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -30,12 +30,14 @@ class perm_cmp_alu_permutation_settings {
                                      in.cmp_result,
                                      in.cmp_op_eq,
                                      in.cmp_op_gt,
+                                     in.cmp_op_non_ff_gt,
                                      in.alu_clk,
                                      in.alu_cmp_gadget_input_a,
                                      in.alu_cmp_gadget_input_b,
                                      in.alu_cmp_gadget_result,
                                      in.alu_op_eq,
-                                     in.alu_cmp_gadget_gt);
+                                     in.alu_cmp_gadget_gt,
+                                     in.alu_cmp_gadget_non_ff_gt);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
@@ -50,12 +52,14 @@ class perm_cmp_alu_permutation_settings {
                                      in.cmp_result,
                                      in.cmp_op_eq,
                                      in.cmp_op_gt,
+                                     in.cmp_op_non_ff_gt,
                                      in.alu_clk,
                                      in.alu_cmp_gadget_input_a,
                                      in.alu_cmp_gadget_input_b,
                                      in.alu_cmp_gadget_result,
                                      in.alu_op_eq,
-                                     in.alu_cmp_gadget_gt);
+                                     in.alu_cmp_gadget_gt,
+                                     in.alu_cmp_gadget_non_ff_gt);
     }
 };
 
@@ -66,4 +70,4 @@ class perm_cmp_alu_relation : public GenericPermutationRelation<perm_cmp_alu_per
 };
 template <typename FF_> using perm_cmp_alu = GenericPermutation<perm_cmp_alu_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

@@ -1,5 +1,5 @@
 // Used by macros when generating note export.
 pub struct NoteField {
-    index: u32,
-    nullable: bool,
+    pub index: u32,
+    pub nullable: bool,
 }

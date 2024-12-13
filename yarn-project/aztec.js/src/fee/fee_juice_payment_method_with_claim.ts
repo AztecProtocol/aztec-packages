@@ -32,7 +32,12 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         name: 'claim',
         selector,
         isStatic: false,
-        args: [this.sender, this.claim.claimAmount, this.claim.claimSecret, new Fr(this.claim.messageLeafIndex)],
+        args: [
+          this.sender.toField(),
+          this.claim.claimAmount,
+          this.claim.claimSecret,
+          new Fr(this.claim.messageLeafIndex),
+        ],
         returnTypes: [],
         type: FunctionType.PRIVATE,
       },

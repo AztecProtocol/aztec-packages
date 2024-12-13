@@ -13,8 +13,8 @@ use dep::types::{
     traits::is_empty,
     transaction::tx_request::TxRequest,
     utils::arrays::{
-        assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
-        assert_array_prepended,
+        assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+        assert_array_appended_scoped, assert_array_prepended,
     },
 };
 
@@ -34,12 +34,14 @@ impl PrivateKernelCircuitOutputValidator {
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) {
         self.validate_initial_values(
             tx_request,
             private_call,
             vk_tree_root,
             protocol_contract_tree_root,
+            is_private_only,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
         offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
@@ -77,17 +79,15 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) {
         // Constants.
+        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
             self.output.constants.historical_header,
             private_call.historical_header,
             "mismatch historical_header",
-        );
-        assert(
-            is_empty(self.output.constants.global_variables),
-            "constants.global_variables must be empty",
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
@@ -197,6 +197,11 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
     ) {
+        assert_eq(
+            self.output.is_private_only,
+            previous_kernel.is_private_only,
+            "mismatch is_private_only",
+        );
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 
         assert_eq(
@@ -236,19 +241,14 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.l2_to_l1_msgs,
         );
         assert_array_prepended(
-            self.output.end.note_encrypted_logs_hashes,
-            previous_kernel.end.note_encrypted_logs_hashes,
-            array_lengths.note_encrypted_logs_hashes,
+            self.output.end.private_logs,
+            previous_kernel.end.private_logs,
+            array_lengths.private_logs,
         );
         assert_array_prepended(
-            self.output.end.encrypted_logs_hashes,
-            previous_kernel.end.encrypted_logs_hashes,
-            array_lengths.encrypted_logs_hashes,
-        );
-        assert_array_prepended(
-            self.output.end.unencrypted_logs_hashes,
-            previous_kernel.end.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            previous_kernel.end.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.public_call_requests,
@@ -314,24 +314,18 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.l2_to_l1_msgs,
             contract_address,
         );
-        assert_array_appended(
-            self.output.end.note_encrypted_logs_hashes,
-            private_call.note_encrypted_logs_hashes,
-            array_lengths.note_encrypted_logs_hashes,
-            offsets.note_encrypted_logs_hashes,
-        );
-        assert_array_appended_scoped(
-            self.output.end.encrypted_logs_hashes,
-            private_call.encrypted_logs_hashes,
-            array_lengths.encrypted_logs_hashes,
-            offsets.encrypted_logs_hashes,
+        assert_array_appended_and_scoped(
+            self.output.end.private_logs,
+            private_call.private_logs,
+            array_lengths.private_logs,
+            offsets.private_logs,
             contract_address,
         );
         assert_array_appended_scoped(
-            self.output.end.unencrypted_logs_hashes,
-            private_call.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
-            offsets.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            private_call.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
+            offsets.contract_class_logs_hashes,
             contract_address,
         );
         assert_array_appended(

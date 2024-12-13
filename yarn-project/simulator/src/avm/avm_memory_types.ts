@@ -7,14 +7,15 @@ import {
   MEM_TAG_U64,
   MEM_TAG_U128,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
 
-import { InstructionExecutionError, TagCheckError } from './errors.js';
+import { InstructionExecutionError, InvalidTagValueError, TagCheckError } from './errors.js';
 import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 
 /** MemoryValue gathers the common operations for all memory types. */
@@ -39,6 +40,10 @@ export abstract class MemoryValue {
   // To field
   public toFr(): Fr {
     return new Fr(this.toBigInt());
+  }
+
+  public toAztecAddress(): AztecAddress {
+    return new AztecAddress(this.toFr());
   }
 
   // To number. Throws if exceeds max safe int.
@@ -222,18 +227,22 @@ export enum TypeTag {
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
 export class TaggedMemory implements TaggedMemoryInterface {
-  static readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:memory');
+  static readonly log: Logger = createLogger('simulator:avm:memory');
 
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';
 
-  // FIXME: memory should be 2^32, but TS doesn't allow for arrays that big.
-  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 2n);
+  // FIXME: memory should be 2^32, but TS max array size is: 2^32 - 1
+  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 1n);
   private _mem: MemoryValue[];
 
   constructor() {
     // We do not initialize memory size here because otherwise tests blow up when diffing.
     this._mem = [];
+  }
+
+  public getMaxMemorySize(): number {
+    return TaggedMemory.MAX_MEMORY_SIZE;
   }
 
   /** Returns a MeteredTaggedMemory instance to track the number of reads and writes if TRACK_MEMORY_ACCESSES is set. */
@@ -250,7 +259,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getAs<T>(offset: number): T {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem[offset];
-    TaggedMemory.log.debug(`get(${offset}) = ${word}`);
+    TaggedMemory.log.trace(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
@@ -259,10 +268,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     const value = this._mem.slice(offset, offset + size);
-    TaggedMemory.log.debug(`getSlice(${offset}, ${size}) = ${value}`);
+    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${value}`);
     for (let i = 0; i < value.length; i++) {
       if (value[i] === undefined) {
         value[i] = new Field(0);
@@ -273,32 +281,29 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSliceAs<T>(offset: number, size: number): T[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this.getSlice(offset, size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);
   }
 
   public set(offset: number, v: MemoryValue) {
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem[offset] = v;
-    TaggedMemory.log.debug(`set(${offset}, ${v})`);
+    TaggedMemory.log.trace(`set(${offset}, ${v})`);
   }
 
   public setSlice(offset: number, vs: MemoryValue[]) {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    assert(offset + vs.length < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(offset + vs.length <= TaggedMemory.MAX_MEMORY_SIZE);
     // We may need to extend the memory size, otherwise splice doesn't insert.
     if (offset + vs.length > this._mem.length) {
       this._mem.length = offset + vs.length;
     }
     this._mem.splice(offset, vs.length, ...vs);
-    TaggedMemory.log.debug(`setSlice(${offset}, ${vs})`);
+    TaggedMemory.log.trace(`setSlice(${offset}, ${vs})`);
   }
 
   public getTag(offset: number): TypeTag {
@@ -323,6 +328,22 @@ export class TaggedMemory implements TaggedMemoryInterface {
       ![TypeTag.UINT1, TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)
     ) {
       throw TagCheckError.forTag(TypeTag[tag], 'integral');
+    }
+  }
+
+  public static checkIsValidTag(tagNumber: number) {
+    if (
+      ![
+        TypeTag.UINT1,
+        TypeTag.UINT8,
+        TypeTag.UINT16,
+        TypeTag.UINT32,
+        TypeTag.UINT64,
+        TypeTag.UINT128,
+        TypeTag.FIELD,
+      ].includes(tagNumber)
+    ) {
+      throw new InvalidTagValueError(tagNumber);
     }
   }
 
@@ -399,29 +420,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
       case TypeTag.UINT128:
         return new Uint128(v & ((1n << 128n) - 1n));
       default:
-        throw new Error(`${TypeTag[tag]} is not a valid tag.`);
-    }
-  }
-
-  // Does not truncate. Type constructor will check that it fits.
-  public static buildFromTagOrDie(v: bigint | number, tag: TypeTag): MemoryValue {
-    switch (tag) {
-      case TypeTag.FIELD:
-        return new Field(v);
-      case TypeTag.UINT1:
-        return new Uint1(v);
-      case TypeTag.UINT8:
-        return new Uint8(v);
-      case TypeTag.UINT16:
-        return new Uint16(v);
-      case TypeTag.UINT32:
-        return new Uint32(v);
-      case TypeTag.UINT64:
-        return new Uint64(v);
-      case TypeTag.UINT128:
-        return new Uint128(v);
-      default:
-        throw new Error(`${TypeTag[tag]} is not a valid integral type.`);
+        throw new InvalidTagValueError(tag);
     }
   }
 
@@ -468,6 +467,10 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
         `Incorrect number of memory writes for ${this.type}: expected ${expectedWrites} but executed ${actualWrites}`,
       );
     }
+  }
+
+  public getMaxMemorySize(): number {
+    return this.wrapped.getMaxMemorySize();
   }
 
   public track(type: string = 'instruction'): MeteredTaggedMemory {

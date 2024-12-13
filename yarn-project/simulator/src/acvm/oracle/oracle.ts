@@ -146,10 +146,10 @@ export class Oracle {
     return witness.toFields().map(toACVMField);
   }
 
-  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    const header = await this.typedOracle.getBlockHeader(parsedBlockNumber);
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
@@ -293,7 +293,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      fromACVMField(contractAddress),
+      new AztecAddress(fromACVMField(contractAddress)),
       fromACVMField(startStorageSlot),
       +blockNumber,
       +numberOfElements,
@@ -306,45 +306,11 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitEncryptedEventLog(
-    [contractAddress]: ACVMField[],
-    [randomness]: ACVMField[],
-    encryptedEvent: ACVMField[],
-    [counter]: ACVMField[],
-  ): void {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedEvent.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedEventLog(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(randomness),
-      processedInput,
-      +counter,
-    );
-  }
-
-  emitEncryptedNoteLog([noteHashCounter]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedNote.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedNoteLog(+noteHashCounter, processedInput, +counter);
-  }
-
-  emitUnencryptedLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
-    this.typedOracle.emitUnencryptedLog(log, +counter);
-    return toACVMField(0);
-  }
-
-  emitContractClassUnencryptedLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
-
-    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
+    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
     return toACVMField(logHash);
   }
 
@@ -409,23 +375,22 @@ export class Oracle {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
-  async getAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.typedOracle.getAppTaggingSecret(
+  async getAppTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getAppTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
-    await this.typedOracle.incrementAppTaggingSecret(
+  async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecretIndexAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
   }
 
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
+  async syncNotes() {
+    await this.typedOracle.syncNotes();
   }
 }

@@ -1,4 +1,68 @@
-# Enable and configure Grafana
+opentelemetry-collector:
+  ports:
+    jaeger-compact:
+      enabled: false
+  service:
+    enabled: true
+    type: LoadBalancer
+  config:
+    exporters:
+      # debug:
+      #   verbosity: detailed
+      otlphttp/logs:
+        endpoint: http://loki-write.metrics:3100/otlp
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+
+loki:
+  loki:
+    schemaConfig:
+      configs:
+        - from: "2024-04-01"
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+    ingester:
+      chunk_encoding: snappy
+    querier:
+      max_concurrent: 4
+    pattern_ingester:
+      enabled: true
+    limits_config:
+      allow_structured_metadata: true
+      volume_enabled: true
+      retention_period: 336h # 14 days
+    compactor:
+      retention_enabled: true
+      delete_request_store: s3
+    auth_enabled: false
+
+  deploymentMode: SimpleScalable
+
+  singleBinary:
+    replicas: 0
+  backend:
+    replicas: 2
+  read:
+    replicas: 2
+  write:
+    replicas: 3
+
+  minio:
+    enabled: true
+    persistence:
+      size: 64Gi
+
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
   service:
@@ -7,11 +71,18 @@ grafana:
     type: pvc
     enabled: true
     size: "10Gi"
-
-opentelemetry-collector:
-  ports:
-    jaeger-compact:
-      enabled: false
-  service:
-    enabled: true
-    type: LoadBalancer
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://loki-read.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

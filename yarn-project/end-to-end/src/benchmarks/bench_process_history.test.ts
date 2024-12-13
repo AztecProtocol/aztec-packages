@@ -9,14 +9,7 @@ import { type BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type EndToEndContext } from '../fixtures/utils.js';
-import {
-  benchmarkSetup,
-  getFolderSize,
-  makeDataDirectory,
-  sendTxs,
-  waitNewPXESynced,
-  waitRegisteredAccountSynced,
-} from './utils.js';
+import { benchmarkSetup, createNewPXE, getFolderSize, makeDataDirectory, sendTxs } from './utils.js';
 
 const BLOCK_SIZE = BENCHMARK_HISTORY_BLOCK_SIZE;
 const CHAIN_LENGTHS = BENCHMARK_HISTORY_CHAIN_LENGTHS;
@@ -76,20 +69,19 @@ describe('benchmarks/process_history', () => {
         // Create a new pxe and measure how much time it takes it to sync with failed and successful decryption
         // Skip the first two blocks used for setup (create account contract and deploy benchmarking contract)
         context.logger.info(`Starting new pxe`);
-        const pxe = await waitNewPXESynced(node, contract, INITIAL_L2_BLOCK_NUM + setupBlockCount);
+        const pxe = await createNewPXE(node, contract, INITIAL_L2_BLOCK_NUM + setupBlockCount);
 
         // Register the owner account and wait until it's synced so we measure how much time it took
         context.logger.info(`Registering owner account on new pxe`);
         const partialAddress = context.wallet.getCompleteAddress().partialAddress;
         const secretKey = context.wallet.getSecretKey();
-        await waitRegisteredAccountSynced(pxe, secretKey, partialAddress);
+        await pxe.registerAccount(secretKey, partialAddress);
 
         // Repeat for another account that didn't receive any notes for them, so we measure trial-decrypts
         context.logger.info(`Registering fresh account on new pxe`);
-        await waitRegisteredAccountSynced(pxe, Fr.random(), Fr.random());
+        await pxe.registerAccount(Fr.random(), Fr.random());
 
-        // Stop the external node and pxe
-        await pxe.stop();
+        // Stop the external node
         await node.stop();
 
         lastBlock = chainLength;

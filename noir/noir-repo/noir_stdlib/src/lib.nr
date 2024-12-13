@@ -3,15 +3,12 @@ pub mod aes128;
 pub mod array;
 pub mod slice;
 pub mod merkle;
-pub mod schnorr;
 pub mod ecdsa_secp256k1;
 pub mod ecdsa_secp256r1;
-pub mod eddsa;
 pub mod embedded_curve_ops;
 pub mod sha256;
 pub mod sha512;
 pub mod field;
-pub mod ec;
 pub mod collections;
 pub mod compat;
 pub mod convert;
@@ -29,6 +26,7 @@ pub mod meta;
 pub mod append;
 pub mod mem;
 pub mod panic;
+pub mod hint;
 
 // Oracle calls are required to be wrapped in an unconstrained function
 // Thus, the only argument to the `println` oracle is expected to always be an ident
@@ -117,4 +115,3 @@ pub fn wrapping_mul<T>(x: T, y: T) -> T {
 
 #[builtin(as_witness)]
 pub fn as_witness(x: Field) {}
-

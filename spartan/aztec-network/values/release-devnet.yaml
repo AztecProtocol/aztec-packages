@@ -1,0 +1,44 @@
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
+
+validator:
+  replicas: 1
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
+
+proverAgent:
+  replicas: 1
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "1"
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 200
+
+network:
+  public: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false
+
+jobs:
+  deployL1Verifier:
+    enable: false

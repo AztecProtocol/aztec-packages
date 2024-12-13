@@ -1,6 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -48,6 +49,8 @@ template <typename Builder> class ram_table {
 
   private:
     std::vector<field_pt> _raw_entries;
+    // Origin Tags for detection of dangerous interactions within stdlib primitives
+    mutable std::vector<OriginTag> _tags;
     mutable std::vector<bool> _index_initialized;
     size_t _length = 0;
     mutable size_t _ram_id = 0; // Builder identifier for this ROM table

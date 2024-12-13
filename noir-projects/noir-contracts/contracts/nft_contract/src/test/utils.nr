@@ -1,6 +1,5 @@
 use crate::{NFT, types::nft_note::NFTNote};
 use dep::aztec::{
-    hash::pedersen_hash,
     oracle::{
         execution::{get_block_number, get_contract_address},
         random::random,

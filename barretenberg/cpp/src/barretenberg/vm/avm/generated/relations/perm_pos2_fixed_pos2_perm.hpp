@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_pos2_fixed_pos2_perm_permutation_settings {
   public:
@@ -80,4 +80,4 @@ class perm_pos2_fixed_pos2_perm_relation
 template <typename FF_>
 using perm_pos2_fixed_pos2_perm = GenericPermutation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

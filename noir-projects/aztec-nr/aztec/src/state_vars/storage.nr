@@ -13,5 +13,5 @@ where
 // Every entry in the storage struct will be exported in the compilation artifact as a
 // Storable entity, containing the storage slot
 pub struct Storable {
-    slot: Field,
+    pub slot: Field,
 }

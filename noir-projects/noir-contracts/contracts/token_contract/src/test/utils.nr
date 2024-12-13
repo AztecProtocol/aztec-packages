@@ -44,32 +44,38 @@ pub unconstrained fn setup(
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub unconstrained fn setup_and_mint_public(
+pub unconstrained fn setup_and_mint_to_public(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
     // Mint some tokens
-    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
+    Token::at(token_contract_address).mint_to_public(owner, mint_amount).call(&mut env.public());
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 
-pub unconstrained fn setup_and_mint_private(
+pub unconstrained fn setup_and_mint_amount_to_private(
     with_account_contracts: bool,
+    mint_amount: Field,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup the tokens and mint public balance
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
     // Mint some tokens
-    let mint_amount = 10000;
-    mint_private(env, token_contract_address, owner, mint_amount);
+    mint_to_private(env, token_contract_address, owner, mint_amount);
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 
-pub unconstrained fn mint_private(
+pub unconstrained fn setup_and_mint_to_private(
+    with_account_contracts: bool,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+    setup_and_mint_amount_to_private(with_account_contracts, 10000)
+}
+
+pub unconstrained fn mint_to_private(
     env: &mut TestEnvironment,
     token_contract_address: AztecAddress,
     recipient: AztecAddress,
@@ -78,7 +84,10 @@ pub unconstrained fn mint_private(
     let note_randomness = random();
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
-    Token::at(token_contract_address).mint_to_private(recipient, amount).call(&mut env.private());
+    let from = recipient; // we are setting from to recipient because of TODO(#9887)
+    Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
+        &mut env.private(),
+    );
 
     add_token_note(
         env,

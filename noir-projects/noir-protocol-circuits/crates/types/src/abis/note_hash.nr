@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub struct NoteHash {
-    value: Field,
-    counter: u32,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for NoteHash {
@@ -48,8 +48,8 @@ impl NoteHash {
 }
 
 pub struct ScopedNoteHash {
-    note_hash: NoteHash,
-    contract_address: AztecAddress,
+    pub note_hash: NoteHash,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<NoteHash> for ScopedNoteHash {

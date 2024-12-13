@@ -4,7 +4,7 @@ export * from './abi_types.js';
 export * from './cheat_codes.js';
 export * from './authwit.js';
 export * from './pxe.js';
-export * from './account.js';
+export * from './node.js';
 export * from './anvil_test_watcher.js';
 export * from './field_compressed_string.js';
 export * from './portal_manager.js';

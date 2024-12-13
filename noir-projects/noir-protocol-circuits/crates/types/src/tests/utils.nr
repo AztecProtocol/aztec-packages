@@ -14,9 +14,9 @@ where
 // Swap two items in a BoundedVec.
 // Useful when we want to shuffle side effects, which by default are ordered by counters when we add mock data to FixtureBuilder.
 pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to_index: u32) {
-    let tmp = vec.storage[from_index];
-    vec.storage[from_index] = vec.storage[to_index];
-    vec.storage[to_index] = tmp;
+    let tmp = vec.get(from_index);
+    vec.set(from_index, vec.get(to_index));
+    vec.set(to_index, tmp);
 }
 
 pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M] {

@@ -112,29 +112,6 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
 
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    void extend_edges_with_masking(ExtendedEdges& extended_edges,
-                                   ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                                   const size_t edge_idx,
-                                   const ZKSumcheckData<Flavor>& zk_sumcheck_data)
-    {
-        // extend edges of witness polynomials and add correcting terms
-        for (auto [extended_edge, multivariate, masking_univariate] :
-             zip_view(extended_edges.get_all_witnesses(),
-                      multivariates.get_all_witnesses(),
-                      zk_sumcheck_data.masking_terms_evaluations)) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            extended_edge += masking_univariate;
-        };
-        // extend edges of public polynomials
-        for (auto [extended_edge, multivariate] :
-             zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-        };
-    };
-
     /**
      * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$  at \f$ X_{i } =
      0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
@@ -192,11 +169,7 @@ template <typename Flavor> class SumcheckProverRound {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                if constexpr (!Flavor::HasZK) {
-                    extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
-                } else {
-                    extend_edges_with_masking(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
-                }
+                extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
@@ -322,7 +295,7 @@ template <typename Flavor> class SumcheckProverRound {
     {
         SumcheckRoundUnivariate libra_round_univariate;
         // select the i'th column of Libra book-keeping table
-        auto current_column = zk_sumcheck_data.libra_univariates[round_idx];
+        const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
         for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; ++idx) {
@@ -535,6 +508,9 @@ template <typename Flavor> class SumcheckVerifierRound {
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
         if constexpr (Flavor::HasZK) {
             output += full_libra_purported_value.value();
+            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+                output.self_reduce();
+            }
         };
         return output;
     }

@@ -1,7 +1,6 @@
 use acvm::{AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
-use regex::Regex;
 use rustc_hash::FxHashSet as HashSet;
 
 use crate::{
@@ -29,7 +28,7 @@ use crate::{
         traits::{ResolvedTraitBound, TraitConstraint},
     },
     node_interner::{DefinitionKind, ExprId, FuncId, InternedStatementKind, TraitMethodId},
-    token::Tokens,
+    token::{FmtStrFragment, Tokens},
     Kind, QuotedType, Shared, StructType, Type,
 };
 
@@ -167,7 +166,7 @@ impl<'context> Elaborator<'context> {
                 let len = Type::Constant(str.len().into(), Kind::u32());
                 (Lit(HirLiteral::Str(str)), Type::String(Box::new(len)))
             }
-            Literal::FmtStr(str) => self.elaborate_fmt_string(str, span),
+            Literal::FmtStr(fragments, length) => self.elaborate_fmt_string(fragments, length),
             Literal::Array(array_literal) => {
                 self.elaborate_array_literal(array_literal, span, true)
             }
@@ -234,53 +233,50 @@ impl<'context> Elaborator<'context> {
         (HirExpression::Literal(constructor(expr)), typ)
     }
 
-    fn elaborate_fmt_string(&mut self, str: String, call_expr_span: Span) -> (HirExpression, Type) {
-        let re = Regex::new(r"\{([a-zA-Z0-9_]+)\}")
-            .expect("ICE: an invalid regex pattern was used for checking format strings");
-
+    fn elaborate_fmt_string(
+        &mut self,
+        fragments: Vec<FmtStrFragment>,
+        length: u32,
+    ) -> (HirExpression, Type) {
         let mut fmt_str_idents = Vec::new();
         let mut capture_types = Vec::new();
 
-        for field in re.find_iter(&str) {
-            let matched_str = field.as_str();
-            let ident_name = &matched_str[1..(matched_str.len() - 1)];
+        for fragment in &fragments {
+            if let FmtStrFragment::Interpolation(ident_name, string_span) = fragment {
+                let scope_tree = self.scopes.current_scope_tree();
+                let variable = scope_tree.find(ident_name);
 
-            let scope_tree = self.scopes.current_scope_tree();
-            let variable = scope_tree.find(ident_name);
+                let hir_ident = if let Some((old_value, _)) = variable {
+                    old_value.num_times_used += 1;
+                    old_value.ident.clone()
+                } else if let Ok((definition_id, _)) =
+                    self.lookup_global(Path::from_single(ident_name.to_string(), *string_span))
+                {
+                    HirIdent::non_trait_method(
+                        definition_id,
+                        Location::new(*string_span, self.file),
+                    )
+                } else {
+                    self.push_err(ResolverError::VariableNotDeclared {
+                        name: ident_name.to_owned(),
+                        span: *string_span,
+                    });
+                    continue;
+                };
 
-            let hir_ident = if let Some((old_value, _)) = variable {
-                old_value.num_times_used += 1;
-                old_value.ident.clone()
-            } else if let Ok((definition_id, _)) =
-                self.lookup_global(Path::from_single(ident_name.to_string(), call_expr_span))
-            {
-                HirIdent::non_trait_method(definition_id, Location::new(call_expr_span, self.file))
-            } else if ident_name.parse::<usize>().is_ok() {
-                self.push_err(ResolverError::NumericConstantInFormatString {
-                    name: ident_name.to_owned(),
-                    span: call_expr_span,
-                });
-                continue;
-            } else {
-                self.push_err(ResolverError::VariableNotDeclared {
-                    name: ident_name.to_owned(),
-                    span: call_expr_span,
-                });
-                continue;
-            };
-
-            let hir_expr = HirExpression::Ident(hir_ident.clone(), None);
-            let expr_id = self.interner.push_expr(hir_expr);
-            self.interner.push_expr_location(expr_id, call_expr_span, self.file);
-            let typ = self.type_check_variable(hir_ident, expr_id, None);
-            self.interner.push_expr_type(expr_id, typ.clone());
-            capture_types.push(typ);
-            fmt_str_idents.push(expr_id);
+                let hir_expr = HirExpression::Ident(hir_ident.clone(), None);
+                let expr_id = self.interner.push_expr(hir_expr);
+                self.interner.push_expr_location(expr_id, *string_span, self.file);
+                let typ = self.type_check_variable(hir_ident, expr_id, None);
+                self.interner.push_expr_type(expr_id, typ.clone());
+                capture_types.push(typ);
+                fmt_str_idents.push(expr_id);
+            }
         }
 
-        let len = Type::Constant(str.len().into(), Kind::u32());
+        let len = Type::Constant(length.into(), Kind::u32());
         let typ = Type::FmtString(Box::new(len), Box::new(Type::Tuple(capture_types)));
-        (HirExpression::Literal(HirLiteral::FmtStr(str, fmt_str_idents)), typ)
+        (HirExpression::Literal(HirLiteral::FmtStr(fragments, fmt_str_idents, length)), typ)
     }
 
     fn elaborate_prefix(&mut self, prefix: PrefixExpression, span: Span) -> (ExprId, Type) {
@@ -350,6 +346,10 @@ impl<'context> Elaborator<'context> {
             Type::Array(_, base_type) => *base_type,
             Type::Slice(base_type) => *base_type,
             Type::Error => Type::Error,
+            Type::TypeVariable(_) => {
+                self.push_err(TypeCheckError::TypeAnnotationsNeededForIndex { span: lhs_span });
+                Type::Error
+            }
             typ => {
                 self.push_err(TypeCheckError::TypeMismatch {
                     expected_typ: "Array".to_owned(),
@@ -591,7 +591,7 @@ impl<'context> Elaborator<'context> {
     pub(super) fn mark_struct_as_constructed(&mut self, struct_type: Shared<StructType>) {
         let struct_type = struct_type.borrow();
         let parent_module_id = struct_type.id.parent_module_id(self.def_maps);
-        self.interner.usage_tracker.mark_as_used(parent_module_id, &struct_type.name);
+        self.usage_tracker.mark_as_used(parent_module_id, &struct_type.name);
     }
 
     /// Resolve all the fields of a struct constructor expression.
@@ -907,7 +907,17 @@ impl<'context> Elaborator<'context> {
 
         let location = Location::new(span, self.file);
         match value.into_expression(self.interner, location) {
-            Ok(new_expr) => self.elaborate_expression(new_expr),
+            Ok(new_expr) => {
+                // At this point the Expression was already elaborated and we got a Value.
+                // We'll elaborate this value turned into Expression to inline it and get
+                // an ExprId and Type, but we don't want any visibility errors to happen
+                // here (they could if we have `Foo { inner: 5 }` and `inner` is not
+                // accessible from where this expression is being elaborated).
+                self.silence_field_visibility_errors += 1;
+                let value = self.elaborate_expression(new_expr);
+                self.silence_field_visibility_errors -= 1;
+                value
+            }
             Err(error) => make_error(self, error),
         }
     }

@@ -14,7 +14,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from '../fixtures/utils.js';
 
 // docs:start:account-contract
-const PRIVATE_KEY = GrumpkinScalar.fromString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
+const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
@@ -64,7 +64,8 @@ describe('guides/writing_an_account_contract', () => {
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    await token.methods.mint_to_private(address, mintAmount).send().wait();
+    const from = address; // we are setting from to address here because of TODO(#9887)
+    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
@@ -79,7 +80,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

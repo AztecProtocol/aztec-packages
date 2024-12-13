@@ -1,11 +1,14 @@
 use dep::types::{
-    abis::{log_hash::NoteLogHash, note_hash::ScopedNoteHash, nullifier::ScopedNullifier},
+    abis::{
+        note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
+        side_effect::scoped::Scoped,
+    },
     traits::is_empty,
 };
 
 pub struct TransientDataIndexHint {
-    nullifier_index: u32,
-    note_hash_index: u32,
+    pub nullifier_index: u32,
+    pub note_hash_index: u32,
 }
 
 impl TransientDataIndexHint {
@@ -17,11 +20,15 @@ impl TransientDataIndexHint {
 pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
     note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-    note_logs: [NoteLogHash; NUM_LOGS],
+    logs: [Scoped<PrivateLogData>; NUM_LOGS],
     expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     expected_nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-    expected_note_logs: [NoteLogHash; NUM_LOGS],
+    expected_logs: [Scoped<PrivateLogData>; NUM_LOGS],
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
+    // This array maps each log to its associated note hash index, identifying whether the log corresponds to a transient or propagated note hash.
+    // If a log is associated with a propagated note hash, the index refers to its position in the expected_note_hashes array.
+    // If a log is associated with a squashed note hash, the index is for the hint in transient_data_index_hints.
+    // For non-note logs or empty logs (where note_hash_counter is 0), the value does not matter.
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32,
     squashed_note_hash_hints: [bool; NUM_NOTE_HASHES],
@@ -100,37 +107,43 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
     }
     assert_eq(nullifiers_kept + num_squashed, NUM_NULLIFIERS, "Wrong number of nullifiers removed");
 
-    let mut note_logs_kept = 0;
-    let mut note_logs_removed = 0;
+    /*
+     * Log Squashing
+     */
+    let mut logs_propagated = 0;
+    let mut logs_squashed = 0;
     for i in 0..NUM_LOGS {
-        let log = note_logs[i];
+        let log = logs[i];
         let hint_index = transient_or_propagated_note_hash_indexes_for_logs[i];
-        // - For non-empty logs, their note_hash_counter can't be 0. It must match the counter of a note hash, which is verified in private_call_data_validator.
-        //   Therefor, is_propagated will be false if index_hint incorrectly points to an empty expected_note_hash and fails the check inside the else statement.
-        // - For empty logs, we expect is_propagated to be true, making them part of the note_logs_kept.
-        //   index_hint might point them to the same empty note. This doesn't matter because we increment the value of
-        //   note_logs_kept and ensure that the correct number of empty logs are present in the expected_note_logs.
-        let is_propagated = expected_note_hashes[hint_index].counter() == log.note_hash_counter;
+
+        // Logs with 0 note_hash_counter must be propagated.
+        // Logs linked to a propagated note hash will also be propagated. In this case, the log's note_hash_counter points to a note hash in expected_note_hashes.
+        let is_propagated = (log.inner.note_hash_counter == 0)
+            | (expected_note_hashes[hint_index].counter() == log.inner.note_hash_counter);
+
         let expected_index = if is_propagated {
-            note_logs_kept
+            logs_propagated
         } else {
-            NUM_LOGS - note_logs_removed - 1
+            NUM_LOGS - logs_squashed - 1
         };
-        let expected_log = expected_note_logs[expected_index];
+
+        let expected_log = expected_logs[expected_index];
         if is_propagated {
-            assert_eq(expected_log, log, "Propagated note log does not match");
-            note_logs_kept += 1;
+            assert_eq(expected_log, log, "Propagated private log does not match");
+            logs_propagated += 1;
         } else {
+            // Log being squashed must be linked to a note hash that's been squashed.
+            // The linked note hash's index should exist in transient_data_index_hints.
             let hint = transient_data_index_hints[hint_index];
             let transient_note_hash = note_hashes[hint.note_hash_index];
             assert_eq(
-                log.note_hash_counter,
+                log.inner.note_hash_counter,
                 transient_note_hash.counter(),
                 "Value of the hinted transient note hash does not match log",
             );
             // For each log removed, an empty item is padded to the right.
             assert(is_empty(expected_log), "Empty log must be padded to the right");
-            note_logs_removed += 1;
+            logs_squashed += 1;
         }
     }
 }
@@ -164,10 +177,10 @@ pub unconstrained fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let 
 pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
     note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-    note_logs: [NoteLogHash; NUM_LOGS],
+    logs: [Scoped<PrivateLogData>; NUM_LOGS],
     expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     expected_nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-    expected_note_logs: [NoteLogHash; NUM_LOGS],
+    expected_logs: [Scoped<PrivateLogData>; NUM_LOGS],
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32,
@@ -179,10 +192,10 @@ pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIE
     verify_squashed_transient_data_with_hint_indexes(
         note_hashes,
         nullifiers,
-        note_logs,
+        logs,
         expected_note_hashes,
         expected_nullifiers,
-        expected_note_logs,
+        expected_logs,
         transient_data_index_hints,
         transient_or_propagated_note_hash_indexes_for_logs,
         split_counter,
@@ -198,28 +211,35 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            log_hash::NoteLogHash,
             note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
+            private_log::{PrivateLog, PrivateLogData},
+            side_effect::scoped::Scoped,
         },
         address::AztecAddress,
+        constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+        tests::utils::pad_end,
     };
 
-    global contract_address = AztecAddress::from_field(987654);
+    global contract_address: AztecAddress = AztecAddress::from_field(987654);
+
+    fn mock_log(filled_with: Field) -> PrivateLog {
+        PrivateLog::new([filled_with; PRIVATE_LOG_SIZE_IN_FIELDS])
+    }
 
     struct TestDataBuilder<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> {
         note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
         nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-        note_logs: [NoteLogHash; NUM_LOGS],
+        logs: [Scoped<PrivateLogData>; NUM_LOGS],
         expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
         expected_nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
-        expected_note_logs: [NoteLogHash; NUM_LOGS],
+        expected_logs: [Scoped<PrivateLogData>; NUM_LOGS],
         transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
         transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
         split_counter: u32,
     }
 
-    impl TestDataBuilder<5, 4, 3, 2> {
+    impl TestDataBuilder<5, 4, 6, 2> {
         pub fn new() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address),
@@ -236,32 +256,43 @@ mod tests {
                 ScopedNullifier::empty(),
             ];
 
-            let note_logs = [
-                NoteLogHash { value: 77, counter: 700, length: 70, note_hash_counter: 100 },
-                NoteLogHash { value: 88, counter: 800, length: 80, note_hash_counter: 200 },
-                NoteLogHash::empty(),
-            ];
+            let logs = pad_end(
+                [
+                    PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }
+                        .scope(contract_address),
+                    PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 200 }
+                        .scope(contract_address),
+                    PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 0 }.scope(
+                        contract_address,
+                    ),
+                ],
+                Scoped::empty(),
+            );
 
             let mut expected_note_hashes = [ScopedNoteHash::empty(); 5];
             expected_note_hashes[0] = note_hashes[1];
             let mut expected_nullifiers = [ScopedNullifier::empty(); 4];
             expected_nullifiers[0] = nullifiers[2];
-            let mut expected_note_logs = [NoteLogHash::empty(); 3];
-            expected_note_logs[0] = note_logs[1];
+            let mut expected_logs = [Scoped::empty(); 6];
+            expected_logs[0] = logs[1];
+            expected_logs[1] = logs[2];
 
             let transient_data_index_hints = [
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 2 },
                 TransientDataIndexHint { nullifier_index: 1, note_hash_index: 0 },
             ];
-            let transient_or_propagated_note_hash_indexes_for_logs = [1, 0, 1];
 
+            let mut transient_or_propagated_note_hash_indexes_for_logs = [0; 6];
+            transient_or_propagated_note_hash_indexes_for_logs[0] = 1; // Points to transient_data_index_hints[1].
+            transient_or_propagated_note_hash_indexes_for_logs[1] = 0; // Points to expected_note_hashes[0].
+            transient_or_propagated_note_hash_indexes_for_logs[2] = 3; // This can be any value < NUM_NOTES. The log has 0 note_hash_counter and will always be propagated.
             TestDataBuilder {
                 note_hashes,
                 nullifiers,
-                note_logs,
+                logs,
                 expected_note_hashes,
                 expected_nullifiers,
-                expected_note_logs,
+                expected_logs,
                 transient_data_index_hints,
                 transient_or_propagated_note_hash_indexes_for_logs,
                 split_counter: 0,
@@ -284,16 +315,24 @@ mod tests {
             ];
 
             // tests removing two logs for one note hash
-            let note_logs = [
-                NoteLogHash { value: 77, counter: 700, length: 70, note_hash_counter: 100 },
-                NoteLogHash { value: 88, counter: 800, length: 80, note_hash_counter: 300 },
-                NoteLogHash { value: 99, counter: 900, length: 90, note_hash_counter: 200 },
-                NoteLogHash { value: 111, counter: 1000, length: 100, note_hash_counter: 300 },
+            let logs = [
+                PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 300 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(111), counter: 1000, note_hash_counter: 300 }.scope(
+                    contract_address,
+                ),
             ];
 
             let expected_note_hashes = [ScopedNoteHash::empty(); 3];
             let expected_nullifiers = [ScopedNullifier::empty(); 3];
-            let expected_note_logs = [NoteLogHash::empty(); 4];
+            let expected_logs = [Scoped::empty(); 4];
 
             let transient_data_index_hints = [
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 2 },
@@ -305,10 +344,10 @@ mod tests {
             TestDataBuilder {
                 note_hashes,
                 nullifiers,
-                note_logs,
+                logs,
                 expected_note_hashes,
                 expected_nullifiers,
-                expected_note_logs,
+                expected_logs,
                 transient_data_index_hints,
                 transient_or_propagated_note_hash_indexes_for_logs,
                 split_counter: 0,
@@ -316,7 +355,7 @@ mod tests {
         }
     }
 
-    impl TestDataBuilder<3, 3, 4, 3> {
+    impl TestDataBuilder<3, 3, 5, 3> {
         pub fn new_identical_note_hashes() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address),
@@ -330,34 +369,46 @@ mod tests {
                 Nullifier { value: 55, counter: 500, note_hash: 11 }.scope(contract_address),
             ];
 
-            let note_logs = [
-                NoteLogHash { value: 77, counter: 701, length: 70, note_hash_counter: 200 },
-                NoteLogHash { value: 77, counter: 702, length: 70, note_hash_counter: 200 },
-                NoteLogHash { value: 77, counter: 703, length: 70, note_hash_counter: 200 },
-                NoteLogHash { value: 88, counter: 800, length: 80, note_hash_counter: 600 },
+            let logs = [
+                PrivateLogData { log: mock_log(77), counter: 701, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(88), counter: 800, note_hash_counter: 0 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(77), counter: 702, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(99), counter: 900, note_hash_counter: 600 }.scope(
+                    contract_address,
+                ),
+                PrivateLogData { log: mock_log(77), counter: 703, note_hash_counter: 200 }.scope(
+                    contract_address,
+                ),
             ];
 
             let expected_note_hashes =
                 [note_hashes[2], ScopedNoteHash::empty(), ScopedNoteHash::empty()];
             let expected_nullifiers =
                 [nullifiers[1], ScopedNullifier::empty(), ScopedNullifier::empty()];
-            let expected_note_logs =
-                [note_logs[3], NoteLogHash::empty(), NoteLogHash::empty(), NoteLogHash::empty()];
+            let mut expected_logs = [Scoped::empty(); 5];
+            expected_logs[0] = logs[1];
+            expected_logs[1] = logs[3];
 
             let transient_data_index_hints = [
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 0 },
                 TransientDataIndexHint { nullifier_index: 2, note_hash_index: 1 },
                 TransientDataIndexHint { nullifier_index: 3, note_hash_index: 3 },
             ];
-            let transient_or_propagated_note_hash_indexes_for_logs = [1, 1, 1, 0];
+            let transient_or_propagated_note_hash_indexes_for_logs = [1, 0, 1, 0, 1];
 
             TestDataBuilder {
                 note_hashes,
                 nullifiers,
-                note_logs,
+                logs,
                 expected_note_hashes,
                 expected_nullifiers,
-                expected_note_logs,
+                expected_logs,
                 transient_data_index_hints,
                 transient_or_propagated_note_hash_indexes_for_logs,
                 split_counter: 0,
@@ -386,10 +437,10 @@ mod tests {
             verify_squashed_transient_data(
                 self.note_hashes,
                 self.nullifiers,
-                self.note_logs,
+                self.logs,
                 self.expected_note_hashes,
                 self.expected_nullifiers,
-                self.expected_note_logs,
+                self.expected_logs,
                 self.transient_data_index_hints,
                 self.transient_or_propagated_note_hash_indexes_for_logs,
                 self.split_counter,
@@ -404,10 +455,10 @@ mod tests {
             verify_squashed_transient_data_with_hint_indexes(
                 self.note_hashes,
                 self.nullifiers,
-                self.note_logs,
+                self.logs,
                 self.expected_note_hashes,
                 self.expected_nullifiers,
-                self.expected_note_logs,
+                self.expected_logs,
                 self.transient_data_index_hints,
                 self.transient_or_propagated_note_hash_indexes_for_logs,
                 self.split_counter,
@@ -444,8 +495,8 @@ mod tests {
         // Keep the logs for note hash at index 0.
         builder.transient_or_propagated_note_hash_indexes_for_logs[1] = 0; // Point it to the expected not hash at index 0.
         builder.transient_or_propagated_note_hash_indexes_for_logs[3] = 0; // Point it to the expected not hash at index 0.
-        builder.expected_note_logs[0] = builder.note_logs[1];
-        builder.expected_note_logs[1] = builder.note_logs[3];
+        builder.expected_logs[0] = builder.logs[1];
+        builder.expected_logs[1] = builder.logs[3];
 
         builder.verify();
     }
@@ -651,25 +702,25 @@ mod tests {
     fn fails_unexpected_log_value() {
         let mut builder = TestDataBuilder::new_clear_all();
 
-        builder.expected_note_logs[2].value = 1;
+        builder.expected_logs[2].inner.log.fields[0] = 1;
 
         builder.verify();
     }
 
-    #[test(should_fail_with = "Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated private log does not match")]
     fn fails_wrong_expected_log_value() {
         let mut builder = TestDataBuilder::new();
 
-        builder.expected_note_logs[0].value += 1;
+        builder.expected_logs[0].inner.log.fields[0] += 1;
 
         builder.verify();
     }
 
-    #[test(should_fail_with = "Propagated note log does not match")]
+    #[test(should_fail_with = "Propagated private log does not match")]
     fn fails_wrong_expected_log_counter() {
         let mut builder = TestDataBuilder::new();
 
-        builder.expected_note_logs[0].counter += 1;
+        builder.expected_logs[0].inner.counter += 1;
 
         builder.verify();
     }
@@ -687,7 +738,7 @@ mod tests {
     fn fails_wrong_log_note_hash() {
         let mut builder = TestDataBuilder::new();
 
-        builder.note_logs[0].note_hash_counter += 1;
+        builder.logs[0].inner.note_hash_counter += 1;
 
         builder.verify();
     }
@@ -697,7 +748,7 @@ mod tests {
         let mut builder = TestDataBuilder::new_clear_all();
 
         // Keep the log.
-        builder.expected_note_logs[1] = builder.note_logs[0];
+        builder.expected_logs[1] = builder.logs[0];
 
         builder.verify();
     }

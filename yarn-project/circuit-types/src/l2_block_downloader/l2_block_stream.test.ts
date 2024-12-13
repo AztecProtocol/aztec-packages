@@ -1,4 +1,4 @@
-import { Fr, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { compactArray } from '@aztec/foundation/collection';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -37,12 +37,12 @@ describe('L2BlockStream', () => {
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
-    blockStream = new TestL2BlockStream(blockSource, localData, handler, { batchSize: 10 });
+    blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
   });
 
   const makeBlock = (number: number) => ({ number } as L2Block);
 
-  const makeHeader = (number: number) => mock<Header>({ hash: () => new Fr(number) });
+  const makeHeader = (number: number) => mock<BlockHeader>({ hash: () => new Fr(number) } as BlockHeader);
 
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;

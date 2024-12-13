@@ -58,8 +58,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
 
+#ifndef __wasm__
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
+#endif
 }
 
 /**
@@ -119,7 +121,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         transcript->send_to_verifier(domain_separator + wire_labels[idx], wire_comms[idx]);
     }
 
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
@@ -204,14 +206,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
-        witness_commitments.lookup_inverses =
-            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
+        witness_commitments.lookup_inverses = proving_key->proving_key.commitment_key->commit_sparse(
+            proving_key->proving_key.polynomials.lookup_inverses);
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);
 
     // If Mega, commit to the databus inverse polynomials and send
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_inverses(),
                       proving_key->proving_key.polynomials.get_databus_inverses(),
@@ -232,15 +234,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
-    // Compute the permutation and lookup grand product polynomials
-    proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
+    // Compute the permutation grand product polynomial
+
+    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
+                                                              proving_key->final_active_wire_idx + 1);
 
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
         if (proving_key->get_is_structured()) {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-                    proving_key->proving_key.polynomials.z_perm, proving_key->proving_key.active_block_ranges);
+                    proving_key->proving_key.polynomials.z_perm,
+                    proving_key->proving_key.active_block_ranges,
+                    proving_key->final_active_wire_idx + 1);
         } else {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
@@ -263,6 +269,8 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
+template class OinkProver<MegaZKFlavor>;
 
 } // namespace bb

@@ -17,25 +17,24 @@ import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 
 import { AztecDatastore } from './data_store.js';
 
-const CLEANUP_TIMEOUT = 30_000;
+const CLEANUP_TIMEOUT = 120_000;
 
 describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;
   let aztecStore: AztecLmdbStore;
 
-  beforeAll(() => {
+  beforeEach(() => {
     aztecStore = AztecLmdbStore.open();
+    datastore = new AztecDatastore(aztecStore);
   });
 
-  beforeEach(async () => {
-    datastore = new AztecDatastore(aztecStore);
-    await aztecStore.clear();
+  afterEach(async () => {
+    await aztecStore.delete();
   });
 
   it('should store and retrieve an item', async () => {
     const key = new Key('testKey');
     const value = new Uint8Array([1, 2, 3]);
-
     await datastore.put(key, value);
     const retrieved = datastore.get(key);
 

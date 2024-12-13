@@ -4,12 +4,20 @@ pragma solidity ^0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
+struct Signature {
+  bool isEmpty;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
+}
+
 library SignatureLib {
-  struct Signature {
-    bool isEmpty;
-    uint8 v;
-    bytes32 r;
-    bytes32 s;
+  /**
+   * @notice The domain seperator for the signatures
+   */
+  enum SignatureDomainSeperator {
+    blockProposal,
+    blockAttestation
   }
 
   /**

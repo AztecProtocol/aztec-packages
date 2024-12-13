@@ -2,13 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   using SafeERC20 for IERC20;
@@ -18,32 +16,39 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
     Timestamp executableAt;
   }
 
+  uint256 public immutable WITHDRAW_DELAY;
+
   address public immutable ROLLUP;
-  uint256 public constant WITHDRAW_DELAY =
-    Constants.ETHEREUM_SLOT_DURATION * Constants.AZTEC_EPOCH_DURATION * 3;
+  IERC20 public immutable TOKEN;
+
   mapping(address => uint256) public deposits;
   mapping(address => WithdrawRequest) public withdrawRequests;
-  IERC20 public immutable token;
 
   modifier onlyRollup() {
     require(msg.sender == ROLLUP, Errors.ProofCommitmentEscrow__NotOwner(msg.sender));
     _;
   }
 
-  constructor(IERC20 _token, address _rollup) {
+  constructor(
+    IERC20 _token,
+    address _rollup,
+    uint256 _aztecSlotDuration,
+    uint256 _aztecEpochDuration
+  ) {
     ROLLUP = _rollup;
-    token = _token;
+    TOKEN = _token;
+    WITHDRAW_DELAY = _aztecSlotDuration * _aztecEpochDuration;
   }
 
   /**
-   * @notice  Deposit tokens into the escrow
+   * @notice  Deposit TOKENs into the escrow
    *
-   * @dev     The caller must have approved the token transfer
+   * @dev     The caller must have approved the TOKEN transfer
    *
-   * @param _amount The amount of tokens to deposit
+   * @param _amount The amount of TOKENs to deposit
    */
-  function deposit(uint256 _amount) external override {
-    token.safeTransferFrom(msg.sender, address(this), _amount);
+  function deposit(uint256 _amount) external override(IProofCommitmentEscrow) {
+    TOKEN.safeTransferFrom(msg.sender, address(this), _amount);
 
     deposits[msg.sender] += _amount;
 
@@ -57,9 +62,9 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
    *          The withdrawal request will be executable after a delay
    *          Subsequent calls to this function will overwrite the previous request
    *
-   * @param _amount - The amount of tokens to withdraw
+   * @param _amount - The amount of TOKENs to withdraw
    */
-  function startWithdraw(uint256 _amount) external override {
+  function startWithdraw(uint256 _amount) external override(IProofCommitmentEscrow) {
     require(
       deposits[msg.sender] >= _amount,
       Errors.ProofCommitmentEscrow__InsufficientBalance(deposits[msg.sender], _amount)
@@ -76,7 +81,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   /**
    * @notice Execute a mature withdrawal request
    */
-  function executeWithdraw() external override {
+  function executeWithdraw() external override(IProofCommitmentEscrow) {
     WithdrawRequest memory request = withdrawRequests[msg.sender];
     require(
       request.executableAt <= Timestamp.wrap(block.timestamp),
@@ -85,33 +90,45 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
 
     delete withdrawRequests[msg.sender];
     deposits[msg.sender] -= request.amount;
-    token.safeTransfer(msg.sender, request.amount);
+    TOKEN.safeTransfer(msg.sender, request.amount);
 
     emit ExecuteWithdraw(msg.sender, request.amount);
   }
 
   /**
-   * @notice  Stake an amount of previously deposited tokens
+   * @notice  Stake an amount of previously deposited TOKENs
    *
    * @dev     Only callable by the owner
    *          The prover must have sufficient balance
    *          The prover's balance will be reduced by the bond amount
    */
-  function stakeBond(address _prover, uint256 _amount) external override onlyRollup {
+  function stakeBond(address _prover, uint256 _amount)
+    external
+    override(IProofCommitmentEscrow)
+    onlyRollup
+  {
     deposits[_prover] -= _amount;
 
     emit StakeBond(_prover, _amount);
   }
 
   /**
-   * @notice  Unstake the bonded tokens, returning them to the prover
+   * @notice  Unstake the bonded TOKENs, returning them to the prover
    *
    * @dev     Only callable by the owner
    */
-  function unstakeBond(address _prover, uint256 _amount) external override onlyRollup {
+  function unstakeBond(address _prover, uint256 _amount)
+    external
+    override(IProofCommitmentEscrow)
+    onlyRollup
+  {
     deposits[_prover] += _amount;
 
     emit UnstakeBond(_prover, _amount);
+  }
+
+  function token() external view override(IProofCommitmentEscrow) returns (IERC20) {
+    return TOKEN;
   }
 
   /**
@@ -127,7 +144,7 @@ contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   function minBalanceAtTime(Timestamp _timestamp, address _prover)
     external
     view
-    override
+    override(IProofCommitmentEscrow)
     returns (uint256)
   {
     // If the timestamp is beyond the WITHDRAW_DELAY, the minimum possible balance is 0;

@@ -1,7 +1,7 @@
 {
   "name": "@aztec/bb.js",
   "packageManager": "yarn@1.22.22",
-  "version": "0.62.0",
+  "version": "0.67.0",
   "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/ts",
   "license": "MIT",
   "type": "module",
@@ -56,14 +56,17 @@
     "commander": "^10.0.1",
     "debug": "^4.3.4",
     "fflate": "^0.8.0",
+    "pako": "^2.1.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.4.3",
+    "@msgpack/msgpack": "^3.0.0-beta2",
     "@types/debug": "^4.1.7",
     "@types/detect-node": "^2.0.0",
     "@types/jest": "^29.4.0",
     "@types/node": "^18.7.23",
+    "@types/pako": "^2.0.3",
     "@types/source-map-support": "^0.5.6",
     "@typescript-eslint/eslint-plugin": "^5.54.1",
     "@typescript-eslint/parser": "^5.54.1",

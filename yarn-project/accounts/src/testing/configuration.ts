@@ -9,9 +9,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '../schnorr/index.js';
 
 export const INITIAL_TEST_SECRET_KEYS = [
-  Fr.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
-  Fr.fromString('aebd1b4be76efa44f5ee655c20bf9ea60f7ae44b9a7fd1fd9f189c7a0b0cdae'),
-  Fr.fromString('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c'),
+  Fr.fromHexString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
+  Fr.fromHexString('aebd1b4be76efa44f5ee655c20bf9ea60f7ae44b9a7fd1fd9f189c7a0b0cdae'),
+  Fr.fromHexString('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c'),
 ];
 
 export const INITIAL_TEST_ENCRYPTION_KEYS = INITIAL_TEST_SECRET_KEYS.map(secretKey =>

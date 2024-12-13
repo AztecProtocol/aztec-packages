@@ -11,7 +11,7 @@ contract GetVersionForTest is RegistryBase {
     _;
   }
 
-  function test_When_rollupIs0xdead() external givenNoAdditionalListedRollups {
+  function test_When_rollupIs0xdead() external view givenNoAdditionalListedRollups {
     // it should return 0
     assertEq(registry.getVersionFor(address(0xdead)), 0);
   }

@@ -1,7 +1,8 @@
-import { type AztecAddress, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
+// docs:start:token_utils
+import { type AztecAddress, type Logger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
-export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: DebugLogger) {
+export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
   const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
     .send()
@@ -24,29 +25,18 @@ export async function mintTokensToPrivate(
   amount: bigint,
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
-  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
+  const from = minterWallet.getAddress(); // we are setting from to minter here because of TODO(#9887)
+  await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
 }
-
-const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
-  const isUserSynchronized = async () => {
-    return await wallet.isAccountStateSynchronized(owner);
-  };
-  await retryUntil(isUserSynchronized, `synch of user ${owner.toString()}`, 10);
-};
+// docs:end:token_utils
 
 export async function expectTokenBalance(
   wallet: Wallet,
   token: TokenContract,
   owner: AztecAddress,
   expectedBalance: bigint,
-  logger: DebugLogger,
-  checkIfSynchronized = true,
+  logger: Logger,
 ) {
-  if (checkIfSynchronized) {
-    // First wait until the corresponding PXE has synchronized the account
-    await awaitUserSynchronized(wallet, owner);
-  }
-
   // Then check the balance
   const contractWithWallet = await TokenContract.at(token.address, wallet);
   const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });

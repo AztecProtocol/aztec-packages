@@ -7,15 +7,16 @@ import {
   type L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
+  type ProverCache,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
   type BootstrapNode,
   InMemoryAttestationPool,
@@ -25,7 +26,7 @@ import {
 } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
+import { type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
@@ -35,6 +36,7 @@ import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
+import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
@@ -48,7 +50,6 @@ describe('prover-node', () => {
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let coordination: MockProxy<ProverCoordination> | ProverCoordination;
-  let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
@@ -74,7 +75,6 @@ describe('prover-node', () => {
   let jobs: {
     job: MockProxy<EpochProvingJob>;
     cleanUp: (job: EpochProvingJob) => Promise<void>;
-    db: MerkleTreeWriteOperations;
     epochNumber: bigint;
   }[];
 
@@ -97,13 +97,13 @@ describe('prover-node', () => {
       contractDataSource,
       worldState,
       coordination,
-      simulator,
       quoteProvider,
       quoteSigner,
       claimsMonitor,
       epochMonitor,
       bondManager,
       telemetryClient,
+      new ProverCacheManager(),
       config,
     );
 
@@ -115,13 +115,12 @@ describe('prover-node', () => {
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
     coordination = mock<ProverCoordination>();
-    simulator = mock<SimulationProvider>();
     quoteProvider = mock<QuoteProvider>();
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();
 
     telemetryClient = new NoopTelemetryClient();
-    config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
+    config = { maxPendingJobs: 3, pollingIntervalMs: 10, maxParallelBlocksPerEpoch: 32 };
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
@@ -142,7 +141,7 @@ describe('prover-node', () => {
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
     // Archiver returns a bunch of fake blocks
-    blocks = times(3, i => mock<L2Block>({ number: i + 20 }));
+    blocks = times(3, i => mock<L2Block>({ number: i + 20, hash: () => new Fr(i) }));
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
 
     // A sample claim
@@ -174,6 +173,12 @@ describe('prover-node', () => {
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
 
       expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
+    });
+
+    it('does not send a quote if there are no blocks in the epoch', async () => {
+      l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
 
     it('does not send a quote on a finished epoch if the provider does not return one', async () => {
@@ -310,7 +315,7 @@ describe('prover-node', () => {
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0, telemetryClient);
+      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0);
     };
 
     beforeEach(async () => {
@@ -378,13 +383,13 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      db: MerkleTreeWriteOperations,
+      _cache: ProverCache,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
       const job = mock<EpochProvingJob>({ getState: () => 'processing', run: () => Promise.resolve() });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job, cleanUp, db });
+      jobs.push({ epochNumber, job, cleanUp });
       return job;
     }
 

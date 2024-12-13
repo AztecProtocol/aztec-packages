@@ -31,7 +31,7 @@ If you are new to Kubernetes, the following resources may also be helpful:
 
 ## Aztec Staging and Production Environments
 
-Aztec has two permanent network deployments: `staging` and `production`. These networks are intended to be long running and are not tied to activities and testing happing within CI.
+Aztec has two permanent network deployments: `staging` and `production`. These networks are intended to be long running and are not tied to activities and testing happening within CI.
 
 Aztec's `staging` and `production` networks rely on a continuous delivery workflow (CD) and are configured to automatically refresh when node container images are released to the general public ([Github Action](https://github.com/AztecProtocol/aztec-packages/blob/master/.github/workflows/network-deploy.yml)). The following diagram shows a high-level topology of the two environments. Note that number of each node type may be changed over time. All nodes, with the exception of the transaction bot, are exposed to the public internet using a Kubernetes load balancer.
 

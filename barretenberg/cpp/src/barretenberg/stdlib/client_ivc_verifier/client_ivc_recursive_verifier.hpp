@@ -10,27 +10,32 @@ class ClientIVCRecursiveVerifier {
     using RecursiveDeciderVerificationKeys = RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
-    using DeciderVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
+    using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using GoblinVerifier = GoblinRecursiveVerifier;
+    using Flavor = RecursiveFlavor::NativeFlavor;
+    using VerificationKey = Flavor::VerificationKey;
+    using IVCVerificationKey = ClientIVC::VerificationKey;
 
   public:
     using Proof = ClientIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerifierInput = GoblinVerifier::VerifierInput;
+    using Output = GoblinRecursiveVerifierOutput;
+
     struct VerifierInput {
-        FoldVerifierInput fold_input;
+        std::shared_ptr<VerificationKey> mega_verification_key;
         GoblinVerifierInput goblin_input;
     };
 
-    ClientIVCRecursiveVerifier(std::shared_ptr<Builder> builder, VerifierInput& verifier_input)
+    ClientIVCRecursiveVerifier(std::shared_ptr<Builder> builder, IVCVerificationKey& ivc_verification_key)
         : builder(builder)
-        , verifier_input(verifier_input){};
+        , ivc_verification_key(ivc_verification_key){};
 
-    void verify(const ClientIVC::Proof&);
+    Output verify(const ClientIVC::Proof&);
 
   private:
     std::shared_ptr<Builder> builder;
-    VerifierInput verifier_input;
+    IVCVerificationKey ivc_verification_key;
 };
 } // namespace bb::stdlib::recursion::honk

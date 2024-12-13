@@ -1,5 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '../../constants.gen.js';
 
@@ -29,7 +31,7 @@ export class BaseParityInputs {
 
   /** Serializes the inputs to a hex string. */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -47,6 +49,16 @@ export class BaseParityInputs {
    * @returns - The deserialized inputs.
    */
   static fromString(str: string) {
-    return BaseParityInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BaseParityInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BaseParityInputs);
   }
 }

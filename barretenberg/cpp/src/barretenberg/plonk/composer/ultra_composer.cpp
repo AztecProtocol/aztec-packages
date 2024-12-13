@@ -173,9 +173,10 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit_proving_key->polynomial_store.put("z_lookup_fft", std::move(z_lookup_fft));
     circuit_proving_key->polynomial_store.put("s_fft", std::move(s_fft));
 
-    circuit_proving_key->recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
+    circuit_proving_key->pairing_point_accumulator_public_input_indices =
+        circuit.pairing_point_accumulator_public_input_indices;
 
-    circuit_proving_key->contains_recursive_proof = circuit.contains_recursive_proof;
+    circuit_proving_key->contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
     construct_sorted_polynomials(circuit, subgroup_size);
 
@@ -203,10 +204,11 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
     circuit_verification_key->circuit_type = CircuitType::ULTRA;
 
     // See `add_recusrive_proof()` for how this recursive data is assigned.
-    circuit_verification_key->recursive_proof_public_input_indices =
-        circuit_constructor.recursive_proof_public_input_indices;
+    circuit_verification_key->pairing_point_accumulator_public_input_indices =
+        circuit_constructor.pairing_point_accumulator_public_input_indices;
 
-    circuit_verification_key->contains_recursive_proof = circuit_constructor.contains_recursive_proof;
+    circuit_verification_key->contains_pairing_point_accumulator =
+        circuit_constructor.contains_pairing_point_accumulator;
 
     circuit_verification_key->is_recursive_circuit = circuit_constructor.is_recursive_circuit;
 

@@ -1,26 +1,9 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 
-import { join } from 'path';
-
-import { type AztecKVStore } from './interfaces/store.js';
-import { AztecLmdbStore } from './lmdb/store.js';
-
-export type DataStoreConfig = { dataDirectory: string | undefined; l1Contracts: { rollupAddress: EthAddress } };
-
-export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
-  let { dataDirectory } = config;
-  if (typeof dataDirectory !== 'undefined') {
-    dataDirectory = join(dataDirectory, name);
-  }
-
-  log.info(
-    dataDirectory
-      ? `Creating ${name} data store at directory ${dataDirectory}`
-      : `Creating ${name} ephemeral data store`,
-  );
-  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), config.l1Contracts.rollupAddress, log);
-}
+import { type AztecAsyncSingleton, type AztecSingleton } from './interfaces/singleton.js';
+import { type AztecAsyncKVStore, type AztecKVStore } from './interfaces/store.js';
+import { isSyncStore } from './interfaces/utils.js';
 
 /**
  * Clears the store if the rollup address does not match the one stored in the database.
@@ -29,7 +12,7 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
  * @param rollupAddress - The ETH address of the rollup contract
  * @returns A promise that resolves when the store is cleared, or rejects if the rollup address does not match
  */
-async function initStoreForRollup<T extends AztecKVStore>(
+export async function initStoreForRollup<T extends AztecKVStore | AztecAsyncKVStore>(
   store: T,
   rollupAddress: EthAddress,
   log?: Logger,
@@ -39,7 +22,9 @@ async function initStoreForRollup<T extends AztecKVStore>(
   }
   const rollupAddressValue = store.openSingleton<ReturnType<EthAddress['toString']>>('rollupAddress');
   const rollupAddressString = rollupAddress.toString();
-  const storedRollupAddressString = rollupAddressValue.get();
+  const storedRollupAddressString = isSyncStore(store)
+    ? (rollupAddressValue as AztecSingleton<ReturnType<EthAddress['toString']>>).get()
+    : await (rollupAddressValue as AztecAsyncSingleton<ReturnType<EthAddress['toString']>>).getAsync();
 
   if (typeof storedRollupAddressString !== 'undefined' && storedRollupAddressString !== rollupAddressString) {
     log?.warn(`Rollup address mismatch. Clearing entire database...`, {
@@ -52,13 +37,4 @@ async function initStoreForRollup<T extends AztecKVStore>(
 
   await rollupAddressValue.set(rollupAddressString);
   return store;
-}
-
-/**
- * Opens a temporary store for testing purposes.
- * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
- * @returns A new store
- */
-export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  return AztecLmdbStore.open(undefined, ephemeral);
 }

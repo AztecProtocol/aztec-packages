@@ -85,7 +85,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
-        PROFILE_THIS();
+        PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
@@ -133,7 +133,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
-        PROFILE_THIS();
+        PROFILE_THIS_NAME("commit_sparse");
         const size_t poly_size = polynomial.size();
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
@@ -204,21 +204,24 @@ template <class Curve> class CommitmentKey {
      * @return Commitment
      */
     Commitment commit_structured(PolynomialSpan<const Fr> polynomial,
-                                 const std::vector<std::pair<size_t, size_t>>& active_ranges)
+                                 const std::vector<std::pair<size_t, size_t>>& active_ranges,
+                                 size_t final_active_wire_idx = 0)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS_NAME("commit_structured");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
 
+        // Compute the number of non-zero coefficients in the polynomial
         size_t total_num_scalars = 0;
-        for (const auto& range : active_ranges) {
-            total_num_scalars += range.second - range.first;
+        for (const auto& [first, second] : active_ranges) {
+            total_num_scalars += second - first;
         }
 
         // Compute "active" percentage of polynomial; resort to standard commit if appropriate
-        size_t percentage_nonzero = total_num_scalars * 100 / polynomial.size();
+        size_t polynomial_size = final_active_wire_idx != 0 ? final_active_wire_idx : polynomial.size();
+        size_t percentage_nonzero = total_num_scalars * 100 / polynomial_size;
         if (percentage_nonzero > NONZERO_THRESHOLD) {
             return commit(polynomial);
         }
@@ -259,9 +262,10 @@ template <class Curve> class CommitmentKey {
      * @return Commitment
      */
     Commitment commit_structured_with_nonzero_complement(PolynomialSpan<const Fr> polynomial,
-                                                         const std::vector<std::pair<size_t, size_t>>& active_ranges)
+                                                         const std::vector<std::pair<size_t, size_t>>& active_ranges,
+                                                         size_t final_active_wire_idx = 0)
     {
-        BB_OP_COUNT_TIME();
+        PROFILE_THIS_NAME("commit_structured_with_nonzero_complement");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
@@ -269,24 +273,25 @@ template <class Curve> class CommitmentKey {
         // Percentage of constant coefficients below which we resort to the conventional commit method
         constexpr size_t CONSTANT_THRESHOLD = 50;
 
-        // Compute the active range complement over which the polynomial is assumed to be constant within each range
+        // Compute the active range complement over which the polynomial is assumed to be constant within each range.
+        // Note: the range from the end of the last active range to the end of the polynomial is excluded from the
+        // complement since the polynomial is assumed to be zero there.
         std::vector<std::pair<size_t, size_t>> active_ranges_complement;
+        // Also compute total number of scalars in the constant regions
+        size_t total_num_complement_scalars = 0;
         for (size_t i = 0; i < active_ranges.size() - 1; ++i) {
             const size_t start = active_ranges[i].second;
             const size_t end = active_ranges[i + 1].first;
-            active_ranges_complement.emplace_back(start, end);
-        }
-        // Final complement range goes from end of last active range to the end of the polynomial
-        active_ranges_complement.emplace_back(active_ranges.back().second, polynomial.end_index());
-
-        // Compute the total number of scalars in the constant regions
-        size_t total_num_complement_scalars = 0;
-        for (const auto& range : active_ranges_complement) {
-            total_num_complement_scalars += range.second - range.first;
+            if (end > start) {
+                active_ranges_complement.emplace_back(start, end);
+                total_num_complement_scalars += end - start;
+            }
         }
 
+        size_t polynomial_size = final_active_wire_idx != 0 ? final_active_wire_idx : polynomial.size();
         // Compute percentage of polynomial comprised of constant blocks; resort to standard commit if appropriate
-        size_t percentage_constant = total_num_complement_scalars * 100 / polynomial.size();
+        size_t percentage_constant = total_num_complement_scalars * 100 / polynomial_size;
+
         if (percentage_constant < CONSTANT_THRESHOLD) {
             return commit(polynomial);
         }
@@ -299,12 +304,11 @@ template <class Curve> class CommitmentKey {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1131): Peak memory usage could be improved by
         // performing this copy and the subsequent summation as a precomputation prior to constructing the point table.
         std::vector<G1> points;
-        points.reserve(2 * total_num_complement_scalars);
-        for (const auto& range : active_ranges_complement) {
-            const size_t start = 2 * range.first;
-            const size_t end = 2 * range.second;
-            for (size_t i = start; i < end; i += 2) {
-                points.emplace_back(point_table[i]);
+
+        points.reserve(total_num_complement_scalars);
+        for (const auto& [start, end] : active_ranges_complement) {
+            for (size_t i = start; i < end; i++) {
+                points.emplace_back(point_table[2 * i]);
             }
         }
 
@@ -313,17 +317,16 @@ template <class Curve> class CommitmentKey {
         std::vector<Fr> unique_scalars;
         std::vector<size_t> sequence_counts;
         for (const auto& range : active_ranges_complement) {
-            if (range.second - range.first > 0) { // only ranges with nonzero length
-                unique_scalars.emplace_back(polynomial.span[range.first]);
-                sequence_counts.emplace_back(range.second - range.first);
-            }
+            unique_scalars.emplace_back(polynomial.span[range.first]);
+            sequence_counts.emplace_back(range.second - range.first);
         }
 
         // Reduce each sequence to a single point
         auto reduced_points = BatchedAddition::add_in_place(points, sequence_counts);
 
         // Compute the full commitment as the sum of the "active" region commitment and the constant region contribution
-        Commitment result = commit_structured(polynomial, active_ranges);
+        Commitment result = commit_structured(polynomial, active_ranges, final_active_wire_idx);
+
         for (auto [scalar, point] : zip_view(unique_scalars, reduced_points)) {
             result = result + point * scalar;
         }

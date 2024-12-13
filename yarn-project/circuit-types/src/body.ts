@@ -1,13 +1,12 @@
-import {
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  TxEffect,
-  UnencryptedL2BlockL2Logs,
-} from '@aztec/circuit-types';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
+import { z } from 'zod';
+
+import { ContractClass2BlockL2Logs, UnencryptedL2BlockL2Logs } from './logs/index.js';
+import { TxEffect } from './tx_effect.js';
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {
@@ -16,6 +15,14 @@ export class Body {
         throw new Error('Empty tx effect not allowed in Body');
       }
     });
+  }
+
+  static get schema(): ZodFor<Body> {
+    return z
+      .object({
+        txEffects: z.array(TxEffect.schema),
+      })
+      .transform(({ txEffects }) => new Body(txEffects));
   }
 
   /**
@@ -56,22 +63,16 @@ export class Body {
     return computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
   }
 
-  get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.noteEncryptedLogs);
-
-    return new EncryptedNoteL2BlockL2Logs(logs);
-  }
-
-  get encryptedLogs(): EncryptedL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
-
-    return new EncryptedL2BlockL2Logs(logs);
-  }
-
   get unencryptedLogs(): UnencryptedL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
 
     return new UnencryptedL2BlockL2Logs(logs);
+  }
+
+  get contractClassLogs(): ContractClass2BlockL2Logs {
+    const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
+
+    return new ContractClass2BlockL2Logs(logs);
   }
 
   /**
@@ -89,15 +90,9 @@ export class Body {
     return numTxEffects;
   }
 
-  static random(
-    txsPerBlock = 4,
-    numPrivateCallsPerTx = 2,
-    numPublicCallsPerTx = 3,
-    numEncryptedLogsPerCall = 2,
-    numUnencryptedLogsPerCall = 1,
-  ) {
+  static random(txsPerBlock = 4, numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1) {
     const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+      TxEffect.random(numPublicCallsPerTx, numUnencryptedLogsPerCall),
     );
 
     return new Body(txEffects);

@@ -1,5 +1,5 @@
 import { type Signature } from '@aztec/foundation/eth-signature';
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -31,15 +31,15 @@ export interface ProverNodeApi {
 }
 
 /** Schemas for prover node API functions. */
-export class ProverNodeApiSchema implements ApiSchemaFor<ProverNodeApi> {
-  getJobs = z
+export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
+  getJobs: z
     .function()
     .args()
-    .returns(z.array(z.object({ uuid: z.string().uuid(), status: z.enum(EpochProvingJobState) })));
+    .returns(z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState) }))),
 
-  startProof = z.function().args(z.number()).returns(z.void());
+  startProof: z.function().args(schemas.Integer).returns(z.void()),
 
-  prove = z.function().args(z.number()).returns(z.void());
+  prove: z.function().args(schemas.Integer).returns(z.void()),
 
-  sendEpochProofQuote = z.function().args(EpochProofQuote.schema).returns(z.void());
-}
+  sendEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
+};

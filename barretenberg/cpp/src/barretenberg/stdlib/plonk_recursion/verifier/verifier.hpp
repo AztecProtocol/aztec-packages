@@ -333,7 +333,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
      *code path should be used with extreme caution if the verification key is not being generated from circuit
      *constants
      **/
-    if (key->contains_recursive_proof) {
+    if (key->contains_pairing_point_accumulator) {
         const auto public_inputs = transcript.get_field_element_vector("public_inputs");
         const auto recover_fq_from_public_inputs =
             [&public_inputs](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
@@ -350,22 +350,22 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
         fr_ct recursion_separator_challenge = transcript.get_challenge_field_element("separator", 2);
 
-        const auto x0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[0],
-                                                      key->recursive_proof_public_input_indices[1],
-                                                      key->recursive_proof_public_input_indices[2],
-                                                      key->recursive_proof_public_input_indices[3]);
-        const auto y0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[4],
-                                                      key->recursive_proof_public_input_indices[5],
-                                                      key->recursive_proof_public_input_indices[6],
-                                                      key->recursive_proof_public_input_indices[7]);
-        const auto x1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[8],
-                                                      key->recursive_proof_public_input_indices[9],
-                                                      key->recursive_proof_public_input_indices[10],
-                                                      key->recursive_proof_public_input_indices[11]);
-        const auto y1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[12],
-                                                      key->recursive_proof_public_input_indices[13],
-                                                      key->recursive_proof_public_input_indices[14],
-                                                      key->recursive_proof_public_input_indices[15]);
+        const auto x0 = recover_fq_from_public_inputs(key->pairing_point_accumulator_public_input_indices[0],
+                                                      key->pairing_point_accumulator_public_input_indices[1],
+                                                      key->pairing_point_accumulator_public_input_indices[2],
+                                                      key->pairing_point_accumulator_public_input_indices[3]);
+        const auto y0 = recover_fq_from_public_inputs(key->pairing_point_accumulator_public_input_indices[4],
+                                                      key->pairing_point_accumulator_public_input_indices[5],
+                                                      key->pairing_point_accumulator_public_input_indices[6],
+                                                      key->pairing_point_accumulator_public_input_indices[7]);
+        const auto x1 = recover_fq_from_public_inputs(key->pairing_point_accumulator_public_input_indices[8],
+                                                      key->pairing_point_accumulator_public_input_indices[9],
+                                                      key->pairing_point_accumulator_public_input_indices[10],
+                                                      key->pairing_point_accumulator_public_input_indices[11]);
+        const auto y1 = recover_fq_from_public_inputs(key->pairing_point_accumulator_public_input_indices[12],
+                                                      key->pairing_point_accumulator_public_input_indices[13],
+                                                      key->pairing_point_accumulator_public_input_indices[14],
+                                                      key->pairing_point_accumulator_public_input_indices[15]);
 
         opening_elements.push_back(g1_ct(x0, y0));
         opening_scalars.push_back(recursion_separator_challenge);

@@ -2,7 +2,7 @@ import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
@@ -21,7 +21,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls } = exec;
+    const { calls, fee } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
@@ -30,7 +30,6 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
 
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
-    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
     const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = computeInnerAuthWitHash([
@@ -49,7 +48,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.dappEntrypointAddress,
       functionSelector,
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...payload.packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });
@@ -119,6 +118,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     } as FunctionAbi;
   }
 }

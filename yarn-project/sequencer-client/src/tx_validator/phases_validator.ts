@@ -1,16 +1,16 @@
 import {
   type AllowedElement,
   type PublicExecutionRequest,
-  PublicKernelPhase,
   Tx,
+  TxExecutionPhase,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, EnqueuedCallsProcessor } from '@aztec/simulator';
+import { createLogger } from '@aztec/foundation/log';
+import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
+  #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
   constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
@@ -45,7 +45,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
+    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(

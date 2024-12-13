@@ -27,7 +27,8 @@ template <typename Flavor> class MergeProver_ {
   public:
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeProver_(const std::shared_ptr<ECCOpQueue>&);
+    explicit MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
+                          std::shared_ptr<CommitmentKey> commitment_key = nullptr);
 
     BB_PROFILE HonkProof construct_proof();
 
