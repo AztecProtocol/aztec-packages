@@ -104,12 +104,19 @@ runs:
 
     - name: Setup yq and earthly
       uses: ./.github/run-on-tester
+      # Don't wait for docker too long, could be pathological
+      timeout-minutes: 3
       with:
         run: |
           wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
           chmod +x ./yq
           DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
           ci3/earthly_install
+          while ! systemctl is-active --quiet docker; do
+            echo "Waiting for Docker service to become active..."
+            sleep 2
+          done
+          echo "Docker service is active!"
 
     - name: Ensure Tester Cleanup
       uses: gacts/run-and-post-run@v1
