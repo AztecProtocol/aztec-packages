@@ -166,22 +166,32 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        env:
-          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
             LABELS=""
           fi
+
+          echo REF: $REF
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")"
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
-        env:
-          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
@@ -213,7 +223,7 @@ jobs:
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
-    needs: [build, e2e-test-gate, configure]
+    needs: [build, configure]
     if: needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-20.04
     strategy:
@@ -868,11 +878,26 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  boxes-test:
+  boxes:
     needs: [e2e-test-gate, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: boxes-${{ matrix.box }}-${{ matrix.browser }}
+      - name: Build
+        working-directory: ./boxes
+        timeout-minutes: 40
+        run: earthly-ci +export-boxes
+
+  boxes-test:
+    needs: [boxes, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         box: [vanilla, react]
         # intermittent issues with firefox https://github.com/AztecProtocol/aztec-packages/issues/6676
@@ -884,10 +909,6 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: boxes-${{ matrix.box }}-${{ matrix.browser }}
-      - name: Build
-        working-directory: ./boxes
-        timeout-minutes: 40
-        run: earthly-ci +export-boxes
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 40

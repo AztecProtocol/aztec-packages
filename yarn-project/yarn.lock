@@ -343,6 +343,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -876,6 +877,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@iarna/toml": ^2.2.5
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
@@ -1236,6 +1238,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/telemetry-client@workspace:telemetry-client"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@opentelemetry/api": ^1.9.0

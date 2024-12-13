@@ -15,6 +15,7 @@ import {
 import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
@@ -249,8 +250,9 @@ describe('prover-node', () => {
     let lastEpochComplete: bigint = 0n;
 
     beforeEach(() => {
-      claimsMonitor = new ClaimsMonitor(publisher, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, config);
+      const telemetry = new NoopTelemetryClient();
+      claimsMonitor = new ClaimsMonitor(publisher, telemetry, config);
+      epochMonitor = new EpochMonitor(l2BlockSource, telemetry, config);
 
       l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
         Promise.resolve(epochNumber <= lastEpochComplete),
@@ -367,10 +369,15 @@ describe('prover-node', () => {
         await proverNode.handleEpochCompleted(10n);
 
         // Wait for message to be propagated
-        await sleep(1000);
-
-        // Check the other node received a quote via p2p
-        expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+        await retry(
+          // eslint-disable-next-line require-await
+          async () => {
+            // Check the other node received a quote via p2p
+            expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+          },
+          'Waiting for quote to be received',
+          makeBackoff(times(20, () => 1)),
+        );
 
         // We should be able to retreive the quote from the other node
         const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(10n);
