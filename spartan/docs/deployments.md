@@ -2,13 +2,37 @@
 
 ## Overview
 
-1. Canary deployment
+1. Sanity check deployment
 2. Cut release
 3. Deploy networks
 4. QA
 5. Publish release
 
-## Canary deployment
+## Sanity check deployment
+
+### Masternet
+
+### Canary
+
+When you think we should cut a release, you should:
+
+Go [here](https://github.com/AztecProtocol/aztec-packages/actions/workflows/network-deploy.yml).
+
+Click "Run workflow".
+
+| Field                  | Value                         |
+| ---------------------- | ----------------------------- |
+| Use workflow from      | `master`                      |
+| Namespace              | `canary`                      |
+| Values file            | `rc-1.yaml`                   |
+| Image                  | `aztecprotocol/aztec:master`  |
+| Secret Name            | `testnet-deployment-mnemonic` |
+| Salt                   | `42`                          |
+| Respect Terraform Lock | `true`                        |
+| Run terraform destroy  | `true`                        |
+| Deploy from branch     | `master`                      |
+
+Make sure it lives.
 
 ## Deploy Networks
 
