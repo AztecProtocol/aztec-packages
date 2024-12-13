@@ -63,6 +63,28 @@ describe.each([
       await broker.stop();
     });
 
+    it('refuses stale jobs', async () => {
+      const id = makeProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        epochNumber: 42,
+        type: ProvingRequestType.BASE_PARITY,
+        inputsUri: makeInputsUri(),
+      });
+      expect(await broker.getProvingJobStatus(id)).toEqual({ status: 'in-queue' });
+
+      const id2 = makeProvingJobId();
+      await expect(
+        broker.enqueueProvingJob({
+          id: id2,
+          epochNumber: 1,
+          type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+          inputsUri: makeInputsUri(),
+        }),
+      ).rejects.toThrow();
+      await assertJobStatus(id2, 'not-found');
+    });
+
     it('enqueues jobs', async () => {
       const id = makeProvingJobId();
       await broker.enqueueProvingJob({
@@ -210,15 +232,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       };
 
-      const provingJob3: ProvingJob = {
-        id: makeProvingJobId(),
-        type: ProvingRequestType.BASE_PARITY,
-        epochNumber: 3,
-        inputsUri: makeInputsUri(),
-      };
-
       await broker.enqueueProvingJob(provingJob2);
-      await broker.enqueueProvingJob(provingJob3);
       await broker.enqueueProvingJob(provingJob1);
 
       await getAndAssertNextJobId(provingJob1.id, ProvingRequestType.BASE_PARITY);

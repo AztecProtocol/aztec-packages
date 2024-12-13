@@ -181,6 +181,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       return;
     }
 
+    if (this.isJobStale(job)) {
+      this.logger.warn(`Tried enqueueing stale proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+        provingJobId: job.id,
+      });
+      throw new Error(`Epoch too old: job epoch ${job.epochNumber}, current epoch: ${this.epochHeight}`);
+    }
+
     this.logger.info(`New proving job id=${job.id} epochNumber=${job.epochNumber}`, { provingJobId: job.id });
     try {
       // do this first so it acts as a "lock". If this job is enqueued again while we're saving it the if at the top will catch it.
