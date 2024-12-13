@@ -64,7 +64,7 @@ export async function retry<Result>(
         throw err;
       }
       log.verbose(`${name} failed. Will retry in ${s}s...`);
-      !failSilently && log.error(err);
+      !failSilently && log.error(`Error while retrying ${name}`, err);
       await sleep(s * 1000);
       continue;
     }
