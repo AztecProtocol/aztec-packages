@@ -552,6 +552,7 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
  */
 export function convertSimulatedBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, {
     inputs: mapped as any,
   });

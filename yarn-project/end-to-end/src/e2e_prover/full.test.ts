@@ -169,7 +169,7 @@ describe('full_prover', () => {
 
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
-    const privateSendAmount = privateBalance / 10n;
+    const privateSendAmount = privateBalance / 20n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const firstPrivateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
