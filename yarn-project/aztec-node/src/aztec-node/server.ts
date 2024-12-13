@@ -457,7 +457,10 @@ export class AztecNodeService implements AztecNode {
     leafValues: Fr[],
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return await Promise.all(leafValues.map(leafValue => committedDb.findLeafIndex(treeId, leafValue.toBuffer())));
+    return await committedDb.findLeafIndices(
+      treeId,
+      leafValues.map(x => x.toBuffer()),
+    );
   }
 
   /**
@@ -664,7 +667,7 @@ export class AztecNodeService implements AztecNode {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const db = await this.#getWorldState(blockNumber);
-    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
     if (!index) {
       return undefined;
     }
@@ -837,7 +840,7 @@ export class AztecNodeService implements AztecNode {
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator({
         getNullifierIndex(nullifier) {
-          return db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+          return db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]).then(x => x[0]);
         },
       }),
     ];
