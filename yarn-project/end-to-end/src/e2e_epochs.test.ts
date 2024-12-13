@@ -98,7 +98,6 @@ describe('e2e_epochs', () => {
 
   afterAll(async () => {
     clearInterval(handle);
-    // TODO(#10177): The below times out
     await context.teardown();
   });
 

@@ -26,8 +26,7 @@ allow_list=(
   "e2e_cross_chain_messaging"
   "e2e_crowdfunding_and_claim"
   "e2e_deploy_contract"
-  # TODO(#10177): reenable
-  # "e2e_epochs"
+  "e2e_epochs"
   "e2e_fees"
   "e2e_fees_failures"
   "e2e_fees_gas_estimation"

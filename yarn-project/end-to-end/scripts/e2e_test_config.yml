@@ -36,8 +36,7 @@ tests:
   e2e_devnet_smoke: {}
   docs_examples:
     use_compose: true
-  # TODO(#10177): reenable
-  # e2e_epochs: {}
+  e2e_epochs: {}
   e2e_escrow_contract: {}
   e2e_fees_account_init:
     test_path: 'e2e_fees/account_init.test.ts'
