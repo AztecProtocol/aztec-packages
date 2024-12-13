@@ -6,14 +6,12 @@ pub global INDEXED_TAGGING_SECRET_LENGTH: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
 pub struct IndexedTaggingSecret {
-    app_tagging_secret: Field,
+    secret: Field,
     index: u32,
 }
 
 impl IndexedTaggingSecret {
     pub fn compute_tag(self, recipient: AztecAddress) -> Field {
-        poseidon2_hash(
-            [self.app_tagging_secret, recipient.to_field(), self.index as Field],
-        )
+        poseidon2_hash([self.secret, recipient.to_field(), self.index as Field])
     }
 }

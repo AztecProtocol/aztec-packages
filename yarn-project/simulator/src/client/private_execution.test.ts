@@ -233,7 +233,7 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    oracle.getIndexedTaggingSecretAsSender.mockImplementation(
+    oracle.getAppTaggingSecretAsSender.mockImplementation(
       (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
         const secret = Fr.random();
         return Promise.resolve(new IndexedTaggingSecret(secret, 0));
