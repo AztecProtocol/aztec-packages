@@ -24,7 +24,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   PrivateLog,
   computeAddressSecret,
-  computeTaggingSuperSecret,
+  computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -311,9 +311,9 @@ export class SimulatorOracle implements DBOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const superSecret = computeTaggingSuperSecret(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret so it can't be used to track other app's notes
-    const appSecret = poseidon2Hash([superSecret.x, superSecret.y, contractAddress]);
+    const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
   }
 
@@ -338,7 +338,7 @@ export class SimulatorOracle implements DBOracle {
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
     const appTaggingSecrets = contacts.map(contact => {
-      const sharedSecret = computeTaggingSuperSecret(recipientCompleteAddress, recipientIvsk, contact);
+      const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);

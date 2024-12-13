@@ -36,7 +36,7 @@ import {
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
   computeContractClassId,
-  computeTaggingSuperSecret,
+  computeTaggingSecretPoint,
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -904,9 +904,9 @@ export class TXE implements TypedOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const superSecret = computeTaggingSuperSecret(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
-    const appSecret = poseidon2Hash([superSecret.x, superSecret.y, contractAddress]);
+    const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
   }
 
