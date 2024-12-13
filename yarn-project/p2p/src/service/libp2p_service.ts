@@ -542,7 +542,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
         const merkleTree = this.worldStateSynchronizer.getCommitted();
-        const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+        const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
         return index;
       },
     });
@@ -555,7 +555,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
             const merkleTree = this.worldStateSynchronizer.getSnapshot(
               blockNumber - this.config.severePeerPenaltyBlockLength,
             );
-            const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+            const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
             return index;
           },
         });
