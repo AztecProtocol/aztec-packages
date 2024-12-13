@@ -44,7 +44,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
     if (options.sandbox) {
       const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
-      userLog(`${splash}\n${github}\n\n`);
+      const packageVersionString = `aztec-packages version: ${process.env.npm_package_version}`;
+      userLog(`${splash}\n${github}\n${packageVersionString}\n\n`);
       userLog(`Setting up Aztec Sandbox, please stand by...`);
       const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
         enableGas: sandboxOptions.enableGas,
