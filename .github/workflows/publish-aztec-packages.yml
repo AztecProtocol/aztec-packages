@@ -324,16 +324,6 @@ jobs:
             --VERSION=${{ steps.version_step.outputs.VERSION }} \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
-      - name: Publish spartan NPM package
-        run: |
-          earthly-ci \
-            --no-output \
-            --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
-            ./spartan/releases/rough-rhino+publish-npm \
-            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
-            --VERSION=${{ steps.version_step.outputs.VERSION }} \
-            --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
-
   publish-aztec-up:
     needs: [configure, publish-manifests]
     runs-on: ubuntu-latest
