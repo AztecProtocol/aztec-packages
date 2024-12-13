@@ -18,7 +18,6 @@ import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
-  console.log(key);
   acc[key.replace("VITE_", "")] = import.meta.env[key];
   return acc;
 }, {});
@@ -88,7 +87,7 @@ export class PrivateEnv {
   }
 
   async getWallet() {
-    return await this.account.getWallet();
+    return await this.account.register();
   }
 }
 

@@ -31,6 +31,7 @@ import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import {
   getProtocolContractSiblingPath,
@@ -118,6 +119,8 @@ export class KernelProver {
     profile: boolean = false,
     dryRun: boolean = false,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const timer = new Timer();
+
     const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
 
     const executionStack = [executionResult];
@@ -281,6 +284,8 @@ export class KernelProver {
       await addGateCount('private_kernel_tail', tailOutput.bytecode);
       tailOutput.profileResult = { gateCounts };
     }
+
+    this.log.info(`Witness generation took ${timer.ms()}ms`);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!dryRun) {
