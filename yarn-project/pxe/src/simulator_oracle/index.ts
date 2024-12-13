@@ -630,63 +630,26 @@ export class SimulatorOracle implements DBOracle {
     logs: TxScopedL2Log[],
     recipient: AztecAddress,
     simulator?: AcirSimulator,
-    useNewFlow = true,
   ): Promise<void> {
     const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    for (const note of incomingNotes) {
+      const plaintext = [note.storageSlot, note.noteTypeId.toField(), ...note.note.items];
 
-    if (useNewFlow) {
-      for (const note of incomingNotes) {
-        const plaintext = [note.storageSlot, note.noteTypeId.toField(), ...note.note.items];
-
-        const txEffect = await this.aztecNode.getTxEffect(note.txHash);
-        if (!txEffect) {
-          throw new Error(`Could not find tx effect for tx hash ${note.txHash}`);
-        }
-
-        await this.callProcessLogs(
-          note.contractAddress,
-          plaintext,
-          note.txHash,
-          txEffect.data.noteHashes,
-          recipient,
-          simulator,
-        );
+      const txEffect = await this.aztecNode.getTxEffect(note.txHash);
+      if (!txEffect) {
+        throw new Error(`Could not find tx effect for tx hash ${note.txHash}`);
       }
-      return;
+
+      await this.callProcessLogs(
+        note.contractAddress,
+        plaintext,
+        note.txHash,
+        txEffect.data.noteHashes,
+        recipient,
+        simulator,
+      );
     }
-
-    if (incomingNotes.length) {
-      await this.db.addNotes(incomingNotes, recipient);
-      incomingNotes.forEach(noteDao => {
-        this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-          contract: noteDao.contractAddress,
-          slot: noteDao.storageSlot,
-          nullifier: noteDao.siloedNullifier.toString(),
-        });
-      });
-    }
-    const nullifiedNotes: IncomingNoteDao[] = [];
-    const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
-    const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-    const currentBlockNumber = await this.getBlockNumber();
-    const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock(currentBlockNumber, nullifiersToCheck);
-
-    const foundNullifiers = nullifiersToCheck
-      .map((nullifier, i) => {
-        if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
-        }
-      })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
-
-    await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
-    nullifiedNotes.forEach(noteDao => {
-      this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-        contract: noteDao.contractAddress,
-        slot: noteDao.storageSlot,
-        nullifier: noteDao.siloedNullifier.toString(),
-      });
-    });
+    return;
   }
 
   public async deliverNote(
@@ -716,17 +679,6 @@ export class SimulatorOracle implements DBOracle {
       slot: noteDao.storageSlot,
       nullifier: noteDao.siloedNullifier.toString,
     });
-
-    const scopedSiloedNullifier = await this.produceScopedSiloedNullifier(noteDao.siloedNullifier);
-
-    if (scopedSiloedNullifier !== undefined) {
-      await this.db.removeNullifiedNotes([scopedSiloedNullifier], recipient.toAddressPoint());
-      this.log.verbose('Removed just-added note as nullified', {
-        contract: noteDao.contractAddress,
-        slot: noteDao.storageSlot,
-        nullifier: noteDao.siloedNullifier.toString,
-      });
-    }
   }
 
   async produceNoteDao(
@@ -771,20 +723,6 @@ export class SimulatorOracle implements DBOracle {
       siloedNoteHashTreeIndex,
       recipient.toAddressPoint(),
     );
-  }
-
-  async produceScopedSiloedNullifier(siloedNullifier: Fr): Promise<InBlock<Fr> | undefined> {
-    const siloedNullifierTreeIndex = (
-      await this.aztecNode.findNullifiersIndexesWithBlock('latest', [siloedNullifier])
-    )[0];
-
-    if (siloedNullifierTreeIndex !== undefined) {
-      return {
-        data: siloedNullifier,
-        l2BlockNumber: siloedNullifierTreeIndex.l2BlockNumber,
-        l2BlockHash: siloedNullifierTreeIndex.l2BlockHash,
-      };
-    }
   }
 
   async callProcessLogs(
