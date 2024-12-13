@@ -38,7 +38,12 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { WINDOW_HALF_SIZE, getLeftMostIndexedTaggingSecrets, getInitialSecretIndexes, getRightMostIndexes } from './tagging_utils.js';
+import {
+  WINDOW_HALF_SIZE,
+  getInitialIndexes,
+  getLeftMostIndexedTaggingSecrets,
+  getRightMostIndexes,
+} from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -422,7 +427,8 @@ export class SimulatorOracle implements DBOracle {
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    const result = new Map<string, TxScopedL2Log[]>();
+    // A map of never-before-seen logs going from recipient address to logs
+    const newLogsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       const logs: TxScopedL2Log[] = [];
@@ -442,22 +448,31 @@ export class SimulatorOracle implements DBOracle {
       //    Also there's a possibility that we have advanced our index, but the sender has reused it,
       // so we might have missed some logs. For these reasons, we have to look both back and ahead of
       // the stored index.
-      let currentTaggingSecrets = getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets);
-      // Max indexes to check sorted in a key-value map where key is the app tagging secret and value is the max index
-      // to check (the right-most index in the window).
-      const indexedRightMostIndexes = getRightMostIndexes(indexedTaggingSecrets);
-      const initialSecretIndexes = getInitialSecretIndexes(indexedTaggingSecrets);
-      const secretsToIncrement: { [k: string]: number } = {};
 
-      while (currentTaggingSecrets.length > 0) {
+      // App tagging secrets along with an index in a window to check in the current iteration. Called current because
+      // this value will be updated as we iterate through the window.
+      let currentSecrets = getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets);
+      // Right-most indexes in a window to check stored in a key-value map where key is the app tagging secret
+      // and value is the index to check (the right-most index in the window).
+      const rightMostIndexesMap = getRightMostIndexes(indexedTaggingSecrets);
+      // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
+      const initialIndexesMap = getInitialIndexes(indexedTaggingSecrets);
+      // A map of indexes to increment for secrets for which we have found logs with an index higher than the one
+      // stored.
+      const indexesToIncrementMap: { [k: string]: number } = {};
+
+      while (currentSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = currentTaggingSecrets.map(taggingSecret =>
-          taggingSecret.computeSiloedTag(recipient, contractAddress),
+        const currentTags = currentSecrets.map(secret =>
+          // We compute the siloed tags since we need the tags as they appear in the log.
+          secret.computeSiloedTag(recipient, contractAddress),
         );
+
+        // Fetch the logs for the tags and iterate over them
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
-        const newTaggingSecrets: IndexedTaggingSecret[] = [];
+        const secretsWithNewIndex: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
-          const { appTaggingSecret: currentSecret, index: currentIndex } = currentTaggingSecrets[logIndex];
+          const { appTaggingSecret: currentSecret, index: currentIndex } = currentSecrets[logIndex];
           const currentSecretAsStr = currentSecret.toString();
           this.log.debug(`Syncing logs for recipient ${recipient} at contract ${contractName}(${contractAddress})`, {
             recipient,
@@ -481,40 +496,46 @@ export class SimulatorOracle implements DBOracle {
             );
             logs.push(...logsByTag);
 
-            if (currentIndex >= initialSecretIndexes[currentSecretAsStr]) {
-              // 3.2. Increment the index for the tags that have logs, provided they're higher than the one
-              // we have stored in the db (#9380)
-              secretsToIncrement[currentSecretAsStr] = newIndex;
-              // 3.3. Slide the window forwards if we have found logs beyond the initial index
-              indexedRightMostIndexes[currentSecretAsStr] = currentIndex + WINDOW_HALF_SIZE;
+            if (currentIndex >= initialIndexesMap[currentSecretAsStr]) {
+              // 3.2. We found an index higher than the stored/initial one so we update it in the db later on (#9380)
+              indexesToIncrementMap[currentSecretAsStr] = newIndex;
+              // 3.3. We found an index higher than the initial one so we slide the window.
+              rightMostIndexesMap[currentSecretAsStr] = currentIndex + WINDOW_HALF_SIZE;
             }
           }
           // 3.4 Keep increasing the index (inside the window) temporarily for the tags that have no logs
           // There's a chance the sender missed some and we want to catch up
-          if (currentIndex < indexedRightMostIndexes[currentSecretAsStr]) {
+          if (currentIndex < rightMostIndexesMap[currentSecretAsStr]) {
             const newTaggingSecret = new IndexedTaggingSecret(currentSecret, currentIndex + 1);
-            newTaggingSecrets.push(newTaggingSecret);
+            secretsWithNewIndex.push(newTaggingSecret);
           }
         });
+
+        // We store the new indexes for the secrets that have logs with an index higher than the one stored.
         await this.db.setTaggingSecretsIndexesAsRecipient(
-          Object.keys(secretsToIncrement).map(
-            secret => new IndexedTaggingSecret(Fr.fromHexString(secret), secretsToIncrement[secret]),
+          Object.keys(indexesToIncrementMap).map(
+            secret => new IndexedTaggingSecret(Fr.fromHexString(secret), indexesToIncrementMap[secret]),
           ),
         );
-        currentTaggingSecrets = newTaggingSecrets;
+
+        // We've processed all the current secret-index pairs so we proceed to the next iteration.
+        currentSecrets = secretsWithNewIndex;
       }
 
-      result.set(
+      newLogsMap.set(
         recipient.toString(),
         // Remove logs with a block number higher than the max block number
         // Duplicates are likely to happen due to the sliding window, so we also filter them out
         logs.filter(
           (log, index, self) =>
+            // The following condition is true if the log has small enough block number and is unique
+            // --> the right side of the && is true if the index of the current log is the first occurrence
+            // of the log in the array --> that way we ensure uniqueness.
             log.blockNumber <= maxBlockNumber && index === self.findIndex(otherLog => otherLog.equals(log)),
         ),
       );
     }
-    return result;
+    return newLogsMap;
   }
 
   /**

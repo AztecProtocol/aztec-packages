@@ -1,32 +1,36 @@
 import { IndexedTaggingSecret } from '@aztec/circuits.js';
 
+// Half the size of the window we slide over the tagging secret indexes.
 export const WINDOW_HALF_SIZE = 10;
 
-export function getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets: IndexedTaggingSecret[]): IndexedTaggingSecret[] {
-  return indexedTaggingSecrets.map(indexedTaggingSecret =>
-    new IndexedTaggingSecret(
-      indexedTaggingSecret.appTaggingSecret,
-      Math.max(0, indexedTaggingSecret.index - WINDOW_HALF_SIZE)
-    )
+export function getLeftMostIndexedTaggingSecrets(
+  indexedTaggingSecrets: IndexedTaggingSecret[],
+): IndexedTaggingSecret[] {
+  return indexedTaggingSecrets.map(
+    indexedTaggingSecret =>
+      new IndexedTaggingSecret(
+        indexedTaggingSecret.appTaggingSecret,
+        Math.max(0, indexedTaggingSecret.index - WINDOW_HALF_SIZE),
+      ),
   );
 }
 
 export function getRightMostIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
-  const maxIndexesToCheck: { [k: string]: number } = {};
+  const rightMostIndexes: { [k: string]: number } = {};
 
   for (const indexedTaggingSecret of indexedTaggingSecrets) {
-    maxIndexesToCheck[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index + WINDOW_HALF_SIZE;
+    rightMostIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index + WINDOW_HALF_SIZE;
   }
 
-  return maxIndexesToCheck;
+  return rightMostIndexes;
 }
 
-export function getInitialSecretIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
-  const initialSecretIndexes: { [k: string]: number } = {};
+export function getInitialIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
+  const initialIndexes: { [k: string]: number } = {};
 
   for (const indexedTaggingSecret of indexedTaggingSecrets) {
-    initialSecretIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index;
+    initialIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index;
   }
 
-  return initialSecretIndexes;
+  return initialIndexes;
 }
