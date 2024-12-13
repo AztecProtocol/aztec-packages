@@ -1,6 +1,5 @@
 import {
   type ProofAndVerificationKey,
-  type ProverCache,
   type ProvingJobId,
   type ProvingJobInputsMap,
   type ProvingJobProducer,
@@ -35,6 +34,7 @@ import {
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { truncate } from '@aztec/foundation/string';
 
 import { InlineProofStore, type ProofStore } from './proof_store.js';
 import { InMemoryProverCache } from './prover_cache/memory.js';
@@ -48,7 +48,6 @@ const MAX_WAIT_MS = 1_200_000;
 export class CachingBrokerFacade implements ServerCircuitProver {
   constructor(
     private broker: ProvingJobProducer,
-    private cache: ProverCache = new InMemoryProverCache(),
     private proofStore: ProofStore = new InlineProofStore(),
     private waitTimeoutMs = MAX_WAIT_MS,
     private pollIntervalMs = 1000,
@@ -62,53 +61,23 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber = 0,
     signal?: AbortSignal,
   ): Promise<ProvingJobResultsMap[T]> {
-    // first try the cache
-    let jobEnqueued = false;
-    let jobRejected = undefined;
-    try {
-      const cachedResult = await this.cache.getProvingJobStatus(id);
-      if (cachedResult.status !== 'not-found') {
-        this.log.debug(`Found cached result for job=${id}: status=${cachedResult.status}`);
-      }
+    const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
+    await this.broker.enqueueProvingJob({
+      id,
+      type,
+      inputsUri,
+      epochNumber,
+    });
 
-      if (cachedResult.status === 'fulfilled') {
-        const output = await this.proofStore.getProofOutput(cachedResult.value);
-        if (output.type === type) {
-          return output.result as ProvingJobResultsMap[T];
-        } else {
-          this.log.warn(`Cached result type mismatch for job=${id}. Expected=${type} but got=${output.type}`);
-        }
-      } else if (cachedResult.status === 'rejected') {
-        jobRejected = cachedResult.reason ?? 'Job rejected for unknown reason';
-      } else if (cachedResult.status === 'in-progress' || cachedResult.status === 'in-queue') {
-        jobEnqueued = true;
-      } else {
-        jobEnqueued = false;
-      }
-    } catch (err) {
-      this.log.warn(`Failed to get cached proving job id=${id}: ${err}. Re-running job`);
-    }
-
-    if (jobRejected) {
-      throw new Error(jobRejected);
-    }
-
-    if (!jobEnqueued) {
-      try {
-        const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-        await this.broker.enqueueProvingJob({
-          id,
-          type,
-          inputsUri,
-          epochNumber,
-        });
-        await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
-      } catch (err) {
-        this.log.error(`Failed to enqueue proving job id=${id}: ${err}`);
-        await this.cache.setProvingJobStatus(id, { status: 'not-found' });
-        throw err;
-      }
-    }
+    this.log.verbose(
+      `Sent proving job to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+      {
+        provingJobId: id,
+        provingJobType: ProvingRequestType[type],
+        epochNumber,
+        inputsUri: truncate(inputsUri),
+      },
+    );
 
     // notify broker of cancelled job
     const abortFn = async () => {
@@ -153,8 +122,6 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       }
     } finally {
       signal?.removeEventListener('abort', abortFn);
-      // we've saved the result in our cache. We can tell the broker to clear its state
-      await this.broker.cleanUpProvingJobState(id);
     }
   }
 
