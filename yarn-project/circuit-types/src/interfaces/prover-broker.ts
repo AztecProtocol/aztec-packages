@@ -56,10 +56,16 @@ export interface ProvingJobProducer {
   enqueueProvingJob(job: ProvingJob): Promise<void>;
 
   /**
-   * Cancels a proving job and clears all of its
+   * Cancels a proving job.
    * @param id - The ID of the job to cancel
    */
-  removeAndCancelProvingJob(id: ProvingJobId): Promise<void>;
+  cancelProvingJob(id: ProvingJobId): Promise<void>;
+
+  /**
+   * Cleans up after a job has completed. Throws if the job is in-progress
+   * @param id - The ID of the job to cancel
+   */
+  cleanUpProvingJobState(id: ProvingJobId): Promise<void>;
 
   /**
    * Returns the current status fof the proving job

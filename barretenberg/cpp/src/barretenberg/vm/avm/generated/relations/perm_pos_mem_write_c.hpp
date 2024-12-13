@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_pos_mem_write_c_permutation_settings {
   public:
@@ -63,4 +63,4 @@ class perm_pos_mem_write_c_relation
 };
 template <typename FF_> using perm_pos_mem_write_c = GenericPermutation<perm_pos_mem_write_c_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

@@ -39,7 +39,7 @@ class AvmMemoryTests : public ::testing::Test {
 TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 {
     trace_builder =
-        AvmTraceBuilder(public_inputs, {}, 0, {}).set_full_precomputed_tables(false).set_range_check_required(false);
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_set(0, 98, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
@@ -240,7 +240,7 @@ TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 {
     trace_builder =
-        AvmTraceBuilder(public_inputs, {}, 0, {}).set_full_precomputed_tables(false).set_range_check_required(false);
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_set(0, 98, 0, AvmMemoryTag::U32);
     trace_builder.op_set(0, 12, 1, AvmMemoryTag::U16);
 
@@ -271,9 +271,8 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 // must not set a VM error.
 TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ 84, 7 })
-                        .set_full_precomputed_tables(false)
-                        .set_range_check_required(false);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4);
@@ -301,9 +300,8 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 // Testing violation that a write operation must not set a VM error.
 TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 84, 7 })
-                        .set_full_precomputed_tables(false)
-                        .set_range_check_required(false);
+    trace_builder =
+        AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4);

@@ -5,7 +5,7 @@ import {
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
@@ -25,7 +25,7 @@ import {
  * @param userLog - log function for logging user output.
  * @param debugLogger - logger for logging debug messages.
  */
-export function injectAztecCommands(program: Command, userLog: LogFn, debugLogger: DebugLogger): Command {
+export function injectAztecCommands(program: Command, userLog: LogFn, debugLogger: Logger): Command {
   const startCmd = new Command('start').description(
     'Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.',
   );
@@ -56,6 +56,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (sandboxOptions.testAccounts) {
         if (aztecNodeConfig.p2pEnabled) {
           userLog(`Not setting up test accounts as we are connecting to a network`);
+        } else if (sandboxOptions.noPXE) {
+          userLog(`Not setting up test accounts as we are not exposing a PXE`);
         } else {
           userLog('Setting up test accounts...');
           const accounts = await deployInitialTestAccounts(pxe);
@@ -67,7 +69,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       // Start Node and PXE JSON-RPC server
       signalHandlers.push(stop);
       services.node = [node, AztecNodeApiSchema];
-      services.pxe = [pxe, PXESchema];
+      if (!sandboxOptions.noPXE) {
+        services.pxe = [pxe, PXESchema];
+      } else {
+        userLog(`Not exposing PXE API through JSON-RPC server`);
+      }
     } else {
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
@@ -89,7 +95,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         await startArchiver(options, signalHandlers, services);
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
-        await startP2PBootstrap(options, userLog, debugLogger);
+        await startP2PBootstrap(options, signalHandlers, services, userLog);
       } else if (options.proverAgent) {
         const { startProverAgent } = await import('./cmds/start_prover_agent.js');
         await startProverAgent(options, signalHandlers, services, userLog);
@@ -102,6 +108,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       } else if (options.sequencer) {
         userLog(`Cannot run a standalone sequencer without a node`);
         process.exit(1);
+      } else if (options.faucet) {
+        const { startFaucet } = await import('./cmds/start_faucet.js');
+        await startFaucet(options, signalHandlers, services, userLog);
       } else {
         userLog(`No module specified to start`);
         process.exit(1);

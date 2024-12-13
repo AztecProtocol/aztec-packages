@@ -1,9 +1,9 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type CompleteAddress,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
   deriveKeys,
@@ -17,7 +17,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: CompleteAddress[] = [];
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let token: TokenContract;

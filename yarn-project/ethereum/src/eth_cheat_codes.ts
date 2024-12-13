@@ -1,7 +1,7 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
 import { type Hex } from 'viem';
@@ -18,7 +18,7 @@ export class EthCheatCodes {
     /**
      * The logger to use for the eth cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:eth'),
+    public logger = createLogger('ethereum:cheat_codes'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {
@@ -77,11 +77,15 @@ export class EthCheatCodes {
    * @param numberOfBlocks - The number of blocks to mine
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
+    await this.doMine(numberOfBlocks);
+    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
+  }
+
+  private async doMine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   /**
@@ -188,7 +192,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
-    await this.mine();
+    await this.doMine();
     this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
   }
 

@@ -53,6 +53,7 @@ export {
   generatePublicKey,
   readFieldCompressedString,
   waitForPXE,
+  waitForNode,
   type AztecAddressLike,
   type EthAddressLike,
   type EventSelectorLike,
@@ -148,7 +149,6 @@ export {
   type PXE,
   type PartialAddress,
   type PublicKey,
-  type SyncStatus,
 } from '@aztec/circuit-types';
 
 // TODO: These kinds of things have no place on our public api.
@@ -158,7 +158,7 @@ export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/foundation/
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256 } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
-export { createDebugLogger, type DebugLogger } from '@aztec/foundation/log';
+export { createLogger, type Logger } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { sleep } from '@aztec/foundation/sleep';

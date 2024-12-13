@@ -1,4 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
+import { faucetConfigMapping } from '@aztec/aztec-faucet';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
 import { botConfigMappings } from '@aztec/bot';
 import {
@@ -73,6 +74,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--sandbox.enableGas',
       description: 'Enable gas on sandbox start',
       envVar: 'ENABLE_GAS',
+      ...booleanConfigHelper(),
+    },
+    {
+      flag: '--sandbox.noPXE',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
       ...booleanConfigHelper(),
     },
   ],
@@ -329,5 +336,27 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
+  ],
+  FAUCET: [
+    {
+      flag: '--faucet',
+      description: 'Starts the Aztec faucet',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServer',
+      description: 'Starts a simple HTTP server to access the faucet',
+      defaultValue: true,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServerPort <value>',
+      description: 'The port on which to start the api server on',
+      defaultValue: 8080,
+      envVar: undefined,
+      parseVal: val => parseInt(val, 10),
+    },
+    ...getOptions('faucet', faucetConfigMapping),
   ],
 };

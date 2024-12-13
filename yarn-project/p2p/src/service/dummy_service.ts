@@ -1,4 +1,4 @@
-import type { BlockAttestation, BlockProposal, Gossipable, TxHash } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
@@ -10,6 +10,11 @@ import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from '
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  /** Returns an empty array for peers. */
+  getPeers(): PeerInfo[] {
+    return [];
+  }
+
   /**
    * Starts the dummy implementation.
    * @returns A resolved promise.

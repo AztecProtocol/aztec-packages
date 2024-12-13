@@ -32,7 +32,7 @@ export default {
     plugins: [new ResolveTypeScriptPlugin()],
     fallback: {
       tty: false,
-    }
+    },
   },
   devServer: {
     hot: false,

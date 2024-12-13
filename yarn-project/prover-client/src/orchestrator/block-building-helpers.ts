@@ -10,13 +10,13 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
+  BlockHeader,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -52,7 +52,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -94,13 +94,6 @@ export async function buildBaseRollupHints(
   const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
-
-  // Create data hint for reading fee payer initial balance in Fee Juice
-  // If no fee payer is set, read hint should be empty
-  const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-  const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
-    ? PublicDataHint.empty()
-    : await getPublicDataHint(db, leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
@@ -184,7 +177,6 @@ export async function buildBaseRollupHints(
     return PublicBaseRollupHints.from({
       start,
       stateDiffHints,
-      feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
       archiveRootMembershipWitness,
       constants,
     });
@@ -196,6 +188,13 @@ export async function buildBaseRollupHints(
     ) {
       throw new Error(`More than one public data write in a private only tx`);
     }
+
+    // Create data hint for reading fee payer initial balance in Fee Juice
+    // If no fee payer is set, read hint should be empty
+    const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+    const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
+      ? PublicDataHint.empty()
+      : await getPublicDataHint(db, leafSlot.toBigInt());
 
     const feeWriteLowLeafPreimage =
       txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
@@ -299,7 +298,7 @@ export function buildHeaderFromCircuitOutputs(
   parityPublicInputs: ParityPublicInputs,
   rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
-  logger?: DebugLogger,
+  logger?: Logger,
 ) {
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
@@ -310,7 +309,7 @@ export function buildHeaderFromCircuitOutputs(
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
   const state = new StateReference(updatedL1ToL2TreeSnapshot, previousMergeData[1].end);
-  const header = new Header(
+  const header = new BlockHeader(
     rootRollupOutputs.previousArchive,
     contentCommitment,
     state,
@@ -371,7 +370,7 @@ export async function buildHeaderAndBodyFromTxs(
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
 
-  const header = new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+  const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 
   return { header, body };
 }
@@ -379,7 +378,7 @@ export async function buildHeaderAndBodyFromTxs(
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockHeader: Header,
+  blockHeader: BlockHeader,
   db: MerkleTreeReadOperations,
 ) {
   await Promise.all([
@@ -548,7 +547,7 @@ export async function getMembershipWitnessFor<N extends number>(
     return makeEmptyMembershipWitness(height);
   }
 
-  const index = await db.findLeafIndex(treeId, value.toBuffer());
+  const index = (await db.findLeafIndices(treeId, [value.toBuffer()]))[0];
   if (index === undefined) {
     throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
   }

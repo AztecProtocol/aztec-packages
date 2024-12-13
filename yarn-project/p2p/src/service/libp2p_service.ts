@@ -6,6 +6,7 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  type PeerInfo,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
@@ -15,7 +16,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -88,11 +89,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     private worldStateSynchronizer: WorldStateSynchronizer,
     private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
-    private logger = createDebugLogger('aztec:libp2p_service'),
+    private logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, this.tracer, logger);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
@@ -117,20 +118,17 @@ export class LibP2PService extends WithTracer implements P2PService {
       throw new Error('P2P service already started');
     }
 
-    // Log listen & announce addresses
+    // Get listen & announce addresses for logging
     const { tcpListenAddress, tcpAnnounceAddress } = this.config;
-    this.logger.info(`Starting P2P node on ${tcpListenAddress}`);
     if (!tcpAnnounceAddress) {
       throw new Error('Announce address not provided.');
     }
     const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
-    this.logger.info(`Announcing at ${announceTcpMultiaddr}`);
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
     await this.peerDiscoveryService.start();
     await this.node.start();
-    this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
 
     // Subscribe to standard GossipSub topics by default
     for (const topic in TopicType) {
@@ -146,9 +144,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
 
     // Start running promise for peer discovery
-    this.discoveryRunningPromise = new RunningPromise(() => {
-      this.peerManager.heartbeat();
-    }, this.config.peerCheckIntervalMS);
+    this.discoveryRunningPromise = new RunningPromise(
+      () => this.peerManager.heartbeat(),
+      this.logger,
+      this.config.peerCheckIntervalMS,
+    );
     this.discoveryRunningPromise.start();
 
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
@@ -157,6 +157,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       [TX_REQ_PROTOCOL]: this.validateRequestedTx.bind(this),
     };
     await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
+    this.logger.info(`Started P2P service`, {
+      listen: tcpListenAddress,
+      announce: announceTcpMultiaddr,
+      peerId: this.node.peerId.toString(),
+    });
   }
 
   /**
@@ -175,7 +180,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
-    this.logger.debug('Stopping request response service...');
   }
 
   /**
@@ -307,6 +311,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       requestResponseHandlers,
     );
+  }
+
+  public getPeers(includePending?: boolean): PeerInfo[] {
+    return this.peerManager.getPeers(includePending);
   }
 
   /**
@@ -532,7 +540,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const doubleSpendValidator = new DoubleSpendTxValidator({
       getNullifierIndex: async (nullifier: Fr) => {
         const merkleTree = this.worldStateSynchronizer.getCommitted();
-        const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+        const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
         return index;
       },
     });
@@ -545,7 +553,7 @@ export class LibP2PService extends WithTracer implements P2PService {
             const merkleTree = this.worldStateSynchronizer.getSnapshot(
               blockNumber - this.config.severePeerPenaltyBlockLength,
             );
-            const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+            const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
             return index;
           },
         });
@@ -583,10 +591,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     const parent = message.constructor as typeof Gossipable;
 
     const identifier = message.p2pMessageIdentifier().toString();
-    this.logger.verbose(`[${identifier}] sending`);
+    this.logger.trace(`Sending message ${identifier}`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`[${identifier}] sent to ${recipientsNum} peers`);
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.
@@ -597,7 +605,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
     try {
       await Promise.race([this.node.stop(), timeout]);
-      this.logger.debug('Libp2p stopped');
+      this.logger.debug('LibP2P stopped');
     } catch (error) {
       this.logger.error('Error during stop or timeout:', error);
     }

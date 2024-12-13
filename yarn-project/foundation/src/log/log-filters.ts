@@ -42,7 +42,13 @@ export function parseFilters(definition: string | undefined): LogFilters {
     const sanitizedLevel = level.trim().toLowerCase();
     assertLogLevel(sanitizedLevel);
     for (const module of modules.split(',')) {
-      filters.push([module.trim().toLowerCase(), sanitizedLevel as LogLevel | 'silent']);
+      filters.push([
+        module
+          .trim()
+          .toLowerCase()
+          .replace(/^aztec:/, ''),
+        sanitizedLevel as LogLevel | 'silent',
+      ]);
     }
   }
   return filters.reverse();

@@ -35,6 +35,7 @@ aztec:
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  l1Salt: "" # leave empty for random salt
 
 bootNode:
   peerIdPrivateKey: ""
@@ -71,7 +72,9 @@ bootNode:
     outboxAddress: ""
     feeJuiceAddress: ""
     feeJuicePortalAddress: ""
-  storage: "8Gi"
+    stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -108,6 +111,8 @@ validator:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  storageSize: "1Gi"
+  dataDir: "/data"
 
 proverNode:
   externalHost: ""
@@ -236,3 +241,13 @@ proverBroker:
 jobs:
   deployL1Verifier:
     enable: false
+
+faucet:
+  replicas: 1
+  service:
+    nodePort: 8085
+  apiServerPort: 8086
+  accountIndex: 0
+  l1Assets: ""
+  logLevel: ""
+  resources: {}

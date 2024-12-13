@@ -37,6 +37,7 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
+    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
@@ -44,15 +45,14 @@ use crate::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
-    header::Header,
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
@@ -91,6 +91,7 @@ pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
+    pub is_private_only: bool,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -101,7 +102,7 @@ pub struct FixtureBuilder {
     pub end_gas_left: Gas,
 
     // Constant data.
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -114,7 +115,7 @@ pub struct FixtureBuilder {
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
-    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
@@ -462,6 +463,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
         }
     }
 
@@ -530,14 +532,23 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        // First nullifier is tx hash.
-        let tx_hash = self.nullifiers.get(0).value();
-        let index = self.note_hashes.len();
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
+    }
+
+    pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let current_index = self.note_hashes.len();
+        let first_nullifier = self.nullifiers.get(0).value();
+        let unique_siloed_value =
+            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+
+        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
+            .scope(AztecAddress::zero()));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -556,6 +567,16 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_siloed_note_hash(value);
+            }
+        }
+    }
+
+    pub fn append_siloed_unique_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_unique_note_hash(value);
             }
         }
     }
@@ -1017,19 +1038,19 @@ impl FixtureBuilder {
         fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
-    fn to_private_tube_data(self) -> PrivateTubeData {
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
         let mut result: PrivateTubeData = std::mem::zeroed();
         result.public_inputs = self.to_kernel_circuit_public_inputs();
         result
     }
 
-    fn to_public_tube_data(self) -> PublicTubeData {
+    pub fn to_public_tube_data(self) -> PublicTubeData {
         let mut result: PublicTubeData = std::mem::zeroed();
         result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
         result
     }
 
-    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
         AvmAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
@@ -1039,7 +1060,7 @@ impl FixtureBuilder {
         }
     }
 
-    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
         let mut result: AvmProofData = std::mem::zeroed();
 
         result.public_inputs.reverted = reverted;
@@ -1055,11 +1076,12 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
+            is_private_only: false,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),
