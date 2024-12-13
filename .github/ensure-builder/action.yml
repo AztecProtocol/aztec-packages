@@ -34,7 +34,6 @@ runs:
           # 128-core x86 instance types, aws chooses for us based on capacity
           echo "instance_type=m6a.32xlarge m6i.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6in.32xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=300" >> $GITHUB_OUTPUT
           echo "runner_concurrency=20" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
@@ -42,7 +41,6 @@ runs:
           # 64-core ARM instance type
           echo "instance_type=r6g.16xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-0d8a9b0419ddb331a" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
           echo "runner_concurrency=8" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-arm" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
