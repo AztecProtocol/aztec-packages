@@ -15,7 +15,6 @@ import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' assert 
 import EmptyBlockRootRollupJson from '../../artifacts/rollup_block_root_empty.json' assert { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' assert { type: 'json' };
-import { ClientCircuitArtifacts, ClientProtocolArtifact } from './client.js';
 
 // These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =

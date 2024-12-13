@@ -18,7 +18,7 @@ import {
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing';
 
 import TOML from '@iarna/toml';
-import { WitnessMap } from '@noir-lang/acvm_js';
+import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import { ServerCircuitArtifacts, SimulatedServerCircuitArtifacts } from '../artifacts/server.js';
@@ -51,7 +51,7 @@ import {
   type RollupMergeReturnType,
   type RollupRootReturnType,
 } from '../types/index.js';
-import { DecodedInputs } from '../utils/decoded_inputs.js';
+import { type DecodedInputs } from '../utils/decoded_inputs.js';
 
 /**
  * Converts the inputs of the base parity circuit into a witness map.

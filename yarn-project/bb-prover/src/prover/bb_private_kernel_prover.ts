@@ -1,22 +1,14 @@
+import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  type AppCircuitSimulateOutput,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-} from '@aztec/circuit-types';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  AGGREGATION_OBJECT_LENGTH,
   ClientIvcProof,
-  Fr,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  Proof,
-  RecursiveProof,
-  type VerificationKeyAsFields,
+  type Proof,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';

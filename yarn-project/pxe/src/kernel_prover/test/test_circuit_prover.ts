@@ -1,11 +1,6 @@
-import {
-  type AppCircuitSimulateOutput,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-} from '@aztec/circuit-types';
+import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import type { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -13,7 +8,6 @@ import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';

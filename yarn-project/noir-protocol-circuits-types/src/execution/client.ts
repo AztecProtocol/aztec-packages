@@ -11,11 +11,11 @@ import {
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing';
 
 import TOML from '@iarna/toml';
-import { type CompiledCircuit, type InputMap, Noir, WitnessMap } from '@noir-lang/noir_js';
+import { type CompiledCircuit, type InputMap, Noir, type WitnessMap } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import { ClientCircuitArtifacts, SimulatedClientCircuitArtifacts } from '../artifacts/client.js';
-import { PrivateResetArtifact } from '../private_kernel_reset_data.js';
+import { type PrivateResetArtifact } from '../private_kernel_reset_data.js';
 import {
   mapFieldToNoir,
   mapPrivateCallDataToNoir,
@@ -39,9 +39,11 @@ import {
   PrivateKernelTailToPublic as executePrivateKernelTailToPublicWithACVM,
   PrivateKernelTail as executePrivateKernelTailWithACVM,
 } from '../types/index.js';
-import { DecodedInputs } from '../utils/decoded_inputs.js';
+import { type DecodedInputs } from '../utils/decoded_inputs.js';
 import { foreignCallHandler } from '../utils/foreign_call_handler.js';
 import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset.js';
+
+/* eslint-disable camelcase */
 
 /**
  * Executes the init private kernel.
