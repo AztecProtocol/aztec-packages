@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-ip=$1
+iid=$1
 sir=${2:-}
-ssh_config_path=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
 
-echo "Terminating instance: $ip..."
-dump_fail ssh -F $ssh_config_path ubuntu@$ip sudo halt -p > /dev/null
+export AWS_DEFAULT_REGION=us-east-2
+
+echo "Terminating instance: $iid..."
+dump_fail aws ec2 terminate-instances --instance-ids $iid > /dev/null
 
 if [ -n "$sir" ]; then
-    dump_fail aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $sir > /dev/null
+    dump_fail aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir > /dev/null
 fi

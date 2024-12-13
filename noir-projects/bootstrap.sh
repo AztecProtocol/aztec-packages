@@ -10,6 +10,11 @@ fi
 
 github_group "noir-projects build"
 
+# TODO: Move the build image, or better, just use devcontainer as our build container.
+if ! command -v xxd &> /dev/null; then
+  apt update && apt install -y xxd
+fi
+
 # Use fmt as a trick to download dependencies.
 # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
 # Also doubles up as our formatting check.

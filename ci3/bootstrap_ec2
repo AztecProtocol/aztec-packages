@@ -12,7 +12,7 @@ BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 function on_exit {
     set +e
     if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $ip $sir
+      aws_terminate_instance $iid $sir
     else
       echo "Remote machine not terminated, connect with: ./ci.sh attach"
     fi
@@ -45,6 +45,7 @@ ip_sir=$(aws_request_instance $instance_name 128 x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
+iid="${parts[2]}"
 trap on_exit EXIT
 github_endgroup
 

@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    aws_terminate_instance $ip $sir
+    aws_terminate_instance $iid $sir
 }
 
 if [ ! -f $HOME/.aws/build_instance_credentials ]; then

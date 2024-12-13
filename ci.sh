@@ -104,7 +104,7 @@ case "$cmd" in
     sleep 5
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     ;&
-  "log")
+  "ga-log")
     # Get workflow id of most recent CI3 run for this given branch.
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
 
@@ -149,6 +149,12 @@ case "$cmd" in
       get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
       ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+      exit 0
+    ;;
+  "log")
+      get_ip_for_instance ${1:-}
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      ssh -t ubuntu@$ip 'docker logs -f aztec_build'
       exit 0
     ;;
   "shell-host")
