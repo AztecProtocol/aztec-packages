@@ -497,18 +497,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     });
   }
 
-  private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
+  private async processTxFromPeer(tx: Tx, _peerId: PeerId): Promise<void> {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
 
-    const timer = new Timer();
-    const isValidTx = await this.validatePropagatedTx(tx, peerId);
-    this.logger.info(`\n\n\n validatePropagatedTx took ${timer.ms()}ms \n\n\n`);
 
-    if (isValidTx) {
-      await this.mempools.txPool.addTxs([tx]);
-    }
   }
 
   /**
@@ -550,7 +544,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
   private async validatePropagatedTxFromMessage(propagationSource: PeerId, msg: Message): Promise<TopicValidatorResult> {
     const tx = Tx.fromBuffer(Buffer.from(msg.data));
+    const timer = new Timer();
     const isValid = await this.validatePropagatedTx(tx, propagationSource);
+    this.logger.info(`\n\n\n validatePropagatedTx took ${timer.ms()}ms \n\n\n`);
+    this.logger.trace(`validatePropagatedTx: ${isValid}`, {
+      [Attributes.TX_HASH]: tx.getTxHash().toString(),
+      [Attributes.P2P_ID]: propagationSource.toString(),
+    });
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
   }
 
@@ -625,7 +625,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     messageValidators: Record<string, MessageValidator>
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
+      const timer = new Timer();
       const isValid = await validator.validateTx(tx);
+      this.logger.info(`\n\n\n VALIDATOR: ${name} took ${timer.ms()}ms \n\n\n`);
       return { name, isValid, severity };
     });
 
