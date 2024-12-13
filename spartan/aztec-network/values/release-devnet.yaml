@@ -1,11 +1,6 @@
-##########
-# BEWARE #
-##########
-# You need to deploy the metrics helm chart before using this values file.
-# head to spartan/metrics and run `./install.sh`
-# (then `./forward.sh` if you want to see it)
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 1
@@ -20,7 +15,6 @@ bootNode:
   validator:
     disabled: true
 
-# use small provers to produce fake proofs
 proverAgent:
   replicas: 1
   resources:
@@ -43,7 +37,7 @@ images:
 aztec:
   slotDuration: 36
   epochDuration: 32
-  realProofs: false # devnet does not use real proofs
+  realProofs: false
 
 jobs:
   deployL1Verifier:

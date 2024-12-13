@@ -39,6 +39,10 @@ describe('aztec node', () => {
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeReadOperations>();
 
+    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
+      return Promise.resolve([undefined]);
+    });
+
     const worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });

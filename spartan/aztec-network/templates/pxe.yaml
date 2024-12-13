@@ -108,8 +108,8 @@ spec:
                 - -c
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
-                  -d '{"jsonrpc":"2.0","method":"pxe_isGlobalStateSynchronized","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"result":true'
+                  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"protocolVersion":1'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}

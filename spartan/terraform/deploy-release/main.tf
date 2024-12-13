@@ -52,6 +52,11 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.L1_DEPLOYMENT_MNEMONIC
   }
 
+  set {
+    name  = "aztec.l1Salt"
+    value = var.L1_DEPLOYMENT_SALT
+  }
+
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
   wait          = true

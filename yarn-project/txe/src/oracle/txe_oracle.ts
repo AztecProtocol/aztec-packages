@@ -106,7 +106,7 @@ export class TXE implements TypedOracle {
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
 
-  private siloedNoteHashesFromPublic: Fr[] = [];
+  private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
   private publicLogs: UnencryptedL2Log[] = [];
@@ -270,20 +270,20 @@ export class TXE implements TypedOracle {
     await this.addSiloedNullifiers(siloedNullifiers);
   }
 
-  async addSiloedNoteHashes(siloedNoteHashes: Fr[]) {
+  async addUniqueNoteHashes(siloedNoteHashes: Fr[]) {
     const db = await this.trees.getLatest();
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
 
-  async addSiloedNoteHashesFromPublic(siloedNoteHashes: Fr[]) {
-    this.siloedNoteHashesFromPublic.push(...siloedNoteHashes);
-    await this.addSiloedNoteHashes(siloedNoteHashes);
+  async addUniqueNoteHashesFromPublic(siloedNoteHashes: Fr[]) {
+    this.uniqueNoteHashesFromPublic.push(...siloedNoteHashes);
+    await this.addUniqueNoteHashes(siloedNoteHashes);
   }
 
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
     const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
 
-    await this.addSiloedNoteHashes(siloedNoteHashes);
+    await this.addUniqueNoteHashes(siloedNoteHashes);
   }
 
   addPrivateLogs(contractAddress: AztecAddress, privateLogs: PrivateLog[]) {
@@ -610,15 +610,12 @@ export class TXE implements TypedOracle {
       ...this.noteCache
         .getAllNotes()
         .map(pendingNote =>
-          siloNoteHash(
-            pendingNote.note.contractAddress,
-            computeUniqueNoteHash(
-              computeNoteHashNonce(new Fr(this.blockNumber + 6969), i++),
-              pendingNote.noteHashForConsumption,
-            ),
+          computeUniqueNoteHash(
+            computeNoteHashNonce(new Fr(this.blockNumber + 6969), i++),
+            siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption),
           ),
         ),
-      ...this.siloedNoteHashesFromPublic,
+      ...this.uniqueNoteHashesFromPublic,
     ];
     txEffect.nullifiers = [new Fr(blockNumber + 6969), ...this.noteCache.getAllNullifiers()];
 
@@ -634,12 +631,12 @@ export class TXE implements TypedOracle {
     this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
 
-    await this.addSiloedNoteHashes(txEffect.noteHashes);
+    await this.addUniqueNoteHashes(txEffect.noteHashes);
     await this.addSiloedNullifiers(txEffect.nullifiers);
 
     this.privateLogs = [];
     this.publicLogs = [];
-    this.siloedNoteHashesFromPublic = [];
+    this.uniqueNoteHashesFromPublic = [];
     this.siloedNullifiersFromPublic = [];
     this.noteCache = new ExecutionNoteCache(new Fr(1));
   }
@@ -855,7 +852,7 @@ export class TXE implements TypedOracle {
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
     const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
     await this.addPublicDataWrites(publicDataWrites);
-    await this.addSiloedNoteHashesFromPublic(noteHashes);
+    await this.addUniqueNoteHashesFromPublic(noteHashes);
     await this.addSiloedNullifiers(nullifiers);
 
     this.setContractAddress(currentContractAddress);
@@ -954,7 +951,7 @@ export class TXE implements TypedOracle {
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
       const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
       await this.addPublicDataWrites(publicDataWrites);
-      await this.addSiloedNoteHashes(noteHashes);
+      await this.addUniqueNoteHashes(noteHashes);
       await this.addSiloedNullifiers(nullifiers);
     }
 

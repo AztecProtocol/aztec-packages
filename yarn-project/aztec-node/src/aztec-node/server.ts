@@ -457,7 +457,10 @@ export class AztecNodeService implements AztecNode {
     leafValues: Fr[],
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return await committedDb.findLeafIndices(treeId, leafValues);
+    return await committedDb.findLeafIndices(
+      treeId,
+      leafValues.map(x => x.toBuffer()),
+    );
   }
 
   /**

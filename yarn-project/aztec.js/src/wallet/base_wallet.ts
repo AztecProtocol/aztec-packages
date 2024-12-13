@@ -10,7 +10,6 @@ import {
   type PXEInfo,
   type PrivateExecutionResult,
   type SiblingPath,
-  type SyncStatus,
   type Tx,
   type TxExecutionRequest,
   type TxHash,
@@ -169,12 +168,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
-  }
-  isGlobalStateSynchronized() {
-    return this.pxe.isGlobalStateSynchronized();
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return this.pxe.getSyncStatus();
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
