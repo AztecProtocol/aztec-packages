@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734107330713,
+  "lastUpdate": 1734111931547,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3392629818e6d51c01ca4c75c1ad916bb4b4fdb1",
-          "message": "chore: pull value merger code from sync (#10080)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2024-11-28T00:50:04+01:00",
-          "tree_id": "63bc4ce36fecc25022468f8af611f5da4fa1bdef",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3392629818e6d51c01ca4c75c1ad916bb4b4fdb1"
-        },
-        "date": 1732752846095,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28363.431515000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26635.272279999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5137.387709999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4756.1121969999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84213.797103,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84213798000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15233.782082000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15233783000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3104842302,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3104842302 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140566137,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140566137 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 142325698,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142325698 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ab9e30d339cfd7a80f333e408c367c1f8bf49f8",
+          "message": "chore: move decider PK allocation to methods (#10670)\n\nJust moves the poly allocation logic in the DeciderPK into methods to\nmake the constructor a bit easier to digest",
+          "timestamp": "2024-12-13T10:10:17-07:00",
+          "tree_id": "6ee4e9406d6aa65c99b5930ca899a4022dc4c9c5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1ab9e30d339cfd7a80f333e408c367c1f8bf49f8"
+        },
+        "date": 1734111924169,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24689.301865999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22774.397218000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4959.345542999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4669.006622999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86123.74198100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86123742000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15252.595772,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15252597000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2826379764,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2826379764 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143111162,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143111162 ns\nthreads: 1"
           }
         ]
       }
