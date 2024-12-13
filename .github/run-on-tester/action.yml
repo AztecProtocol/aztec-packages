@@ -9,7 +9,6 @@ inputs:
 runs:
   # define an action, runs in OS of caller
   using: composite
-  timeout-minutes: ${{ inputs.timeout }}
   steps:
     # Assumes ensure-tester has ran
     - name: Run On Tester

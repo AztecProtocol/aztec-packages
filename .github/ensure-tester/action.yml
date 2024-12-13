@@ -105,16 +105,19 @@ runs:
     - name: Setup yq and earthly
       uses: ./.github/run-on-tester
       with:
-        # Don't wait for docker too long, could be pathological
-        timeout: 3
         run: |
           wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
           chmod +x ./yq
           DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
           ci3/earthly_install
           echo "Waiting for Docker service to become active..."
+          i=0
           while ! systemctl is-active --quiet docker; do
             sleep 2
+            if [ $(( i++ )) -gt 60 ]; then
+              echo "Docker service not found! Report this."
+              exit 1
+            fi
           done
           echo "Docker service is active!"
 
