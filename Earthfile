@@ -53,7 +53,7 @@ bootstrap:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
     DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/cpp/bootstrap.sh fast" "./barretenberg/ts/bootstrap.sh fast" && \
-    DENOISE=1 CI=1 "./l1-contracts/bootstrap.sh fast" && \
+    DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast && \
