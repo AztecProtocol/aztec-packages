@@ -845,8 +845,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
   }
 
-  // TODO(md): change this to run in parrel the same as in the p2p client - maybe not required
-  // as everything is sub ms apart from the double spend validator
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
@@ -857,8 +855,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator({
-        getNullifierIndices: nullifiers =>
-          db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers).then(x => x.filter(index => index !== undefined) as bigint[]),
+        getNullifierIndices: nullifiers => db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers),
       }),
     ];
 

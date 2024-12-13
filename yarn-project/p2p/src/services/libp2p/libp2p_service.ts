@@ -29,7 +29,7 @@ import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import { Message, PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
@@ -61,7 +61,6 @@ import {
 } from '../reqresp/interface.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
-import { Timer } from '@aztec/foundation/timer';
 
 interface MessageValidator {
   validator: {
@@ -76,9 +75,7 @@ interface ValidationResult {
   severity: PeerErrorSeverity;
 }
 
-type ValidationOutcome =
-  | { allPassed: true }
-  | { allPassed: false; failure: ValidationResult };
+type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 
 /**
  * Lib P2P implementation of the P2PService interface.
@@ -160,10 +157,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
-      const { msg, propagationSource: peerId } = e.detail;
+      const { msg } = e.detail;
       this.logger.trace(`Received PUBSUB message.`);
 
-      await this.jobQueue.put(() => this.handleNewGossipMessage(msg, peerId));
+      await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
     });
 
     // Start running promise for peer discovery
@@ -306,7 +303,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       },
     });
 
-
     // Create request response protocol handlers
     /**
      * Handler for tx requests
@@ -405,10 +401,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param topic - The message's topic.
    * @param data - The message data
    */
-  private async handleNewGossipMessage(message: RawGossipMessage, peerId: PeerId) {
+  private async handleNewGossipMessage(message: RawGossipMessage) {
     if (message.topic === Tx.p2pTopic) {
       const tx = Tx.fromBuffer(Buffer.from(message.data));
-      await this.processTxFromPeer(tx, peerId);
+      await this.processTxFromPeer(tx);
     }
     if (message.topic === BlockAttestation.p2pTopic && this.clientType === P2PClientType.Full) {
       const attestation = BlockAttestation.fromBuffer(Buffer.from(message.data));
@@ -497,12 +493,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     });
   }
 
-  private async processTxFromPeer(tx: Tx, _peerId: PeerId): Promise<void> {
+  private async processTxFromPeer(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
-
-
+    await this.mempools.txPool.addTxs([tx]);
   }
 
   /**
@@ -542,11 +537,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return true;
   }
 
-  private async validatePropagatedTxFromMessage(propagationSource: PeerId, msg: Message): Promise<TopicValidatorResult> {
+  private async validatePropagatedTxFromMessage(
+    propagationSource: PeerId,
+    msg: Message,
+  ): Promise<TopicValidatorResult> {
     const tx = Tx.fromBuffer(Buffer.from(msg.data));
-    const timer = new Timer();
     const isValid = await this.validatePropagatedTx(tx, propagationSource);
-    this.logger.info(`\n\n\n validatePropagatedTx took ${timer.ms()}ms \n\n\n`);
     this.logger.trace(`validatePropagatedTx: ${isValid}`, {
       [Attributes.TX_HASH]: tx.getTxHash().toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
@@ -554,6 +550,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
   }
 
+  /**
+   * Validate a tx that has been propagated from a peer.
+   * @param tx - The tx to validate.
+   * @param peerId - The peer ID of the peer that sent the tx.
+   * @returns True if the tx is valid, false otherwise.
+   */
   @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
@@ -571,7 +573,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     // Double spend validator has a special case handler
     if (name === 'doubleSpendValidator') {
       const isValid = await this.handleDoubleSpendFailure(tx, blockNumber, peerId);
-      if (isValid) return true;
+      if (isValid) {
+        return true;
+      }
     }
 
     this.peerManager.penalizePeer(peerId, severity);
@@ -603,10 +607,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       },
       doubleSpendValidator: {
         validator: new DoubleSpendTxValidator({
-          getNullifierIndices: async (nullifiers: Buffer[]) => {
+          getNullifierIndices: (nullifiers: Buffer[]) => {
             const merkleTree = this.worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.filter(index => index !== undefined) as bigint[];
+            return merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
           },
         }),
         severity: PeerErrorSeverity.HighToleranceError,
@@ -622,12 +625,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    */
   private async runValidations(
     tx: Tx,
-    messageValidators: Record<string, MessageValidator>
+    messageValidators: Record<string, MessageValidator>,
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
-      const timer = new Timer();
       const isValid = await validator.validateTx(tx);
-      this.logger.info(`\n\n\n VALIDATOR: ${name} took ${timer.ms()}ms \n\n\n`);
       return { name, isValid, severity };
     });
 
@@ -636,16 +637,16 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     // A promise that resolves when the first validation fails
     const firstFailure = Promise.race(
-      validationPromises.map(async (promise) => {
+      validationPromises.map(async promise => {
         const result = await promise;
         return result.isValid ? new Promise(() => {}) : result;
-      })
+      }),
     );
 
     // Wait for the first validation to fail or all validations to pass
     const result = await Promise.race([
       allValidations.then(() => ({ allPassed: true as const })),
-      firstFailure.then(failure => ({ allPassed: false as const, failure: failure as ValidationResult }))
+      firstFailure.then(failure => ({ allPassed: false as const, failure: failure as ValidationResult })),
     ]);
 
     // If all validations pass, allPassed will be true, if failed, then the failure will be the first validation to fail
@@ -669,12 +670,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     const snapshotValidator = new DoubleSpendTxValidator({
-      getNullifierIndices: async (nullifiers: Buffer[]) => {
+      getNullifierIndices: (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
           blockNumber - this.config.severePeerPenaltyBlockLength,
         );
-        const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-        return indices.filter(index => index !== undefined) as bigint[];
+        return merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
       },
     });
 

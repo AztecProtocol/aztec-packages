@@ -11,7 +11,7 @@ describe('DoubleSpendTxValidator', () => {
   beforeEach(() => {
     nullifierSource = mock<NullifierSource>({
       getNullifierIndices: mockFn().mockImplementation(() => {
-        return Promise.resolve(undefined);
+        return Promise.resolve([undefined]);
       }),
     });
     txValidator = new DoubleSpendTxValidator(nullifierSource);
