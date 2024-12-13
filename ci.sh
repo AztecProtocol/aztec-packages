@@ -70,7 +70,7 @@ case "$cmd" in
     bootstrap_ec2 "exec bash"
     ;;
   "ec2-e2e")
-    bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" $1
+    bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" ${1:-}
     ;;
   "ec2-e2e-grind")
     export DENOISE=1
@@ -142,7 +142,7 @@ case "$cmd" in
   "shell")
       get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
       exit 0
     ;;
   "attach")

@@ -57,15 +57,14 @@ args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' 
 
 args+=" -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}"
 
-# Use ~/.ssh/build_instance_key to ssh into our requested instance (note, could be on-demand if spot fails).
+# Use ~/.ssh/build_instance_key to ssh into our requested instance.
 # Run in our build container, cloning commit and running bootstrap.sh.
 github_group "Start CI Image"
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-  # Not interested in shutdown messages.
-  mesg n
   docker run --privileged $args --name aztec_build -t \
     -v boostrap_ci_local_docker:/var/lib/docker \
-    -v \$HOME/.aws:/root/.aws \
+    -v \$HOME:/root \
+    -v /tmp:/tmp \
     aztecprotocol/ci:2.0 bash -c '
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
       [ -n \"$GITHUB_LOG\" ] && echo "::group::Clone Repository"

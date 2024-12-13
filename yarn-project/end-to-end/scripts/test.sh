@@ -15,8 +15,8 @@ case "$TYPE" in
     trap 'docker kill $name &> /dev/null' SIGINT SIGTERM
     docker run --rm \
       --name $name \
-      -v$PWD/../..:/root/aztec-packages \
-      -v$HOME/.bb-crs:/root/.bb-crs \
+      -v$HOME:/root \
+      -v/tmp:/tmp \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST
   ;;

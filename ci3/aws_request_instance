@@ -34,10 +34,10 @@ fi
 # Construct the full instance type. We use m6a/m7g currently.
 if [ "$ARCH" == "x86_64" ]; then
   MACHINE_TYPE="m6a"
-  AMI="ami-052a1e16394277fdf"
+  AMI=${AMI:-"ami-044f8e99cd65daf76"}
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
-  AMI="ami-0d8a9b0419ddb331a"
+  AMI=${AMI:-"ami-0d8a9b0419ddb331a"}
 else
   echo "Unknown arch: $ARCH"
   exit 1
