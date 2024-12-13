@@ -8,11 +8,14 @@ import {
   type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
+  type Tracer,
   type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {
+  public readonly tracer: Tracer;
+
   private blockHeight: Gauge;
   private blockSize: Gauge;
   private syncDuration: Histogram;
@@ -24,6 +27,7 @@ export class ArchiverInstrumentation {
   private log = createLogger('archiver:instrumentation');
 
   private constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+    this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',

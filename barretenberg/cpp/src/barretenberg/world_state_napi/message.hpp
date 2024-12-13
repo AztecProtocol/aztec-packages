@@ -23,7 +23,7 @@ enum WorldStateMessageType {
     GET_SIBLING_PATH,
     GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
-    FIND_LEAF_INDEX,
+    FIND_LEAF_INDICES,
     FIND_LOW_LEAF,
 
     APPEND_LEAVES,
@@ -143,11 +143,17 @@ struct GetBlockNumbersForLeafIndicesResponse {
     MSGPACK_FIELDS(blockNumbers);
 };
 
-template <typename T> struct FindLeafIndexRequest {
+template <typename T> struct FindLeafIndicesRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
-    T leaf;
-    MSGPACK_FIELDS(treeId, revision, leaf);
+    std::vector<T> leaves;
+    index_t startIndex;
+    MSGPACK_FIELDS(treeId, revision, leaves, startIndex);
+};
+
+struct FindLeafIndicesResponse {
+    std::vector<std::optional<index_t>> indices;
+    MSGPACK_FIELDS(indices);
 };
 
 struct FindLowLeafRequest {

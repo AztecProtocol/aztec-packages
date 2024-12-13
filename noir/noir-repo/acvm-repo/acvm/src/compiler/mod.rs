@@ -82,15 +82,16 @@ pub fn compile<F: AcirField>(
     acir: Circuit<F>,
     expression_width: ExpressionWidth,
 ) -> (Circuit<F>, AcirTransformationMap) {
-    let initial_opcode_positions = (0..acir.opcodes.len()).collect::<Vec<_>>();
+    let acir_opcode_positions = (0..acir.opcodes.len()).collect::<Vec<_>>();
+
     if MAX_OPTIMIZER_PASSES == 0 {
-        let transformation_map = AcirTransformationMap::new(&initial_opcode_positions);
-        return (acir, transformation_map);
+        return (acir, AcirTransformationMap::new(&acir_opcode_positions));
     }
+
     let mut pass = 0;
     let mut prev_opcodes_hash = fxhash::hash64(&acir.opcodes);
     let mut prev_acir = acir;
-    let mut prev_acir_opcode_positions = initial_opcode_positions;
+    let mut prev_acir_opcode_positions = acir_opcode_positions;
 
     // For most test programs it would be enough to only loop `transform_internal`,
     // but some of them don't stabilize unless we also repeat the backend agnostic optimizations.
