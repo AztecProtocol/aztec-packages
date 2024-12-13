@@ -632,6 +632,11 @@ export class SimulatorOracle implements DBOracle {
     simulator?: AcirSimulator,
   ): Promise<void> {
     const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+
+    // We've produced the full IncomingNoteDao, which we'd be able to simply insert into the database. However, this is
+    // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
+    // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
+    // contract for further processing.
     for (const note of incomingNotes) {
       const plaintext = [note.storageSlot, note.noteTypeId.toField(), ...note.note.items];
 
@@ -640,6 +645,7 @@ export class SimulatorOracle implements DBOracle {
         throw new Error(`Could not find tx effect for tx hash ${note.txHash}`);
       }
 
+      // This will trigger calls to the deliverNote oracle
       await this.callProcessLogs(
         note.contractAddress,
         plaintext,
