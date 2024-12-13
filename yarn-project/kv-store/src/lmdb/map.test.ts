@@ -1,7 +1,8 @@
+import { expect } from 'chai';
+
+import { type AztecMapWithSize, type AztecMultiMapWithSize } from '../interfaces/map.js';
 import { describeAztecMap } from '../interfaces/map_test_suite.js';
 import { openTmpStore } from './index.js';
-import { AztecMapWithSize, AztecMultiMapWithSize } from '../interfaces/map.js';
-import { expect } from 'chai';
 
 describe('LMDBMap', () => {
   describeAztecMap('Sync AztecMap', () => openTmpStore(true));
