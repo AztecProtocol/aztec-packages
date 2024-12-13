@@ -47,8 +47,10 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        static constexpr FF bn_254_subgroup_generator =
-            FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        // static constexpr FF bn_254_subgroup_generator =
+        //     FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        static constexpr FF subgroup_generator =
+            FF(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
         const auto gemini_r = opening_claims[0].opening_pair.challenge;
         OpeningClaim new_claim;
         if (has_zk) {
@@ -59,7 +61,7 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims.push_back(new_claim);
 
             new_claim.polynomial = libra_polynomials[1];
-            new_claim.opening_pair.challenge = bn_254_subgroup_generator * gemini_r;
+            new_claim.opening_pair.challenge = subgroup_generator * gemini_r;
             new_claim.opening_pair.evaluation = libra_polynomials[1].evaluate(new_claim.opening_pair.challenge);
             transcript->send_to_verifier("Libra:shifted_big_sum_eval", new_claim.opening_pair.evaluation);
             libra_opening_claims.push_back(new_claim);
@@ -339,6 +341,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
 
                 auto builder = gemini_evaluation_challenge.get_context();
+
                 size_t num_gates = builder->num_gates;
                 auto checked = libra_consistency_check(libra_evaluations,
                                                        gemini_evaluation_challenge,
@@ -655,8 +658,10 @@ template <typename Curve> class ShpleminiVerifier_ {
                             const Fr& shplonk_evaluation_challenge)
 
     {
-        const Fr bn_254_subgroup_generator =
-            Fr(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        // const Fr bn_254_subgroup_generator =
+        //     Fr(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        const Fr subgroup_generator =
+            Fr(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
         // compute current power of Shplonk batching challenge taking into account the const proof size
         Fr shplonk_challenge_power = Fr{ 1 };
@@ -670,8 +675,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Fr> denominators;
         // compute Shplonk denominators and invert them
         denominators.push_back(Fr(1) / (shplonk_evaluation_challenge - gemini_evaluation_challenge));
-        denominators.push_back(
-            Fr(1) / (shplonk_evaluation_challenge - bn_254_subgroup_generator * gemini_evaluation_challenge));
+        denominators.push_back(Fr(1) /
+                               (shplonk_evaluation_challenge - subgroup_generator * gemini_evaluation_challenge));
         denominators.push_back(denominators[0]);
         denominators.push_back(denominators[0]);
 
@@ -713,8 +718,10 @@ template <typename Curve> class ShpleminiVerifier_ {
                                         std::vector<Fr> multilinear_challenge,
                                         const Fr& eval_claim)
     {
-        const Fr bn_254_subgroup_generator =
-            Fr(1) / Fr(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        // const Fr bn_254_subgroup_generator =
+        //     Fr(1) / Fr(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        const Fr subgroup_generator =
+            Fr(1) / Fr(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
         Fr vanishing_poly_eval = gemini_evaluation_challenge.pow(87) - Fr(1);
         std::vector<Fr> lagrange_coeffs(87);
@@ -735,7 +742,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         std::array<Fr, 3> evals = compute_barycentric_evaluation(
-            challenge_polynomial_lagrange, 87, gemini_evaluation_challenge, bn_254_subgroup_generator);
+            challenge_polynomial_lagrange, 87, gemini_evaluation_challenge, subgroup_generator);
 
         auto& F_at_r = libra_evaluations[0];
         auto& big_sum_shifted_eval = libra_evaluations[1];
@@ -743,7 +750,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         auto& quotient_eval = libra_evaluations[3];
         // info("verifier 1/g =", Fr(1) / bn_254_subgroup_generator);
         Fr diff = evals[1] * big_sum_eval +
-                  (gemini_evaluation_challenge - bn_254_subgroup_generator) *
+                  (gemini_evaluation_challenge - subgroup_generator) *
                       (big_sum_shifted_eval - big_sum_eval - F_at_r * evals[0]) +
                   evals[2] * (big_sum_eval - eval_claim) - vanishing_poly_eval * quotient_eval;
 

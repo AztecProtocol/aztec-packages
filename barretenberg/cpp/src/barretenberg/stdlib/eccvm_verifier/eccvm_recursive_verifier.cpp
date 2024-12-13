@@ -76,15 +76,24 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments;
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        Commitment libra_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-        libra_commitments.push_back(libra_commitment);
-    }
+    std::vector<Commitment> libra_commitments = {};
+    FF libra_evaluation{ 0 };
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+    Commitment libra_commitment =
+        transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    libra_commitments.push_back(libra_commitment);
+
+    auto [multivariate_challenge, claimed_evaluations, claimed_libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+
+    libra_evaluation = std::move(claimed_libra_evaluation);
+    Commitment libra_big_sum_commitment =
+        transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments.push_back(libra_big_sum_commitment);
+    Commitment libra_quotient_commitment =
+        transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+    libra_commitments.push_back(libra_quotient_commitment);
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
@@ -98,8 +107,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               libra_commitments,
+                                               claimed_libra_evaluation);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

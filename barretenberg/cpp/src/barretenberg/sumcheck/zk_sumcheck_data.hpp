@@ -215,7 +215,10 @@ template <typename Flavor> struct ZKSumcheckData {
     void compute_concatenated_libra_polynomial()
     {
         // info(bn_254_subgroup_generator.pow(29 * 3));
-        // info(grumpkin_subgroup_generator.pow(2 * 983));
+        info("root of unity? ", grumpkin_subgroup_generator.pow(3 * 29));
+        info("root of unity? ", grumpkin_subgroup_generator.pow(29));
+        info("root of unity? ", grumpkin_subgroup_generator.pow(3));
+
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
         coeffs_lagrange_subgroup[0] = constant_term;
 
@@ -232,7 +235,7 @@ template <typename Flavor> struct ZKSumcheckData {
 
         // create evaluation domain using the generator
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-            interpolation_domain[idx] = bn_254_subgroup_generator.pow(idx);
+            interpolation_domain[idx] = grumpkin_subgroup_generator.pow(idx);
         }
 
         libra_concatenated_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);

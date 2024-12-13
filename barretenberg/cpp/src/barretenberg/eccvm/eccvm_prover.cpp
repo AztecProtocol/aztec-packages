@@ -121,7 +121,18 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    zk_sumcheck_data.setup_challenge_polynomial(sumcheck_output.challenge);
+    zk_sumcheck_data.setup_big_sum_polynomial();
+    transcript->template send_to_verifier("Libra:big_sum_commitment",
+                                          key->commitment_key->commit(zk_sumcheck_data.big_sum_polynomial));
+    zk_sumcheck_data.compute_batched_polynomial();
+    zk_sumcheck_data.compute_batched_quotient();
+    transcript->template send_to_verifier("Libra:quotient_commitment",
+                                          key->commitment_key->commit(zk_sumcheck_data.batched_quotient));
 
+    std::array<Polynomial, 3> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+                                                    zk_sumcheck_data.big_sum_polynomial,
+                                                    zk_sumcheck_data.batched_quotient };
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -131,7 +142,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         zk_sumcheck_data.libra_univariates_monomial,
+                         libra_polynomials,
                          sumcheck_output.claimed_libra_evaluation);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
