@@ -487,16 +487,18 @@ export class SimulatorOracle implements DBOracle {
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
             if (
-              secretCorrespondingToLog.index > initialIndex &&
-              (!newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] ||
-                secretCorrespondingToLog.index >
+              secretCorrespondingToLog.index >= initialIndex &&
+              (newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] === undefined ||
+                secretCorrespondingToLog.index >=
                   newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()])
             ) {
               // We have found a new largest index so we store it for later processing (storing it in the db + fetching
               // the difference of the window sets of current and the next iteration)
               newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] =
-                secretCorrespondingToLog.index;
+                secretCorrespondingToLog.index + 1;
             }
+
+
           }
         });
 
@@ -510,7 +512,7 @@ export class SimulatorOracle implements DBOracle {
             newSecretsAndWindows.push({
               appTaggingSecret: secret.appTaggingSecret,
               // We set the left most index to the new largest index + 1 to avoid fetching the same logs again
-              leftMostIndex: newIndex + 1,
+              leftMostIndex: newIndex,
               rightMostIndex: newIndex + WINDOW_HALF_SIZE,
             });
 
@@ -528,7 +530,10 @@ export class SimulatorOracle implements DBOracle {
       }
 
       // We filter the logs by block number and store them in the map
-      logsMap.set(recipient.toString(), logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber));
+      logsMap.set(
+        recipient.toString(),
+        logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
+      );
 
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db
       await this.db.setTaggingSecretsIndexesAsRecipient(
