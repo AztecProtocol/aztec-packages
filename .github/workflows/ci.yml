@@ -226,11 +226,7 @@ jobs:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
-<<<<<<< HEAD
     needs: [ci-rest, configure]
-=======
-    needs: [build, yarn-project-test, configure]
->>>>>>> origin/master
     if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-20.04
     steps:

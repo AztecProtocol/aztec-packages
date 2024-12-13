@@ -77,26 +77,34 @@ if [ -z "${ROLLUP_CONTRACT_ADDRESS:-}" ]; then
   echo "ROLLUP_CONTRACT_ADDRESS not set!" && exit 1
 fi
 
-# Check if validator is already registered
-echo "Checking if validator is already registered..."
-debug_output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js debug-rollup --rollup $ROLLUP_CONTRACT_ADDRESS)
-if echo "$debug_output" | grep -q "Validators:.*$ADDRESS"; then
-  echo "Validator $ADDRESS is already registered"
-else
-  echo $debug_output
-  # Add L1 validator
-  # this may fail, so try 3 times
-  echo "Adding validator $ADDRESS..."
-  for i in {1..3}; do
-    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
-    sleep 1
-  done
+# export variables used by ensure_registered
+export ROLLUP_CONTRACT_ADDRESS ADDRESS IS_ANVIL REPO
+function ensure_registered() {
+  # Check if validator is already registered
+  echo "Checking if validator is already registered..."
+  debug_output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js debug-rollup --rollup $ROLLUP_CONTRACT_ADDRESS)
+  if echo "$debug_output" | grep -q "Validators:.*$ADDRESS"; then
+    echo "Validator $ADDRESS is already registered"
+  else
+    # Add L1 validator
+    # this may fail, so try 3 times
+    echo "Adding validator $ADDRESS..."
+    for i in {1..3}; do
+      node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
+      sleep 1
+    done
 
-  # Fast forward epochs if we're on an anvil chain
-  if [ "$IS_ANVIL" = "true" ]; then
-    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+    # Fast forward epochs if we're on an anvil chain
+    if [ "$IS_ANVIL" = "true" ]; then
+      node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+    fi
   fi
-fi
+}
+# export ensure_registered
+export -f ensure_registered
+
+# use flock and bash to run the above function with a file lock protecting it
+flock "$REPO"/yarn-project/end-to-end/scripts/native-network/state/validator-register.lock bash -c 'ensure_registered'
 
 # Start the Validator Node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer
