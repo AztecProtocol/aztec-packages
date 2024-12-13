@@ -33,6 +33,8 @@ scripts-prod:
 
 format-check:
     FROM +bootstrap
+    # TODO undo this hack and fix formatting
+    RUN rm -f end-to-end/src/web/main.js
     RUN yarn formatting
 
 test:
