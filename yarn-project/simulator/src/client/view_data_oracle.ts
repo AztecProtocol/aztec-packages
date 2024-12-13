@@ -296,16 +296,16 @@ export class ViewDataOracle extends TypedOracle {
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
    * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivpsk_m of the sender must be known.
+   * For this to work, the ivsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecretAsSender(
+  public override async getIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
+    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {
