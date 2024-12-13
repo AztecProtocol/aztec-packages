@@ -425,12 +425,13 @@ export class SimulatorOracle implements DBOracle {
     const WINDOW_HALF_SIZE = 10;
 
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    // A map of logs going from recipient address to logs. Note that the logs might have been processed before as we
-    // due to us having a sliding window that "looks back" for logs as well.
-    const newLogsMap = new Map<string, TxScopedL2Log[]>();
+    // A map of logs going from recipient address to logs. Note that the logs might have been processed before
+    // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
+    // that a logs will be received ordered by a given tax index and that the tags won't be reused).
+    const logsMap = new Map<string, TxScopedL2Log[]>();
     // const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
-      const logs: TxScopedL2Log[] = [];
+      const logsForRecipient: TxScopedL2Log[] = [];
       // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
       // However it is impossible at the moment due to the language not supporting nested slices.
       // This nesting is necessary because for a given set of tags we don't
@@ -457,7 +458,7 @@ export class SimulatorOracle implements DBOracle {
       let secretsAndWindows = secrets.map(secret => {
         return {
           appTaggingSecret: secret.appTaggingSecret,
-          leftMostIndex: secret.index - WINDOW_HALF_SIZE,
+          leftMostIndex: Math.max(0, secret.index - WINDOW_HALF_SIZE),
           rightMostIndex: secret.index + WINDOW_HALF_SIZE,
         };
       });
@@ -478,7 +479,7 @@ export class SimulatorOracle implements DBOracle {
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
             // The logs for the given tag exist so I add them for later processing
-            logs.push(...logsByTag);
+            logsForRecipient.push(...logsByTag);
 
             // I fetch the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
@@ -526,6 +527,9 @@ export class SimulatorOracle implements DBOracle {
         secretsAndWindows = newSecretsAndWindows;
       }
 
+      // We filter the logs by block number and store them in the map
+      logsMap.set(recipient.toString(), logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber));
+
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db
       await this.db.setTaggingSecretsIndexesAsRecipient(
         Object.entries(newLargestIndexMapToStore).map(
@@ -533,7 +537,7 @@ export class SimulatorOracle implements DBOracle {
         ),
       );
     }
-    return newLogsMap;
+    return logsMap;
   }
 
   /**
