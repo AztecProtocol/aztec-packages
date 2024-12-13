@@ -14,6 +14,7 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelResetDimensions,
   type PrivateKernelTailCircuitPrivateInputs,
@@ -24,7 +25,9 @@ import {
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing';
 
+import TOML from '@iarna/toml';
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
 import { type CompiledCircuit, type InputMap, Noir } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
@@ -118,13 +121,24 @@ export type DecodedInputs = {
 export async function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
+  const inputs = {
+    tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
+    vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
+    private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
+    is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
+    app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
+      privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
+    ),
+  };
+  updateProtocolCircuitSampleInputs('private-kernel-init', TOML.stringify(inputs));
   const returnType = await executePrivateKernelInitWithACVM(
-    mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
-    mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
-    mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
-    mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
-    privateKernelInitCircuitPrivateInputs.isPrivateOnly,
-    mapPrivateCircuitPublicInputsToNoir(privateKernelInitCircuitPrivateInputs.privateCall.publicInputs),
+    inputs.tx_request,
+    inputs.vk_tree_root,
+    inputs.protocol_contract_tree_root,
+    inputs.private_call,
+    inputs.is_private_only,
+    inputs.app_public_inputs,
     SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -140,11 +154,22 @@ export async function executeInit(
 export async function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
+  const inputs = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    private_call: mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
+    app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
+      privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs,
+    ),
+  };
+  updateProtocolCircuitSampleInputs('private-kernel-inner', TOML.stringify(inputs));
   const returnType = await executePrivateKernelInnerWithACVM(
-    mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
-    mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs),
-    mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
-    mapPrivateCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs),
+    inputs.previous_kernel,
+    inputs.previous_kernel_public_inputs,
+    inputs.private_call,
+    inputs.app_public_inputs,
     SimulatedClientCircuitArtifacts.PrivateKernelInnerArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -174,9 +199,14 @@ export async function executeReset<
     NUM_TRANSIENT_DATA_HINTS
   >,
   dimensions: PrivateKernelResetDimensions,
+  // TODO: This input is a hack so we can write full reset inputs to a Prover.toml. Ideally we remove it in favour of adding a test that runs a full reset.
+  untrimmedPrivateKernelResetCircuitPrivateInputs?: PrivateKernelResetCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const artifact = SimulatedClientCircuitArtifacts[getPrivateKernelResetArtifactName(dimensions)];
   const program = new Noir(artifact as CompiledCircuit);
+  if (untrimmedPrivateKernelResetCircuitPrivateInputs) {
+    updateResetCircuitSampleInputs(untrimmedPrivateKernelResetCircuitPrivateInputs);
+  }
   const args: InputMap = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
@@ -196,9 +226,14 @@ export async function executeReset<
 export async function executeTail(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
+  const inputs = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
+  };
+  updateProtocolCircuitSampleInputs('private-kernel-tail', TOML.stringify(inputs));
   const returnType = await executePrivateKernelTailWithACVM(
-    mapPrivateKernelDataToNoir(privateInputs.previousKernel),
-    mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
+    inputs.previous_kernel,
+    inputs.previous_kernel_public_inputs,
     SimulatedClientCircuitArtifacts.PrivateKernelTailArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -214,9 +249,14 @@ export async function executeTail(
 export async function executeTailForPublic(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
+  const inputs = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
+  };
+  updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', TOML.stringify(inputs));
   const returnType = await executePrivateKernelTailToPublicWithACVM(
-    mapPrivateKernelDataToNoir(privateInputs.previousKernel),
-    mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
+    inputs.previous_kernel,
+    inputs.previous_kernel_public_inputs,
     SimulatedClientCircuitArtifacts.PrivateKernelTailToPublicArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -456,6 +496,7 @@ export function convertPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRo
 
 export function convertSimulatedPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRollupInputs): WitnessMap {
   const mapped = mapPrivateBaseRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-base-private', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PrivateBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -470,6 +511,7 @@ export function convertPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRoll
 
 export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRollupInputs): WitnessMap {
   const mapped = mapPublicBaseRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-base-public', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -483,6 +525,7 @@ export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: Publi
  */
 export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs): WitnessMap {
   const mapped = mapMergeRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-merge', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.MergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -494,6 +537,7 @@ export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs):
  */
 export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockRootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -518,6 +562,7 @@ export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlock
  */
 export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRollupInputs): WitnessMap {
   const mapped = mapBlockMergeRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-block-merge', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockMergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -529,6 +574,7 @@ export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRoll
  */
 export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): WitnessMap {
   const mapped = mapRootRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-root', TOML.stringify({ inputs: mapped }));
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -724,6 +770,19 @@ export function convertRootParityOutputsFromWitnessMap(outputs: WitnessMap): Par
   const returnType = decodedInputs.return_value as ParityRootReturnType;
 
   return mapParityPublicInputsFromNoir(returnType);
+}
+
+function updateResetCircuitSampleInputs(
+  privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputs,
+) {
+  const inputs = {
+    previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
+      privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
+  };
+  updateProtocolCircuitSampleInputs('private-kernel-reset', TOML.stringify(inputs));
 }
 
 function fromACVMField(field: string): Fr {
