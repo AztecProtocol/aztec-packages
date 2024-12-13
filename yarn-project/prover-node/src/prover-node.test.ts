@@ -249,8 +249,9 @@ describe('prover-node', () => {
     let lastEpochComplete: bigint = 0n;
 
     beforeEach(() => {
-      claimsMonitor = new ClaimsMonitor(publisher, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, config);
+      const telemetry = new NoopTelemetryClient();
+      claimsMonitor = new ClaimsMonitor(publisher, telemetry, config);
+      epochMonitor = new EpochMonitor(l2BlockSource, telemetry, config);
 
       l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
         Promise.resolve(epochNumber <= lastEpochComplete),

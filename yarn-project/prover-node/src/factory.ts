@@ -71,8 +71,8 @@ export async function createProverNode(
     maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
   };
 
-  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig);
+  const claimsMonitor = new ClaimsMonitor(publisher, telemetry, proverNodeConfig);
+  const epochMonitor = new EpochMonitor(archiver, telemetry, proverNodeConfig);
 
   const rollupContract = publisher.getRollupContract();
   const walletClient = publisher.getClient();

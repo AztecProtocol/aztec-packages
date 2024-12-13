@@ -3,20 +3,28 @@ import { type EthAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L1Publisher } from '@aztec/sequencer-client';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 export interface ClaimsMonitorHandler {
   handleClaim(proofClaim: EpochProofClaim): Promise<void>;
 }
 
-export class ClaimsMonitor {
+export class ClaimsMonitor implements Traceable {
   private runningPromise: RunningPromise;
   private log = createLogger('prover-node:claims-monitor');
 
   private handler: ClaimsMonitorHandler | undefined;
   private lastClaimEpochNumber: bigint | undefined;
 
-  constructor(private readonly l1Publisher: L1Publisher, private options: { pollingIntervalMs: number }) {
-    this.runningPromise = new RunningPromise(this.work.bind(this), this.options.pollingIntervalMs);
+  public readonly tracer: Tracer;
+
+  constructor(
+    private readonly l1Publisher: L1Publisher,
+    telemetry: TelemetryClient,
+    private options: { pollingIntervalMs: number },
+  ) {
+    this.tracer = telemetry.getTracer('ClaimsMonitor');
+    this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);
   }
 
   public start(handler: ClaimsMonitorHandler) {
@@ -31,9 +39,11 @@ export class ClaimsMonitor {
     this.log.info('Stopped ClaimsMonitor');
   }
 
+  @trackSpan('ClaimsMonitor.work')
   public async work() {
     const proofClaim = await this.l1Publisher.getProofClaim();
     if (!proofClaim) {
+      this.log.trace(`Found no proof claim`);
       return;
     }
 
