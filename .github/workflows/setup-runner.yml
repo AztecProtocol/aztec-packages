@@ -41,6 +41,9 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.sha }}
+  # kludge until we move away from runners
+  WAIT_FOR_RUNNERS: true
+
 jobs:
   start-builder:
     runs-on: ubuntu-latest

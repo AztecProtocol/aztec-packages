@@ -30,6 +30,7 @@ APT::Get::Assume-Yes "true";
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
 EOF'`,
+      "sudo apt install -y brotli",
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
       'echo "ClientAliveInterval=30" >> /etc/ssh/sshd_config',
       'echo "ClientAliveCountMax=20" >> /etc/ssh/sshd_config',
