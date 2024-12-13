@@ -1,20 +1,16 @@
 #pragma once
 
-// NOLINTBEGIN
-#if NDEBUG
-// Compiler should optimize this out in release builds, without triggering an unused variable warning.
+#ifdef NDEBUG
+// In NDEBUG mode, no assertion checks are performed.
+// Compiler should optimize this out without triggering unused variable warnings.
 #define DONT_EVALUATE(expression)                                                                                      \
     {                                                                                                                  \
         true ? static_cast<void>(0) : static_cast<void>((expression));                                                 \
     }
-#define ASSERT(expression) DONT_EVALUATE((expression))
-#else
-// cassert in wasi-sdk takes one second to compile, only include if needed
-#include <cassert>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#define ASSERT(expression) assert((expression))
-#endif // NDEBUG
 
-// NOLINTEND
+#define ASSERT(expression) DONT_EVALUATE((expression))
+
+#else
+void bb_assert_fail(const char* assertion, const char* file, int line, const char* function);
+#define ASSERT(expr) (static_cast<bool>(expr) ? void(0) : bb_assert_fail(#expr, __FILE__, __LINE__, __func__))
+#endif // NDEBUG
