@@ -476,13 +476,6 @@ export class SimulatorOracle implements DBOracle {
         const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
 
         logsByTags.forEach((logsByTag, logIndex) => {
-          // What do I even want to do here?
-          // I want to check if the log for the given tag exists
-          // --> if it does, I want to:
-          //      - add it to the logs to process
-          //      - if it corresponds to an index > current one in the db
-          //          - I want update it in the db
-          //          - I want to fetch the difference of the window sets
           if (logsByTag.length > 0) {
             // The logs for the given tag exist so I add them for later processing
             logs.push(...logsByTag);
