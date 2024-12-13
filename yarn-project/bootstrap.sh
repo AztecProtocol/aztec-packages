@@ -33,6 +33,8 @@ function build {
         fi
     esac
 
+    denoise yarn build:web
+
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
     cache_upload yarn-project-$hash.tar.gz $files_to_upload
@@ -58,8 +60,6 @@ function test_e2e {
 
   github_group "yarn-project e2e tests"
   cd end-to-end
-
-  denoise yarn build:web
 
   # Pre-pull the required image for visibility.
   # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
@@ -142,9 +142,9 @@ function test_e2e {
     "flake flakey_e2e_inclusion_proofs_contract"
 
     "compose composed/docs_examples"
-    "flake composed/e2e_aztec_js_browser"
+    "compose composed/e2e_aztec_js_browser"
     "compose composed/e2e_pxe"
-    "flake composed/e2e_sandbox_example"
+    "compose composed/e2e_sandbox_example"
     "compose composed/integration_l1_publisher"
     "compose sample-dapp/index"
     "compose sample-dapp/ci/index"

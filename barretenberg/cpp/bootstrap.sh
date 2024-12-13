@@ -20,6 +20,7 @@ if [ "$os" == "macos" ]; then
   preset=default
 else
   if [ "$(which clang++-16)" != "" ]; then
+    # TODO: Change to clang16-assert, but currently fails.
     preset=clang16
   else
     preset=default
@@ -34,7 +35,7 @@ function build_native {
   if ! cache_download barretenberg-release-$hash.tar.gz; then
     rm -f build/CMakeCache.txt
     echo "Building with preset: $preset"
-    cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --preset $preset
     cmake --build --preset $preset --target bb
     cache_upload barretenberg-release-$hash.tar.gz build/bin
   fi
