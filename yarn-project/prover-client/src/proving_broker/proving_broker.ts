@@ -175,10 +175,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
+      this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
+        provingJobId: job.id,
+      });
       return;
     }
 
-    this.logger.verbose(`New proving job id=${job.id} epochNumber=${job.epochNumber}`, { provingJobId: job.id });
+    this.logger.info(`New proving job id=${job.id} epochNumber=${job.epochNumber}`, { provingJobId: job.id });
     try {
       // do this first so it acts as a "lock". If this job is enqueued again while we're saving it the if at the top will catch it.
       this.jobsCache.set(job.id, job);
