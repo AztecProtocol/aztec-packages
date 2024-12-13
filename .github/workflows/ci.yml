@@ -213,7 +213,7 @@ jobs:
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
-    needs: [build, e2e-test-gate, configure]
+    needs: [build, configure]
     if: needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-20.04
     strategy:
