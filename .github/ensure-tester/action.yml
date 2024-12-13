@@ -112,8 +112,8 @@ runs:
           chmod +x ./yq
           DENOISE=1 ci3/denoise sudo mv ./yq /usr/bin/yq
           ci3/earthly_install
+          echo "Waiting for Docker service to become active..."
           while ! systemctl is-active --quiet docker; do
-            echo "Waiting for Docker service to become active..."
             sleep 2
           done
           echo "Docker service is active!"
