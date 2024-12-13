@@ -159,34 +159,32 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     /**
      * @brief Returns the index of the provided leaf in the tree
      */
-    void find_leaf_indices(const std::vector<typename Store::LeafType>& leaves,
-                           bool includeUncommitted,
-                           const FindLeafCallback& on_completion) const;
+    void find_leaf_index(const fr& leaf, bool includeUncommitted, const FindLeafCallback& on_completion) const;
 
     /**
      * @brief Returns the index of the provided leaf in the tree
      */
-    void find_leaf_indices(const std::vector<typename Store::LeafType>& leaves,
-                           const block_number_t& blockNumber,
-                           bool includeUncommitted,
-                           const FindLeafCallback& on_completion) const;
+    void find_leaf_index(const fr& leaf,
+                         const block_number_t& blockNumber,
+                         bool includeUncommitted,
+                         const FindLeafCallback& on_completion) const;
 
     /**
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
      */
-    void find_leaf_indices_from(const std::vector<typename Store::LeafType>& leaves,
-                                const index_t& start_index,
-                                bool includeUncommitted,
-                                const FindLeafCallback& on_completion) const;
+    void find_leaf_index_from(const fr& leaf,
+                              const index_t& start_index,
+                              bool includeUncommitted,
+                              const FindLeafCallback& on_completion) const;
 
     /**
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
      */
-    void find_leaf_indices_from(const std::vector<typename Store::LeafType>& leaves,
-                                const index_t& start_index,
-                                const block_number_t& blockNumber,
-                                bool includeUncommitted,
-                                const FindLeafCallback& on_completion) const;
+    void find_leaf_index_from(const fr& leaf,
+                              const index_t& start_index,
+                              const block_number_t& blockNumber,
+                              bool includeUncommitted,
+                              const FindLeafCallback& on_completion) const;
 
     /**
      * @brief Returns the block numbers that correspond to the given indices values
@@ -417,9 +415,14 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
         execute_and_report<BlockForIndexResponse>(
             [=, this](TypedResponse<BlockForIndexResponse>& response) {
                 response.inner.blockNumbers.reserve(indices.size());
+                TreeMeta meta;
                 ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(meta, *tx, true);
+                index_t maxIndex = meta.committedSize;
                 for (index_t index : indices) {
-                    std::optional<block_number_t> block = store_->find_block_for_index(index, *tx);
+                    bool outOfRange = index >= maxIndex;
+                    std::optional<block_number_t> block =
+                        outOfRange ? std::nullopt : store_->find_block_for_index(index, *tx);
                     response.inner.blockNumbers.emplace_back(block);
                 }
             },
@@ -438,14 +441,16 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_block_numbers(
         execute_and_report<BlockForIndexResponse>(
             [=, this](TypedResponse<BlockForIndexResponse>& response) {
                 response.inner.blockNumbers.reserve(indices.size());
+                TreeMeta meta;
                 BlockPayload blockPayload;
                 ReadTransactionPtr tx = store_->create_read_transaction();
+                store_->get_meta(meta, *tx, true);
                 if (!store_->get_block_data(blockNumber, blockPayload, *tx)) {
                     throw std::runtime_error(format("Unable to find block numbers for indices for block ",
                                                     blockNumber,
                                                     ", failed to get block data."));
                 }
-                index_t maxIndex = blockPayload.size;
+                index_t maxIndex = std::min(meta.committedSize, blockPayload.size);
                 for (index_t index : indices) {
                     bool outOfRange = index >= maxIndex;
                     std::optional<block_number_t> block =
@@ -713,45 +718,43 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices(
-    const std::vector<typename Store::LeafType>& leaves,
-    bool includeUncommitted,
-    const FindLeafCallback& on_completion) const
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
+                                                                           bool includeUncommitted,
+                                                                           const FindLeafCallback& on_completion) const
 {
-    find_leaf_indices_from(leaves, 0, includeUncommitted, on_completion);
+    find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices(
-    const std::vector<typename Store::LeafType>& leaves,
-    const block_number_t& blockNumber,
-    bool includeUncommitted,
-    const FindLeafCallback& on_completion) const
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
+                                                                           const block_number_t& blockNumber,
+                                                                           bool includeUncommitted,
+                                                                           const FindLeafCallback& on_completion) const
 {
-    find_leaf_indices_from(leaves, 0, blockNumber, includeUncommitted, on_completion);
+    find_leaf_index_from(leaf, 0, blockNumber, includeUncommitted, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_from(
-    const std::vector<typename Store::LeafType>& leaves,
-    const index_t& start_index,
-    bool includeUncommitted,
-    const FindLeafCallback& on_completion) const
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
+    const fr& leaf, const index_t& start_index, bool includeUncommitted, const FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                response.inner.leaf_indices.reserve(leaves.size());
+                if (leaf == fr::zero()) {
+                    throw std::runtime_error("Requesting indices for zero leaves is prohibited");
+                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
-
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-
-                for (const auto& leaf : leaves) {
-                    std::optional<index_t> leaf_index =
-                        store_->find_leaf_index_from(leaf, start_index, requestContext, *tx);
-                    response.inner.leaf_indices.emplace_back(leaf_index);
+                std::optional<index_t> leaf_index =
+                    store_->find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
+                response.success = leaf_index.has_value();
+                if (response.success) {
+                    response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message = format("Failed to find index from ", start_index, " for leaf ", leaf);
                 }
             },
             on_completion);
@@ -760,8 +763,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_from(
-    const std::vector<typename Store::LeafType>& leaves,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
+    const fr& leaf,
     const index_t& start_index,
     const block_number_t& blockNumber,
     bool includeUncommitted,
@@ -770,9 +773,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                response.inner.leaf_indices.reserve(leaves.size());
                 if (blockNumber == 0) {
                     throw std::runtime_error("Unable to find leaf index for block number 0");
+                }
+                if (leaf == fr::zero()) {
+                    throw std::runtime_error("Requesting indices for zero leaves is prohibited");
                 }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
@@ -783,17 +788,18 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                                                     blockNumber,
                                                     ", failed to get block data."));
                 }
-
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
-                requestContext.maxIndex = blockData.size;
-
-                for (const auto& leaf : leaves) {
-                    std::optional<index_t> leaf_index =
-                        store_->find_leaf_index_from(leaf, start_index, requestContext, *tx);
-                    response.inner.leaf_indices.emplace_back(leaf_index);
+                std::optional<index_t> leaf_index =
+                    store_->find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
+                response.success = leaf_index.has_value();
+                if (response.success) {
+                    response.inner.leaf_index = leaf_index.value();
+                } else {
+                    response.message = format(
+                        "Failed to find index from ", start_index, " for leaf ", leaf, " at block ", blockNumber);
                 }
             },
             on_completion);

@@ -913,19 +913,19 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
 
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
 {
-    std::vector<std::optional<index_t>> indices;
+    std::optional<index_t> leaf_index = std::nullopt;
 
     try {
-        find_leaf_indices<fr>(revision, MerkleTreeId::ARCHIVE, { block_header_hash }, indices);
+        leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
     } catch (std::runtime_error&) {
     }
 
-    if (indices.empty() || !indices[0].has_value()) {
+    if (!leaf_index.has_value()) {
         return false;
     }
 
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    return archive_state.meta.size == indices[0].value() + 1;
+    return archive_state.meta.size == leaf_index.value() + 1;
 }
 
 void WorldState::get_status_summary(WorldStateStatusSummary& status) const

@@ -23,7 +23,6 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -218,6 +217,83 @@ void finalise_block(TreeType& tree, const block_number_t& blockNumber, bool expe
         signal.signal_level();
     };
     tree.finalise_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+void check_find_leaf_index(
+    TreeType& tree, const fr& leaf, index_t expected_index, bool expected_success, bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_historic_leaf_index(TreeType& tree,
+                                    const index_t& block_number,
+                                    const fr& leaf,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, block_number, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_historic_leaf_index_from(TreeType& tree,
+                                         const index_t& block_number,
+                                         const fr& leaf,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, block_number, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_leaf_index_from(TreeType& tree,
+                                const fr& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
     signal.wait_for_level();
 }
 
@@ -635,19 +711,19 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     add_value(tree, 40);
 
     // check the committed state and that the uncommitted state is empty
-    check_find_leaf_index(tree, fr(10), 1, true, true);
-    check_find_leaf_index<fr, TreeType>(tree, { fr(10) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, 10, 1, true, true);
+    check_find_leaf_index(tree, 10, 0, false, false);
 
-    check_find_leaf_index<fr, TreeType>(tree, { fr(15) }, { std::nullopt }, true, true);
-    check_find_leaf_index<fr, TreeType>(tree, { fr(15) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, 15, 0, false, true);
+    check_find_leaf_index(tree, 15, 0, false, false);
 
-    check_find_leaf_index(tree, fr(40), 3, true, true);
-    check_find_leaf_index(tree, fr(30), 0, true, true);
-    check_find_leaf_index(tree, fr(20), 2, true, true);
+    check_find_leaf_index(tree, 40, 3, true, true);
+    check_find_leaf_index(tree, 30, 0, true, true);
+    check_find_leaf_index(tree, 20, 2, true, true);
 
-    check_find_leaf_index<fr, TreeType>(tree, { fr(40) }, { std::nullopt }, true, false);
-    check_find_leaf_index<fr, TreeType>(tree, { fr(30) }, { std::nullopt }, true, false);
-    check_find_leaf_index<fr, TreeType>(tree, { fr(20) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, 40, 0, false, false);
+    check_find_leaf_index(tree, 30, 0, false, false);
+    check_find_leaf_index(tree, 20, 0, false, false);
 
     commit_tree(tree);
 
@@ -655,13 +731,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     add_values(tree, values);
 
     // check the now committed state
-    check_find_leaf_index(tree, fr(40), 3, true, false);
-    check_find_leaf_index(tree, fr(30), 0, true, false);
-    check_find_leaf_index(tree, fr(20), 2, true, false);
+    check_find_leaf_index(tree, 40, 3, true, false);
+    check_find_leaf_index(tree, 30, 0, true, false);
+    check_find_leaf_index(tree, 20, 2, true, false);
 
     // check the new uncommitted state
-    check_find_leaf_index(tree, fr(18), 5, true, true);
-    check_find_leaf_index<fr, TreeType>(tree, { fr(18) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, 18, 5, true, true);
+    check_find_leaf_index(tree, 18, 0, false, false);
 
     commit_tree(tree);
 
@@ -669,9 +745,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     add_values(tree, values);
 
     // verify the find index from api
-    check_find_leaf_index_from(tree, fr(18), 0, 5, true, true);
-    check_find_leaf_index_from(tree, fr(19), 6, 10, true, true);
-    check_find_leaf_index_from<fr, TreeType>(tree, { fr(19) }, 0, { std::nullopt }, true, false);
+    check_find_leaf_index_from(tree, 18, 0, 5, true, true);
+    check_find_leaf_index_from(tree, 19, 6, 10, true, true);
+    check_find_leaf_index_from(tree, 19, 0, 0, false, false);
 
     commit_tree(tree);
 
@@ -683,13 +759,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     check_size(tree, 12, false);
 
     // look past the last instance of this leaf
-    check_find_leaf_index_from<fr, TreeType>(tree, { fr(18) }, 6, { std::nullopt }, true, true);
+    check_find_leaf_index_from(tree, 18, 6, 0, false, true);
 
     // look beyond the end of uncommitted
-    check_find_leaf_index_from<fr, TreeType>(tree, { fr(18) }, 15, { std::nullopt }, true, true);
+    check_find_leaf_index_from(tree, 18, 15, 0, false, true);
 
     // look beyond the end of committed and don't include uncomitted
-    check_find_leaf_index_from<fr, TreeType>(tree, { fr(88) }, 13, { std::nullopt }, true, false);
+    check_find_leaf_index_from(tree, 88, 13, 0, false, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
@@ -780,10 +856,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_retrieve_zero_leaf_i
     add_values(tree, to_add);
     commit_tree(tree);
     fr leaf = fr::zero();
-    check_find_leaf_index<fr, TreeType>(tree, { leaf }, { std::nullopt }, true);
-    check_historic_find_leaf_index<fr, TreeType>(tree, { leaf }, 1, { std::nullopt }, true);
-    check_find_leaf_index_from<fr, TreeType>(tree, { leaf }, 0, { std::nullopt }, true);
-    check_historic_find_leaf_index_from<fr, TreeType>(tree, { leaf }, 1, 0, { std::nullopt }, true);
+    check_find_leaf_index(tree, leaf, 0, false);
+    check_find_historic_leaf_index(tree, 1, leaf, 0, false);
+    check_find_leaf_index_from(tree, leaf, 0, 0, false);
+    check_find_historic_leaf_index_from(tree, 1, leaf, 0, 0, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
@@ -966,23 +1042,23 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_inde
     add_values(tree, values);
 
     // should not be present at block 1
-    check_historic_find_leaf_index<fr, TreeType>(tree, { fr(26) }, 1, { std::nullopt }, true);
+    check_find_historic_leaf_index(tree, 1, 26, 0, false);
     // should be present at block 2
-    check_historic_find_leaf_index(tree, fr(26), 2, 6, true);
+    check_find_historic_leaf_index(tree, 2, 26, 6, true);
 
     // at block 1 leaf 18 should not be found if only considering committed
-    check_historic_find_leaf_index_from<fr, TreeType>(tree, { fr(18) }, 1, 2, { std::nullopt }, true, false);
+    check_find_historic_leaf_index_from(tree, 1, 18, 2, 0, false, false);
     // at block 2 it should be
-    check_historic_find_leaf_index_from(tree, fr(18), 2, 2, 5, true);
+    check_find_historic_leaf_index_from(tree, 2, 18, 2, 5, true);
     // at block 2, from index 6, 19 should not be found if looking only at committed
-    check_historic_find_leaf_index_from<fr, TreeType>(tree, { fr(19) }, 2, 6, { std::nullopt }, true, false);
+    check_find_historic_leaf_index_from(tree, 2, 19, 6, 5, false, false);
     // at block 2, from index 6, 19 should be found if looking at uncommitted too
-    check_historic_find_leaf_index_from(tree, fr(19), 2, 6, 10, true);
+    check_find_historic_leaf_index_from(tree, 2, 19, 6, 10, true);
 
     commit_tree(tree);
 
     // at block 3, from index 6, should now be found in committed only
-    check_historic_find_leaf_index_from(tree, fr(19), 3, 6, 10, true, false);
+    check_find_historic_leaf_index_from(tree, 3, 19, 6, 10, true, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)
@@ -1173,12 +1249,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     check_root(treeAtBlock2, block2Root);
     check_sibling_path(treeAtBlock2, 3, block2SiblingPathIndex3, false, true);
     check_leaf(treeAtBlock2, 20, 2, true);
-    check_find_leaf_index(treeAtBlock2, fr(10), 1, true);
-    check_find_leaf_index_from(treeAtBlock2, fr(15), 1, 4, true);
+    check_find_leaf_index(treeAtBlock2, 10, 1, true);
+    check_find_leaf_index_from(treeAtBlock2, 15, 1, 4, true);
 
     // should not exist in our image
     check_leaf(treeAtBlock2, 4, 9, false);
-    check_find_leaf_index<fr, TreeType>(treeAtBlock2, { fr(4) }, { std::nullopt }, true);
+    check_find_leaf_index(treeAtBlock2, 4, 0, false);
 
     // now add the same values to our image
     add_values(treeAtBlock2, values);
@@ -1193,12 +1269,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
 
     // now check historic data
     check_historic_sibling_path(treeAtBlock2, 3, block1SiblingPathIndex3, 1);
-    check_historic_find_leaf_index(treeAtBlock2, fr(10), 2, 1, true);
-    check_historic_find_leaf_index(treeAtBlock2, fr(16), 2, 8, true, true);
-    check_historic_find_leaf_index<fr, TreeType>(treeAtBlock2, { fr(16) }, 2, { std::nullopt }, true, false);
+    check_find_historic_leaf_index(treeAtBlock2, 1, 10, 1, true);
+    check_find_historic_leaf_index(treeAtBlock2, 2, 16, 8, true, true);
+    check_find_historic_leaf_index(treeAtBlock2, 2, 16, 8, false, false);
 
-    check_historic_find_leaf_index_from<fr, TreeType>(treeAtBlock2, { fr(18) }, 1, 3, { std::nullopt }, true, false);
-    check_historic_find_leaf_index_from(treeAtBlock2, fr(20), 1, 0, 2, true, false);
+    check_find_historic_leaf_index_from(treeAtBlock2, 1, 18, 3, 0, false, false);
+    check_find_historic_leaf_index_from(treeAtBlock2, 1, 20, 0, 2, true, false);
 
     check_block_height(treeAtBlock2, 2);
 
@@ -1242,8 +1318,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
             const index_t leafIndex = 6;
             check_historic_leaf(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
-            check_historic_find_leaf_index(tree, VALUES[leafIndex], blockNumber, leafIndex, expectedSuccess);
-            check_historic_find_leaf_index_from(tree, VALUES[leafIndex], blockNumber, 0, leafIndex, expectedSuccess);
+            check_find_historic_leaf_index(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index_from(tree, blockNumber, VALUES[leafIndex], 0, leafIndex, expectedSuccess);
         }
     };
 
@@ -1377,7 +1453,7 @@ void test_unwind(std::string directory,
 
         // Trying to find leaves appended in the block that was removed should fail
         check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
-        check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
+        check_find_leaf_index(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
 
         for (index_t j = 0; j < numBlocks; j++) {
             index_t historicBlockNumber = j + 1;
@@ -1390,20 +1466,18 @@ void test_unwind(std::string directory,
             const index_t leafIndex = 1;
             check_historic_leaf(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
 
-            std::vector<std::optional<index_t>> expected_results;
-            if (expectedSuccess) {
-                if (values[leafIndex] != fr::zero()) {
-                    expected_results.emplace_back(std::make_optional(leafIndex));
-                } else {
-                    expected_results.emplace_back(std::nullopt);
-                }
-            }
-
             // find historic leaves, provided they are not zero leaves
-            check_historic_find_leaf_index<fr, TreeType>(
-                tree, { values[leafIndex] }, historicBlockNumber, expected_results, expectedSuccess);
-            check_historic_find_leaf_index_from<fr, TreeType>(
-                tree, { values[leafIndex] }, historicBlockNumber, 0, expected_results, expectedSuccess);
+            check_find_historic_leaf_index(tree,
+                                           historicBlockNumber,
+                                           values[leafIndex],
+                                           leafIndex,
+                                           expectedSuccess && values[leafIndex] != fr::zero());
+            check_find_historic_leaf_index_from(tree,
+                                                historicBlockNumber,
+                                                values[leafIndex],
+                                                0,
+                                                leafIndex,
+                                                expectedSuccess && values[leafIndex] != fr::zero());
         }
     }
 }

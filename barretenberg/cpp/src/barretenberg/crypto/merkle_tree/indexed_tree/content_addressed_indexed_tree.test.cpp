@@ -21,7 +21,6 @@
 #include <future>
 #include <gtest/gtest.h>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -194,6 +193,90 @@ GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
     tree.find_low_leaf(leaf.get_key(), blockNumber, includeUncommitted, completion);
     signal.wait_for_level();
     return low_leaf_info;
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index(TypeOfTree& tree,
+                           const LeafValueType& leaf,
+                           index_t expected_index,
+                           bool expected_success,
+                           bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index_from(TypeOfTree& tree,
+                                const LeafValueType& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index(TypeOfTree& tree,
+                                    const LeafValueType& leaf,
+                                    block_number_t blockNumber,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index_from(TypeOfTree& tree,
+                                         const LeafValueType& leaf,
+                                         block_number_t blockNumber,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, blockNumber, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
 }
 
 template <typename LeafValueType, typename TypeOfTree>
@@ -542,23 +625,18 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 
     // check the committed state and that the uncommitted state is empty
     check_find_leaf_index(tree, NullifierLeafValue(10), 1 + initial_size, true, true);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(10) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(10), 0, false, false);
 
-    check_find_leaf_index<NullifierLeafValue, TreeType>(tree, { NullifierLeafValue(15) }, { std::nullopt }, true, true);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(15) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, true);
+    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, false);
 
     check_find_leaf_index(tree, NullifierLeafValue(40), 3 + initial_size, true, true);
     check_find_leaf_index(tree, NullifierLeafValue(30), 0 + initial_size, true, true);
     check_find_leaf_index(tree, NullifierLeafValue(20), 2 + initial_size, true, true);
 
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(40) }, { std::nullopt }, true, false);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(30) }, { std::nullopt }, true, false);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(20) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(40), 0, false, false);
+    check_find_leaf_index(tree, NullifierLeafValue(30), 0, false, false);
+    check_find_leaf_index(tree, NullifierLeafValue(20), 0, false, false);
 
     commit_tree(tree);
 
@@ -576,8 +654,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 
     // check the new uncommitted state
     check_find_leaf_index(tree, NullifierLeafValue(18), 5 + initial_size, true, true);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(
-        tree, { NullifierLeafValue(18) }, { std::nullopt }, true, false);
+    check_find_leaf_index(tree, NullifierLeafValue(18), 0, false, false);
 
     commit_tree(tree);
 
@@ -1777,9 +1854,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    using LocalTreeType =
-        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
-    auto tree = LocalTreeType(std::move(store), workers, current_size);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1837,7 +1913,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
     check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
 
-    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
 
@@ -1889,8 +1965,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
-        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2034,7 +2109,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
 
     // should not exist in our image
     get_leaf<NullifierLeafValue>(treeAtBlock2, 35 + batch_size, false, false);
-    check_find_leaf_index<NullifierLeafValue, TreeType>(treeAtBlock2, { batch3[4] }, { std::nullopt }, true);
+    check_find_leaf_index(treeAtBlock2, batch3[4], 0, false);
 
     // now add the same values to our image
     add_values(treeAtBlock2, batch3);
@@ -2054,12 +2129,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     EXPECT_EQ(historicSiblingPath, block1SiblingPathIndex3);
     check_historic_find_leaf_index(treeAtBlock2, batch1[3], 1, 3 + batch_size, true);
     check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, true, true);
-    check_historic_find_leaf_index<NullifierLeafValue, TreeType>(
-        treeAtBlock2, { batch3[3] }, 2, { std::nullopt }, true, false);
+    check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, false, false);
 
     check_historic_find_leaf_index_from(treeAtBlock2, batch1[3], 2, 0, 3 + batch_size, true, false);
-    check_historic_find_leaf_index_from<NullifierLeafValue, TreeType>(
-        treeAtBlock2, { batch3[3] }, 2, 20 + batch_size, { std::nullopt }, true, false);
+    check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, false, false);
     check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, true, true);
 
     check_unfinalised_block_height(treeAtBlock2, 2);
@@ -2078,9 +2151,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    using LocalTreeType =
-        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
-    auto tree = LocalTreeType(std::move(store), workers, current_size);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -2196,8 +2268,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
-        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2217,8 +2288,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
 
     // Historic queries against block 1 should no longer work
     check_historic_leaf(tree, leaf1AtBlock1, 1, 1, false);
-    check_historic_find_leaf_index<PublicDataLeafValue, LocalTreeType>(
-        tree, { leaf1AtBlock1 }, 1, { std::nullopt }, false);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, false);
 
     // Queries against block 2 should work
     check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
@@ -2242,9 +2312,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    using LocalTreeType =
-        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
-    auto tree = LocalTreeType(std::move(store), workers, current_size);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -2408,8 +2477,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
-        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2448,10 +2516,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     check_block_and_size_data(db, 3, current_size, true);
 
     // should fail to find the leaf at index 4
-    check_find_leaf_index<PublicDataLeafValue, LocalTreeType>(
-        tree, { PublicDataLeafValue(50, 8) }, { std::nullopt }, true);
-    check_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
-        tree, { PublicDataLeafValue(50, 8) }, 0, { std::nullopt }, true);
+    check_find_leaf_index(tree, PublicDataLeafValue(50, 8), 4, false);
+    check_find_leaf_index_from(tree, PublicDataLeafValue(50, 8), 0, 5, false);
 
     // the leaf at index 2 should no longer be as it was after block 5
     EXPECT_NE(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
@@ -2731,8 +2797,8 @@ void test_nullifier_tree_unwind(std::string directory,
             // Trying to find leaves appended in the block that was removed should fail
             get_leaf<NullifierLeafValue>(tree, 1 + deletedBlockStartIndex, false, false);
 
-            check_find_leaf_index<NullifierLeafValue, TreeType>(
-                tree, { leafValues[1 + deletedBlockStartIndexIntoLocalValues] }, { std::nullopt }, true);
+            check_find_leaf_index(
+                tree, leafValues[1 + deletedBlockStartIndexIntoLocalValues], 1 + deletedBlockStartIndex, false);
         }
 
         for (index_t j = 0; j < numBlocks; j++) {
@@ -2751,15 +2817,10 @@ void test_nullifier_tree_unwind(std::string directory,
             const index_t expectedIndexInTree = leafIndex + batchSize;
             check_historic_leaf(
                 tree, leafValues[leafIndex], expectedIndexInTree, historicBlockNumber, expectedSuccess, false);
-
-            std::vector<std::optional<index_t>> expectedResults;
-            if (expectedSuccess) {
-                expectedResults.emplace_back(std::make_optional(expectedIndexInTree));
-            }
-            check_historic_find_leaf_index<NullifierLeafValue, TreeType>(
-                tree, { leafValues[leafIndex] }, historicBlockNumber, expectedResults, expectedSuccess, true);
-            check_historic_find_leaf_index_from<NullifierLeafValue, TreeType>(
-                tree, { leafValues[leafIndex] }, historicBlockNumber, 0, expectedResults, expectedSuccess, true);
+            check_historic_find_leaf_index(
+                tree, leafValues[leafIndex], historicBlockNumber, expectedIndexInTree, expectedSuccess, false);
+            check_historic_find_leaf_index_from(
+                tree, leafValues[leafIndex], historicBlockNumber, 0, expectedIndexInTree, expectedSuccess, false);
         }
     }
 }

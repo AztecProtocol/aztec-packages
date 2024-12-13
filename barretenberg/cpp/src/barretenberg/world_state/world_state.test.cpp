@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <optional>
 #include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
@@ -73,24 +72,20 @@ template <typename Leaf>
 void assert_leaf_exists(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, const Leaf& expected_value, bool exists)
 {
-    std::vector<std::optional<index_t>> indices;
-    ws.find_leaf_indices<Leaf>(revision, tree_id, { expected_value }, indices);
-    EXPECT_EQ(indices.size(), 1);
-    EXPECT_EQ(indices[0].has_value(), exists);
+    std::optional<index_t> index = ws.find_leaf_index(revision, tree_id, expected_value);
+    EXPECT_EQ(index.has_value(), exists);
 }
 
 template <typename Leaf>
 void assert_leaf_index(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, const Leaf& value, index_t expected_index)
 {
-    std::vector<std::optional<index_t>> indices;
-    ws.find_leaf_indices<Leaf>(revision, tree_id, { value }, indices);
-    EXPECT_EQ(indices.size(), 1);
-    EXPECT_TRUE(indices[0].has_value());
-    if (!indices[0].has_value()) {
+    std::optional<index_t> index = ws.find_leaf_index<Leaf>(revision, tree_id, value);
+    EXPECT_TRUE(index.has_value());
+    if (!index.has_value()) {
         return;
     }
-    EXPECT_EQ(indices[0].value(), expected_index);
+    EXPECT_EQ(index.value(), expected_index);
 }
 
 void assert_tree_size(const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, size_t expected_size)
@@ -694,11 +689,7 @@ TEST_F(WorldStateTest, SyncEmptyBlock)
     ws.sync_block(block_state_ref, fr(1), {}, {}, {}, {});
     StateReference after_sync = ws.get_state_reference(WorldStateRevision::committed());
     EXPECT_EQ(block_state_ref, after_sync);
-
-    std::vector<std::optional<index_t>> indices;
-    ws.find_leaf_indices<fr>(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, { fr(1) }, indices);
-    std::vector<std::optional<index_t>> expected{ std::make_optional(1) };
-    EXPECT_EQ(indices, expected);
+    EXPECT_EQ(ws.find_leaf_index(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE, fr(1)), 1);
 }
 
 TEST_F(WorldStateTest, ForkingAtBlock0SameState)

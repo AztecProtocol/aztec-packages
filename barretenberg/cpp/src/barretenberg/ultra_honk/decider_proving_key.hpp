@@ -177,7 +177,11 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.return_data_read_tags =
                         Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
 
-                    proving_key.polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1107): Restricting databus_id to
+                    // databus_size leads to failure.
+                    // const size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(),
+                    // return_data.size() });
+                    proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
                 const size_t max_tables_size =
                     std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
