@@ -603,10 +603,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       },
       doubleSpendValidator: {
         validator: new DoubleSpendTxValidator({
-          getNullifierIndex: async (nullifier: Fr) => {
+          getNullifierIndices: async (nullifiers: Buffer[]) => {
             const merkleTree = this.worldStateSynchronizer.getCommitted();
-            const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-            return index;
+            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            return indices.filter(index => index !== undefined) as bigint[];
           },
         }),
         severity: PeerErrorSeverity.HighToleranceError,
@@ -669,12 +669,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     const snapshotValidator = new DoubleSpendTxValidator({
-      getNullifierIndex: async (nullifier: Fr) => {
+      getNullifierIndices: async (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
           blockNumber - this.config.severePeerPenaltyBlockLength,
         );
-        const index = (await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-        return index;
+        const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+        return indices.filter(index => index !== undefined) as bigint[];
       },
     });
 

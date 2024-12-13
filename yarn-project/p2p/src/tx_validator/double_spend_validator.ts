@@ -3,7 +3,7 @@ import { Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
 export interface NullifierSource {
-  getNullifierIndex: (nullifier: Fr) => Promise<bigint | undefined>;
+  getNullifierIndices: (nullifiers: Buffer[]) => Promise<bigint[]>;
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
@@ -36,9 +36,7 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async #uniqueNullifiers(tx: AnyTx, thisBlockNullifiers: Set<bigint>): Promise<boolean> {
-    const nullifiers = (tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers).map(x =>
-      x.toBigInt(),
-    );
+    const nullifiers = (tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers);
 
     // Ditch this tx if it has repeated nullifiers
     const uniqueNullifiers = new Set(nullifiers);
@@ -48,7 +46,8 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
 
     if (this.isValidatingBlock) {
-      for (const nullifier of nullifiers) {
+      // TODO: remove all this type casting
+      for (const nullifier of nullifiers.map(n => n.toBigInt())) {
         if (thisBlockNullifiers.has(nullifier)) {
           this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating a nullifier in the same block`);
           return false;
@@ -58,7 +57,7 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
       }
     }
 
-    const nullifierIndexes = await Promise.all(nullifiers.map(n => this.#nullifierSource.getNullifierIndex(new Fr(n))));
+    const nullifierIndexes = await this.#nullifierSource.getNullifierIndices(nullifiers.map(n => n.toBuffer()));
 
     const hasDuplicates = nullifierIndexes.some(index => index !== undefined);
     if (hasDuplicates) {
