@@ -1,7 +1,6 @@
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
-import { type P2PClientType } from '../p2p/client_type.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { Tx } from '../tx/tx.js';
 import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
