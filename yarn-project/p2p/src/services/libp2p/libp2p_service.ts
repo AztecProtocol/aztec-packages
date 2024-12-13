@@ -17,6 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import { P2PClientType } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -102,6 +103,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
+    private epochCache: EpochCache,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     private telemetry: TelemetryClient,
@@ -153,7 +155,17 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     // Add p2p topic validators
-    this.node.services.pubsub.topicValidators.set(Tx.p2pTopic, this.validatePropagatedTxFromMessage.bind(this));
+    // As they are stored within a kv pair, there is no need to register them conditionally
+    // based on the client type
+    const topicValidators = {
+      [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
+      [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
+      [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
+      [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
+    };
+    for (const [topic, validator] of Object.entries(topicValidators)) {
+      this.node.services.pubsub.topicValidators.set(topic, validator);
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
@@ -215,6 +227,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     peerId: PeerId,
     mempools: MemPools<T>,
     l2BlockSource: L2BlockSource,
+    epochCache: EpochCache,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
@@ -329,6 +342,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerDiscoveryService,
       mempools,
       l2BlockSource,
+      epochCache,
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
@@ -537,6 +551,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return true;
   }
 
+  /**
+   * Validate a tx from a peer.
+   * @param propagationSource - The peer ID of the peer that sent the tx.
+   * @param msg - The tx message.
+   * @returns True if the tx is valid, false otherwise.
+   */
   private async validatePropagatedTxFromMessage(
     propagationSource: PeerId,
     msg: Message,
@@ -551,11 +571,59 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }
 
   /**
-   * Validate a tx that has been propagated from a peer.
-   * @param tx - The tx to validate.
-   * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * Validate an attestation from a peer.
+   * @param propagationSource - The peer ID of the peer that sent the attestation.
+   * @param msg - The attestation message.
+   * @returns True if the attestation is valid, false otherwise.
    */
+  private async validatePropagatedAttestationFromMessage(
+    propagationSource: PeerId,
+    msg: Message,
+  ): Promise<TopicValidatorResult> {
+    const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
+    const isValid = await this.validateAttestation(propagationSource, attestation);
+    this.logger.trace(`validatePropagatedAttestation: ${isValid}`, {
+      [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
+      [Attributes.P2P_ID]: propagationSource.toString(),
+    });
+    return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
+  }
+
+  /**
+   * Validate a block proposal from a peer.
+   * @param propagationSource - The peer ID of the peer that sent the block.
+   * @param msg - The block proposal message.
+   * @returns True if the block proposal is valid, false otherwise.
+   */
+  private async validatePropagatedBlockFromMessage(
+    propagationSource: PeerId,
+    msg: Message,
+  ): Promise<TopicValidatorResult> {
+    const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
+    const isValid = await this.validateBlockProposal(propagationSource, block);
+    this.logger.trace(`validatePropagatedBlock: ${isValid}`, {
+      [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+      [Attributes.P2P_ID]: propagationSource.toString(),
+    });
+    return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
+  }
+
+  /**
+   * Validate an epoch proof quote from a peer.
+   * @param propagationSource - The peer ID of the peer that sent the epoch proof quote.
+   * @param msg - The epoch proof quote message.
+   * @returns True if the epoch proof quote is valid, false otherwise.
+   */
+  private validatePropagatedEpochProofQuoteFromMessage(propagationSource: PeerId, msg: Message): TopicValidatorResult {
+    const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(msg.data));
+    const isValid = this.validateEpochProofQuote(propagationSource, epochProofQuote);
+    this.logger.trace(`validatePropagatedEpochProofQuote: ${isValid}`, {
+      [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
+      [Attributes.P2P_ID]: propagationSource.toString(),
+    });
+    return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
+  }
+
   @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
@@ -681,6 +749,87 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const validSnapshot = await snapshotValidator.validateTx(tx);
     if (!validSnapshot) {
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate an attestation.
+   *
+   * @param attestation - The attestation to validate.
+   * @returns True if the attestation is valid, false otherwise.
+   */
+  @trackSpan('Libp2pService.validateAttestation', (_peerId, attestation) => ({
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
+  }))
+  public async validateAttestation(peerId: PeerId, attestation: BlockAttestation): Promise<boolean> {
+    const { currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
+
+    // Check that the attestation is for the current or next slot
+    const slotNumberBigInt = attestation.payload.header.globalVariables.slotNumber.toBigInt();
+    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    // Check that the attestation is from the somebody in the committee
+    const attester = attestation.getSender();
+    if (!(await this.epochCache.isInCommittee(attester))) {
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate a block proposal.
+   *
+   * @param block - The block proposal to validate.
+   * @returns True if the block proposal is valid, false otherwise.
+   */
+  @trackSpan('Libp2pService.validateBlockProposal', (_peerId, block) => ({
+    [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+  }))
+  public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
+    const { currentProposer, nextProposer, currentSlot, nextSlot } =
+      await this.epochCache.getProposerInCurrentOrNextSlot();
+
+    // Check that the attestation is for the current or next slot
+    const slotNumberBigInt = block.payload.header.globalVariables.slotNumber.toBigInt();
+    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    // Check that the block proposal is from the current or next proposer
+    const proposer = block.getSender();
+    if (!proposer.equals(currentProposer) && !proposer.equals(nextProposer)) {
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate an epoch proof quote.
+   *
+   * @param epochProofQuote - The epoch proof quote to validate.
+   * @returns True if the epoch proof quote is valid, false otherwise.
+   */
+  @trackSpan('Libp2pService.validateEpochProofQuote', (_peerId, epochProofQuote) => ({
+    [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
+  }))
+  public validateEpochProofQuote(peerId: PeerId, epochProofQuote: EpochProofQuote): boolean {
+    const { epoch } = this.epochCache.getEpochAndSlotNow();
+
+    // Check that the epoch proof quote is for the current epoch
+    const epochToProve = epochProofQuote.payload.epochToProve;
+    if (epochToProve !== epoch && epochToProve !== epoch - 1n) {
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       return false;
     }
 

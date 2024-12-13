@@ -13,6 +13,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -299,11 +300,13 @@ describe('prover-node', () => {
         txPool: new InMemoryTxPool(telemetryClient),
         epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
       };
+      const epochCache = mock<EpochCache>();
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],
         l2BlockSource,
         worldState,
+        epochCache,
         mempools,
         telemetryClient,
         port,
