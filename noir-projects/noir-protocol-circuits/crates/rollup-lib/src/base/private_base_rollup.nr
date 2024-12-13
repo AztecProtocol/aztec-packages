@@ -19,6 +19,7 @@ use dep::types::{
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+        TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -30,7 +31,7 @@ use dep::types::{
     traits::is_empty,
 };
 
-// global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -52,9 +53,15 @@ impl PrivateBaseRollupInputs {
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
+        // TODO(#10311): There should be an empty base rollup.
+        // There's at least 1 nullifier for a tx. So gas_used won't be empty if the previous circuit is private_tail.
+        let is_empty_tube = self.tube_data.public_inputs.gas_used.is_empty();
+
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
         tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        tube_data_validator.validate_with_rollup_data(self.constants);
+        if !is_empty_tube {
+            tube_data_validator.validate_with_rollup_data(self.constants);
+        }
 
         let transaction_fee = self.compute_transaction_fee();
 
