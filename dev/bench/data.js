@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734076621339,
+  "lastUpdate": 1734107330713,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b7b282cd0fb306abbe3951a55a1a4f4d42ed7f8e",
-          "message": "feat: swap polys to facilitate dynamic trace overflow (#9976)\n\nUpdate PG/ClientIvc so that during accumulation we can handle a circuit\r\nthat overflows the nominal structured trace (and potentially increases\r\nthe dyadic size of the accumulator) without knowing about the size of\r\nthe overflow in advance. (A previous PR makes it possible to overflow\r\narbitrarily as long as ClientIvc is initialized with the proper overflow\r\ncapacity). Ensure the ExecutionTraceTracker is updated correctly when\r\nencountering a circuit that overflows and also ensure that the tracker\r\nis used appropriately in Protogalaxy.\r\n\r\n---------\r\n\r\nCo-authored-by: maramihali <mara@aztecprotocol.com>",
-          "timestamp": "2024-11-27T15:22:09-05:00",
-          "tree_id": "eca71991eb4839e20ba88bebde59fac32583d695",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b7b282cd0fb306abbe3951a55a1a4f4d42ed7f8e"
-        },
-        "date": 1732741468619,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28225.632292000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26587.677380999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5020.246728000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4673.310028999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84009.54356300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84009544000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15132.574935999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15132576000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3076078674,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3076078674 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139484576,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139484576 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 132249560,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132249560 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95eb658f90687c75589b345f95a904d96e2a8e62",
+          "message": "fix: use correct size for databus_id (#10673)\n\nApparently at the time the below issue was created things failed if we\nused the correct limited size for the databus_id poly. Maybe we made a\nmistake then or maybe something got fixed somewhere but either way it\nworks fine now.\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1107",
+          "timestamp": "2024-12-13T08:38:01-07:00",
+          "tree_id": "fdcfad76b95186e3a99f2191ef1ea7a7b7186a36",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/95eb658f90687c75589b345f95a904d96e2a8e62"
+        },
+        "date": 1734107323690,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24899.681707000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22677.870755 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4964.687263999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4604.072021 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85814.899523,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85814899000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15282.858836,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15282859000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2848966428,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2848966428 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142325698,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142325698 ns\nthreads: 1"
           }
         ]
       }
