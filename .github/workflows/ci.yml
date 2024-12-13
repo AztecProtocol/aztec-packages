@@ -166,23 +166,32 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        env:
-          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
             LABELS=""
           fi
-          echo Labels: $LABELS
+
           echo REF: $REF
+          echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")"
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
-        env:
-          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
