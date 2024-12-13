@@ -20,6 +20,11 @@ on:
         required: true
         type: string
         default: testnet-deployment-mnemonic
+      deployment_salt:
+        description: The salt to use for this deployment. Defaults to random
+        required: false
+        type: string
+        default: ""
       respect_tf_lock:
         description: Whether to respect the Terraform lock
         required: false
@@ -53,6 +58,10 @@ on:
         description: The name of the secret which holds the boot node's contract deployment mnemonic
         required: true
         default: testnet-deployment-mnemonic
+      deployment_salt:
+        description: The salt to use for this deployment. Defaults to random
+        required: false
+        default: ""
       respect_tf_lock:
         description: Whether to respect the Terraform lock
         required: false
@@ -82,6 +91,7 @@ jobs:
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
+      DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
       CLUSTER_NAME: aztec-gke
       REGION: us-west1-a
@@ -161,6 +171,7 @@ jobs:
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
             -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+            -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 
