@@ -119,6 +119,8 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
 {
     gas_opcode_lookup_counter[opcode]++;
 
+    debug("Resetting to parent's L2 gas left (", parent_l2_gas_left, ") before consuming gas allocated to nested call");
+    debug("Resetting to parent's DA gas left (", parent_da_gas_left, ") before consuming gas allocated to nested call");
     // how much gas did the nested call consume
     auto l2_gas_consumed = l2_gas_allocated_to_nested_call - remaining_l2_gas;
     auto da_gas_consumed = da_gas_allocated_to_nested_call - remaining_da_gas;
@@ -126,11 +128,18 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
         // on error (exceptional halt), consume all gas allocated to nested call
         l2_gas_consumed = l2_gas_allocated_to_nested_call;
         da_gas_consumed = da_gas_allocated_to_nested_call;
+        debug("Consuming L2 gas used by nested call: ", l2_gas_consumed);
+        debug("Consuming DA gas used by nested call: ", da_gas_consumed);
+    } else {
+        debug("Consuming all L2 gas allocated to nested call: ", l2_gas_allocated_to_nested_call);
+        debug("Consuming all DA gas allocated to nested call: ", da_gas_allocated_to_nested_call);
     }
 
     // We reload to the parent's l2 gas left minus however much gas consumed by the nested call
     remaining_l2_gas = parent_l2_gas_left - l2_gas_consumed;
     remaining_da_gas = parent_da_gas_left - da_gas_consumed;
+    debug("L2 gas remaining after nested call: ", remaining_l2_gas);
+    debug("DA gas remaining after nested call: ", remaining_da_gas);
 
     // modify the last row of the gas trace to return to the parent's latest gas
     // with the nested call's gas consumption applied
@@ -147,6 +156,9 @@ void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opc
                                                                       uint32_t da_gas_allocated)
 {
     gas_opcode_lookup_counter[opcode]++;
+
+    debug("Consuming all L2 gas allocated to top-level call: ", l2_gas_allocated);
+    debug("Consuming all DA gas allocated to top-level call: ", da_gas_allocated);
 
     remaining_l2_gas = 0;
     remaining_da_gas = 0;

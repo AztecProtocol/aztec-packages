@@ -293,9 +293,7 @@ void AvmTraceBuilder::handle_exceptional_halt()
 {
     const bool is_top_level = current_ext_call_ctx.context_id == 0;
     if (is_top_level) {
-        debug("Handling exceptional halt in top-level call");
-        debug("l2_gas_allocated_to_call: ", current_ext_call_ctx.start_l2_gas_left);
-        debug("da_gas_allocated_to_call: ", current_ext_call_ctx.start_da_gas_left);
+        debug("Handling exceptional halt in top-level call. Consuming all allocated gas:");
         // Consume all remaining gas.
         gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(
             OpCode::RETURN, current_ext_call_ctx.start_l2_gas_left, current_ext_call_ctx.start_da_gas_left);
@@ -304,8 +302,6 @@ void AvmTraceBuilder::handle_exceptional_halt()
         // before the nested call was made, how much gas does the parent have?
         const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
         const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
-        debug("l2_gas_allocated_to_call: ", l2_gas_allocated_to_nested_call);
-        debug("da_gas_allocated_to_call: ", da_gas_allocated_to_nested_call);
 
         current_ext_call_ctx = external_call_ctx_stack.top();
         external_call_ctx_stack.pop();
@@ -318,8 +314,6 @@ void AvmTraceBuilder::handle_exceptional_halt()
         // now that we have popped its context from the stack.
         auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
         auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
-        debug("parent_l2_gas_left: ", parent_l2_gas_left);
-        debug("parent_da_gas_left: ", parent_da_gas_left);
 
         // now modify the last row of the gas trace to return to the parent's latest gas
         // with the nested call's entire allocation consumed
