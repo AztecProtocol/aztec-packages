@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734111931547,
+  "lastUpdate": 1734113899080,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bfd9fa68be4147acb3e3feeaf83ed3c9247761be",
-          "message": "feat: Sequential insertion in indexed trees (#10111)\n\n- Adds sequential (no subtree) insertion in indexed trees\r\n- If witnesses are requested, the response includes 2*N witnesses, N for\r\nthe low leaves and N for the insertions\r\n   - If no witness is requested, it directly does sparse_batch_update\r\n   - Updating an item multiple times in the same call is allowed\r\n- Uses sequential insertion with witnesses to avoid doing N batch\r\nupdates of 1 item for the base rollup\r\n- Uses sequential insertion without witnesses for syncing the public\r\ndata tree, to avoid doing 1 batch insertion per TX in the block",
-          "timestamp": "2024-11-28T14:02:54Z",
-          "tree_id": "defc9c4f062e912d3f8eb7ab58ae7482928cce54",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bfd9fa68be4147acb3e3feeaf83ed3c9247761be"
-        },
-        "date": 1732804028018,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28153.127274000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26537.149002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5038.755413000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4631.034165 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84192.29212700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84192293000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15156.366907,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15156368000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3080859077,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3080859077 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139642057,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139642057 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2988,6 +2928,66 @@ window.BENCHMARK_DATA = {
             "value": 143111162,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143111162 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd8cc7b93119c0376873a366a8310d2ebd2641de",
+          "message": "fix: avm gas and non-member (#10709)\n\nThis PR fixes two things:\n\n1) Non-membership checks weren't properly being handled in the witgen\n(the assertion was too strict)\n2) End gas handling",
+          "timestamp": "2024-12-13T12:30:14-05:00",
+          "tree_id": "bb46a288641fd41349337325988b3ea32531c227",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dd8cc7b93119c0376873a366a8310d2ebd2641de"
+        },
+        "date": 1734113892196,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24885.552339000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22674.212598000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4988.833784999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4659.767849999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85769.545945,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85769546000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15259.417675,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15259419000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2818920693,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2818920693 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142163165,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142163165 ns\nthreads: 1"
           }
         ]
       }
