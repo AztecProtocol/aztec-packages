@@ -167,7 +167,7 @@ ci-rest:
     BUILD +l1-contracts-with-cache
     BUILD +noir-projects-with-cache
   END
-  SET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./yarn-project/+format-check
@@ -175,7 +175,7 @@ ci-rest:
     END
     RUN ci3/cache_upload_flag $artifact
   END
-  LET artifact=prover-client-ci-tests-$(./yarn-project/bootstrap.sh hash)
+  SET artifact=prover-client-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./yarn-project/+prover-client-test
