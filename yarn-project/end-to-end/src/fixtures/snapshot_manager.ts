@@ -20,11 +20,11 @@ import { startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
-import { type InstalledClock, install } from '@sinonjs/fake-timers';
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
@@ -50,7 +50,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
-  timer: InstalledClock;
+  dateProvider: TestDateProvider;
 };
 
 type SnapshotEntry = {
@@ -250,7 +250,6 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.acvmConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();
-    context.timer?.uninstall();
   } catch (err) {
     getLogger().error('Error during teardown', err);
   }
@@ -271,9 +270,6 @@ async function setupFromFresh(
   },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
-
-  // Use sinonjs fake timers
-  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
@@ -358,7 +354,8 @@ async function setupFromFresh(
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
@@ -392,7 +389,7 @@ async function setupFromFresh(
     proverNode,
     watcher,
     cheatCodes,
-    timer,
+    dateProvider,
   };
 }
 
@@ -401,9 +398,6 @@ async function setupFromFresh(
  */
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
-
-  // TODO: make one function
-  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
 
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
@@ -445,7 +439,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   logger.verbose('Creating aztec node...');
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 
   let proverNode: ProverNode | undefined = undefined;
   if (aztecNodeConfig.startProverNode) {
@@ -477,7 +472,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     },
     watcher,
     cheatCodes,
-    timer,
+    dateProvider,
   };
 }
 

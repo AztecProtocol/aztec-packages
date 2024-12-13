@@ -39,7 +39,8 @@ export interface PublicSideEffectTraceInterface {
     insertionPath?: Fr[],
   ): void;
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
-  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
+  traceNewNoteHash(uniqueNoteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
+  getNoteHashCount(): number;
   traceNullifierCheck(
     siloedNullifier: Fr,
     exists: boolean,
