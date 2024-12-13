@@ -104,9 +104,9 @@ runs:
 
     - name: Setup yq and earthly
       uses: ./.github/run-on-tester
-      # Don't wait for docker too long, could be pathological
-      timeout-minutes: 3
       with:
+        # Don't wait for docker too long, could be pathological
+        timeout: 3
         run: |
           wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
           chmod +x ./yq
