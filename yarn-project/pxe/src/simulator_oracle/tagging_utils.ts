@@ -1,4 +1,4 @@
-import { IndexedTaggingSecret } from '@aztec/circuits.js';
+import { AztecAddress, Fr, IndexedTaggingSecret } from '@aztec/circuits.js';
 
 /**
  * Gets indexed tagging secrets with leftmost indexes.
@@ -17,6 +17,21 @@ export function getLeftMostIndexedTaggingSecrets(
         Math.max(0, indexedTaggingSecret.index - windowHalfSize),
       ),
   );
+}
+
+export function getIndexedTaggingSecretsForTheWholeWindow(
+  app: AztecAddress,
+  recipient: AztecAddress,
+  storedIndexedTaggingSecrets: IndexedTaggingSecret[],
+  windowHalfSize: number,
+): IndexedTaggingSecret[] {
+  const secrets: IndexedTaggingSecret[] = [];
+  for (const storedIndexedTaggingSecret of storedIndexedTaggingSecrets) {
+    for (let i = storedIndexedTaggingSecret.index - windowHalfSize; i <= storedIndexedTaggingSecret.index + windowHalfSize; i++) {
+      secrets.push(new IndexedTaggingSecret(storedIndexedTaggingSecret.appTaggingSecret, i));
+    }
+  }
+  return secrets;
 }
 
 /**
@@ -43,7 +58,7 @@ export function getRightMostIndexes(
  * @param indexedTaggingSecrets - The indexed tagging secrets to get the initial indexes from.
  * @returns The map from app tagging secret to initial index.
  */
-export function getInitialIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
+export function getInitialIndexesMap(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
   const initialIndexes: { [k: string]: number } = {};
 
   for (const indexedTaggingSecret of indexedTaggingSecrets) {
