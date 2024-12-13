@@ -5,20 +5,21 @@ child_pid=$!
 
 # Poll until the child finishes or a termination notice is detected
 while true; do
-    # Wait for process to come up, makes check below happen every 5 seconds
-    for i in {1..5}; do
-      if ! kill -0 "$child_pid" 2>/dev/null; then
-        wait "$child_pid"; exit $?
-      fi
-      sleep 1
-    done
-    # Check for imminent spot termination
-    if curl -fs http://169.254.169.254/latest/meta-data/spot/termination-time >/dev/null 2>&1; then
-      # Termination notice found; kill the child and exit with 155
-      echo "Spot will be terminated! Exiting early."
-      kill "$child_pid" && wait "$child_pid"
-      exit 155
+  # Wait for process to come up, makes check below happen every 5 seconds
+  for i in {1..5}; do
+    if ! kill -0 "$child_pid" 2>/dev/null; then
+      wait "$child_pid"
+      exit $?
     fi
+    sleep 1
+  done
+  # Check for imminent spot termination
+  if curl -fs http://169.254.169.254/latest/meta-data/spot/termination-time >/dev/null 2>&1; then
+    # Termination notice found; kill the child and exit with 155
+    echo "Spot will be terminated! Exiting early."
+    kill "$child_pid" && wait "$child_pid"
+    exit 155
+  fi
 done
 
 # If we get here, the child exited naturally; return its exit code
