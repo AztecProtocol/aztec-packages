@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use acvm::{
     acir::{
@@ -31,7 +31,7 @@ use super::execute_program;
 
 #[derive(Debug)]
 pub enum TestStatus {
-    Pass(Duration),
+    Pass,
     Fail { message: String, error_diagnostic: Option<FileDiagnostic> },
     Skipped,
     CompileError(FileDiagnostic),
@@ -39,7 +39,7 @@ pub enum TestStatus {
 
 impl TestStatus {
     pub fn failed(&self) -> bool {
-        !matches!(self, TestStatus::Pass(_) | TestStatus::Skipped)
+        !matches!(self, TestStatus::Pass | TestStatus::Skipped)
     }
 }
 
@@ -61,7 +61,6 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
         .0
         .is_empty();
 
-    let now = std::time::Instant::now();
     match compile_no_check(context, config, test_function.get_id(), None, false) {
         Ok(compiled_program) => {
             // Do the same optimizations as `compile_cmd`.
@@ -84,7 +83,6 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     blackbox_solver,
                     &mut foreign_call_executor,
                 );
-                let time = now.elapsed();
 
                 let status = test_status_program_compile_pass(
                     test_function,
@@ -131,7 +129,6 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     let abi = compiled_program.abi.clone();
                     let debug = compiled_program.debug.clone();
 
-                    let now = std::time::Instant::now();
                     let executor =
                         |program: &Program<FieldElement>,
                          initial_witness: WitnessMap<FieldElement>|
@@ -162,11 +159,12 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                                 Ok(WitnessStack::default())
                             }
                         };
+
                     let fuzzer = FuzzedExecutor::new(compiled_program.into(), executor, runner);
 
                     let result = fuzzer.fuzz();
                     if result.success {
-                        TestStatus::Pass(time)
+                        TestStatus::Pass
                     } else {
                         TestStatus::Fail {
                             message: result.reason.unwrap_or_default(),
@@ -192,12 +190,7 @@ fn test_status_program_compile_fail(err: CompileError, test_function: &TestFunct
         return TestStatus::CompileError(err.into());
     }
 
-    check_expected_failure_message(
-        test_function,
-        None,
-        Some(err.into()),
-        std::time::Duration::new(0, 0),
-    )
+    check_expected_failure_message(test_function, None, Some(err.into()))
 }
 
 /// The test function compiled successfully.
@@ -220,7 +213,7 @@ fn test_status_program_compile_pass(
                     error_diagnostic: None,
                 };
             }
-            return TestStatus::Pass(time);
+            return TestStatus::Pass;
         }
         Err(err) => err,
     };
@@ -241,7 +234,6 @@ fn test_status_program_compile_pass(
         test_function,
         circuit_execution_err.user_defined_failure_message(&abi.error_types),
         diagnostic,
-        time,
     )
 }
 
@@ -249,7 +241,6 @@ fn check_expected_failure_message(
     test_function: &TestFunction,
     failed_assertion: Option<String>,
     error_diagnostic: Option<FileDiagnostic>,
-    time: Duration,
 ) -> TestStatus {
     // Extract the expected failure message, if there was one
     //
@@ -258,7 +249,7 @@ fn check_expected_failure_message(
     //
     let expected_failure_message = match test_function.failure_reason() {
         Some(reason) => reason,
-        None => return TestStatus::Pass(time),
+        None => return TestStatus::Pass,
     };
 
     // Match the failure message that the user will see, i.e. the failed_assertion
@@ -272,7 +263,7 @@ fn check_expected_failure_message(
         .map(|message| message.contains(expected_failure_message))
         .unwrap_or(false);
     if expected_failure_message_matches {
-        return TestStatus::Pass(time);
+        return TestStatus::Pass;
     }
 
     // The expected failure message does not match the actual failure message
