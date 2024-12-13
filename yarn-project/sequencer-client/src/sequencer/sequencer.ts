@@ -192,7 +192,7 @@ export class Sequencer {
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
@@ -339,6 +339,7 @@ export class Sequencer {
     this.setState(SequencerState.IDLE, 0n);
   }
 
+  @trackSpan('Sequencer.work')
   protected async work() {
     try {
       await this.doRealWork();

@@ -88,10 +88,10 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetryClient = await createAndStartTelemetryClient(telemetryConfig);
+  const telemetry = await createAndStartTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, telemetryClient);
+  const node = await createAztecNode(nodeConfig, telemetry);
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
@@ -110,6 +110,6 @@ export async function startNode(
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, signalHandlers, services, { pxe, node });
+    await addBot(options, signalHandlers, services, { pxe, node, telemetry });
   }
 }
