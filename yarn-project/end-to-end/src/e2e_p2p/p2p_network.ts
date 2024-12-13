@@ -93,7 +93,7 @@ export class P2PNetworkTest {
    */
   public async syncMockSystemTime() {
     this.logger.info('Syncing mock system time');
-    const { timer, deployL1ContractsValues } = this.ctx!;
+    const { dateProvider, deployL1ContractsValues } = this.ctx!;
     // Send a tx and only update the time after the tx is mined, as eth time is not continuous
     const tx = await deployL1ContractsValues.walletClient.sendTransaction({
       to: this.baseAccount.address,
@@ -104,8 +104,7 @@ export class P2PNetworkTest {
       hash: tx,
     });
     const timestamp = await deployL1ContractsValues.publicClient.getBlock({ blockNumber: receipt.blockNumber });
-    timer.setSystemTime(Number(timestamp.timestamp) * 1000);
-    this.logger.info(`Synced mock system time to ${timestamp.timestamp * 1000n}`);
+    dateProvider.setTime(Number(timestamp.timestamp) * 1000);
   }
 
   static async create({
@@ -133,7 +132,7 @@ export class P2PNetworkTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot(
       'add-validators',
-      async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
+      async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
         const rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
           abi: RollupAbi,
@@ -203,7 +202,7 @@ export class P2PNetworkTest {
 
         // Set the system time in the node, only after we have warped the time and waited for a block
         // Time is only set in the NEXT block
-        timer.setSystemTime(Number(timestamp) * 1000);
+        dateProvider.setTime(Number(timestamp) * 1000);
       },
     );
   }
@@ -244,7 +243,7 @@ export class P2PNetworkTest {
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
       'remove-inital-validator',
-      async ({ deployL1ContractsValues, aztecNode, timer }) => {
+      async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await deployL1ContractsValues.walletClient.sendTransaction({
@@ -256,7 +255,7 @@ export class P2PNetworkTest {
         const block = await deployL1ContractsValues.publicClient.getBlock({
           blockNumber: receipt.blockNumber,
         });
-        timer.setSystemTime(Number(block.timestamp) * 1000);
+        dateProvider.setTime(Number(block.timestamp) * 1000);
 
         await aztecNode.stop();
       },

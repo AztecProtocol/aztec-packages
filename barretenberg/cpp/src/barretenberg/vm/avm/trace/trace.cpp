@@ -2535,19 +2535,25 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 
     // Retrieve the public data read hint for this sload
     PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
-
-    // Compute the tree slot
-    FF computed_tree_slot =
-        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
-    // Sanity check that the computed slot using the value read from slot_offset should match the read hint
-    ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
-
-    // Check that the leaf is a member of the public data tree
+    // Check that the hinted leaf is a member of the public data tree
     bool is_member = merkle_tree_trace_builder.perform_storage_read(
         clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
     ASSERT(is_member);
 
-    FF value = read_hint.leaf_preimage.value;
+    // Compute the tree slot
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
+    // Check if the computed_tree_slot matches the read hint
+    bool exists = computed_tree_slot == read_hint.leaf_preimage.slot;
+
+    // If it doesnt exist, we should check the low nullifier conditions
+    if (!exists) {
+        bool non_member = AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(read_hint.leaf_preimage,
+                                                                                             computed_tree_slot);
+        ASSERT(non_member);
+    }
+
+    FF value = exists ? read_hint.leaf_preimage.value : FF::zero();
     auto write_a = constrained_write_to_memory(
         call_ptr, clk, resolved_dest, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
@@ -2836,7 +2842,6 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     Row row;
 
     // Exists is written to b
-    bool exists = false;
     if (is_ok(error)) {
         NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter++);
         FF nullifier_value = unconstrained_read_from_memory(resolved_nullifier_offset);
@@ -2847,17 +2852,11 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
                                                                           nullifier_read_hint.low_leaf_index,
                                                                           nullifier_read_hint.low_leaf_sibling_path);
         ASSERT(is_member);
-
-        if (siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier) {
-            // This is a direct membership check
-            exists = true;
-        } else {
-            exists = false;
-            // This is a non-membership proof
-            // Show that the target nullifier meets the non membership conditions (sandwich or max)
-            ASSERT(siloed_nullifier < nullifier_read_hint.low_leaf_preimage.nullifier &&
-                   (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
-                    siloed_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
+        bool exists = siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier;
+        if (!exists) {
+            bool is_non_member = AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(
+                nullifier_read_hint.low_leaf_preimage, siloed_nullifier);
+            ASSERT(is_non_member);
         }
 
         auto read_a = constrained_read_from_memory(
@@ -4764,8 +4763,15 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
 
     if (apply_end_gas_assertions) {
         // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+        auto const l2_gas_left_after_private =
+            public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto const allocated_l2_gas =
+            std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
+        // Since end_gas_used also contains start_gas_used, we need to subtract it out to see what is consumed by the
+        // public computation only
+        auto expected_public_gas_consumed = public_inputs.end_gas_used.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto expected_end_gas_l2 = allocated_l2_gas - expected_public_gas_consumed;
         auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
-        auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
         vinfo("Last L2 gas remaining: ", last_l2_gas_remaining);
         vinfo("Expected end gas L2: ", expected_end_gas_l2);
         ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
