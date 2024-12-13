@@ -327,6 +327,8 @@ void prove(const std::string& bytecodePath,
 template <typename Builder = UltraCircuitBuilder>
 void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recursion)
 {
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: only do this if the circuit does accumulation...
+
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
