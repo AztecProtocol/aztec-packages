@@ -8,13 +8,13 @@ import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
 
 describe('P2PApiSchema', () => {
   let handler: MockP2P;
-  let context: JsonRpcTestContext<P2PApi<P2PClientType.Full>>;
+  let context: JsonRpcTestContext<P2PApi>;
 
   const tested = new Set<string>();
 
   beforeEach(async () => {
     handler = new MockP2P();
-    context = await createJsonRpcTestSetup<P2PApi<P2PClientType.Full>>(handler, P2PApiSchema);
+    context = await createJsonRpcTestSetup<P2PApi>(handler, P2PApiSchema);
   });
 
   afterEach(() => {
@@ -66,7 +66,7 @@ const peers: PeerInfo[] = [
   { status: 'cached', id: 'id', addresses: ['address'], enr: 'enr', dialAttempts: 1 },
 ];
 
-class MockP2P implements P2PApi<P2PClientType.Full> {
+class MockP2P implements P2PApi {
   getAttestationsForSlot(slot: bigint, proposalId?: string | undefined): Promise<BlockAttestation[]> {
     expect(slot).toEqual(1n);
     expect(proposalId).toEqual('proposalId');

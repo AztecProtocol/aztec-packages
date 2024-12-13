@@ -62,11 +62,11 @@ export interface P2PClient extends P2PApiWithoutAttestations {
   getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
 }
 
-export type P2PApi<T extends P2PClientType> = T extends P2PClientType.Full
+export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
   ? P2PClient & P2PApiWithoutAttestations
   : P2PApiWithoutAttestations;
 
-export const P2PApiSchema: ApiSchemaFor<P2PApi<P2PClientType.Full>> = {
+export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getAttestationsForSlot: z
     .function()
     .args(schemas.BigInt, optional(z.string()))
