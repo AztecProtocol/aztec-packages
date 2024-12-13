@@ -220,12 +220,12 @@ class AvmTraceBuilder {
                              uint32_t output_offset,
                              uint32_t point_length_offset);
     // Conversions
-    AvmError op_to_radix_be(uint8_t indirect,
+    AvmError op_to_radix_be(uint16_t indirect,
                             uint32_t src_offset,
-                            uint32_t dst_offset,
                             uint32_t radix_offset,
-                            uint32_t num_limbs,
-                            uint8_t output_bits);
+                            uint32_t num_limbs_offset,
+                            uint32_t output_bits_offset,
+                            uint32_t dst_offset);
 
     std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
