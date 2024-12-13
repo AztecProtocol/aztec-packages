@@ -143,29 +143,26 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  function getVkCommand() {
-    if (circuitType == CircuitType.ClientIVCCircuit) {
-      return "write_vk_for_ivc";
-    } else if (circuitType == CircuitType.RollupHonkCircuit) {
-      return "write_vk_ultra_rollup_honk";
-    } else {
-      return "write_vk_ultra_honk";
-    }
+  if (circuitType == CircuitType.ClientIVCCircuit) {
+    write_vk_flow = "write_vk_for_ivc";
+    vk_as_fields_flow = "vk_as_fields_mega_honk";
+    honk_recursion = 0;
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    write_vk_flow = "write_vk_ultra_rollup_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
+    honk_recursion = 2;
+  } else {
+    write_vk_flow = "write_vk_ultra_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_honk";
+    honk_recursion = 1;
   }
 
-  const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
+  const writeVkCommand = `${BB_BIN_PATH} ${write_vk_flow} -h ${honk_recursion} -b "${artifactPath}" -o "${binaryVkPath}" ${
     isRecursive ? "--recursive" : ""
   }`;
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
-  if (circuitType == CircuitType.ClientIVCCircuit) {
-    vk_as_fields_flow = "vk_as_fields_mega_honk";
-  } else if (circuitType == CircuitType.RollupHonkCircuit) {
-    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
-  } else {
-    vk_as_fields_flow = "vk_as_fields_ultra_honk";
-  }
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${vk_as_fields_flow} -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   console.log("VK AS FIELDS CMD: ", vkAsFieldsCommand);

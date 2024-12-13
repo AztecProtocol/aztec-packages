@@ -33,9 +33,9 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
 
     # If it's mega honk, we need to use the gates_mega_honk command
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates_mega_honk -h -b "$pathname")
+        GATES_INFO=$($BB_BIN gates_mega_honk -h 1 -b "$pathname")
     else
-        GATES_INFO=$($BB_BIN gates -h -b "$pathname")
+        GATES_INFO=$($BB_BIN gates -h 1 -b "$pathname")
     fi
 
     MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r '.functions[0] | .name = "main"')

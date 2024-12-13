@@ -150,9 +150,9 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
 
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_mega_honk" -- -h
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_mega_honk" -- -h 1
         else
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h 1
         fi
 
         echo "Flamegraph generated for circuit: $CIRCUIT_NAME"
