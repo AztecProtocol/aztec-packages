@@ -21,7 +21,7 @@ export class L2BlockStream {
       startingBlock?: number;
     } = {},
   ) {
-    this.runningPromise = new RunningPromise(() => this.work(), this.opts.pollIntervalMS ?? 1000);
+    this.runningPromise = new RunningPromise(() => this.work(), log, this.opts.pollIntervalMS ?? 1000);
   }
 
   public start() {

@@ -15,6 +15,7 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
+  P2PClientType,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -58,7 +59,7 @@ import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
@@ -74,7 +75,7 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -85,10 +86,11 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode {
+export class AztecNodeService implements AztecNode, Traceable {
   private packageVersion: string;
-
   private metrics: NodeMetrics;
+
+  public readonly tracer: Tracer;
 
   constructor(
     protected config: AztecNodeConfig,
@@ -109,6 +111,7 @@ export class AztecNodeService implements AztecNode {
   ) {
     this.packageVersion = getPackageInfo().version;
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
+    this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
@@ -136,10 +139,12 @@ export class AztecNodeService implements AztecNode {
       telemetry?: TelemetryClient;
       logger?: Logger;
       publisher?: L1Publisher;
+      dateProvider?: DateProvider;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
     const log = deps.logger ?? createLogger('node');
+    const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -152,7 +157,8 @@ export class AztecNodeService implements AztecNode {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
+    const rollupAddress = config.l1Contracts.rollupAddress;
+    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
@@ -162,12 +168,19 @@ export class AztecNodeService implements AztecNode {
     }
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
+    const p2pClient = await createP2PClient(
+      P2PClientType.Full,
+      config,
+      archiver,
+      proofVerifier,
+      worldStateSynchronizer,
+      telemetry,
+    );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const validatorClient = await createValidatorClient(config, config.l1Contracts.rollupAddress, p2pClient, telemetry);
+    const validatorClient = await createValidatorClient(config, rollupAddress, { p2pClient, telemetry, dateProvider });
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -782,6 +795,9 @@ export class AztecNodeService implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
+  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+  }))
   public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
