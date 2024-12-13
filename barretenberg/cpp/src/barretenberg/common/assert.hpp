@@ -2,7 +2,8 @@
 #include <cstdio>
 #include <cstdlib>
 
-#ifdef NDEBUG
+#if NDEBUG
+// NOLINTBEGIN
 // In NDEBUG mode, no assertion checks are performed.
 // Compiler should optimize this out in release builds, without triggering an unused variable warning.
 #define DONT_EVALUATE(expression)                                                                                      \
@@ -11,7 +12,7 @@
     }
 
 #define ASSERT(expression) DONT_EVALUATE((expression))
-
+// NOLINTEND
 #else
 
 namespace bb::detail {
