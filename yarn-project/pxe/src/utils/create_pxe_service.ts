@@ -9,7 +9,7 @@ import { L2TipsStore } from '@aztec/kv-store/stores';
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
-import { PXEService } from './pxe_service.js';
+import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.
@@ -47,9 +47,9 @@ export async function createPXEService(
   const tips = new L2TipsStore(store, 'pxe');
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
-  const server = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
-  await server.start();
-  return server;
+  const pxe = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
+  await pxe.init();
+  return pxe;
 }
 
 function createProver(config: PXEServiceConfig, logSuffix?: string) {

@@ -43,7 +43,6 @@ import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../t
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
-import { type SyncStatus } from './sync-status.js';
 
 jest.setTimeout(12_000);
 
@@ -256,16 +255,6 @@ describe('PXESchema', () => {
   it('getPXEInfo', async () => {
     const result = await context.client.getPXEInfo();
     expect(result).toEqual(await handler.getPXEInfo());
-  });
-
-  it('isGlobalStateSynchronized', async () => {
-    const result = await context.client.isGlobalStateSynchronized();
-    expect(result).toBe(true);
-  });
-
-  it('getSyncStatus', async () => {
-    const result = await context.client.getSyncStatus();
-    expect(result).toEqual(await handler.getSyncStatus());
   });
 
   it('getContractInstance', async () => {
@@ -500,14 +489,6 @@ class MockPXE implements PXE {
         ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
       ) as ProtocolContractAddresses,
       pxeVersion: '1.0',
-    });
-  }
-  isGlobalStateSynchronized(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return Promise.resolve({
-      blocks: 1,
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

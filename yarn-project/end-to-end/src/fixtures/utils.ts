@@ -42,7 +42,7 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -146,9 +146,7 @@ export async function setupPXEService(
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
   const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
-  const teardown = async () => {
-    await pxe.stop();
-  };
+  const teardown = async () => {};
 
   return {
     pxe,
@@ -444,9 +442,6 @@ export async function setup(
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
-    }
-    if (pxe instanceof PXEService) {
-      await pxe?.stop();
     }
 
     if (acvmConfig?.cleanup) {
