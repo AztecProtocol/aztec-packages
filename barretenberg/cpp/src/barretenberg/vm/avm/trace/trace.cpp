@@ -2798,8 +2798,8 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    if (get_inserted_note_hashes_count() >= MAX_NOTE_HASHES_PER_TX) {
+    uint32_t inserted_note_hashes_count = get_inserted_note_hashes_count();
+    if (inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX) {
         AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
@@ -2819,16 +2819,20 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
+    FF siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
         current_public_call_request.contract_address, row.main_ia);
-    ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
+    FF nonce =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), inserted_note_hashes_count);
+    FF unique_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hash);
+
+    ASSERT(unique_note_hash == note_hash_write_hint.leaf_value);
     // We first check that the index is currently empty
     bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
         clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
     ASSERT(insert_index_is_empty);
 
     // Update the root with the new leaf that is appended
-    merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
+    merkle_tree_trace_builder.perform_note_hash_append(clk, unique_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
