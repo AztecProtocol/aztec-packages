@@ -103,7 +103,7 @@ preset-msan-check:
   COPY --dir cmake CMakeLists.txt CMakePresets.json .
 
   # We never fail this as test-listing targets can timeout. Just pragmatically go on to see if the binary exists.
-  RUN cmake --preset msan -Bbuild && cmake --build build --target client_ivc_tests || true
+  RUN cmake --preset msan -Bbuild && cmake --build build --target stdlib_eccvm_verifier_tests || true
   # install SRS needed for proving
   COPY --dir ./srs_db/+build/. srs_db
   RUN echo "Warning: If ./bin/client_ivc_tests is not found, there may be build failures above."
