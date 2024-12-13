@@ -28,13 +28,13 @@ describe('TaggedMemory', () => {
     expect(mem.get(10)).toStrictEqual(new Field(5));
   });
 
-  it(`Should fail getSlice on unset elements`, () => {
+  it(`Slice should get Field(0) on unset elements`, () => {
     const mem = new TaggedMemory();
 
     mem.set(10, new Field(10));
     mem.set(12, new Field(12));
 
-    expect(() => mem.getSlice(10, /*size=*/ 4)).toThrow(/size/);
+    expect(mem.getSlice(10, /*size=*/ 4)).toStrictEqual([new Field(10), new Field(0), new Field(12), new Field(0)]);
   });
 
   it(`Should set and get slices`, () => {
