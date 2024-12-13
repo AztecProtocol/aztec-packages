@@ -189,12 +189,12 @@ export function parseSequencerAllowList(value: string): AllowedElement[] {
     } else if (typeString === 'C') {
       if (selector) {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
           selector,
         });
       } else {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
         });
       }
     }

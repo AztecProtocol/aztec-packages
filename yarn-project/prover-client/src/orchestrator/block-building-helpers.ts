@@ -547,7 +547,7 @@ export async function getMembershipWitnessFor<N extends number>(
     return makeEmptyMembershipWitness(height);
   }
 
-  const index = await db.findLeafIndex(treeId, value.toBuffer());
+  const index = (await db.findLeafIndices(treeId, [value.toBuffer()]))[0];
   if (index === undefined) {
     throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
   }

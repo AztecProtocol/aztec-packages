@@ -247,9 +247,10 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, n.noteHash);
-        const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
-        this.noteHashLeafIndexMap.set(siloedNoteHash.toBigInt(), n.index);
+        const siloedNoteHash = siloNoteHash(n.contractAddress, n.noteHash);
+        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
+
+        this.noteHashLeafIndexMap.set(uniqueNoteHash.toBigInt(), n.index);
       }
     });
 

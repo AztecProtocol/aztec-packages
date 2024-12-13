@@ -9,6 +9,7 @@ fn main(
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
+    is_private_only: bool,
     app_public_inputs: call_data(1) PrivateCircuitPublicInputs,
 ) -> return_data PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
@@ -17,6 +18,7 @@ fn main(
         protocol_contract_tree_root,
         private_call,
         app_public_inputs,
+        is_private_only,
     );
     private_inputs.execute()
 }

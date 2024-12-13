@@ -43,6 +43,15 @@ spec:
                   balance: '0x3635c9adc5dea00000' // 1000 ETH in wei
                 };
 
+                // We rely on the deterministic deployment proxy to deploy the contracts
+                // It comes preloaded on anvil (https://book.getfoundry.sh/tutorials/create2-tutorial)
+                // But we need to do it ourselves for reth
+                // Addresses/tx in https://github.com/Arachnid/deterministic-deployment-proxy/tree/master
+                const deployer = '0x3fab184622dc19b6109349b94811493bf2a45362'
+                genesis.alloc[deployer] = {
+                  balance: '0x3635c9adc5dea00000' // 1000 ETH in wei
+                };
+
                 fs.writeFileSync('/genesis-output/genesis.json', JSON.stringify(genesis, null, 2));
               }
 

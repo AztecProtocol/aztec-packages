@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';
-import { createPXEService } from '../utils/index.js';
+import { createPXEService } from '../utils/create_pxe_service.js';
 
 const { PXE_PORT = 8080, AZTEC_NODE_URL = 'http://localhost:8079' } = process.env;
 
@@ -23,9 +23,8 @@ async function main() {
   const nodeRpcClient = createAztecNodeClient(AZTEC_NODE_URL);
   const pxeService = await createPXEService(nodeRpcClient, pxeConfig);
 
-  const shutdown = async () => {
+  const shutdown = () => {
     logger.info('Shutting down...');
-    await pxeService.stop();
     process.exit(0);
   };
 

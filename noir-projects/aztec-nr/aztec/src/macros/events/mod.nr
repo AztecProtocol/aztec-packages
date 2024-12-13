@@ -1,5 +1,6 @@
 use super::utils::compute_event_selector;
 use protocol_types::meta::flatten_to_fields;
+use std::meta::typ::fresh_type_variable;
 
 comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
     let name = s.name();
@@ -13,7 +14,6 @@ comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
         impl aztec::event::event_interface::EventInterface<$content_len> for $name {
             fn to_be_bytes(self) -> [u8; $content_len * 32 + 32] {
                 let mut buffer: [u8; $content_len * 32 + 32] = [0; $content_len * 32 + 32];
-
                 let event_type_id_bytes: [u8; 32] = $name::get_event_type_id().to_field().to_be_bytes();
 
                 for i in 0..32 {

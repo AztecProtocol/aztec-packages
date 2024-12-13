@@ -6,7 +6,6 @@ import {
   type Tracer,
   type UpDownCounter,
   ValueType,
-  linearBuckets,
 } from '@aztec/telemetry-client';
 
 export class ExecutorMetrics {
@@ -33,9 +32,6 @@ export class ExecutorMetrics {
       description: 'Mana used per second',
       unit: 'mana/s',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: linearBuckets(0, 10_000_000, 10),
-      },
     });
   }
 
