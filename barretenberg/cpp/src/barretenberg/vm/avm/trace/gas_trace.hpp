@@ -50,7 +50,6 @@ class AvmGasTraceBuilder {
                                                       uint32_t da_gas_allocated);
     void set_initial_gas(uint32_t l2_gas, uint32_t da_gas);
     void set_remaining_gas(uint32_t l2_gas, uint32_t da_gas);
-    void consume_all_gas();
 
     uint32_t get_l2_gas_left() const;
     uint32_t get_da_gas_left() const;

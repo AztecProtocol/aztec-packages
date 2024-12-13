@@ -56,8 +56,6 @@ abstract class ExternalCall extends Instruction {
     const allocatedDaGas = Number(
       BigIntMin(memory.get(gasOffset + 1).toBigInt(), BigInt(context.machineState.daGasLeft)),
     );
-    console.log('allocatedL2Gas', allocatedL2Gas);
-    console.log('allocatedDaGas', allocatedDaGas);
     const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
     context.machineState.consumeGas(allocatedGas);
 

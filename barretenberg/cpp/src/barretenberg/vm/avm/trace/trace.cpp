@@ -289,11 +289,6 @@ void AvmTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
     gas_trace_builder.set_remaining_gas(l2_gas, da_gas);
 }
 
-void AvmTraceBuilder::consume_all_gas()
-{
-    gas_trace_builder.consume_all_gas();
-}
-
 void AvmTraceBuilder::handle_exceptional_halt()
 {
     const bool is_top_level = current_ext_call_ctx.context_id == 0;
@@ -3658,12 +3653,6 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // NOTE: we don't run out of gas if the gas specified by user code is > gas left.
     // In that case we just cap the gas allocation by gas left.
     if (is_ok(error) && out_of_gas) {
-        debug("Out of gas");
-        debug("Due to call opcode cost? ", out_of_gas);
-        debug("L2 gas allocated: ", read_gas_l2.val);
-        debug("DA gas allocated: ", read_gas_da.val);
-        debug("L2 gas left: ", gas_trace_builder.get_l2_gas_left());
-        debug("DA gas left: ", gas_trace_builder.get_da_gas_left());
         error = AvmError::OUT_OF_GAS;
     }
 
@@ -3860,17 +3849,6 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
             slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
-            // if (is_ok(error)) {
-            //     // Charge gas normally. This is the last opcode in the enqueued call.
-            //     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
-            // } else {
-            //     // Consume all gas.
-            //     gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(
-            //         OpCode::RETURN,
-            //         current_ext_call_ctx.start_l2_gas_left,
-            //         current_ext_call_ctx.start_da_gas_left
-            //     );
-            // }
         } else {
             // before the nested call was made, how much gas does the parent have?
             const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
@@ -4012,17 +3990,6 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
             slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
-            // if (is_ok(error)) {
-            //     // Charge gas normally. This is the last opcode in the enqueued call.
-            //     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
-            // } else {
-            //     // Consume all gas.
-            //     gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(
-            //         OpCode::RETURN,
-            //         current_ext_call_ctx.start_l2_gas_left,
-            //         current_ext_call_ctx.start_da_gas_left
-            //     );
-            // }
         } else {
             // before the nested call was made, how much gas does the parent have?
             const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
@@ -4096,10 +4063,6 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
     pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
     auto return_data = is_top_level ? returndata : current_ext_call_ctx.nested_returndata;
-
-    // if (is_ok(error)) {
-    //     error = AvmError::REVERT_OPCODE;
-    // }
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{

@@ -140,15 +140,6 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
     halting_entry.remaining_l2_gas = remaining_l2_gas;
     halting_entry.remaining_da_gas = remaining_da_gas;
     halting_entry.is_halt = true;
-    // Create a gas trace entry
-    // gas_trace.push_back({
-    //    .clk = clk,
-    //    .opcode = opcode,
-    //    .base_l2_gas_cost = l2_gas_consumed,
-    //    .base_da_gas_cost = da_gas_consumed,
-    //    .remaining_l2_gas = remaining_l2_gas,
-    //    .remaining_da_gas = remaining_da_gas,
-    //});
 }
 
 void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opcode,
@@ -167,22 +158,6 @@ void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opc
     halting_entry.remaining_l2_gas = remaining_l2_gas;
     halting_entry.remaining_da_gas = remaining_da_gas;
     halting_entry.is_halt = true;
-    // Create a gas trace entry
-    // gas_trace.push_back({
-    //    .clk = clk,
-    //    .opcode = opcode,
-    //    // consume all allocated gas
-    //    .base_l2_gas_cost = l2_gas_allocated,
-    //    .base_da_gas_cost = da_gas_allocated,
-    //    .remaining_l2_gas = remaining_l2_gas,
-    //    .remaining_da_gas = remaining_da_gas,
-    //});
-}
-
-void AvmGasTraceBuilder::consume_all_gas()
-{
-    remaining_l2_gas = 0;
-    remaining_da_gas = 0;
 }
 
 void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
@@ -216,7 +191,6 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         // Here, main_trace is not prepended with the extra row yet and therefore the index
         // of the row pertaining to clk is clk - 1.
 
-        // bool is_fake_row = (gas_it == gas_trace.end() || gas_it->clk != current_clk || gas_it->is_halt);
         bool is_fake_row = (gas_it == gas_trace.end() || gas_it->clk != current_clk);
 
         if (is_fake_row) {
@@ -230,10 +204,10 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             auto& next = main_trace.at(gas_entry.clk);
 
             if (gas_entry.is_halt) {
-                // main_trace.at(current_clk).main_is_fake_row = 1;
+                // TODO: halts modify gas in a non-standard way which breaks until properly constrained
                 main_trace.at(current_clk - 1).main_is_fake_row = 1;
             } else {
-                // Temporary. Will be removed once "fake" rows are purged.
+                // Temporary. Will be removed once halts are properly accounted for
                 dest.main_is_gas_accounted = 1;
             }
 
