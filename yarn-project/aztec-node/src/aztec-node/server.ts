@@ -75,7 +75,7 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -86,10 +86,11 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode {
+export class AztecNodeService implements AztecNode, Traceable {
   private packageVersion: string;
-
   private metrics: NodeMetrics;
+
+  public readonly tracer: Tracer;
 
   constructor(
     protected config: AztecNodeConfig,
@@ -110,6 +111,7 @@ export class AztecNodeService implements AztecNode {
   ) {
     this.packageVersion = getPackageInfo().version;
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
+    this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
@@ -790,6 +792,9 @@ export class AztecNodeService implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
+  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+  }))
   public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;

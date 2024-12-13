@@ -5,7 +5,6 @@ import {
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2Tips,
   type P2PApi,
@@ -17,7 +16,13 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  TraceableL2BlockStream,
+  WithTracer,
+  trackSpan,
+} from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
@@ -226,7 +231,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
-    this.blockStream = new L2BlockStream(l2BlockSource, this, this, createLogger('p2p:block_stream'), {
+    const tracer = telemetry.getTracer('P2PL2BlockStream');
+    const logger = createLogger('p2p:l2-block-stream');
+    this.blockStream = new TraceableL2BlockStream(l2BlockSource, this, this, tracer, 'P2PL2BlockStream', logger, {
       batchSize: blockRequestBatchSize,
       pollIntervalMS: blockCheckIntervalMS,
     });

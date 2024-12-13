@@ -27,6 +27,7 @@
     "!*.test.*"
   ],
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.55.0",
