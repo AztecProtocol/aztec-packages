@@ -8,6 +8,7 @@ aztec:
 
 telemetry:
   enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
 
 images:
   aztec:
@@ -133,7 +134,7 @@ proverAgent:
   replicas: 4
 
 bot:
-  replicas: 1
+  replicas: 6
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1

@@ -40,7 +40,6 @@ describe('Client IVC Integration', () => {
       path.join(bbWorkingDirectory, 'acir.msgpack'),
       path.join(bbWorkingDirectory, 'witnesses.msgpack'),
       logger.info,
-      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {

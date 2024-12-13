@@ -72,6 +72,8 @@ export const L1_SENDER = 'aztec.l1.sender';
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The proving job type */
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
+/** The proving job id */
+export const PROVING_JOB_ID = 'aztec.proving.job_id';
 
 export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 /** The prover-id in a root rollup proof. */
@@ -88,6 +90,9 @@ export const SIMULATOR_PHASE = 'aztec.simulator.phase';
 export const TARGET_ADDRESS = 'aztec.address.target';
 export const SENDER_ADDRESS = 'aztec.address.sender';
 export const MANA_USED = 'aztec.mana.used';
+
+/** Whether a sync process is the initial run, which is usually slower than iterative ones. */
+export const INITIAL_SYNC = 'aztec.initial_sync';
 
 /** Identifier for the tables in a world state DB */
 export const WS_DB_DATA_TYPE = 'aztec.world_state.db_type';

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
@@ -32,6 +33,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/cmp.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
@@ -225,6 +227,63 @@ void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifi
     }
 }
 
+void AvmTraceBuilder::pay_fee()
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto tx_fee = (public_inputs.global_variables.gas_fees.fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
+                  (public_inputs.global_variables.gas_fees.fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
+
+    if (public_inputs.fee_payer == 0) {
+        vinfo("No one is paying the fee of ", tx_fee);
+        return;
+    }
+
+    // ** Compute the storage slot **
+    // using the base slot of the balances map and the fee payer address (map key)
+    // TS equivalent:
+    // computeFeePayerBalanceStorageSlot(fee_payer);
+    std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
+    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+
+    // ** Read the balance before fee payment **
+    // TS equivalent:
+    // current_balance = readStorage(FEE_JUICE_ADDRESS, balance_slot);
+    PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, FEE_JUICE_ADDRESS, balance_slot);
+    // Sanity check that the computed slot using the value read from slot_offset should match the read hint
+    ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
+
+    // ** Write the updated balance after fee payment **
+    // TS equivalent:
+    // Check that the leaf is a member of the public data tree
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    ASSERT(is_member);
+    FF current_balance = read_hint.leaf_preimage.value;
+
+    const auto updated_balance = current_balance - tx_fee;
+    if (current_balance < tx_fee) {
+        info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
+        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+    }
+
+    // writeStorage(FEE_JUICE_ADDRESS, balance_slot, updated_balance);
+    PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
+    ASSERT(write_hint.new_leaf_preimage.value == updated_balance);
+    merkle_tree_trace_builder.perform_storage_write(clk,
+                                                    write_hint.low_leaf_membership.leaf_preimage,
+                                                    write_hint.low_leaf_membership.leaf_index,
+                                                    write_hint.low_leaf_membership.sibling_path,
+                                                    write_hint.new_leaf_preimage.slot,
+                                                    write_hint.new_leaf_preimage.value,
+                                                    write_hint.insertion_path);
+
+    debug("pay fee side-effect cnt: ", side_effect_counter);
+    side_effect_counter++;
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
@@ -401,9 +460,16 @@ AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
     , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
+    // Only allocate up to the maximum L2 gas for execution
+    // TODO: constrain this!
+    auto const l2_gas_left_after_private =
+        public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+    // TODO: think about cast
+    auto const allocated_l2_gas =
+        std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas),
+        static_cast<uint32_t>(allocated_l2_gas),
         static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
@@ -2528,6 +2594,9 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     if (storage_write_counter >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        // NOTE: the circuit constraint for this limit should only be applied
+        // for the storage writes performed by this opcode. An exception should before
+        // made for the fee juice storage write made after teardown.
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,

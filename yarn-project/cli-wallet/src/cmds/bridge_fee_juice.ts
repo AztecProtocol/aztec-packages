@@ -68,7 +68,7 @@ export async function bridgeL1FeeJuice(
         setTimeout(async () => {
           const witness = await pxe.getL1ToL2MembershipWitness(
             feeJuiceAddress,
-            Fr.fromString(messageHash),
+            Fr.fromHexString(messageHash),
             claimSecret,
           );
           resolve(witness);

@@ -359,7 +359,7 @@ export class CrossChainTestHarness {
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
-    const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
+    const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
     // We poll isL1ToL2MessageSynced endpoint until the message is available
     await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
 

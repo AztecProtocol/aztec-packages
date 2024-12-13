@@ -231,7 +231,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns A Promise that resolves to a BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+    return this.db.getBlockHeader();
   }
 
   /**
@@ -290,9 +290,13 @@ export class SimulatorOracle implements DBOracle {
   ): Promise<void> {
     const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.verbose(
-      `Incrementing secret ${secret} as sender ${sender} for recipient: ${recipient} at contract: ${contractName}(${contractAddress})`,
-    );
+    this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
+      secret,
+      sender,
+      recipient,
+      contractName,
+      contractAddress,
+    });
 
     const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
@@ -394,9 +398,13 @@ export class SimulatorOracle implements DBOracle {
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
 
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.debug(
-      `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
-    );
+    this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
+      sender,
+      secret: appTaggingSecret,
+      index: currentIndex,
+      contractName,
+      contractAddress,
+    });
   }
 
   /**
@@ -474,24 +482,32 @@ export class SimulatorOracle implements DBOracle {
         logsByTags.forEach((logsByTag, logIndex) => {
           const { secret: currentSecret, index: currentIndex } = currentTagggingSecrets[logIndex];
           const currentSecretAsStr = currentSecret.toString();
-          this.log.debug(
-            `Syncing logs for recipient ${recipient}, secret ${currentSecretAsStr}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
-          );
+          this.log.debug(`Syncing logs for recipient ${recipient} at contract ${contractName}(${contractAddress})`, {
+            recipient,
+            secret: currentSecret,
+            index: currentIndex,
+            contractName,
+            contractAddress,
+          });
           // 3.1. Append logs to the list and increment the index for the tags that have logs (#9380)
           if (logsByTag.length > 0) {
-            this.log.verbose(
-              `Found ${
-                logsByTag.length
-              } logs for secret ${currentSecretAsStr} as recipient ${recipient}. Incrementing index to ${
-                currentIndex + 1
-              } at contract: ${contractName}(${contractAddress})`,
+            const newIndex = currentIndex + 1;
+            this.log.debug(
+              `Found ${logsByTag.length} logs as recipient ${recipient}. Incrementing index to ${newIndex} at contract ${contractName}(${contractAddress})`,
+              {
+                recipient,
+                secret: currentSecret,
+                newIndex,
+                contractName,
+                contractAddress,
+              },
             );
             logs.push(...logsByTag);
 
             if (currentIndex >= initialSecretIndexes[currentSecretAsStr]) {
               // 3.2. Increment the index for the tags that have logs, provided they're higher than the one
               // we have stored in the db (#9380)
-              secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
+              secretsToIncrement[currentSecretAsStr] = newIndex;
               // 3.3. Slide the window forwards if we have found logs beyond the initial index
               maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
             }
@@ -505,7 +521,7 @@ export class SimulatorOracle implements DBOracle {
         });
         await this.db.setTaggingSecretsIndexesAsRecipient(
           Object.keys(secretsToIncrement).map(
-            secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
+            secret => new IndexedTaggingSecret(Fr.fromHexString(secret), secretsToIncrement[secret]),
           ),
         );
         currentTagggingSecrets = newTaggingSecrets;
@@ -605,11 +621,11 @@ export class SimulatorOracle implements DBOracle {
     if (incomingNotes.length) {
       await this.db.addNotes(incomingNotes, recipient);
       incomingNotes.forEach(noteDao => {
-        this.log.verbose(
-          `Added incoming note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
-          } with nullifier ${noteDao.siloedNullifier.toString()}`,
-        );
+        this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+          contract: noteDao.contractAddress,
+          slot: noteDao.storageSlot,
+          nullifier: noteDao.siloedNullifier.toString(),
+        });
       });
     }
     const nullifiedNotes: IncomingNoteDao[] = [];
@@ -628,11 +644,11 @@ export class SimulatorOracle implements DBOracle {
 
     await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
     nullifiedNotes.forEach(noteDao => {
-      this.log.verbose(
-        `Removed note for contract ${noteDao.contractAddress} at slot ${
-          noteDao.storageSlot
-        } with nullifier ${noteDao.siloedNullifier.toString()}`,
-      );
+      this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+        contract: noteDao.contractAddress,
+        slot: noteDao.storageSlot,
+        nullifier: noteDao.siloedNullifier.toString(),
+      });
     });
   }
 }

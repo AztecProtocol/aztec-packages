@@ -8,7 +8,6 @@ import {
   type TelemetryClient,
   type Tracer,
   ValueType,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 /**
@@ -36,27 +35,18 @@ export class ProverInstrumentation {
       description: 'Records how long it takes to simulate a circuit',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
 
     this.witGenDuration = meter.createHistogram(Metrics.CIRCUIT_WITNESS_GEN_DURATION, {
       description: 'Records how long it takes to generate the partial witness for a circuit',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1),
-      },
     });
 
     this.provingDuration = meter.createHistogram(Metrics.CIRCUIT_PROVING_DURATION, {
       unit: 'ms',
       description: 'Records how long it takes to prove a circuit',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(2), // 100ms -> 54 minutes
-      },
     });
 
     this.witGenInputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_INPUT_SIZE, {

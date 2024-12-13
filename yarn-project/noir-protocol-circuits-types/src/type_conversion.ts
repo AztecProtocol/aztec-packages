@@ -49,7 +49,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   type MembershipWitness,
@@ -255,7 +255,7 @@ export function mapFieldToNoir(field: Fr): NoirField {
  * @returns The fr.
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
-  return Fr.fromString(field);
+  return Fr.fromHexString(field);
 }
 
 /** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
@@ -274,7 +274,7 @@ export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr 
  * @returns The number
  */
 export function mapNumberFromNoir(number: NoirField): number {
-  return Number(Fr.fromString(number).toBigInt());
+  return Number(Fr.fromHexString(number).toBigInt());
 }
 
 export function mapNumberToNoir(number: number): NoirField {
@@ -1233,7 +1233,7 @@ export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: Comb
     mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_writes,
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataWriteFromNoir,
     ),
   );
@@ -1362,6 +1362,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    inputs.is_private_only,
   );
 }
 
@@ -1375,6 +1376,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    is_private_only: inputs.isPrivateOnly,
   };
 }
 
@@ -1606,6 +1608,7 @@ function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCir
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     public_setup_call_requests: mapTuple(inputs.publicSetupCallRequests, mapPublicCallRequestToNoir),
     public_app_logic_call_requests: mapTuple(inputs.publicAppLogicCallRequests, mapPublicCallRequestToNoir),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
@@ -2178,7 +2181,6 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
 
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
-    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
   };
 }
 
