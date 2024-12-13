@@ -91,7 +91,7 @@ export class PublicTxContext {
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       /*protocolPublicDataWrites*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
+      /*noteHashes*/ 0,
       /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
