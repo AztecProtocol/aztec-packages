@@ -28,7 +28,7 @@ bootstrap-noir-bb:
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
-    DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/cpp/bootstrap.sh fast" "./barretenberg/ts/bootstrap.sh fast" \
+    DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/cpp/bootstrap.sh fast" "./barretenberg/ts/bootstrap.sh fast" && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/sr
