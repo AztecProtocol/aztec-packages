@@ -12,61 +12,70 @@ export class GasTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
+  #enforceFees: boolean;
+  #gasFees: GasFees;
 
   constructor(
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
-    private enforceFees: boolean,
-    private gasFees: GasFees,
+    enforceFees: boolean,
+    gasFees: GasFees,
   ) {
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
+    this.#enforceFees = enforceFees;
+    this.#gasFees = gasFees;
   }
 
-  async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
+  async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[], skippedTxs: Tx[]]> {
     const validTxs: Tx[] = [];
     const invalidTxs: Tx[] = [];
+    const skippedTxs: Tx[] = [];
 
     for (const tx of txs) {
-      if (await this.#validateTxFee(tx)) {
+      if (this.#shouldSkip(tx)) {
+        skippedTxs.push(tx);
+      } else if (await this.#validateTxFee(tx)) {
         validTxs.push(tx);
       } else {
         invalidTxs.push(tx);
       }
     }
 
-    return [validTxs, invalidTxs];
+    return [validTxs, invalidTxs, skippedTxs];
   }
 
   validateTx(tx: Tx): Promise<boolean> {
     return this.#validateTxFee(tx);
   }
 
+  #shouldSkip(tx: Tx): boolean {
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+
+    // Skip the tx if its max fees are not enough for the current block's gas fees.
+    const maxFeesPerGas = gasSettings.maxFeesPerGas;
+    const notEnoughMaxFees =
+      maxFeesPerGas.feePerDaGas.lt(this.#gasFees.feePerDaGas) ||
+      maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
+    if (notEnoughMaxFees) {
+      this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to insufficient fee per gas`);
+    }
+    return notEnoughMaxFees;
+  }
+
   async #validateTxFee(tx: Tx): Promise<boolean> {
     const feePayer = tx.data.feePayer;
     // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
     if (feePayer.isZero()) {
-      if (this.enforceFees) {
+      if (this.#enforceFees) {
         this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to missing fee payer`);
       } else {
         return true;
       }
     }
 
-    const gasSettings = tx.data.constants.txContext.gasSettings;
-
-    // Check that the user is willing to pay enough fee per gas.
-    const maxFeesPerGas = gasSettings.maxFeesPerGas;
-    if (
-      maxFeesPerGas.feePerDaGas.lt(this.gasFees.feePerDaGas) ||
-      maxFeesPerGas.feePerL2Gas.lt(this.gasFees.feePerL2Gas)
-    ) {
-      this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to insufficient fee per gas`);
-      return false;
-    }
-
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
-    const feeLimit = gasSettings.getFeeLimit();
+    const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
 
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(

@@ -893,6 +893,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer
@@ -942,6 +943,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer
@@ -972,6 +974,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer

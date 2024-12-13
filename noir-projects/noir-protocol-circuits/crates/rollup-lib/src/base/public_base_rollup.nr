@@ -277,7 +277,11 @@ mod tests {
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
-        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{
+            fixture_builder::FixtureBuilder,
+            fixtures::{self, merkle_tree::generate_full_sha_tree},
+            merkle_tree_utils::NonEmptyMerkleTree,
+        },
         traits::{Empty, is_empty},
         utils::{
             arrays::get_sorted_tuple::get_sorted_tuple,
@@ -827,9 +831,7 @@ mod tests {
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage(),
-        );
+        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 
