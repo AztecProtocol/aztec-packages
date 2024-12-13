@@ -684,7 +684,7 @@ jobs:
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./test-transfer.sh
 
   network-full-test:
-    needs: [network-test-gate, configure]
+    needs: [network-test-gate, network-transfer-test, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       max-parallel: 1
