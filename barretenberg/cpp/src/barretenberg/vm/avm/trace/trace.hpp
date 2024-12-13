@@ -270,8 +270,8 @@ class AvmTraceBuilder {
         uint32_t success_offset;
         uint32_t start_l2_gas_left;
         uint32_t start_da_gas_left;
-        uint32_t l2_gas_left;
-        uint32_t da_gas_left;
+        uint32_t l2_gas_left; // as of start of latest nested call
+        uint32_t da_gas_left; // as of start of latest nested call
         std::stack<uint32_t> internal_return_ptr_stack;
     };
 
