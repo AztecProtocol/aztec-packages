@@ -123,8 +123,7 @@ export function deriveKeys(secretKey: Fr) {
   };
 }
 
-// Returns shared tagging secret computed with Diffie-Hellman key exchange.
-export function computeTaggingSecretPoint(knownAddress: CompleteAddress, ivsk: Fq, externalAddress: AztecAddress) {
+export function computeTaggingSecret(knownAddress: CompleteAddress, ivsk: Fq, externalAddress: AztecAddress) {
   const knownPreaddress = computePreaddress(knownAddress.publicKeys.hash(), knownAddress.partialAddress);
   // TODO: #8970 - Computation of address point from x coordinate might fail
   const externalAddressPoint = externalAddress.toAddressPoint();
