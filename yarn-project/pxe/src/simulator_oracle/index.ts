@@ -424,37 +424,32 @@ export class SimulatorOracle implements DBOracle {
     // Half the size of the window we slide over the tagging secret indexes.
     const WINDOW_HALF_SIZE = 10;
 
+    // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
+    // However it is impossible at the moment due to the language not supporting nested slices.
+    // This nesting is necessary because for a given set of tags we don't
+    // know how many logs we will get back. Furthermore, these logs are of undetermined
+    // length, since we don't really know the note they correspond to until we decrypt them.
+
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     // A map of logs going from recipient address to logs. Note that the logs might have been processed before
     // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
     // that a logs will be received ordered by a given tax index and that the tags won't be reused).
     const logsMap = new Map<string, TxScopedL2Log[]>();
-    // const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       const logsForRecipient: TxScopedL2Log[] = [];
-      // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
-      // However it is impossible at the moment due to the language not supporting nested slices.
-      // This nesting is necessary because for a given set of tags we don't
-      // know how many logs we will get back. Furthermore, these logs are of undetermined
-      // length, since we don't really know the note they correspond to until we decrypt them.
 
-      // 1. Get all the secrets for the recipient and sender pairs (#9365)
+      // Get all the secrets for the recipient and sender pairs (#9365)
       const secrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
 
-      // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
-      // and inadvertently incremented their index without us getting any logs (for example, in case
-      // of a revert). If we stopped looking for logs the first time we don't receive any logs for a tag,
-      // we might never receive anything from that sender again.
-      //    Also there's a possibility that we have advanced our index, but the sender has reused it,
-      // so we might have missed some logs. For these reasons, we have to look both back and ahead of
-      // the stored index.
-
-      // As we iterate we store the largest index we have seen for a given secret to later on store it in the db.
-      const newLargestIndexMapToStore: { [k: string]: number } = {};
-
-      // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
-      const initialIndexesMap = getInitialIndexesMap(secrets);
-
+      // We fetch logs for a window of indexes in a range:
+      //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
+      //
+      // We use this window approach because it could happen that a sender might have messed up and inadvertently
+      // incremented their index without us getting any logs (for example, in case of a revert). If we stopped looking
+      // for logs the first time we don't receive any logs for a tag, we might never receive anything from that sender again.
+      //    Also there's a possibility that we have advanced our index, but the sender has reused it, so we might have missed
+      // some logs. For these reasons, we have to look both back and ahead of the stored index.
       let secretsAndWindows = secrets.map(secret => {
         return {
           appTaggingSecret: secret.appTaggingSecret,
@@ -462,6 +457,12 @@ export class SimulatorOracle implements DBOracle {
           rightMostIndex: secret.index + WINDOW_HALF_SIZE,
         };
       });
+
+      // As we iterate we store the largest index we have seen for a given secret to later on store it in the db.
+      const newLargestIndexMapToStore: { [k: string]: number } = {};
+
+      // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
+      const initialIndexesMap = getInitialIndexesMap(secrets);
 
       while (secretsAndWindows.length > 0) {
         const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
@@ -478,13 +479,20 @@ export class SimulatorOracle implements DBOracle {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
-            // The logs for the given tag exist so I add them for later processing
+            // The logs for the given tag exist so we store them for later processing
             logsForRecipient.push(...logsByTag);
 
-            // I fetch the indexed tagging secret corresponding to the log as I need that to evaluate whether
+            // We the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
+
+            this.log.debug(`Found ${logsByTag.length} logs as recipient ${recipient}`, {
+              recipient,
+              secret: secretCorrespondingToLog.appTaggingSecret,
+              contractName,
+              contractAddress,
+            });
 
             if (
               secretCorrespondingToLog.index >= initialIndex &&
@@ -496,27 +504,31 @@ export class SimulatorOracle implements DBOracle {
               // the difference of the window sets of current and the next iteration)
               newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] =
                 secretCorrespondingToLog.index + 1;
+
+              this.log.debug(
+                `Incrementing index to ${
+                  secretCorrespondingToLog.index + 1
+                } at contract ${contractName}(${contractAddress})`,
+              );
             }
-
-
           }
         });
 
-        // Now based on the new largest indexes we found, I will construct a new secrets and windows set to fetch logs
-        // for. Note that we it's very unlikely that a new log from the current window would appear between
-        // the iterations so we fetch the logs only for the difference of the window sets.
+        // Now based on the new largest indexes we found, we will construct a new secrets and windows set to fetch logs
+        // for. Note that it's very unlikely that a new log from the current window would appear between the iterations
+        // so we fetch the logs only for the difference of the window sets.
         const newSecretsAndWindows = [];
         for (const [appTaggingSecret, newIndex] of Object.entries(newLargestIndexMapForIteration)) {
           const secret = secrets.find(secret => secret.appTaggingSecret.toString() === appTaggingSecret);
           if (secret) {
             newSecretsAndWindows.push({
               appTaggingSecret: secret.appTaggingSecret,
-              // We set the left most index to the new largest index + 1 to avoid fetching the same logs again
+              // We set the left most index to the new index to avoid fetching the same logs again
               leftMostIndex: newIndex,
               rightMostIndex: newIndex + WINDOW_HALF_SIZE,
             });
 
-            // We store the new largest index in the map to store it in the db.
+            // We store the new largest index in the map to later store it in the db.
             newLargestIndexMapToStore[appTaggingSecret] = newIndex;
           } else {
             throw new Error(
@@ -525,17 +537,17 @@ export class SimulatorOracle implements DBOracle {
           }
         }
 
-        // Now we set the new secrets and windows and proceed to the next iteration
+        // Now we set the new secrets and windows and proceed to the next iteration.
         secretsAndWindows = newSecretsAndWindows;
       }
 
-      // We filter the logs by block number and store them in the map
+      // We filter the logs by block number and store them in the map.
       logsMap.set(
         recipient.toString(),
         logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
       );
 
-      // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db
+      // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
       await this.db.setTaggingSecretsIndexesAsRecipient(
         Object.entries(newLargestIndexMapToStore).map(
           ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
