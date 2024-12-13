@@ -31,7 +31,7 @@ template <typename T> struct UltraTraceBlockData {
                          lookup,     poseidon2_external, poseidon2_internal, overflow };
     }
 
-    auto get_gate_blocks()
+    auto get_gate_blocks() const
     {
         return RefArray{ arithmetic, delta_range, elliptic, aux, lookup, poseidon2_external, poseidon2_internal };
     }

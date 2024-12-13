@@ -98,7 +98,6 @@
   "devDependencies": {
     "0x": "^5.7.0",
     "@jest/globals": "^29.5.0",
-    "@sinonjs/fake-timers": "^13.0.5",
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.9",
     "@types/lodash.chunk": "^4.2.9",
