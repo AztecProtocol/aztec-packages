@@ -279,9 +279,9 @@ export type EndToEndContext = {
   logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** The anvil test watcher (undefined if connected to remove environment) */
+  /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
-  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remove environment) */
+  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
