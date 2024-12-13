@@ -30,7 +30,8 @@ runs:
         ttl: ${{ inputs.ttl }}
         run: |
           set -eux
-          for image in ${{ inputs.images_to_pull }}; do
+          arr=${{ inputs.images_to_pull }}
+          for image in $arr; do
             docker pull $image
           done
           ${{ inputs.run }}
