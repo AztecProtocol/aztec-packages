@@ -18,6 +18,11 @@ export NARGO_HASH=$(cache_content_hash)
 tmp_dir=./target/tmp
 key_dir=./target/keys
 
+# TODO: Move the build image, or better, just use devcontainer as our build container.
+if ! command -v xxd &> /dev/null; then
+  apt update && apt install -y xxd
+fi
+
 # Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
 ivc_patterns=(
   "private_kernel_init"
