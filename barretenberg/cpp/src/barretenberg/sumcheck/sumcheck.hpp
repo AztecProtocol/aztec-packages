@@ -264,6 +264,7 @@ template <typename Flavor> class SumcheckProver {
             for (auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
                 libra_evaluation += libra_eval;
             }
+            libra_evaluation += zk_sumcheck_data.constant_term;
             std::string libra_evaluation_label = "Libra:final_evaluation";
             transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
         };
