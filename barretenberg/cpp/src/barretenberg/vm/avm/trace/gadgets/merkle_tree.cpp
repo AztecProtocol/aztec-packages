@@ -34,6 +34,16 @@ FF AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(FF contract_address, 
     return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(FF tx_hash, FF note_index_in_tx)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, tx_hash, note_index_in_tx });
+}
+
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(FF nonce, FF siloed_note_hash)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
+}
+
 FF AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(FF contract_address, FF nullifier)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });

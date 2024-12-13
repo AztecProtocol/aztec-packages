@@ -213,8 +213,14 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
     throw std::runtime_error("Bytecode not found");
 }
 
+uint32_t AvmTraceBuilder::get_inserted_note_hashes_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().note_hash_tree.size -
+           public_inputs.start_tree_snapshots.note_hash_tree.size;
+}
+
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
-                                           [[maybe_unused]] const std::vector<FF>& siloed_note_hashes)
+                                           const std::vector<FF>& unique_note_hashes)
 {
     for (const auto& siloed_nullifier : siloed_nullifiers) {
         auto hint = execution_hints.nullifier_write_hints[nullifier_write_counter++];
@@ -225,6 +231,28 @@ void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifi
                                                            siloed_nullifier,
                                                            hint.insertion_path);
     }
+
+    for (const auto& unique_note_hash : unique_note_hashes) {
+        auto hint = execution_hints.note_hash_write_hints[note_hash_write_counter++];
+        merkle_tree_trace_builder.perform_note_hash_append(0, unique_note_hash, hint.sibling_path);
+    }
+}
+
+void AvmTraceBuilder::insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
+                                                      const std::vector<FF>& siloed_note_hashes)
+{
+    // Revertibles come only siloed from private, so we need to make them unique here
+    std::vector<FF> unique_note_hashes;
+    unique_note_hashes.reserve(siloed_note_hashes.size());
+
+    for (size_t i = 0; i < siloed_note_hashes.size(); i++) {
+        size_t note_index_in_tx = i + get_inserted_note_hashes_count();
+        FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), note_index_in_tx);
+        unique_note_hashes.push_back(
+            AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hashes.at(i)));
+    }
+
+    insert_private_state(siloed_nullifiers, unique_note_hashes);
 }
 
 void AvmTraceBuilder::pay_fee()
@@ -2771,7 +2799,7 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    if (note_hash_write_counter >= MAX_NOTE_HASHES_PER_TX) {
+    if (get_inserted_note_hashes_count() >= MAX_NOTE_HASHES_PER_TX) {
         AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
