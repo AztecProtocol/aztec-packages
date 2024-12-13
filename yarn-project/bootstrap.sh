@@ -33,7 +33,7 @@ function build {
         fi
     esac
 
-    denoise yarn build:web
+    denoise 'cd end-to-end && yarn build:web'
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
