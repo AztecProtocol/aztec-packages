@@ -400,7 +400,6 @@ comptime fn unroll_loop_outer() -> Quoted {
     for i in 1..512 {
         indices[i] = i;
     }
-    partial_sums[0] = partial_sum;
 
     indices
         .as_slice()
