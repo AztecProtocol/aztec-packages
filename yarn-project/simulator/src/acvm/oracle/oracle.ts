@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
@@ -399,6 +399,7 @@ export class Oracle {
     [storageSlot]: ACVMField[],
     [nonce]: ACVMField[],
     content: ACVMField[],
+    [contentLength]: ACVMField[],
     [noteHash]: ACVMField[],
     [nullifier]: ACVMField[],
     [txHash]: ACVMField[],
@@ -411,7 +412,7 @@ export class Oracle {
       AztecAddress.fromString(contractAddress),
       fromACVMField(storageSlot),
       fromACVMField(nonce),
-      content.map(fromACVMField),
+      fromBoundedVec(content, contentLength),
       fromACVMField(noteHash),
       fromACVMField(nullifier),
       fromACVMField(txHash),

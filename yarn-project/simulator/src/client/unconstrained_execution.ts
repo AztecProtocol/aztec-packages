@@ -20,7 +20,10 @@ export async function executeUnconstrainedFunction(
   args: Fr[],
   log = createLogger('simulator:unconstrained_execution'),
 ): Promise<AbiDecoded> {
-  log.verbose(`Executing unconstrained function ${contractAddress}:${functionSelector}(${artifact.name})`);
+  log.verbose(`Executing unconstrained function ${artifact.name}`, {
+    contract: contractAddress,
+    selector: functionSelector,
+  });
 
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);

@@ -1,5 +1,6 @@
 import {
   type AztecNode,
+  type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
@@ -15,28 +16,36 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
+  AztecAddress,
   type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
   Fr,
-  type FunctionSelector,
+  FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NOTE_HASHES_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   computeAddressSecret,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { type FunctionArtifact, NoteSelector, getFunctionArtifact } from '@aztec/foundation/abi';
+import {
+  type FunctionArtifact,
+  FunctionType,
+  NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
-import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
@@ -422,6 +431,8 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    this.log.verbose("Searching for tagged logs", { contract: contractAddress });
+
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     const result = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
@@ -619,8 +630,31 @@ export class SimulatorOracle implements DBOracle {
     logs: TxScopedL2Log[],
     recipient: AztecAddress,
     simulator?: AcirSimulator,
+    useNewFlow = true,
   ): Promise<void> {
     const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+
+    if (useNewFlow) {
+      for (const note of incomingNotes) {
+        const plaintext = [note.storageSlot, note.noteTypeId.toField(), ...note.note.items];
+
+        const txEffect = await this.aztecNode.getTxEffect(note.txHash);
+        if (!txEffect) {
+          throw new Error(`Could not find tx effect for tx hash ${note.txHash}`);
+        }
+
+        await this.callProcessLogs(
+          note.contractAddress,
+          plaintext,
+          note.txHash,
+          txEffect.data.noteHashes,
+          recipient,
+          simulator,
+        );
+      }
+      return;
+    }
+
     if (incomingNotes.length) {
       await this.db.addNotes(incomingNotes, recipient);
       incomingNotes.forEach(noteDao => {
@@ -677,21 +711,21 @@ export class SimulatorOracle implements DBOracle {
     );
 
     await this.db.addNotes([noteDao], recipient);
-    this.log.verbose(
-      `Added note for contract ${noteDao.contractAddress} at slot ${
-        noteDao.storageSlot
-      } with nullifier ${noteDao.siloedNullifier.toString()}`,
-    );
+    this.log.verbose('Added note', {
+      contract: noteDao.contractAddress,
+      slot: noteDao.storageSlot,
+      nullifier: noteDao.siloedNullifier.toString,
+    });
 
     const scopedSiloedNullifier = await this.produceScopedSiloedNullifier(noteDao.siloedNullifier);
 
     if (scopedSiloedNullifier !== undefined) {
       await this.db.removeNullifiedNotes([scopedSiloedNullifier], recipient.toAddressPoint());
-      this.log.verbose(
-        `Removed note for contract ${noteDao.contractAddress} at slot ${
-          noteDao.storageSlot
-        } with nullifier ${noteDao.siloedNullifier.toString()}`,
-      );
+      this.log.verbose('Removed just-added note as nullified', {
+        contract: noteDao.contractAddress,
+        slot: noteDao.storageSlot,
+        nullifier: noteDao.siloedNullifier.toString,
+      });
     }
   }
 
@@ -752,4 +786,51 @@ export class SimulatorOracle implements DBOracle {
       };
     }
   }
+
+  async callProcessLogs(
+    contractAddress: AztecAddress,
+    logPlaintext: Fr[],
+    txHash: TxHash,
+    noteHashes: Fr[],
+    recipient: AztecAddress,
+    simulator?: AcirSimulator,
+  ) {
+    const artifact: FunctionArtifact | undefined = await new ContractDataOracle(this.db).getFunctionArtifactByName(
+      contractAddress,
+      'process_logs',
+    );
+    if (!artifact) {
+      throw new Error(
+        `Mandatory implementation of "process_logs" missing in noir contract ${contractAddress.toString()}.`,
+      );
+    }
+
+    const execRequest: FunctionCall = {
+      name: artifact.name,
+      to: contractAddress,
+      selector: FunctionSelector.fromNameAndParameters(artifact),
+      type: FunctionType.UNCONSTRAINED,
+      isStatic: artifact.isStatic,
+      args: encodeArguments(artifact, [
+        toBoundedVec(logPlaintext, PRIVATE_LOG_SIZE_IN_FIELDS),
+        txHash.toString(),
+        toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
+        recipient,
+      ]),
+      returnTypes: artifact.returnTypes,
+    };
+
+    await (
+      simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle)
+    ).runUnconstrained(
+      execRequest,
+      artifact,
+      contractAddress,
+      [], // empty scope as this call should not require access to private information
+    );
+  }
+}
+
+function toBoundedVec(array: Fr[], maxLength: number) {
+  return { storage: array.concat(Array(maxLength - array.length).fill(new Fr(0))), len: array.length };
 }

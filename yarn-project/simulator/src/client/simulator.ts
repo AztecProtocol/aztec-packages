@@ -179,7 +179,7 @@ export class AcirSimulator {
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: FunctionSelector.empty(),
+      selector: FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [

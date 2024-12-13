@@ -928,6 +928,19 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new Error('deliverNote');
+  }
+
   // AVM oracles
 
   async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean): Promise<PublicTxResult> {

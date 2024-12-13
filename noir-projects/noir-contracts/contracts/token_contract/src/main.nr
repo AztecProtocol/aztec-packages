@@ -46,6 +46,7 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::balance_set::BalanceSet;
+    use dep::aztec::protocol_types::constants::{PRIVATE_LOG_SIZE_IN_FIELDS, MAX_NOTE_HASHES_PER_TX};
 
     // docs:end::imports
 
@@ -748,6 +749,40 @@ contract Token {
         storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private
+
+    unconstrained fn process_logs(
+        log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
+        tx_hash: Field,
+        siloed_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        recipient: AztecAddress,
+    ) {
+        dep::aztec::oracle::management::process_log(
+            context,
+            log_plaintext,
+            tx_hash,
+            siloed_note_hashes_in_tx,
+            recipient,
+            |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
+                let hashes = if note_type_id == UintNote::get_note_type_id() {
+                    assert(serialized_note_content.len() == 4);
+                    dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
+                        UintNote::deserialize_content,
+                        note_header,
+                        true,
+                        serialized_note_content.storage(),
+                    )
+                } else {
+                    panic(f"Unknown note type id {note_type_id}")
+                };
+
+                dep::aztec::oracle::management::NoteHashesAndNullifier {
+                    note_hash: hashes[0],
+                    siloed_note_hash: hashes[2],
+                    inner_nullifier: hashes[3],
+                }
+            },
+        );
+    }
 }
 
 // docs:end:token_all
