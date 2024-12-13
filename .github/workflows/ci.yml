@@ -175,6 +175,7 @@ jobs:
             LABELS=""
           fi
           echo Labels: $LABELS
+          echo REF: $REF
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")"
           echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
