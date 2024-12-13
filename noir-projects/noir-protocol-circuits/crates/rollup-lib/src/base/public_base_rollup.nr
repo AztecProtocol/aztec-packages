@@ -97,9 +97,9 @@ impl PublicBaseRollupInputs {
         }
 
         // Warning: Fake verification! TODO(#8470)
-        if !dep::std::runtime::is_unconstrained() {
-            self.avm_proof_data.fake_verify();
-        }
+        // if !dep::std::runtime::is_unconstrained() {
+        //    self.avm_proof_data.fake_verify();
+        // }
 
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {

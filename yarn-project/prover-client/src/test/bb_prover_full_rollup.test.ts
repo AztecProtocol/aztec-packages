@@ -32,7 +32,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   it.each([
     [1, 1, 0, 2], // Epoch with a single block, requires one padding block proof
-    // [2, 2, 0, 2], // Full epoch with two blocks; proving has temporarily gone up a lot, commented out to reduce running time
+    // [2, 2, 0, 2], // Full epoch with two blocks // TODO(#10678) disabled for time x resource usage on main runner
     // [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof; commented out to reduce running time
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',

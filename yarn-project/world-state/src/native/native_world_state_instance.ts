@@ -183,17 +183,6 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
       }
 
-      if ('leaf' in body) {
-        if (Buffer.isBuffer(body.leaf)) {
-          data['leaf'] = '0x' + body.leaf.toString('hex');
-        } else if ('slot' in body.leaf) {
-          data['slot'] = '0x' + body.leaf.slot.toString('hex');
-          data['value'] = '0x' + body.leaf.value.toString('hex');
-        } else {
-          data['nullifier'] = '0x' + body.leaf.value.toString('hex');
-        }
-      }
-
       if ('leaves' in body) {
         data['leavesCount'] = body.leaves.length;
       }

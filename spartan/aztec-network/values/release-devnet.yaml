@@ -16,15 +16,11 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 24
-  bb:
-    hardwareConcurrency: 31
-  gke:
-    spotEnabled: true
+  replicas: 1
   resources:
     requests:
-      memory: "116Gi"
-      cpu: "31"
+      memory: "4Gi"
+      cpu: "1"
 
 bot:
   followChain: "PENDING"
@@ -41,8 +37,8 @@ images:
 aztec:
   slotDuration: 36
   epochDuration: 32
-  realProofs: true
+  realProofs: false
 
 jobs:
   deployL1Verifier:
-    enable: true
+    enable: false
