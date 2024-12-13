@@ -86,9 +86,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.validationService = new ValidationService(keyStore);
 
     // Refresh epoch cache every second to trigger commiteeChanged event
-    this.epochCacheUpdateLoop = new RunningPromise(async () => {
-      await this.epochCache.getCommittee().catch(err => log.error('Error updating validator committee', err));
-    }, 1000);
+    this.epochCacheUpdateLoop = new RunningPromise(
+      () =>
+        this.epochCache
+          .getCommittee()
+          .then(() => {})
+          .catch(err => log.error('Error updating validator committee', err)),
+      log,
+      1000,
+    );
 
     // Listen to commiteeChanged event to alert operator when their validator has entered the committee
     this.epochCache.on('committeeChanged', (newCommittee, epochNumber) => {

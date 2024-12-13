@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -84,7 +85,8 @@ describe('Archiver', () => {
       }) as any,
     });
 
-    instrumentation = mock({ isEnabled: () => true });
+    const tracer = new NoopTelemetryClient().getTracer();
+    instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     archiverStore = new MemoryArchiverStore(1000);
 
     archiver = new Archiver(
