@@ -11,6 +11,7 @@ import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
+import { type SlasherClient } from '../slasher/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 
 /**
@@ -38,6 +39,7 @@ export class SequencerClient {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
+      slasherClient: SlasherClient;
       contractDataSource: ContractDataSource;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
@@ -49,6 +51,7 @@ export class SequencerClient {
       validatorClient,
       p2pClient,
       worldStateSynchronizer,
+      slasherClient,
       contractDataSource,
       l2BlockSource,
       l1ToL2MessageSource,
@@ -71,6 +74,7 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
+      slasherClient,
       new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,

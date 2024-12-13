@@ -17,24 +17,18 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import {
-  type EthereumChain,
-  type L1ContractsConfig,
-  L1TxUtils,
-  type L1TxUtilsConfig,
-  createEthereumChain,
-} from '@aztec/ethereum';
+import { type EthereumChain, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { ExtRollupLibAbi, GovernanceProposerAbi, LeonidasLibAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, ExtRollupLibAbi, LeonidasLibAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -137,6 +131,13 @@ export type L1SubmitEpochProofArgs = {
   proof: Proof;
 };
 
+export enum VoteType {
+  GOVERNANCE,
+  SLASHING,
+}
+
+type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
+
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -151,20 +152,25 @@ export class L1Publisher {
   private interrupted = false;
   private metrics: L1PublisherMetrics;
 
-  private payload: EthAddress = EthAddress.ZERO;
-  private myLastVote: bigint = 0n;
+  protected governanceLog = createLogger('sequencer:publisher:governance');
+  protected governanceProposerAddress?: EthAddress;
+  private governancePayload: EthAddress = EthAddress.ZERO;
+
+  protected slashingLog = createLogger('sequencer:publisher:slashing');
+  protected slashingProposerAddress?: EthAddress;
+  private getSlashPayload?: GetSlashPayloadCallBack = undefined;
+
+  private myLastVotes: Record<VoteType, bigint> = {
+    [VoteType.GOVERNANCE]: 0n,
+    [VoteType.SLASHING]: 0n,
+  };
 
   protected log = createLogger('sequencer:publisher');
-  protected governanceLog = createLogger('sequencer:publisher:governance');
 
   protected rollupContract: GetContractReturnType<
     typeof RollupAbi,
     WalletClient<HttpTransport, Chain, PrivateKeyAccount>
   >;
-  protected governanceProposerContract?: GetContractReturnType<
-    typeof GovernanceProposerAbi,
-    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  > = undefined;
 
   protected publicClient: PublicClient<HttpTransport, Chain>;
   protected walletClient: WalletClient<HttpTransport, Chain, PrivateKeyAccount>;
@@ -180,7 +186,7 @@ export class L1Publisher {
   private readonly l1TxUtils: L1TxUtils;
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'> & L1TxUtilsConfig,
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     client: TelemetryClient,
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -207,14 +213,29 @@ export class L1Publisher {
     });
 
     if (l1Contracts.governanceProposerAddress) {
-      this.governanceProposerContract = getContract({
-        address: getAddress(l1Contracts.governanceProposerAddress.toString()),
-        abi: GovernanceProposerAbi,
-        client: this.walletClient,
-      });
+      this.governanceProposerAddress = EthAddress.fromString(l1Contracts.governanceProposerAddress.toString());
     }
 
     this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
+  }
+
+  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
+    this.getSlashPayload = callback;
+  }
+
+  private async getSlashingProposerAddress() {
+    if (this.slashingProposerAddress) {
+      return this.slashingProposerAddress;
+    }
+
+    const slasherAddress = await this.rollupContract.read.SLASHER();
+    const slasher = getContract({
+      address: getAddress(slasherAddress.toString()),
+      abi: SlasherAbi,
+      client: this.walletClient,
+    });
+    this.slashingProposerAddress = EthAddress.fromString(await slasher.read.PROPOSER());
+    return this.slashingProposerAddress;
   }
 
   get publisherAddress() {
@@ -232,12 +253,12 @@ export class L1Publisher {
     });
   }
 
-  public getPayLoad() {
-    return this.payload;
+  public getGovernancePayload() {
+    return this.governancePayload;
   }
 
-  public setPayload(payload: EthAddress) {
-    this.payload = payload;
+  public setGovernancePayload(payload: EthAddress) {
+    this.governancePayload = payload;
   }
 
   public getSenderAddress(): EthAddress {
@@ -452,68 +473,106 @@ export class L1Publisher {
       calldataGas: getCalldataGasUsage(calldata),
     };
   }
-
-  public async castVote(slotNumber: bigint, timestamp: bigint): Promise<boolean> {
-    if (this.payload.equals(EthAddress.ZERO)) {
+  public async castVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType) {
+    // @todo This function can be optimized by doing some of the computations locally instead of calling the L1 contracts
+    if (this.myLastVotes[voteType] >= slotNumber) {
       return false;
     }
 
-    if (!this.governanceProposerContract) {
+    const voteConfig = async (): Promise<
+      { payload: EthAddress; voteContractAddress: EthAddress; logger: Logger } | undefined
+    > => {
+      if (voteType === VoteType.GOVERNANCE) {
+        if (this.governancePayload.equals(EthAddress.ZERO)) {
+          return undefined;
+        }
+        if (!this.governanceProposerAddress) {
+          return undefined;
+        }
+        return {
+          payload: this.governancePayload,
+          voteContractAddress: this.governanceProposerAddress,
+          logger: this.governanceLog,
+        };
+      } else if (voteType === VoteType.SLASHING) {
+        if (!this.getSlashPayload) {
+          return undefined;
+        }
+        const slashingProposerAddress = await this.getSlashingProposerAddress();
+        if (!slashingProposerAddress) {
+          return undefined;
+        }
+
+        const slashPayload = await this.getSlashPayload(slotNumber);
+
+        if (!slashPayload) {
+          return undefined;
+        }
+
+        return {
+          payload: slashPayload,
+          voteContractAddress: slashingProposerAddress,
+          logger: this.slashingLog,
+        };
+      } else {
+        throw new Error('Invalid vote type');
+      }
+    };
+
+    const vConfig = await voteConfig();
+
+    if (!vConfig) {
       return false;
     }
 
-    if (this.myLastVote >= slotNumber) {
-      return false;
-    }
+    const { payload, voteContractAddress, logger } = vConfig;
 
-    // @todo This can be optimized A LOT by doing the computation instead of making calls to L1, but it is  very convenient
-    // for when we keep changing the values and don't want to have multiple versions of the same logic implemented.
+    const voteContract = getContract({
+      address: getAddress(voteContractAddress.toString()),
+      abi: EmpireBaseAbi,
+      client: this.walletClient,
+    });
 
     const [proposer, roundNumber] = await Promise.all([
       this.rollupContract.read.getProposerAt([timestamp]),
-      this.governanceProposerContract.read.computeRound([slotNumber]),
+      voteContract.read.computeRound([slotNumber]),
     ]);
 
     if (proposer.toLowerCase() !== this.account.address.toLowerCase()) {
       return false;
     }
 
-    const [slotForLastVote] = await this.governanceProposerContract.read.rounds([
-      this.rollupContract.address,
-      roundNumber,
-    ]);
+    const [slotForLastVote] = await voteContract.read.rounds([this.rollupContract.address, roundNumber]);
 
     if (slotForLastVote >= slotNumber) {
       return false;
     }
 
-    // Storing these early such that a quick entry again would not send another tx,
-    // revert the state if there is a failure.
-    const cachedMyLastVote = this.myLastVote;
-    this.myLastVote = slotNumber;
-
-    this.governanceLog.verbose(`Casting vote for ${this.payload}`);
+    const cachedMyLastVote = this.myLastVotes[voteType];
+    this.myLastVotes[voteType] = slotNumber;
 
     let txHash;
     try {
-      txHash = await this.governanceProposerContract.write.vote([this.payload.toString()], { account: this.account });
+      txHash = await voteContract.write.vote([payload.toString()], {
+        account: this.account,
+      });
     } catch (err) {
       const msg = prettyLogViemErrorMsg(err);
-      this.governanceLog.error(`Failed to vote`, msg);
-      this.myLastVote = cachedMyLastVote;
+      logger.error(`Failed to vote`, msg);
+      this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
     }
 
     if (txHash) {
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) {
-        this.governanceLog.warn(`Failed to get receipt for tx ${txHash}`);
-        this.myLastVote = cachedMyLastVote;
+        logger.warn(`Failed to get receipt for tx ${txHash}`);
+        this.myLastVotes[voteType] = cachedMyLastVote;
         return false;
       }
     }
 
-    this.governanceLog.info(`Cast vote for ${this.payload}`);
+    logger.info(`Cast vote for ${payload}`);
     return true;
   }
 

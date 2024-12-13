@@ -73,7 +73,7 @@ import {
   createP2PClient,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
+import { GlobalVariableBuilder, type L1Publisher, SequencerClient, createSlasherClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -177,8 +177,10 @@ export class AztecNodeService implements AztecNode, Traceable {
       telemetry,
     );
 
+    const slasherClient = await createSlasherClient(config, archiver, telemetry);
+
     // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
+    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
 
     const validatorClient = await createValidatorClient(config, rollupAddress, { p2pClient, telemetry, dateProvider });
 
@@ -189,6 +191,7 @@ export class AztecNodeService implements AztecNode, Traceable {
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
+          slasherClient,
           contractDataSource: archiver,
           l2BlockSource: archiver,
           l1ToL2MessageSource: archiver,

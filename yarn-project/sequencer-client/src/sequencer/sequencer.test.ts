@@ -47,6 +47,7 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type SlasherClient } from '../slasher/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
@@ -188,6 +189,8 @@ describe('sequencer', () => {
       createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
     });
 
+    const slasherClient = mock<SlasherClient>();
+
     const l1GenesisTime = Math.floor(Date.now() / 1000);
     sequencer = new TestSubject(
       publisher,
@@ -196,6 +199,7 @@ describe('sequencer', () => {
       globalVariableBuilder,
       p2p,
       worldState,
+      slasherClient,
       blockBuilderFactory,
       l2BlockSource,
       l1ToL2MessageSource,

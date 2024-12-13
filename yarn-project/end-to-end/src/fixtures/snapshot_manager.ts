@@ -316,9 +316,9 @@ async function setupFromFresh(
   }
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+    ...getL1ContractsConfigEnvVars(),
     salt: opts.salt,
     ...deployL1ContractsArgs,
-    ...getL1ContractsConfigEnvVars(),
     initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
