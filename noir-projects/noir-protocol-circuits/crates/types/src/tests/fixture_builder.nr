@@ -53,7 +53,7 @@ use crate::{
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -93,6 +93,7 @@ pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
+    pub is_private_only: bool,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -476,6 +477,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
         }
     }
 
@@ -544,14 +546,23 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        // First nullifier is tx hash.
-        let tx_hash = self.nullifiers.get(0).value();
-        let index = self.note_hashes.len();
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
+    }
+
+    pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let current_index = self.note_hashes.len();
+        let first_nullifier = self.nullifiers.get(0).value();
+        let unique_siloed_value =
+            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+
+        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
+            .scope(AztecAddress::zero()));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -570,6 +581,16 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_siloed_note_hash(value);
+            }
+        }
+    }
+
+    pub fn append_siloed_unique_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_unique_note_hash(value);
             }
         }
     }
@@ -1069,6 +1090,7 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
+            is_private_only: false,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),

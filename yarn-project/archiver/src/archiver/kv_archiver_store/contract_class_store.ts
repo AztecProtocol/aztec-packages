@@ -53,7 +53,7 @@ export class ContractClassStore {
   }
 
   getContractClassIds(): Fr[] {
-    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
+    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromHexString(key));
   }
 
   async addFunctions(

@@ -203,7 +203,7 @@ export async function retrieveL1ToL2Messages(
 
     for (const log of messageSentLogs) {
       const { index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromString(hash!)));
+      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromHexString(hash!)));
     }
 
     // handles the case when there are no new messages:
@@ -230,7 +230,7 @@ export async function retrieveL2ProofVerifiedEvents(
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
-    proverId: Fr.fromString(log.args.proverId),
+    proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
 }
@@ -297,8 +297,8 @@ export async function getProofFromSubmitProofTx(
     ];
 
     aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
-    proverId = Fr.fromString(decodedArgs.args[6]);
-    archiveRoot = Fr.fromString(decodedArgs.args[1]);
+    proverId = Fr.fromHexString(decodedArgs.args[6]);
+    archiveRoot = Fr.fromHexString(decodedArgs.args[1]);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);

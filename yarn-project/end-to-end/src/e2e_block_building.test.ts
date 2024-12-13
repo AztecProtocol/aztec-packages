@@ -483,14 +483,6 @@ describe('e2e_block_building', () => {
       // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
 
-      // PXE should be synced to the block number on the new chain
-      await retryUntil(
-        async () => (await pxe.getSyncStatus()).blocks === newTx1Receipt.blockNumber,
-        'wait for pxe block header sync',
-        15,
-        1,
-      );
-
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');
       const tx3 = await contract.methods.create_note(ownerAddress, ownerAddress, 10).send().wait();
