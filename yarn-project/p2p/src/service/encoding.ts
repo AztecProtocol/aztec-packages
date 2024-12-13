@@ -62,7 +62,7 @@ export class SnappyTransform implements DataTransform {
     if (data.length === 0) {
       return data;
     }
-    return Buffer.from(uncompressSync(data));
+    return Buffer.from(uncompressSync(data, { asBuffer: true }));
   }
 
   // Topic string included to satisfy DataTransform interface

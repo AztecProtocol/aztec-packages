@@ -9,7 +9,7 @@ import { type Uint8ArrayList } from 'uint8arraylist';
 
 import {
   CollectiveReqRespTimeoutError,
-  IndiviualReqRespTimeoutError,
+  IndividualReqRespTimeoutError,
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
@@ -208,7 +208,7 @@ export class ReqResp {
       const result = await executeTimeoutWithCustomError<Buffer>(
         (): Promise<Buffer> => pipe([payload], stream!, this.readMessage.bind(this)),
         this.individualRequestTimeoutMs,
-        () => new IndiviualReqRespTimeoutError(),
+        () => new IndividualReqRespTimeoutError(),
       );
 
       return result;
@@ -251,9 +251,14 @@ export class ReqResp {
   private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
     // Non pubishable errors
     // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
+    const logTags = {
+      peerId: peerId.toString(),
+      subProtocol,
+    };
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
       this.logger.debug(
         `Non-punishable error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        logTags,
       );
       return undefined;
     }
@@ -263,27 +268,27 @@ export class ReqResp {
     // it just signals an unreliable peer
     // We assume that the requesting node has a functioning networking stack.
     if (e?.code === 'ECONNRESET' || e?.code === 'EPIPE') {
-      this.logger.debug(`Connection reset: ${peerId.toString()}`);
+      this.logger.debug(`Connection reset: ${peerId.toString()}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     if (e?.code === 'ECONNREFUSED') {
-      this.logger.debug(`Connection refused: ${peerId.toString()}`);
+      this.logger.debug(`Connection refused: ${peerId.toString()}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     // Timeout errors are punished with high tolerance, they can be due to a geogrpahically far away peer or an
     // overloaded peer
-    if (e instanceof IndiviualReqRespTimeoutError) {
-      this.logger.debug(`Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
+    if (e instanceof IndividualReqRespTimeoutError) {
+      this.logger.debug(
+        `Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        logTags,
+      );
       return PeerErrorSeverity.HighToleranceError;
     }
 
     // Catch all error
-    this.logger.error(`Unexpected error sending request to peer`, e, {
-      peerId: peerId.toString(),
-      subProtocol,
-    });
+    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
     return PeerErrorSeverity.HighToleranceError;
   }
 

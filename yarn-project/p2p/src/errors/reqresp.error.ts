@@ -3,7 +3,7 @@
  * This error will be thrown when a request to a specific peer times out.
  * @category Errors
  */
-export class IndiviualReqRespTimeoutError extends Error {
+export class IndividualReqRespTimeoutError extends Error {
   constructor() {
     super(`Request to peer timed out`);
   }

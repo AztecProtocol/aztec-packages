@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -213,7 +213,7 @@ describe('ReqResp', () => {
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
         `Timeout error: ${
-          new IndiviualReqRespTimeoutError().message
+          new IndividualReqRespTimeoutError().message
         } | peerId: ${peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`,
       );
 
