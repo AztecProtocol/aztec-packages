@@ -38,12 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import {
-  getIndexedTaggingSecretsForTheWindow,
-  getInitialIndexesMap,
-  getLeftMostIndexedTaggingSecrets,
-  getRightMostIndexes,
-} from './tagging_utils.js';
+import { getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -430,9 +425,10 @@ export class SimulatorOracle implements DBOracle {
     const WINDOW_HALF_SIZE = 10;
 
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    // A map of never-before-seen logs going from recipient address to logs
+    // A map of logs going from recipient address to logs. Note that the logs might have been processed before as we
+    // due to us having a sliding window that "looks back" for logs as well.
     const newLogsMap = new Map<string, TxScopedL2Log[]>();
-    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    // const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       const logs: TxScopedL2Log[] = [];
       // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -452,10 +448,13 @@ export class SimulatorOracle implements DBOracle {
       // so we might have missed some logs. For these reasons, we have to look both back and ahead of
       // the stored index.
 
+      // As we iterate we store the largest index we have seen for a given secret to later on store it in the db.
+      const newLargestIndexMapToStore: { [k: string]: number } = {};
+
       // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
       const initialIndexesMap = getInitialIndexesMap(secrets);
 
-      const secretsAndWindows = secrets.map(secret => {
+      let secretsAndWindows = secrets.map(secret => {
         return {
           appTaggingSecret: secret.appTaggingSecret,
           leftMostIndex: secret.index - WINDOW_HALF_SIZE,
@@ -469,9 +468,9 @@ export class SimulatorOracle implements DBOracle {
           secret.computeSiloedTag(recipient, contractAddress),
         );
 
-        // If we find a log with an index greater than the one stored in the db, we want to fetch logs for tags that
-        // correspond to the difference of the window sets and then we want to store the new largest index in the db.
-        const newLargestIndexMap: { [k: string]: number } = {};
+        // We store the new largest indexes we find in the iteration in the following map to later on construct
+        // a new set of secrets and windows to fetch logs for.
+        const newLargestIndexMapForIteration: { [k: string]: number } = {};
 
         // Fetch the logs for the tags and iterate over them
         const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
@@ -495,19 +494,51 @@ export class SimulatorOracle implements DBOracle {
 
             if (
               secretCorrespondingToLog.index > initialIndex &&
-              (!newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] ||
+              (!newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] ||
                 secretCorrespondingToLog.index >
-                  newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()])
+                  newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()])
             ) {
               // We have found a new largest index so we store it for later processing (storing it in the db + fetching
               // the difference of the window sets of current and the next iteration)
-              newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] = secretCorrespondingToLog.index;
+              newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] =
+                secretCorrespondingToLog.index;
             }
           }
         });
 
-        // Now based on the new largest indexes we found, I will construct a new secrets and windows
+        // Now based on the new largest indexes we found, I will construct a new secrets and windows set to fetch logs
+        // for. Note that we it's very unlikely that a new log from the current window would appear between
+        // the iterations so we fetch the logs only for the difference of the window sets.
+        const newSecretsAndWindows = [];
+        for (const [appTaggingSecret, newIndex] of Object.entries(newLargestIndexMapForIteration)) {
+          const secret = secrets.find(secret => secret.appTaggingSecret.toString() === appTaggingSecret);
+          if (secret) {
+            newSecretsAndWindows.push({
+              appTaggingSecret: secret.appTaggingSecret,
+              // We set the left most index to the new largest index + 1 to avoid fetching the same logs again
+              leftMostIndex: newIndex + 1,
+              rightMostIndex: newIndex + WINDOW_HALF_SIZE,
+            });
+
+            // We store the new largest index in the map to store it in the db.
+            newLargestIndexMapToStore[appTaggingSecret] = newIndex;
+          } else {
+            throw new Error(
+              `Secret not found for appTaggingSecret ${appTaggingSecret}. This is a bug as it should never happen!`,
+            );
+          }
+        }
+
+        // Now we set the new secrets and windows and proceed to the next iteration
+        secretsAndWindows = newSecretsAndWindows;
       }
+
+      // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db
+      await this.db.setTaggingSecretsIndexesAsRecipient(
+        Object.entries(newLargestIndexMapToStore).map(
+          ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
+        ),
+      );
     }
     return newLogsMap;
   }
