@@ -29,7 +29,7 @@ type ContractDeploymentInfo = {
 
 const waitOpts: WaitOpts = {
   timeout: 120,
-  provenTimeout: 2400,
+  provenTimeout: 4800,
   interval: 1,
 };
 
