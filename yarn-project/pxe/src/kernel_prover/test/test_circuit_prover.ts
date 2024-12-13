@@ -18,8 +18,8 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
-  type ProtocolArtifact,
-  ProtocolCircuitVks,
+  ClientCircuitVks,
+  type ClientProtocolArtifact,
   executeInit,
   executeInner,
   executeReset,
@@ -27,7 +27,7 @@ import {
   executeTailForPublic,
   getPrivateKernelResetArtifactName,
   maxPrivateKernelResetDimensions,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/client';
 
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -116,10 +116,10 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
 
   private makeEmptyKernelSimulateOutput<
     PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
-  >(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
+  >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
-      verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,
+      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };

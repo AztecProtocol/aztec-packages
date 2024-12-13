@@ -1,7 +1,6 @@
 import { AztecClientBackend } from '@aztec/bb.js';
-import { AppCircuitSimulateOutput, PrivateKernelProver, PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { PrivateKernelProver, PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -9,7 +8,6 @@ import {
   PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
-  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -28,7 +26,7 @@ import {
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/client';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { NoirCompiledCircuit } from '@aztec/types/noir';
 
