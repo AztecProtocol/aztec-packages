@@ -15,6 +15,7 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
+  P2PClientType,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -167,7 +168,14 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
+    const p2pClient = await createP2PClient(
+      P2PClientType.Full,
+      config,
+      archiver,
+      proofVerifier,
+      worldStateSynchronizer,
+      telemetry,
+    );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);

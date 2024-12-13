@@ -1,6 +1,7 @@
 import {
   type ClientProtocolCircuitVerifier,
   type L2BlockSource,
+  type P2PClientType,
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
@@ -95,11 +96,12 @@ export async function createLibp2pNode(
  *
  *
  */
-export async function createTestLibP2PService(
+export async function createTestLibP2PService<T extends P2PClientType>(
+  clientType: T,
   boostrapAddrs: string[] = [],
   l2BlockSource: L2BlockSource,
   worldStateSynchronizer: WorldStateSynchronizer,
-  mempools: MemPools,
+  mempools: MemPools<T>,
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,
@@ -123,7 +125,8 @@ export async function createTestLibP2PService(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
-  return new LibP2PService(
+  return new LibP2PService<T>(
+    clientType,
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,

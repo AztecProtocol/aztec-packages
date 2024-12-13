@@ -6,6 +6,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  type P2PClientType,
   type ProverCache,
   type ProverCoordination,
   type ProverNodeApi,
@@ -80,7 +81,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   }
 
   public getP2P() {
-    const asP2PClient = this.coordination as P2P;
+    const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
     if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
       return asP2PClient;
     }
