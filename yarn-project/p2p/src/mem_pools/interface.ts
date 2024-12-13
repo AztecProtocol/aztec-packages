@@ -7,7 +7,7 @@ import { type TxPool } from './tx_pool/tx_pool.js';
 /**
  * A interface the combines all mempools
  */
-export type MemPools<T extends P2PClientType> = {
+export type MemPools<T extends P2PClientType = P2PClientType.Full> = {
   txPool: TxPool;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
   epochProofQuotePool: EpochProofQuotePool;

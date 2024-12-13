@@ -19,11 +19,11 @@ describe('In-Memory P2P Client', () => {
   let txPool: MockProxy<TxPool>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
-  let mempools: MemPools<P2PClientType.Full>;
+  let mempools: MemPools;
   let blockSource: MockL2BlockSource;
   let p2pService: MockProxy<P2PService>;
   let kvStore: AztecKVStore;
-  let client: P2PClient<P2PClientType.Full>;
+  let client: P2PClient;
 
   beforeEach(() => {
     txPool = mock<TxPool>();

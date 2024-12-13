@@ -93,7 +93,7 @@ export class AztecNodeService implements AztecNode {
 
   constructor(
     protected config: AztecNodeConfig,
-    protected readonly p2pClient: P2P<P2PClientType.Full>,
+    protected readonly p2pClient: P2P,
     protected readonly blockSource: L2BlockSource & Partial<Service>,
     protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
@@ -222,7 +222,7 @@ export class AztecNodeService implements AztecNode {
     return this.blockSource;
   }
 
-  public getP2P(): P2P<P2PClientType.Full> {
+  public getP2P(): P2P {
     return this.p2pClient;
   }
 

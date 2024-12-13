@@ -95,11 +95,8 @@ describe('Req Resp p2p client integration', () => {
 
   const getPorts = (numberOfPeers: number) => Promise.all(Array.from({ length: numberOfPeers }, () => getPort()));
 
-  const createClients = async (
-    numberOfPeers: number,
-    alwaysTrueVerifier: boolean = true,
-  ): Promise<P2PClient<P2PClientType.Full>[]> => {
-    const clients: P2PClient<P2PClientType.Full>[] = [];
+  const createClients = async (numberOfPeers: number, alwaysTrueVerifier: boolean = true): Promise<P2PClient[]> => {
+    const clients: P2PClient[] = [];
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
 
     const ports = await getPorts(numberOfPeers);
@@ -179,7 +176,7 @@ describe('Req Resp p2p client integration', () => {
   };
 
   // Shutdown all test clients
-  const shutdown = async (clients: P2PClient<P2PClientType.Full>[]) => {
+  const shutdown = async (clients: P2PClient[]) => {
     await Promise.all([...clients.map(client => client.stop())]);
     await sleep(1000);
   };

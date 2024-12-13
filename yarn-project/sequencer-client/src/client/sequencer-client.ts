@@ -1,7 +1,6 @@
 import {
   type L1ToL2MessageSource,
   type L2BlockSource,
-  type P2PClientType,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
@@ -41,7 +40,7 @@ export class SequencerClient {
     config: SequencerClientConfig,
     deps: {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
-      p2pClient: P2P<P2PClientType.Full>;
+      p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
       contractDataSource: ContractDataSource;
       l2BlockSource: L2BlockSource;

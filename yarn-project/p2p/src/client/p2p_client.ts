@@ -57,7 +57,7 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType> = P2PApi<T> & {
+export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   /**
    * Broadcasts a block proposal to other peers.
    *
@@ -172,9 +172,9 @@ export type P2P<T extends P2PClientType> = P2PApi<T> & {
 /**
  * The P2P client implementation.
  */
-export class P2PClient<T extends P2PClientType>
+export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   extends WithTracer
-  implements P2P<P2PClientType.Full>, P2P<P2PClientType.Prover>
+  implements P2P, P2P<P2PClientType.Prover>
 {
   /** Property that indicates whether the client is running. */
   private stopping = false;

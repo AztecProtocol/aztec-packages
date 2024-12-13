@@ -10,7 +10,6 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  type P2PClientType,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -55,7 +54,7 @@ describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
-  let p2p: MockProxy<P2P<P2PClientType.Full>>;
+  let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   let blockBuilder: MockProxy<BlockBuilder>;
@@ -132,7 +131,7 @@ describe('sequencer', () => {
       return Promise.resolve([undefined]);
     });
 
-    p2p = mock<P2P<P2PClientType.Full>>({
+    p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({
         state: P2PClientState.IDLE,
         syncedToL2Block: { number: lastBlockNumber, hash },

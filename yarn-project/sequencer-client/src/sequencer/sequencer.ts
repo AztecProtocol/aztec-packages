@@ -3,7 +3,6 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type P2PClientType,
   type ProcessedTx,
   SequencerConfigSchema,
   Tx,
@@ -99,7 +98,7 @@ export class Sequencer {
     private publisher: L1Publisher,
     private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
     private globalsBuilder: GlobalVariableBuilder,
-    private p2pClient: P2P<P2PClientType.Full>,
+    private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
     private blockBuilderFactory: BlockBuilderFactory,
     private l2BlockSource: L2BlockSource,
