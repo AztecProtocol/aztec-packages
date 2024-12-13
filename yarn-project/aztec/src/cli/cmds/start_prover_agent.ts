@@ -3,7 +3,7 @@ import { times } from '@aztec/foundation/collection';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
-import { InlineProofStore, ProvingAgent, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import { ProverAgent, createProvingJobSourceClient } from '@aztec/prover-client/prover-agent';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
@@ -33,27 +33,15 @@ export async function startProverAgent(
     process.exit(1);
   }
 
-  const broker = createProvingJobBrokerClient(config.proverBrokerUrl);
+  const proverNode = createProvingJobSourceClient(process.env.PROVER_NODE_ADDR!);
 
   const telemetry = await createAndStartTelemetryClient(
     extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
   );
   const prover = await buildServerCircuitProver(config, telemetry);
-  const proofStore = new InlineProofStore();
-  const agents = times(
-    config.proverAgentCount,
-    () =>
-      new ProvingAgent(
-        broker,
-        proofStore,
-        prover,
-        telemetry,
-        config.proverAgentProofTypes,
-        config.proverAgentPollIntervalMs,
-      ),
-  );
+  const agents = times(config.proverAgentCount, () => new ProverAgent(prover));
 
-  await Promise.all(agents.map(agent => agent.start()));
+  await Promise.all(agents.map(agent => agent.start(proverNode)));
 
   signalHandlers.push(async () => {
     await Promise.all(agents.map(agent => agent.stop()));

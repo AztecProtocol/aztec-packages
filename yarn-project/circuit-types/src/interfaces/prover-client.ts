@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
-import { type ProvingJobConsumer } from './prover-broker.js';
+import { type ProvingJobSource } from './proving-job-source.js';
 import { type ProvingJobStatus } from './proving-job.js';
 
 export type ActualProverConfig = {
@@ -110,9 +110,9 @@ export interface EpochProverManager {
 
   stop(): Promise<void>;
 
-  getProvingJobSource(): ProvingJobConsumer;
-
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
+
+  getProvingJobSource(): ProvingJobSource;
 }
 
 export class BlockProofError extends Error {

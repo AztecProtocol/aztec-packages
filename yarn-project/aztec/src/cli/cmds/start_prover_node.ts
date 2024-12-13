@@ -1,8 +1,14 @@
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
+import {
+  P2PApiSchema,
+  ProverNodeApiSchema,
+  type ProvingJobBroker,
+  ProvingJobSourceSchema,
+  createAztecNodeClient,
+} from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import { createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
   createProverNode,
@@ -80,14 +86,11 @@ export async function startProverNode(
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
+  services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobSourceSchema];
 
   const p2p = proverNode.getP2P();
   if (p2p) {
     services.p2p = [proverNode.getP2P(), P2PApiSchema];
-  }
-
-  if (!proverConfig.proverBrokerUrl) {
-    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
