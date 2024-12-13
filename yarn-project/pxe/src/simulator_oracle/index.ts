@@ -39,7 +39,7 @@ import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import {
-  getIndexedTaggingSecretsForTheWholeWindow,
+  getIndexedTaggingSecretsForTheWindow,
   getInitialIndexesMap,
   getLeftMostIndexedTaggingSecrets,
   getRightMostIndexes,
@@ -455,52 +455,59 @@ export class SimulatorOracle implements DBOracle {
       // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
       const initialIndexesMap = getInitialIndexesMap(secrets);
 
-      // TODO(benesjan): merge with #getIndexedTaggingSecretsForContacts?
-      const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWholeWindow(
-        contractAddress,
-        recipient,
-        secrets,
-        WINDOW_HALF_SIZE,
-      );
-      const tagsForTheWholeWindow = secretsForTheWholeWindow.map(secret =>
-        secret.computeSiloedTag(recipient, contractAddress),
-      );
-
-      // If we find a log with an index greater than the one stored in the db, we want to fetch logs for tags that
-      // correspond to the difference of the window sets and then we want to store the new largest index in the db.
-      const newLargestIndexMap: { [k: string]: number } = {};
-
-      // Fetch the logs for the tags and iterate over them
-      const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
-
-      logsByTags.forEach((logsByTag, logIndex) => {
-        // What do I even want to do here?
-        // I want to check if the log for the given tag exists
-        // --> if it does, I want to:
-        //      - add it to the logs to process
-        //      - if it corresponds to an index > current one in the db
-        //          - I want update it in the db
-        //          - I want to fetch the difference of the window sets
-        if (logsByTag.length > 0) {
-          // The logs for the given tag exist so I add them for later processing
-          logs.push(...logsByTag);
-
-          // I fetch the indexed tagging secret corresponding to the log as I need that to evaluate whether
-          // a new largest index have been found.
-          const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
-          const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
-
-          if (
-            secretCorrespondingToLog.index > initialIndex &&
-            (!newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] ||
-              secretCorrespondingToLog.index > newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()])
-          ) {
-            // We have found a new largest index so we store it for later processing (storing it in db + fetching
-            // the difference of the window sets of current and the next iteration)
-            newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] = secretCorrespondingToLog.index;
-          }
-        }
+      const secretsAndWindows = secrets.map(secret => {
+        return {
+          appTaggingSecret: secret.appTaggingSecret,
+          leftMostIndex: secret.index - WINDOW_HALF_SIZE,
+          rightMostIndex: secret.index + WINDOW_HALF_SIZE,
+        };
       });
+
+      while (secretsAndWindows.length > 0) {
+        const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
+        const tagsForTheWholeWindow = secretsForTheWholeWindow.map(secret =>
+          secret.computeSiloedTag(recipient, contractAddress),
+        );
+
+        // If we find a log with an index greater than the one stored in the db, we want to fetch logs for tags that
+        // correspond to the difference of the window sets and then we want to store the new largest index in the db.
+        const newLargestIndexMap: { [k: string]: number } = {};
+
+        // Fetch the logs for the tags and iterate over them
+        const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
+
+        logsByTags.forEach((logsByTag, logIndex) => {
+          // What do I even want to do here?
+          // I want to check if the log for the given tag exists
+          // --> if it does, I want to:
+          //      - add it to the logs to process
+          //      - if it corresponds to an index > current one in the db
+          //          - I want update it in the db
+          //          - I want to fetch the difference of the window sets
+          if (logsByTag.length > 0) {
+            // The logs for the given tag exist so I add them for later processing
+            logs.push(...logsByTag);
+
+            // I fetch the indexed tagging secret corresponding to the log as I need that to evaluate whether
+            // a new largest index have been found.
+            const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
+            const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
+
+            if (
+              secretCorrespondingToLog.index > initialIndex &&
+              (!newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] ||
+                secretCorrespondingToLog.index >
+                  newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()])
+            ) {
+              // We have found a new largest index so we store it for later processing (storing it in the db + fetching
+              // the difference of the window sets of current and the next iteration)
+              newLargestIndexMap[secretCorrespondingToLog.appTaggingSecret.toString()] = secretCorrespondingToLog.index;
+            }
+          }
+        });
+
+        // Now based on the new largest indexes we found, I will construct a new secrets and windows
+      }
     }
     return newLogsMap;
   }

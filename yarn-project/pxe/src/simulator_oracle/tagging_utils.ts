@@ -19,16 +19,13 @@ export function getLeftMostIndexedTaggingSecrets(
   );
 }
 
-export function getIndexedTaggingSecretsForTheWholeWindow(
-  app: AztecAddress,
-  recipient: AztecAddress,
-  storedIndexedTaggingSecrets: IndexedTaggingSecret[],
-  windowHalfSize: number,
+export function getIndexedTaggingSecretsForTheWindow(
+  secretsAndWindows: { appTaggingSecret: Fr; leftMostIndex: number; rightMostIndex: number }[],
 ): IndexedTaggingSecret[] {
   const secrets: IndexedTaggingSecret[] = [];
-  for (const storedIndexedTaggingSecret of storedIndexedTaggingSecrets) {
-    for (let i = storedIndexedTaggingSecret.index - windowHalfSize; i <= storedIndexedTaggingSecret.index + windowHalfSize; i++) {
-      secrets.push(new IndexedTaggingSecret(storedIndexedTaggingSecret.appTaggingSecret, i));
+  for (const secretAndWindow of secretsAndWindows) {
+    for (let i = secretAndWindow.leftMostIndex; i <= secretAndWindow.rightMostIndex; i++) {
+      secrets.push(new IndexedTaggingSecret(secretAndWindow.appTaggingSecret, i));
     }
   }
   return secrets;
