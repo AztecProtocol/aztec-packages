@@ -73,12 +73,17 @@ export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOIN
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 
+if [ -z "${ROLLUP_CONTRACT_ADDRESS:-}" ]; then
+  echo "ROLLUP_CONTRACT_ADDRESS not set!" && exit 1
+fi
+
 # Check if validator is already registered
 echo "Checking if validator is already registered..."
 debug_output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js debug-rollup --rollup $ROLLUP_CONTRACT_ADDRESS)
 if echo "$debug_output" | grep -q "Validators:.*$ADDRESS"; then
   echo "Validator $ADDRESS is already registered"
 else
+  echo $debug_output
   # Add L1 validator
   # this may fail, so try 3 times
   echo "Adding validator $ADDRESS..."

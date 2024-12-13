@@ -566,16 +566,19 @@ jobs:
 
   rough-rhino-installer:
     needs: [e2e-test-gate, configure]
-    runs-on: ${{ needs.configure.outputs.username }}-x86
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: rough-rhino-installer
       - name: Rough Rhino Installer Helper Script
-        working-directory: ./spartan/releases/rough-rhino
-        run: earthly-ci +test-all
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          username: ${{ needs.configure.outputs.username }}
+          runner_type: builder-x86
+          run: |
+            scripts/earthly-ci ./spartan/releases/rough-rhino/+test-all
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
