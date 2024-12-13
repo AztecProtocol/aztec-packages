@@ -237,6 +237,7 @@ void prove_tube(const std::string& output_path)
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    ASSERT(builder->ipa_proof.size() && "IPA proof should not be empty");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
@@ -803,8 +804,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
         // Break up the tube proof into the honk portion and the ipa portion
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
         const size_t HONK_PROOF_LENGTH = 473;
-        const size_t num_public_inputs = static_cast<size_t>(proof[1]);
+        const size_t num_public_inputs =
+            static_cast<size_t>(proof[1]) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
         // The extra calculation is for the IPA proof length.
+        info("proof size: ", proof.size());
+        info("num public inputs: ", num_public_inputs);
         ASSERT(proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
