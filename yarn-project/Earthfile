@@ -53,7 +53,7 @@ build:
     WORKDIR /usr/src/yarn-project
     COPY . .
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN ./bootstrap.sh full
+    RUN ./bootstrap.sh
 
 
 build-dev:

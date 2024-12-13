@@ -394,8 +394,10 @@ describe('e2e_block_building', () => {
         .send()
         .deployed();
 
-      logger.info('Updating min txs per block to 4');
-      await aztecNode.setConfig({ minTxsPerBlock: 4 });
+      // We set the maximum number of txs per block to 12 to ensure that the sequencer will start building a block before it receives all the txs
+      // and also to avoid it building
+      logger.info('Updating min txs per block to 4, and max txs per block to 12');
+      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 12 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
