@@ -15,7 +15,7 @@ export class WorldStateInstrumentation {
   private dbNumItems: Gauge;
   private dbUsedSize: Gauge;
 
-  constructor(telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
+  constructor(public readonly telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
     const meter = telemetry.getMeter('World State');
     this.dbMapSize = meter.createGauge(`aztec.world_state.db_map_size`, {
       description: `The current configured map size for each merkle tree`,

@@ -14,7 +14,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -41,7 +41,7 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
  * A broker that manages proof requests and distributes them to workers based on their priority.
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
-export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
+export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -87,6 +87,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   private maxRetries: number;
 
   private instrumentation: ProvingBrokerInstrumentation;
+  public readonly tracer: Tracer;
 
   private maxParallelCleanUps: number;
 
@@ -115,8 +116,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     }: ProofRequestBrokerConfig = {},
     private logger = createLogger('prover-client:proving-broker'),
   ) {
+    this.tracer = client.getTracer('ProvingBroker');
     this.instrumentation = new ProvingBrokerInstrumentation(client);
-    this.cleanupPromise = new RunningPromise(this.cleanupPass, timeoutIntervalMs);
+    this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, timeoutIntervalMs);
     this.jobTimeoutMs = jobTimeoutMs;
     this.maxRetries = maxRetries;
     this.maxEpochsToKeepResultsFor = maxEpochsToKeepResultsFor;
@@ -399,10 +401,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     this.instrumentation.incResolvedJobs(item.type);
   }
 
-  private cleanupPass = async () => {
+  @trackSpan('ProvingBroker.cleanupPass')
+  private async cleanupPass() {
     await this.cleanupStaleJobs();
     await this.reEnqueueExpiredJobs();
-  };
+  }
 
   private async cleanupStaleJobs() {
     const jobIds = Array.from(this.jobsCache.keys());

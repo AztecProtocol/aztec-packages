@@ -51,7 +51,7 @@ import {
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
 } from '@aztec/protocol-contracts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -85,7 +85,7 @@ export type ArchiveSource = L2BlockSource &
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements ArchiveSource {
+export class Archiver implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -98,6 +98,8 @@ export class Archiver implements ArchiveSource {
 
   public l1BlockNumber: bigint | undefined;
   public l1Timestamp: bigint | undefined;
+
+  public readonly tracer: Tracer;
 
   /**
    * Creates a new instance of the Archiver.
@@ -118,6 +120,7 @@ export class Archiver implements ArchiveSource {
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
   ) {
+    this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
     this.rollup = getContract({
@@ -194,24 +197,14 @@ export class Archiver implements ArchiveSource {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.safeSync(), this.config.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs);
     this.runningPromise.start();
-  }
-
-  /**
-   * Syncs and catches exceptions.
-   */
-  private async safeSync() {
-    try {
-      await this.sync(false);
-    } catch (error) {
-      this.log.error('Error syncing archiver', error);
-    }
   }
 
   /**
    * Fetches logs from L1 contracts and processes them.
    */
+  @trackSpan('Archiver.sync', initialRun => ({ [Attributes.INITIAL_SYNC]: initialRun }))
   private async sync(initialRun: boolean) {
     /**
      * We keep track of three "pointers" to L1 blocks:

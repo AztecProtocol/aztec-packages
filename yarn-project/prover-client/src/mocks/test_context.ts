@@ -113,7 +113,7 @@ export class TestContext {
 
     const queue = new MemoryProvingQueue(telemetry);
     const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount);
+    const agent = new ProverAgent(localProver, proverCount, undefined, telemetry);
 
     queue.start();
     agent.start(queue);
