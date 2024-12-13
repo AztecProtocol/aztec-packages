@@ -167,7 +167,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
-        info(libra_univariate_evaluation);
+        // info(libra_univariate_evaluation);
         if constexpr (Curve::is_stdlib_type) {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
@@ -726,12 +726,12 @@ template <typename Curve> class ShpleminiVerifier_ {
             challenge_polynomial_lagrange[idx] = Fr{ 0 };
         }
         challenge_polynomial_lagrange[0] = Fr{ 1 };
-
+        auto challenge_sqr = Fr{ 1 };
         for (size_t poly_idx = 0; poly_idx < CONST_PROOF_SIZE_LOG_N; poly_idx++) {
-            for (size_t exponent = 0; exponent < 3; exponent++) {
-                auto current_idx = 1 + poly_idx * 3 + exponent;
-                challenge_polynomial_lagrange[current_idx] = multilinear_challenge[poly_idx].pow(exponent);
-            }
+            challenge_polynomial_lagrange[1 + poly_idx * 3] = Fr{ 1 };
+            challenge_polynomial_lagrange[1 + poly_idx * 3 + 1] = multilinear_challenge[poly_idx];
+            challenge_sqr = multilinear_challenge[poly_idx] * multilinear_challenge[poly_idx];
+            challenge_polynomial_lagrange[1 + poly_idx * 3 + 2] = challenge_sqr;
         }
 
         std::array<Fr, 3> evals = compute_barycentric_evaluation(
@@ -790,8 +790,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         result[0] = result[0] * numerator;
-        result[1] = one * denominators[0] * numerator;
-        result[2] = one * denominators[87 - 1] * numerator;
+        result[1] = denominators[0] * numerator;
+        result[2] = denominators[87 - 1] * numerator;
 
         //   \sum_{i=0}^{num_coeffs-1} f_i * [ʓ^n - 1]/[n.(ʓ.ω^{-i} - 1)]
         // = \sum_{i=0}^{num_coeffs-1} f_i * L_{i+1}
