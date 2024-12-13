@@ -58,14 +58,14 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         timeout-minutes: 90
         with:
           runner_type: 16core-tester-x86
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           ttl: 90
           run: |
-            set -eux
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             FORCE_COLOR=1 CLEANUP_CLUSTER=true ./ci.sh test-kind-network ${{ matrix.test }}.test.ts 16-validators || true
 
   proving-test:
@@ -77,13 +77,14 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         timeout-minutes: 90
         with:
           runner_type: 128core-tester-x86
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           ttl: 90
           run: |
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             INSTALL_TIMEOUT=45m FORCE_COLOR=1 CLEANUP_CLUSTER=true \
               ./ci.sh test-kind-network proving.test.ts 1-validator-with-proving || true
 

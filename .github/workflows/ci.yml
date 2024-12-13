@@ -269,18 +269,14 @@ jobs:
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
         timeout-minutes: 40
-        uses: ./.github/ensure-tester-with-images
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
-          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        uses: ./.github/ensure-tester
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ steps.runner_type.outputs.type }}
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           run: |
-            set -eux
-            cd ./yarn-project/end-to-end/
-            export FORCE_COLOR=1
-            ./scripts/e2e_test.sh ${{ matrix.test }}
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -301,21 +297,19 @@ jobs:
           runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
+        uses: ./.github/ensure-tester
         timeout-minutes: 45
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ steps.runner_type.outputs.type }}
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           ttl: 40
           run: |
-            set -eux
-            cd ./yarn-project/end-to-end/
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ./scripts/e2e_test.sh ${{ matrix.test }}
-            # TODO(#9692): disabled after refactoring - trying to call function as target
+            ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+            # TODO(#9692): not working after e2e_test_config.yml refactoring
             export COMMIT_HASH=${{ env.GIT_COMMIT }}
             export PULL_REQUEST=${{ github.event.pull_request.number }}
             export BRANCH=${{ github.ref_name }}
@@ -427,7 +421,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: sudo shutdown -P 60 && scripts/earthly-ci +network-test --test=./test-4epochs.sh
+          run: |
+            scripts/earthly-ci +network-test --test=./test-4epochs.sh
 
   kind-smoke-test:
     needs: [images-e2e, configure]
@@ -438,15 +433,16 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: Setup and KIND Network Test
         timeout-minutes: 60
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: 8core-tester-x86
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           ttl: 60
           run: |
-            cd yarn-project/end-to-end
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            cd yarn-project/end-to-end
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-full-test:
@@ -477,14 +473,15 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: Setup and KIND Network Test
         timeout-minutes: ${{ matrix.config.timeout }}
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
-          images_to_pull: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           ttl: ${{ matrix.config.timeout }}
           run: |
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
       - name: Copy Network Logs
         if: always()

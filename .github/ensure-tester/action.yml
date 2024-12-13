@@ -119,11 +119,12 @@ runs:
     - name: Run On Tester
       id: test
       env:
+        RUN_INPUT: ${{ inputs.run }}
         # avoid double shell interpolation
         RUN_SCRIPT: |
           export GITHUB_REF_NAME=${{ github.ref_name }};
           cd ~/run-${{ env.RUN_ID }};
-          ci3/aws_handle_evict "${{ inputs.run }}"
+          ci3/aws_handle_evict "$RUN_INPUT"
       shell: bash
       run:
         set +e;
