@@ -38,12 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import {
-  WINDOW_HALF_SIZE,
-  getInitialIndexes,
-  getLeftMostIndexedTaggingSecrets,
-  getRightMostIndexes,
-} from './tagging_utils.js';
+import { getInitialIndexes, getLeftMostIndexedTaggingSecrets, getRightMostIndexes } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -426,6 +421,9 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    // Half the size of the window we slide over the tagging secret indexes.
+    const WINDOW_HALF_SIZE = 10;
+
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     // A map of never-before-seen logs going from recipient address to logs
     const newLogsMap = new Map<string, TxScopedL2Log[]>();
@@ -451,10 +449,10 @@ export class SimulatorOracle implements DBOracle {
 
       // App tagging secrets along with an index in a window to check in the current iteration. Called current because
       // this value will be updated as we iterate through the window.
-      let currentSecrets = getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets);
+      let currentSecrets = getLeftMostIndexedTaggingSecrets(indexedTaggingSecrets, WINDOW_HALF_SIZE);
       // Right-most indexes in a window to check stored in a key-value map where key is the app tagging secret
       // and value is the index to check (the right-most index in the window).
-      const rightMostIndexesMap = getRightMostIndexes(indexedTaggingSecrets);
+      const rightMostIndexesMap = getRightMostIndexes(indexedTaggingSecrets, WINDOW_HALF_SIZE);
       // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
       const initialIndexesMap = getInitialIndexes(indexedTaggingSecrets);
       // A map of indexes to increment for secrets for which we have found logs with an index higher than the one

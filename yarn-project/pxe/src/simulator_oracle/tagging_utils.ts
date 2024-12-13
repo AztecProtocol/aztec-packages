@@ -1,30 +1,48 @@
 import { IndexedTaggingSecret } from '@aztec/circuits.js';
 
-// Half the size of the window we slide over the tagging secret indexes.
-export const WINDOW_HALF_SIZE = 10;
-
+/**
+ * Gets indexed tagging secrets with leftmost indexes.
+ * @param indexedTaggingSecrets - The indexed tagging secrets to get the leftmost indexed tagging secrets from.
+ * @param windowHalfSize- The half size of the window to slide over the tagging secret indexes.
+ * @returns The leftmost indexed tagging secrets.
+ */
 export function getLeftMostIndexedTaggingSecrets(
   indexedTaggingSecrets: IndexedTaggingSecret[],
+  windowHalfSize: number,
 ): IndexedTaggingSecret[] {
   return indexedTaggingSecrets.map(
     indexedTaggingSecret =>
       new IndexedTaggingSecret(
         indexedTaggingSecret.appTaggingSecret,
-        Math.max(0, indexedTaggingSecret.index - WINDOW_HALF_SIZE),
+        Math.max(0, indexedTaggingSecret.index - windowHalfSize),
       ),
   );
 }
 
-export function getRightMostIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
+/**
+ * Creates a map from app tagging secret to rightmost index.
+ * @param indexedTaggingSecrets - The indexed tagging secrets to get the rightmost indexes from.
+ * @param windowHalfSize- The half size of the window to slide over the tagging secret indexes.
+ * @returns The map from app tagging secret to rightmost index.
+ */
+export function getRightMostIndexes(
+  indexedTaggingSecrets: IndexedTaggingSecret[],
+  windowHalfSize: number,
+): { [k: string]: number } {
   const rightMostIndexes: { [k: string]: number } = {};
 
   for (const indexedTaggingSecret of indexedTaggingSecrets) {
-    rightMostIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index + WINDOW_HALF_SIZE;
+    rightMostIndexes[indexedTaggingSecret.appTaggingSecret.toString()] = indexedTaggingSecret.index + windowHalfSize;
   }
 
   return rightMostIndexes;
 }
 
+/**
+ * Creates a map from app tagging secret to initial index.
+ * @param indexedTaggingSecrets - The indexed tagging secrets to get the initial indexes from.
+ * @returns The map from app tagging secret to initial index.
+ */
 export function getInitialIndexes(indexedTaggingSecrets: IndexedTaggingSecret[]): { [k: string]: number } {
   const initialIndexes: { [k: string]: number } = {};
 
