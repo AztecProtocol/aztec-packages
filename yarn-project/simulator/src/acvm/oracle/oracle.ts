@@ -405,9 +405,9 @@ export class Oracle {
     [txHash]: ACVMField[],
     [recipient]: ACVMField[],
   ): Promise<ACVMField> {
-    // TODO: try-catch this block and return false if we get an exception so that the contract can decide what to do if
-    // a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list). Delivery might
-    // fail due to temporary issues, such as poor node connectivity.
+    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
+    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
+    // Delivery might fail due to temporary issues, such as poor node connectivity.
     await this.typedOracle.deliverNote(
       AztecAddress.fromString(contractAddress),
       fromACVMField(storageSlot),

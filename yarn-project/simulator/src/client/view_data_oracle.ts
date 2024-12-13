@@ -329,7 +329,7 @@ export class ViewDataOracle extends TypedOracle {
     txHash: Fr,
     recipient: AztecAddress,
   ) {
-    // TODO: allow other contracts to deliver notes
+    // TODO(#10727): allow other contracts to deliver notes
     if (!this.contractAddress.equals(contractAddress)) {
       throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
     }

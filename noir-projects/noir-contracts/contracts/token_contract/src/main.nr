@@ -775,11 +775,11 @@ contract Token {
                     panic(f"Unknown note type id {note_type_id}")
                 };
 
-                dep::aztec::oracle::management::NoteHashesAndNullifier {
+                Option::some(dep::aztec::oracle::management::NoteHashesAndNullifier {
                     note_hash: hashes[0],
                     siloed_note_hash: hashes[2],
                     inner_nullifier: hashes[3],
-                }
+                })
             },
         );
     }
