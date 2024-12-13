@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 iid=$1
 sir=${2:-}
 
-echo "Terminating instance: $ip..."
+echo "Terminating instance: $iid..."
 dump_fail aws ec2 terminate-instances --instance-ids $iid > /dev/null
 
 if [ -n "$sir" ]; then
