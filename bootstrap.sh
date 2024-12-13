@@ -121,6 +121,7 @@ case "$cmd" in
   ;;
   "test-e2e")
     ./bootstrap.sh image-e2e
+    shift 1
     yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
   ;;

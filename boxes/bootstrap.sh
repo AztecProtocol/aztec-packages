@@ -15,7 +15,7 @@ hash=$(cache_content_hash ../noir/.rebuild_patterns* \
   ../barretenberg/*/.rebuild_patterns)
 
 function build {
-  denoise "yarn && echo "Building... " && yarn build"
+  denoise "yarn && echo 'Building... ' && yarn build"
 }
 
 function test {
