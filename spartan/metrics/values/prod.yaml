@@ -23,6 +23,10 @@ opentelemetry-collector:
 
 prometheus:
   server:
+    resources:
+      requests:
+        memory: 15Gi
+        cpu: 1
     persistentVolume:
       enabled: true
       size: 100Gi
