@@ -21,6 +21,15 @@ opentelemetry-collector:
         resource_to_telemetry_conversion:
           enabled: true
 
+prometheus:
+  server:
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    replicaCount: 3
+    statefulSet:
+      enabled: true
+
 loki:
   loki:
     schemaConfig:
@@ -54,14 +63,14 @@ loki:
   backend:
     replicas: 2
   read:
-    replicas: 2
+    replicas: 4
   write:
-    replicas: 3
+    replicas: 6
 
   minio:
     enabled: true
     persistence:
-      size: 64Gi
+      size: 128Gi
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
@@ -70,7 +79,7 @@ grafana:
   persistence:
     type: pvc
     enabled: true
-    size: "10Gi"
+    size: "128Gi"
   datasources:
     datasources.yaml:
       apiVersion: 1
