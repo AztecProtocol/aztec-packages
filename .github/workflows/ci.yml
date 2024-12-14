@@ -409,7 +409,7 @@ jobs:
           fi
 
   network-4epochs-test:
-    needs: [images-e2e, configure]
+    needs: [images-e2e, ci-rest, configure]
     if: needs.configure.outputs.yarn-project == 'true' && (github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all'))
     runs-on: ubuntu-latest
     steps:
