@@ -74,7 +74,7 @@ loki:
   minio:
     enabled: true
     persistence:
-      size: 128Gi
+      size: 64Gi
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
@@ -84,7 +84,6 @@ grafana:
     type: pvc
     enabled: true
     size: "128Gi"
-    storageClass: "standard-rwo"
   datasources:
     datasources.yaml:
       apiVersion: 1
