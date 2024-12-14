@@ -148,19 +148,19 @@ case "$cmd" in
   "attach")
       get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
       exit 0
     ;;
   "log")
       get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t ubuntu@$ip 'docker logs -f aztec_build'
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
       exit 0
     ;;
   "shell-host")
       get_ip_for_instance ${1:-}
       [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t ubuntu@$ip
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
       exit 0
     ;;
   "draft")
