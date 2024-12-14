@@ -1,9 +1,6 @@
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { promises as fs } from 'fs';
-import path from 'path';
-
 /**
  * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370) refactory this to
  * eventually we read all these VKs from the data tree instead of passing them
@@ -32,6 +29,8 @@ export class ClientIvcProof {
    * @returns the encapsulated client ivc proof
    */
   static async readFromOutputDirectory(directory: string) {
+    const { promises: fs } = await import('fs');
+    const path = await import('path');
     const [clientIvcVkBuffer, clientIvcProofBuffer] = await Promise.all(
       ['client_ivc_vk', 'client_ivc_proof'].map(fileName => fs.readFile(path.join(directory, fileName))),
     );
@@ -52,6 +51,8 @@ export class ClientIvcProof {
    * @param directory the directory of results
    */
   async writeToOutputDirectory(directory: string) {
+    const { promises: fs } = await import('fs');
+    const path = await import('path');
     const { clientIvcProofBuffer, clientIvcVkBuffer } = this;
     const fileData = [
       ['client_ivc_proof', clientIvcProofBuffer],

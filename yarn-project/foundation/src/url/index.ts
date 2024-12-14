@@ -16,7 +16,7 @@
 // CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-import { sep } from 'path';
+import path from 'path';
 
 /**
  * File URI to Path function.
@@ -34,7 +34,7 @@ export function fileURLToPath(uri: string): string {
   const rest = decodeURI(uri.substring(7));
   const firstSlash = rest.indexOf('/');
   let host = rest.substring(0, firstSlash);
-  let path = rest.substring(firstSlash + 1);
+  let pathname = rest.substring(firstSlash + 1);
 
   // 2.  Scheme Definition
   // As a special case, <host> can be the string "localhost" or the empty
@@ -45,7 +45,7 @@ export function fileURLToPath(uri: string): string {
   }
 
   if (host) {
-    host = sep + sep + host;
+    host = path.sep + path.sep + host;
   }
 
   // 3.2  Drives, drive letters, mount points, file system root
@@ -55,19 +55,19 @@ export function fileURLToPath(uri: string): string {
   // "file:///c|/tmp/test.txt".  In some cases, the colon is left
   // unchanged, as in "file:///c:/tmp/test.txt".  In other cases, the
   // colon is simply omitted, as in "file:///c/tmp/test.txt".
-  path = path.replace(/^(.+)\|/, '$1:');
+  pathname = pathname.replace(/^(.+)\|/, '$1:');
 
   // for Windows, we need to invert the path separators from what a URI uses
-  if (sep === '\\') {
-    path = path.replace(/\//g, '\\');
+  if (path.sep === '\\') {
+    pathname = pathname.replace(/\//g, '\\');
   }
 
-  if (/^.+:/.test(path)) {
+  if (/^.+:/.test(pathname)) {
     // has Windows drive at beginning of path
   } else {
     // unix path…
-    path = sep + path;
+    pathname = path.sep + pathname;
   }
 
-  return host + path;
+  return host + pathname;
 }
