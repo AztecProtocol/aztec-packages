@@ -76,7 +76,7 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
         func(i);
     }
 #else
-#ifdef OMP_MULTITHREADING
+#ifndef NO_OMP_MULTITHREADING
     parallel_for_omp(num_iterations, func);
 #else
     // parallel_for_spawning(num_iterations, func);

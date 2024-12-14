@@ -2,6 +2,9 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <iostream>
+#ifndef NO_OMP_MULTITHREADING
+#include <omp.h>
+#endif
 
 namespace bb::crypto {
 
