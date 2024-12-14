@@ -1,7 +1,7 @@
 import {
   type AztecNode,
   type FunctionCall,
-  type InBlock,
+
   L1NotePayload,
   type L2Block,
   type L2BlockNumber,
@@ -10,13 +10,12 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type TxEffect,
-  TxHash,
+    TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
+  type AztecAddress,
   type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
@@ -48,8 +47,8 @@ import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -558,10 +557,9 @@ export class SimulatorOracle implements DBOracle {
    * Decrypts logs tagged for a recipient and returns them.
    * @param scopedLogs - The logs to decrypt.
    * @param recipient - The recipient of the logs.
-   * @param simulator - The simulator to use for decryption.
    * @returns The decrypted notes.
    */
-  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress, simulator?: AcirSimulator) {
+  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress) {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
@@ -571,54 +569,30 @@ export class SimulatorOracle implements DBOracle {
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
-    const incomingNotes: IncomingNoteDao[] = [];
+    const decrypted = [];
 
-    const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = scopedLog.isFromPublic
+      const payload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
-      if (incomingNotePayload) {
-        const payload = incomingNotePayload;
-
-        const txEffect =
-          txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
-
-        if (!txEffect) {
-          this.log.warn(`No tx effect found for ${scopedLog.txHash} while decrypting tagged logs`);
-          continue;
-        }
-
-        txEffectsCache.set(scopedLog.txHash.toString(), txEffect);
-
-        if (!excludedIndices.has(scopedLog.txHash.toString())) {
-          excludedIndices.set(scopedLog.txHash.toString(), new Set());
-        }
-        const { incomingNote } = await produceNoteDaos(
-          // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
-          // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
-          // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
-          simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
-          this.db,
-          incomingNotePayload ? recipient.toAddressPoint() : undefined,
-          payload!,
-          txEffect.data.txHash,
-          txEffect.l2BlockNumber,
-          txEffect.l2BlockHash,
-          txEffect.data.noteHashes,
-          scopedLog.dataStartIndexForTx,
-          excludedIndices.get(scopedLog.txHash.toString())!,
-          this.log,
-        );
-
-        if (incomingNote) {
-          incomingNotes.push(incomingNote);
-        }
+      if (!payload) {
+        this.log.verbose("Unable to decrypt log");
+        continue;
       }
+
+      if (!excludedIndices.has(scopedLog.txHash.toString())) {
+        excludedIndices.set(scopedLog.txHash.toString(), new Set());
+      }
+
+      const note = await getOrderedNoteItems(this.db, payload);
+      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...note.items];
+
+      decrypted.push({ plaintext , txHash: scopedLog.txHash , contractAddress: payload.contractAddress });
     }
-    return { incomingNotes };
+
+    return decrypted;
   }
 
   /**
@@ -631,25 +605,26 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
 
     // We've produced the full IncomingNoteDao, which we'd be able to simply insert into the database. However, this is
     // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
     // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
     // contract for further processing.
-    for (const note of incomingNotes) {
-      const plaintext = [note.storageSlot, note.noteTypeId.toField(), ...note.note.items];
-
-      const txEffect = await this.aztecNode.getTxEffect(note.txHash);
+    for (const decryptedLog of decryptedLogs) {
+      // Log processing requires the note hashes in the tx in which the note was created. We are now assuming that the
+      // note was included in the same block in which the log was delivered - note that partial notes will not work this
+      // way.
+      const txEffect = await this.aztecNode.getTxEffect(decryptedLog.txHash);
       if (!txEffect) {
-        throw new Error(`Could not find tx effect for tx hash ${note.txHash}`);
+        throw new Error(`Could not find tx effect for tx hash ${decryptedLog.txHash}`);
       }
 
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLogs(
-        note.contractAddress,
-        plaintext,
-        note.txHash,
+        decryptedLog.contractAddress,
+        decryptedLog.plaintext,
+        decryptedLog.txHash,
         txEffect.data.noteHashes,
         recipient,
         simulator,
@@ -658,6 +633,7 @@ export class SimulatorOracle implements DBOracle {
     return;
   }
 
+  // Called when notes are delivered, usually as a result to a call to the process_logs contract function
   public async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
