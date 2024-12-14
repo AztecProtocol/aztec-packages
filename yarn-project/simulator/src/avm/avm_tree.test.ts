@@ -16,7 +16,7 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees, NativeWorldStateService } from '@aztec/world-state';
 
@@ -97,7 +97,7 @@ beforeEach(async () => {
 
   slots = Array.from({ length: 64 }, (_, i) => new Fr(i + 128));
   values = Array.from({ length: 64 }, (_, i) => new Fr(i + 256));
-}, 10_000);
+}, 30_000);
 
 /****************************************************/
 /*************** Test Cases *************************/

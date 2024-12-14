@@ -3,7 +3,6 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
   type FieldsOf,
   Fr,
@@ -11,6 +10,7 @@ import {
   L1TokenPortalManager,
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
+  type Logger,
   type PXE,
   type SiblingPath,
   type TxReceipt,
@@ -145,7 +145,7 @@ export class CrossChainTestHarness {
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
     wallet: AccountWallet,
-    logger: DebugLogger,
+    logger: Logger,
     underlyingERC20Address?: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
@@ -190,7 +190,7 @@ export class CrossChainTestHarness {
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
-    public logger: DebugLogger,
+    public logger: Logger,
 
     /** L2 Token contract. */
     public l2Token: TokenContract,
@@ -359,7 +359,7 @@ export class CrossChainTestHarness {
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
-    const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
+    const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
     // We poll isL1ToL2MessageSynced endpoint until the message is available
     await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
 

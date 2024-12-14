@@ -1,11 +1,16 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  type ClientProtocolCircuitVerifier,
+  P2PClientType,
+  type WorldStateSynchronizer,
+  mockTx,
+} from '@aztec/circuit-types';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -82,7 +87,7 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  const logger = createDebugLogger('p2p-client-integration-test');
+  const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
     ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());
@@ -148,7 +153,15 @@ describe('Req Resp p2p client integration', () => {
         epochProofQuotePool: epochProofQuotePool as unknown as EpochProofQuotePool,
         store: kvStore,
       };
-      const client = await createP2PClient(config, l2BlockSource, proofVerifier, worldState, undefined, deps);
+      const client = await createP2PClient(
+        P2PClientType.Full,
+        config,
+        l2BlockSource,
+        proofVerifier,
+        worldState,
+        undefined,
+        deps,
+      );
 
       await client.start();
       clients.push(client);
@@ -223,7 +236,7 @@ describe('Req Resp p2p client integration', () => {
       // We want to create a set of nodes and request transaction from them
       const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/ false);
       const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
+      const client2PeerId = await client2.getEnr()!.peerId();
 
       // Give the nodes time to discover each other
       await sleep(6000);

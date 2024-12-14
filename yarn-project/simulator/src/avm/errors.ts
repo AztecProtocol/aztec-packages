@@ -1,5 +1,5 @@
 import { type FailingFunction, type NoirCallStack } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
@@ -138,16 +138,9 @@ export class AvmRevertReason extends ExecutionError {
   }
 }
 
-function createRevertReason(message: string, revertData: Fr[], context: AvmContext): AvmRevertReason {
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
-  // If the function selector is the public dispatch selector, we need to extract the actual function selector from the calldata.
-  // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
-  let functionSelector = context.environment.functionSelector;
+async function createRevertReason(message: string, revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
   // We drop the returnPc information.
   const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
-  if (functionSelector.toField().equals(new Fr(PUBLIC_DISPATCH_SELECTOR)) && context.environment.calldata.length > 0) {
-    functionSelector = FunctionSelector.fromField(context.environment.calldata[0]);
-  }
 
   // If we are reverting due to the same error that we have been tracking, we use the nested error as the cause.
   let nestedError = undefined;
@@ -160,11 +153,13 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
     message = context.machineState.collectedRevertInfo.recursiveRevertReason.message;
   }
 
+  const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
+
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
       contractAddress: context.environment.address,
-      functionSelector: functionSelector,
+      functionName: fnName,
     },
     /*noirCallStack=*/ [...internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
     /*options=*/ { cause: nestedError },
@@ -177,8 +172,11 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
  * @param haltingError - the lower-level error causing the exceptional halt
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError, context: AvmContext): AvmRevertReason {
-  return createRevertReason(haltingError.message, [], context);
+export async function revertReasonFromExceptionalHalt(
+  haltingError: AvmExecutionError,
+  context: AvmContext,
+): Promise<AvmRevertReason> {
+  return await createRevertReason(haltingError.message, [], context);
 }
 
 /**
@@ -187,6 +185,6 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
  * @param revertData - output data of the explicit REVERT instruction
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): AvmRevertReason {
-  return createRevertReason('Assertion failed: ', revertData, context);
+export async function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
+  return await createRevertReason('Assertion failed: ', revertData, context);
 }

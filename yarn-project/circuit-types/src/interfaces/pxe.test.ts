@@ -35,7 +35,7 @@ import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
-import { ExtendedNote, type OutgoingNotesFilter, UniqueNote } from '../notes/index.js';
+import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -43,7 +43,6 @@ import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../t
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
-import { type SyncStatus } from './sync-status.js';
 
 jest.setTimeout(12_000);
 
@@ -205,11 +204,6 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
-  it('getOutgoingNotes', async () => {
-    const result = await context.client.getOutgoingNotes({ contractAddress: address });
-    expect(result).toEqual([expect.any(UniqueNote)]);
-  });
-
   it('addNote', async () => {
     await context.client.addNote(ExtendedNote.random(), address);
   });
@@ -261,16 +255,6 @@ describe('PXESchema', () => {
   it('getPXEInfo', async () => {
     const result = await context.client.getPXEInfo();
     expect(result).toEqual(await handler.getPXEInfo());
-  });
-
-  it('isGlobalStateSynchronized', async () => {
-    const result = await context.client.isGlobalStateSynchronized();
-    expect(result).toBe(true);
-  });
-
-  it('getSyncStatus', async () => {
-    const result = await context.client.getSyncStatus();
-    expect(result).toEqual(await handler.getSyncStatus());
   });
 
   it('getContractInstance', async () => {
@@ -442,10 +426,6 @@ class MockPXE implements PXE {
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve([UniqueNote.random()]);
-  }
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
     expect(scope).toEqual(this.address);
@@ -509,14 +489,6 @@ class MockPXE implements PXE {
         ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
       ) as ProtocolContractAddresses,
       pxeVersion: '1.0',
-    });
-  }
-  isGlobalStateSynchronized(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return Promise.resolve({
-      blocks: 1,
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

@@ -20,7 +20,7 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import assert from 'assert/strict';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -58,7 +58,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   protected constructor(
     protected readonly instance: NativeWorldState,
-    protected readonly log = createDebugLogger('aztec:world-state:database'),
+    protected readonly log = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -66,7 +66,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
-    log = createDebugLogger('aztec:world-state:database'),
+    log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
     const worldStateDirectory = join(dataDir, 'world_state');
@@ -102,7 +102,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
-    const log = createDebugLogger('aztec:world-state:database');
+    const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
     log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
@@ -136,7 +136,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const initialHeaderIndex = await committed.findLeafIndex(MerkleTreeId.ARCHIVE, this.initialHeader.hash());
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [this.initialHeader.hash()]);
+    const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
 

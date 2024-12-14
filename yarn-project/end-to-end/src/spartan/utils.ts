@@ -1,4 +1,4 @@
-import { createDebugLogger, sleep } from '@aztec/aztec.js';
+import { createLogger, sleep } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 
 import { exec, execSync, spawn } from 'child_process';
@@ -11,7 +11,7 @@ import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_chec
 
 const execAsync = promisify(exec);
 
-const logger = createDebugLogger('k8s-utils');
+const logger = createLogger('e2e:k8s-utils');
 
 const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
@@ -23,7 +23,7 @@ const k8sLocalConfigSchema = z.object({
   HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().min(1, 'GRAFANA_PASSWORD env variable must be set'),
-  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1/query'),
+  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
   K8S: z.literal('local'),
 });

@@ -24,7 +24,7 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -209,7 +209,6 @@ describe('public_tx_simulator', () => {
       worldStateDB,
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      /*realAvmProvingRequest=*/ false,
       /*doMerkleOperations=*/ true,
     );
 
@@ -439,15 +438,9 @@ describe('public_tx_simulator', () => {
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-      // squashed
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x101)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
       new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
-
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
-      // squashed
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x201)),
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x102)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
     ]);
   });
 

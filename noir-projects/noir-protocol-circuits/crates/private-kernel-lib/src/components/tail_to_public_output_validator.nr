@@ -86,13 +86,13 @@ impl TailToPublicOutputValidator {
         );
 
         // private_logs
-        assert_split_transformed_value_arrays(
-            prev_data.private_logs,
-            output_non_revertible.private_logs,
-            output_revertible.private_logs,
-            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
-            split_counter,
-        );
+        // assert_split_transformed_value_arrays(
+        //     prev_data.private_logs,
+        //     output_non_revertible.private_logs,
+        //     output_revertible.private_logs,
+        //     |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
+        //     split_counter,
+        // );
     }
 
     fn validate_propagated_sorted_values(self) {

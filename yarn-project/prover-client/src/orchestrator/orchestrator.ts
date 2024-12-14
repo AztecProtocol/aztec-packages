@@ -42,7 +42,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -77,7 +77,7 @@ import {
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';
 
-const logger = createDebugLogger('aztec:prover:proving-orchestrator');
+const logger = createLogger('prover-client:orchestrator');
 
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
@@ -326,7 +326,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // And build the block header
-    logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
+    logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState, expectedHeader);
 
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
@@ -1196,10 +1196,13 @@ export class ProvingOrchestrator implements EpochProver {
           return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
         } catch (err) {
           if (process.env.AVM_PROVING_STRICT) {
+            logger.error(`Error thrown when proving AVM circuit with AVM_PROVING_STRICT on`, err);
             throw err;
           } else {
             logger.warn(
-              `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
+              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Faking AVM proof and carrying on. ${inspect(
+                err,
+              )}.`,
             );
             return {
               proof: makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),

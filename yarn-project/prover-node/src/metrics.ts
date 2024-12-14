@@ -1,5 +1,5 @@
 import { type Timer } from '@aztec/foundation/timer';
-import { type Histogram, Metrics, type TelemetryClient, ValueType, millisecondBuckets } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 export class ProverNodeMetrics {
   provingJobDuration: Histogram;
@@ -10,9 +10,6 @@ export class ProverNodeMetrics {
       description: 'Duration of proving job',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(2), // 60 buckets spanning an interval of ~100ms to ~1hour
-      },
     });
   }
 

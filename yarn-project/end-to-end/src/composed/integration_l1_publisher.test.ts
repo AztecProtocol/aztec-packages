@@ -1,6 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createDebugLogger } from '@aztec/aztec.js';
+import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type L2Tips,
@@ -20,7 +20,7 @@ import {
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { range } from '@aztec/foundation/array';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -60,7 +60,7 @@ import { setupL1Contracts } from '../fixtures/utils.js';
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
 const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
 
-const logger = createDebugLogger('aztec:integration_l1_publisher');
+const logger = createLogger('integration_l1_publisher');
 
 const config = getConfigEnvVars();
 config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
@@ -590,14 +590,14 @@ describe('L1Publisher integration', () => {
       // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
-        expect.stringMatching(/^L1 Transaction 0x[a-f0-9]{64} reverted$/),
+        expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
       );
 
       // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/,
+          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({

@@ -156,6 +156,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                                               auto& relation_parameters,
                                               const size_t circuit_size)
     {
+        PROFILE_THIS_NAME("Lookup::compute_logderivative_inverse");
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread

@@ -1,14 +1,18 @@
 // @attribution: lodestar impl for inspiration
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
-import { compressSync, uncompressSync } from 'snappy';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import {
+  CollectiveReqRespTimeoutError,
+  IndividualReqRespTimeoutError,
+  InvalidResponseError,
+} from '../../errors/reqresp.error.js';
+import { SnappyTransform } from '../encoding.js';
 import { type PeerManager } from '../peer_manager.js';
 import { PeerErrorSeverity } from '../peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
@@ -49,13 +53,16 @@ export class ReqResp {
 
   private rateLimiter: RequestResponseRateLimiter;
 
+  private snappyTransform: SnappyTransform;
+
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
-    this.logger = createDebugLogger('aztec:p2p:reqresp');
+    this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
     this.rateLimiter = new RequestResponseRateLimiter(peerManager);
+    this.snappyTransform = new SnappyTransform();
   }
 
   /**
@@ -143,8 +150,7 @@ export class ReqResp {
           // The response validator handles peer punishment within
           const isValid = await responseValidator(request, object, peer);
           if (!isValid) {
-            this.logger.error(`Invalid response for ${subProtocol} from ${peer.toString()}`);
-            return undefined;
+            throw new InvalidResponseError();
           }
           return object;
         }
@@ -159,7 +165,7 @@ export class ReqResp {
         () => new CollectiveReqRespTimeoutError(),
       );
     } catch (e: any) {
-      this.logger.error(`${e.message} | subProtocol: ${subProtocol}`);
+      this.logger.debug(`${e.message} | subProtocol: ${subProtocol}`);
       return undefined;
     }
   }
@@ -196,27 +202,23 @@ export class ReqResp {
     let stream: Stream | undefined;
     try {
       stream = await this.libp2p.dialProtocol(peerId, subProtocol);
-      this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
+      this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
       const result = await executeTimeoutWithCustomError<Buffer>(
-        (): Promise<Buffer> => pipe([payload], stream!, this.readMessage),
+        (): Promise<Buffer> => pipe([payload], stream!, this.readMessage.bind(this)),
         this.individualRequestTimeoutMs,
-        () => new IndiviualReqRespTimeoutError(),
+        () => new IndividualReqRespTimeoutError(),
       );
-
-      await stream.close();
-      this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
 
       return result;
     } catch (e: any) {
-      this.logger.error(`${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      this.handleResponseError(e, peerId, subProtocol);
     } finally {
       if (stream) {
         try {
           await stream.close();
-          this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+          this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
@@ -224,7 +226,70 @@ export class ReqResp {
         }
       }
     }
-    return undefined;
+  }
+
+  /**
+   * Handle a response error
+   *
+   * ReqResp errors are punished differently depending on the severity of the offense
+   *
+   * @param e - The error
+   * @param peerId - The peer id
+   * @param subProtocol - The sub protocol
+   * @returns If the error is non pubishable, then undefined is returned, otherwise the peer is penalized
+   */
+  private handleResponseError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
+    const severity = this.categorizeError(e, peerId, subProtocol);
+    if (severity) {
+      this.peerManager.penalizePeer(peerId, severity);
+    }
+  }
+
+  /**
+   * Categorize the error and log it.
+   */
+  private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
+    // Non pubishable errors
+    // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
+    const logTags = {
+      peerId: peerId.toString(),
+      subProtocol,
+    };
+    if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
+      this.logger.debug(
+        `Non-punishable error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        logTags,
+      );
+      return undefined;
+    }
+
+    // Pubishable errors
+    // Connection reset errors in the networking stack are punished with high severity
+    // it just signals an unreliable peer
+    // We assume that the requesting node has a functioning networking stack.
+    if (e?.code === 'ECONNRESET' || e?.code === 'EPIPE') {
+      this.logger.debug(`Connection reset: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ECONNREFUSED') {
+      this.logger.debug(`Connection refused: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Timeout errors are punished with high tolerance, they can be due to a geogrpahically far away peer or an
+    // overloaded peer
+    if (e instanceof IndividualReqRespTimeoutError) {
+      this.logger.debug(
+        `Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        logTags,
+      );
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Catch all error
+    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
+    return PeerErrorSeverity.HighToleranceError;
   }
 
   /**
@@ -235,8 +300,8 @@ export class ReqResp {
     for await (const chunk of source) {
       chunks.push(chunk.subarray());
     }
-    const messageData = chunks.concat();
-    return uncompressSync(Buffer.concat(messageData), { asBuffer: true }) as Buffer;
+    const messageData = Buffer.concat(chunks);
+    return this.snappyTransform.inboundTransformNoTopic(messageData);
   }
 
   /**
@@ -266,6 +331,7 @@ export class ReqResp {
     }
 
     const handler = this.subProtocolHandlers[protocol];
+    const transform = this.snappyTransform;
 
     try {
       await pipe(
@@ -274,7 +340,7 @@ export class ReqResp {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(msg);
-            yield new Uint8Array(compressSync(response));
+            yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },
         stream,

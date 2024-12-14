@@ -41,18 +41,28 @@ pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
 
-pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
+pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
+    src: [Field; SRC_LEN],
+    offset: u32,
+) -> [Field; DST_LEN] {
+    assert(offset + DST_LEN <= SRC_LEN, "offset too large");
+
+    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
+    for i in 0..DST_LEN {
+        dst[i] = src[i + offset];
+    }
+
+    dst
+}
+
+// Helper function to convert a validated array to BoundedVec.
+// Important: Only use it for validated arrays: validate_array(array) should be true.
+pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
     T: Empty + Eq,
 {
-    let mut len = 0;
-    for elem in array {
-        if !is_empty(elem) {
-            len += 1;
-        }
-    }
-
-    BoundedVec { storage: array, len }
+    let len = array_length(array);
+    BoundedVec::from_parts_unchecked(array, len)
 }
 
 pub unconstrained fn find_index_hint<T, let N: u32, Env>(

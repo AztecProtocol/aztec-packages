@@ -10,7 +10,7 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
@@ -38,7 +38,7 @@ export class AvmAccumulatedData {
     /**
      * The public data writes made in the AVM execution.
      */
-    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
   ) {}
 
   getSize() {
@@ -58,7 +58,7 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 
@@ -79,7 +79,7 @@ export class AvmAccumulatedData {
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 
@@ -97,7 +97,7 @@ export class AvmAccumulatedData {
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
     );
   }
 

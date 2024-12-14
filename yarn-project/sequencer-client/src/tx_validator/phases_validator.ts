@@ -6,11 +6,11 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
-  #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
+  #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
   constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {

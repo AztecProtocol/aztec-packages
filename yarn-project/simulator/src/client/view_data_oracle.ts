@@ -16,7 +16,7 @@ import {
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
@@ -33,7 +33,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
-    protected log = createDebugLogger('aztec:simulator:client_view_context'),
+    protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
     super();
@@ -290,23 +290,22 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    const formattedStr = applyStringFormatting(message, fields);
-    this.log.verbose(`debug_log ${formattedStr}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
    * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivpsk_m of the sender must be known.
+   * For this to work, the ivsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecretAsSender(
+  public override async getIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
+    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {

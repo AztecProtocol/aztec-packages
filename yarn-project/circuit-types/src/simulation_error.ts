@@ -19,7 +19,7 @@ export interface FailingFunction {
   /**
    * The selector of the function that failed.
    */
-  functionSelector: FunctionSelector;
+  functionSelector?: FunctionSelector;
   /**
    * The name of the function that failed.
    */
@@ -78,6 +78,8 @@ export function isNoirCallStackUnresolved(callStack: NoirCallStack): callStack i
  * An error during the simulation of a function call.
  */
 export class SimulationError extends Error {
+  private aztecContext: string = '';
+
   constructor(
     private originalMessage: string,
     private functionErrorStack: FailingFunction[],
@@ -124,7 +126,9 @@ export class SimulationError extends Error {
 
   getMessage() {
     if (this.noirErrorStack && !isNoirCallStackUnresolved(this.noirErrorStack) && this.noirErrorStack.length) {
-      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'`;
+      return `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'${
+        this.aztecContext
+      }`;
     }
     return this.originalMessage;
   }
@@ -160,6 +164,7 @@ export class SimulationError extends Error {
     this.functionErrorStack.forEach(failingFunction => {
       if (
         failingFunction.contractAddress.equals(contractAddress) &&
+        !!failingFunction.functionSelector &&
         failingFunction.functionSelector.equals(functionSelector)
       ) {
         failingFunction.functionName = functionName;
@@ -175,7 +180,7 @@ export class SimulationError extends Error {
     const stackLines: string[] = [
       ...functionCallStack.map(failingFunction => {
         return `at ${failingFunction.contractName ?? failingFunction.contractAddress.toString()}.${
-          failingFunction.functionName ?? failingFunction.functionSelector.toString()
+          failingFunction.functionName ?? failingFunction.functionSelector?.toString() ?? 'unknown'
         }`;
       }),
       ...noirCallStack.map(errorLocation =>
@@ -209,6 +214,10 @@ export class SimulationError extends Error {
    */
   setNoirCallStack(callStack: NoirCallStack) {
     this.noirErrorStack = callStack;
+  }
+
+  setAztecContext(context: string) {
+    this.aztecContext = context;
   }
 
   toJSON() {
