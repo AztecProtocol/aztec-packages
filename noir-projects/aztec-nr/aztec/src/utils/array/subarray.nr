@@ -48,7 +48,7 @@ mod test {
         assert_eq(subarray([1, 2, 3, 4, 5], 1), [2]);
     }
 
-    #[test(should_fail_with="DST_LEN too large for offset")]
+    #[test(should_fail_with = "DST_LEN too large for offset")]
     unconstrained fn subarray_offset_too_large() {
         // With an offset of 1 we can only request up to 4 elements
         let _: [_; 5] = subarray([1, 2, 3, 4, 5], 1);

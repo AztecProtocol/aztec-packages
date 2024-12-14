@@ -80,8 +80,12 @@ pub unconstrained fn process_log<Env>(
             let header = NoteHeader::new(context.this_address(), candidate_nonce, storage_slot);
 
             // TODO: handle failed note_hash_and_nullifier computation
-            let hashes =
-                compute_note_hash_and_nullifier(serialized_note_content, header, note_type_id).unwrap();
+            let hashes = compute_note_hash_and_nullifier(
+                serialized_note_content,
+                header,
+                note_type_id,
+            )
+                .unwrap();
 
             if hashes.siloed_note_hash == expected_siloed_note_hash {
                 // TODO(#10726): push these into a vec to deliver all at once instead of having one oracle call per note

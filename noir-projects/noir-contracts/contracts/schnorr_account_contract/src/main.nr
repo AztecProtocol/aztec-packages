@@ -22,7 +22,7 @@ contract SchnorrAccount {
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
-    use dep::aztec::protocol_types::constants::{PRIVATE_LOG_SIZE_IN_FIELDS, MAX_NOTE_HASHES_PER_TX};
+    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS};
 
     #[storage]
     struct Storage<Context> {
@@ -147,11 +147,13 @@ contract SchnorrAccount {
                     panic(f"Unknown note type id {note_type_id}")
                 };
 
-                Option::some(dep::aztec::oracle::management::NoteHashesAndNullifier {
-                    note_hash: hashes[0],
-                    siloed_note_hash: hashes[2],
-                    inner_nullifier: hashes[3],
-                })
+                Option::some(
+                    dep::aztec::oracle::management::NoteHashesAndNullifier {
+                        note_hash: hashes[0],
+                        siloed_note_hash: hashes[2],
+                        inner_nullifier: hashes[3],
+                    },
+                )
             },
         );
     }

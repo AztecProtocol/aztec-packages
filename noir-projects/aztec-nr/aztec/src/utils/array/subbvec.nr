@@ -23,10 +23,7 @@ pub fn subbvec<T, let SRC_MAX_LEN: u32, let DST_MAX_LEN: u32>(
     // because we're constructing the new storage array as a subarray of the original one (which should have zeroed
     // storage past len), guaranteeing correctness. This is because `subarray` does not allow extending arrays past
     // their original length.
-    BoundedVec::from_parts_unchecked(
-        array::subarray(vec.storage(), offset),
-        vec.len() - offset,
-    )
+    BoundedVec::from_parts_unchecked(array::subarray(vec.storage(), offset), vec.len() - offset)
 }
 
 mod test {
@@ -76,7 +73,7 @@ mod test {
         let _: BoundedVec<_, 1> = subbvec(bvec, 2);
     }
 
-    #[test(should_fail_with="DST_LEN too large for offset")]
+    #[test(should_fail_with = "DST_LEN too large for offset")]
     unconstrained fn subbvec_dst_len_causes_enlarge() {
         let bvec = BoundedVec::<_, 10>::from_array([1, 2, 3, 4, 5]);
 
@@ -84,7 +81,7 @@ mod test {
         let _: BoundedVec<_, 11> = subbvec(bvec, 0);
     }
 
-    #[test(should_fail_with="DST_LEN too large for offset")]
+    #[test(should_fail_with = "DST_LEN too large for offset")]
     unconstrained fn subbvec_dst_len_too_large_for_offset() {
         let bvec = BoundedVec::<_, 10>::from_array([1, 2, 3, 4, 5]);
 
