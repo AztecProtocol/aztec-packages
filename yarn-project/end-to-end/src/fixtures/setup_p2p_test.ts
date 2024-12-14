@@ -4,6 +4,7 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
+import { type DateProvider } from '@aztec/foundation/timer';
 import { type PXEService } from '@aztec/pxe';
 
 import getPort from 'get-port';
@@ -34,6 +35,7 @@ export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `
 
 export function createNodes(
   config: AztecNodeConfig,
+  dateProvider: DateProvider,
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
@@ -46,7 +48,7 @@ export function createNodes(
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(config, port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    const nodePromise = createNode(config, dateProvider, port, bootstrapNodeEnr, i, dataDir, metricsPort);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -55,6 +57,7 @@ export function createNodes(
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
   config: AztecNodeConfig,
+  dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
   accountIndex: number,
@@ -68,6 +71,7 @@ export async function createNode(
   return await AztecNodeService.createAndSync(validatorConfig, {
     telemetry: telemetryClient,
     logger: createLogger(`node:${tcpPort}`),
+    dateProvider,
   });
 }
 

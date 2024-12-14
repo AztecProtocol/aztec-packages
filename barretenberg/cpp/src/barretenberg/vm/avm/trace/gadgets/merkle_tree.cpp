@@ -34,6 +34,16 @@ FF AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(FF contract_address, 
     return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(FF tx_hash, FF note_index_in_tx)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, tx_hash, note_index_in_tx });
+}
+
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(FF nonce, FF siloed_note_hash)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
+}
+
 FF AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(FF contract_address, FF nullifier)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
@@ -78,6 +88,31 @@ FF AvmMerkleTreeTraceBuilder::unconstrained_update_leaf_index(const FF& leaf_val
     return unconstrained_compute_root_from_path(leaf_value, leaf_index, path);
 }
 
+bool AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(
+    const PublicDataTreeLeafPreimage& low_leaf_preimage, const FF& leaf_slot)
+{
+    auto low_leaf_slot = uint256_t(low_leaf_preimage.slot);
+    auto low_leaf_next_index = uint256_t(low_leaf_preimage.next_index);
+    auto low_leaf_next_slot = uint256_t(low_leaf_preimage.next_slot);
+
+    auto leaf_slot_value = uint256_t(leaf_slot);
+
+    return low_leaf_slot < leaf_slot_value && (low_leaf_next_index == 0 || low_leaf_next_slot > leaf_slot_value);
+}
+
+bool AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(const NullifierLeafPreimage& low_leaf_preimage,
+                                                                      const FF& siloed_nullifier)
+{
+    auto low_leaf_nullifier = uint256_t(low_leaf_preimage.nullifier);
+    auto low_leaf_next_index = uint256_t(low_leaf_preimage.next_index);
+    auto low_leaf_next_nullifier = uint256_t(low_leaf_preimage.next_nullifier);
+
+    auto siloed_leaf_nullifier = uint256_t(siloed_nullifier);
+
+    return low_leaf_nullifier < siloed_leaf_nullifier &&
+           (low_leaf_next_index == 0 || low_leaf_next_nullifier > siloed_leaf_nullifier);
+}
+
 /**************************************************************************************************
  *                          STORAGE TREE OPERATIONS
  **************************************************************************************************/
@@ -113,6 +148,10 @@ FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t cl
             unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
         return tree_snapshots.public_data_tree.root;
     }
+    // Check the low leaf conditions (i.e. the slot is sandwiched by the low nullifier, or the new slot is a max
+    // value)
+    bool low_leaf_conditions = assert_public_data_non_membership_check(low_preimage, slot);
+    ASSERT(low_leaf_conditions);
     // The new leaf for an insertion is
     PublicDataTreeLeafPreimage new_preimage{
         .slot = slot, .value = value, .next_index = low_preimage.next_index, .next_slot = low_preimage.next_slot
@@ -165,6 +204,10 @@ FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t
         ASSERT(is_member);
         return tree_snapshots.nullifier_tree.root;
     }
+    // Check the low leaf conditions (i.e. the slot is sandwiched by the low nullifier, or the new slot is a max
+    // value)
+    bool low_leaf_conditions = assert_nullifier_non_membership_check(low_preimage, nullifier);
+    ASSERT(low_leaf_conditions);
     // Check membership of the low leaf
     bool low_leaf_member = unconstrained_check_membership(
         low_preimage_hash, static_cast<uint64_t>(low_index), low_path, tree_snapshots.nullifier_tree.root);
