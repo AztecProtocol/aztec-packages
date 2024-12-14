@@ -66,15 +66,22 @@ bootstrap:
   ARG GITHUB_RUN_URL=""
   ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
-bootstrap-aztec:
+bootstrap-with-verifier:
+  # TODO(ci3) roll this into normal bootstrap
   FROM +bootstrap
+  WORKDIR /usr/src/yarn-project
+  ENV DENOISE=1
+  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
+  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
+
+bootstrap-aztec:
+  FROM +bootstrap-with-verifier
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
   WORKDIR /usr/src/yarn-project
   ENV DENOISE=1
   RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   WORKDIR /usr/src
   RUN rm -rf \
     .git \
@@ -91,13 +98,12 @@ bootstrap-aztec:
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
-  FROM +bootstrap
+  FROM +bootstrap-with-verifier
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
   WORKDIR /usr/src/yarn-project
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
-  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
   RUN rm -rf \
     .git .github \
     l1-contracts \
@@ -368,7 +374,7 @@ base-log-uploader:
 # Tests
 ########################################################################################################################
 network-test:
-    FROM +bootstrap
+    FROM +bootstrap-with-verifier
     ARG test=./test-transfer.sh
     ARG validators=3
     WORKDIR /usr/src/yarn-project
