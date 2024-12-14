@@ -145,14 +145,14 @@ function equal(Fr a, Fr b) pure returns(bool)
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 
-uint256 constant NUMBER_OF_SUBRELATIONS = 26;
+uint256 constant NUMBER_OF_SUBRELATIONS = 22;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
 uint256 constant NUMBER_OF_ENTITIES = 44;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 9;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
-uint256 constant NUMBER_OF_ALPHAS = 25;
+uint256 constant NUMBER_OF_ALPHAS = 21;
 
 // Prime field order
 uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
@@ -1378,16 +1378,16 @@ library RelationsLib {
         ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
 
         ip.v1 = ip.u1 * INTERNAL_MATRIX_DIAGONAL[0] + ip.u_sum;
-        evals[22] = evals[22] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
+        evals[18] = evals[18] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
 
         ip.v2 = ip.u2 * INTERNAL_MATRIX_DIAGONAL[1] + ip.u_sum;
-        evals[23] = evals[23] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
+        evals[19] = evals[19] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
 
         ip.v3 = ip.u3 * INTERNAL_MATRIX_DIAGONAL[2] + ip.u_sum;
-        evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
+        evals[20] = evals[20] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
 
         ip.v4 = ip.u4 * INTERNAL_MATRIX_DIAGONAL[3] + ip.u_sum;
-        evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
+        evals[21] = evals[21] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
     }
 
     function scaleAndBatchSubrelations(

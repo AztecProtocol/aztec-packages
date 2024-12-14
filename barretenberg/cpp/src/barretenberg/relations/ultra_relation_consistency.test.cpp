@@ -17,8 +17,7 @@
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
@@ -473,7 +472,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
 {
     const auto run_test = []([[maybe_unused]] bool random_inputs) {
-        using Relation = Poseidon2ExternalRelation<FF>;
+        using Relation = Poseidon2Relation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
@@ -490,6 +489,7 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         const auto& q_3 = input_elements.q_o;
         const auto& q_4 = input_elements.q_4;
         const auto& q_poseidon2_external = input_elements.q_poseidon2_external;
+        input_elements.q_poseidon2_internal = 0;
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants
@@ -547,7 +547,7 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
 TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
 {
     const auto run_test = []([[maybe_unused]] bool random_inputs) {
-        using Relation = Poseidon2InternalRelation<FF>;
+        using Relation = Poseidon2Relation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
@@ -561,6 +561,7 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
         const auto& w_4_shift = input_elements.w_4_shift;
         const auto& q_1 = input_elements.q_l;
         const auto& q_poseidon2_internal = input_elements.q_poseidon2_internal;
+        input_elements.q_poseidon2_external = 0;
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants on only first element

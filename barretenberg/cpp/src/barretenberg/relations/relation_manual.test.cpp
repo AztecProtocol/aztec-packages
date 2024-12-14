@@ -1,6 +1,5 @@
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
@@ -13,10 +12,11 @@ class RelationManual : public testing::Test {};
 TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = bb::Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2Relation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
+        FF q_poseidon2_internal;
         FF q_poseidon2_external;
         FF w_l;
         FF w_r;
@@ -31,7 +31,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
         FF q_o;
         FF q_4;
     };
-    AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    AllPoseidonValues all_poseidon_values{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
@@ -44,10 +44,11 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = bb::Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2Relation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
+        FF q_poseidon2_internal;
         FF q_poseidon2_external;
         FF w_l;
         FF w_r;
@@ -77,7 +78,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
      * 3	2270175
      * 4	1368540
      */
-    AllPoseidonValues all_poseidon_values{ 1, 5, 4, 1, 7, 6, 9, 8, 3, 3763355, 3031011, 2270175, 1368540 };
+    AllPoseidonValues all_poseidon_values{ 0, 1, 5, 4, 1, 7, 6, 9, 8, 3, 3763355, 3031011, 2270175, 1368540 };
 
     const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
@@ -90,11 +91,12 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = bb::Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2Relation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
         FF q_poseidon2_internal;
+        FF q_poseidon2_external;
         FF w_l;
         FF w_r;
         FF w_o;
@@ -108,7 +110,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
         FF q_o;
         FF q_4;
     };
-    AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
@@ -121,16 +123,20 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 TEST_F(RelationManual, Poseidon2InternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = bb::Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2Relation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
         FF q_poseidon2_internal;
+        FF q_poseidon2_external;
         FF w_l;
         FF w_r;
         FF w_o;
         FF w_4;
         FF q_l;
+        FF q_r;
+        FF q_o;
+        FF q_4;
 
         FF w_l_shift;
         FF w_r_shift;
@@ -148,11 +154,15 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
      */
     AllPoseidonValues all_poseidon_values{
         1,
+        0,
         1,
         2,
         3,
         4,
         5,
+        0,
+        0,
+        0,
         FF(std::string("0x122d9ce41e83c533318954d77a4ebc40eb729f6543ebd5f2e4ecb175ced3bc74")),
         FF(std::string("0x185028b6d489be7c029367a14616776b33bf2eada9bb370950d6719f68b5067f")),
         FF(std::string("0x00fce289a96b3f4a18562d0ef0ab76ca165e613222aa0c24501377003c5622a8")),

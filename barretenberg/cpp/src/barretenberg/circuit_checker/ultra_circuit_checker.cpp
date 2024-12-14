@@ -131,13 +131,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        result = result && check_relation<PoseidonInternal>(values, params);
+        result = result && check_relation<Poseidon>(values, params);
         if (!result) {
-            return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
-        }
-        result = result && check_relation<PoseidonExternal>(values, params);
-        if (!result) {
-            return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
+            return report_fail("Failed Poseidon relation at row idx = ", idx);
         }
 
         if constexpr (IsMegaBuilder<Builder>) {

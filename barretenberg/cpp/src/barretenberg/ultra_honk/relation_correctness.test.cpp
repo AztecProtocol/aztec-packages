@@ -363,8 +363,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<EccOpQueueRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<Poseidon2ExternalRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<Poseidon2InternalRelation<FF>>(circuit_size, prover_polynomials, params);
+    check_relation<Poseidon2Relation<FF>>(circuit_size, prover_polynomials, params);
     check_linearly_dependent_relation<Flavor, DatabusLookupRelation<FF>>(circuit_size, prover_polynomials, params);
     check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
 }
