@@ -1,7 +1,9 @@
 {
   "scripts": {
     "build": "yarn clean && tsc -b && webpack",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit --runInBand src/fixtures"
+    "formatting": "run -T prettier --check ./src \"!src/web/main.js\" && run -T eslint ./src",
+    "test": "LOG_LEVEL=${LOG_LEVEL:-verbose} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit",
+    "test:unit": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest src/fixtures"
   },
   "jest": {
     "reporters": []
