@@ -83,7 +83,8 @@ grafana:
   persistence:
     type: pvc
     enabled: true
-    size: "10Gi"
+    size: "128Gi"
+    storageClass: "standard-rwo"
   datasources:
     datasources.yaml:
       apiVersion: 1
