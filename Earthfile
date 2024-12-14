@@ -76,13 +76,13 @@ bootstrap-with-verifier:
 
 bootstrap-aztec:
   FROM +bootstrap-with-verifier
-  # Focus on the biggest chunks to remove
-  RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
-    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
   WORKDIR /usr/src/yarn-project
   ENV DENOISE=1
   RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
   WORKDIR /usr/src
+  # Focus on the biggest chunks to remove
+  RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
+    find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
   RUN rm -rf \
     .git \
     .github \
@@ -99,11 +99,12 @@ bootstrap-aztec:
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 bootstrap-end-to-end:
   FROM +bootstrap-with-verifier
+  WORKDIR /usr/src/yarn-project
+  RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
+  WORKDIR /usr/src
   # Focus on the biggest chunks to remove
   RUN find noir/noir-repo/target/release -type f ! -name "acvm" ! -name "nargo" -exec rm -rf {} + && \
     find avm-transpiler/target/release -type f ! -name "avm-transpiler" -exec rm -rf {} +
-  WORKDIR /usr/src/yarn-project
-  RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   RUN rm -rf \
     .git .github \
     l1-contracts \
@@ -374,18 +375,20 @@ base-log-uploader:
 # Tests
 ########################################################################################################################
 network-test:
-    FROM +bootstrap-with-verifier
-    ARG test=./test-transfer.sh
-    ARG validators=3
-    WORKDIR /usr/src/yarn-project
-    # All script arguments are in the end-to-end/scripts/native-network folder
-    ENV LOG_LEVEL=verbose
-    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        "$test" \
-        ./deploy-l1-contracts.sh \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        ./ethereum.sh \
-        "./prover-node.sh 8078 false" \
-        ./pxe.sh \
-        "./validators.sh $validators"
+  FROM +bootstrap-with-verifier
+  ARG test=./test-transfer.sh
+  ARG validators=3
+  WORKDIR /usr/src/yarn-project
+  ENV DENOISE=1
+  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
+  # All script arguments are in the end-to-end/scripts/native-network folder
+  ENV LOG_LEVEL=verbose
+  RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+      "$test" \
+      ./deploy-l1-contracts.sh \
+      ./deploy-l2-contracts.sh \
+      ./boot-node.sh \
+      ./ethereum.sh \
+      "./prover-node.sh 8078 false" \
+      ./pxe.sh \
+      "./validators.sh $validators"
