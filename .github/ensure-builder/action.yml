@@ -105,17 +105,6 @@ runs:
           if ! [ -f ~/maybe_exit_spot.sh ] ; then
             cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
             cp scripts/ci/spot_runner_graceful_exit.sh ~/spot_runner_graceful_exit.sh
-            # Get the used space on /dev/nvme1n1 in bytes
-            used_space=$(df /var/lib/docker | awk 'NR==2 {print $3}')
-            # Compare and conditionally prune
-            if [[ "$used_space" -gt 192000000 ]] ; then
-              echo "Used space is greater than 192GB. Running 'docker system prune'."
-              docker system prune -f -a || true
-              echo "Pruned docker images."
-            else
-              # prune only dangling images
-              docker system prune || true
-            fi
             # Run maybe_exit_spot.sh every minute
             chmod +x ~/spot_runner_graceful_exit.sh
             chmod +x ~/maybe_exit_spot.sh
@@ -127,7 +116,17 @@ runs:
     - name: Docker Login
       uses: ./.github/run-on-builder
       with:
-        run: echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+        run: |
+          i=0
+          while ! systemctl is-active --quiet docker; do
+            sleep 2
+            if [ $(( i++ )) -gt 60 ]; then
+              echo "Docker service not found! Report this."
+              exit 1
+            fi
+          done
+          echo "Docker service is active!"
+          echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
     - name: Run On Builder
       id: test
       env:

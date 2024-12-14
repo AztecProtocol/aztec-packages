@@ -99,6 +99,7 @@ runs:
           mkdir -p ~/.ssh
           echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+          i=0
           while ! systemctl is-active --quiet docker; do
             sleep 2
             if [ $(( i++ )) -gt 60 ]; then
