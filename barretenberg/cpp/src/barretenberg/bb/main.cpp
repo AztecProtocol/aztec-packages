@@ -808,12 +808,9 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1154): Remove this and pass in the IPA proof to the
-    // verifier.
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        init_grumpkin_crs(1 << 16);
-        vk->contains_ipa_claim = false;
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
         ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     }
     Verifier verifier{ vk, ipa_verification_key };
@@ -1113,6 +1110,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
                                       get_witness(witnessPath) };
 
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: remove if possible
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Construct Honk proof
@@ -1318,6 +1316,8 @@ int main(int argc, char* argv[])
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "verify_ultra_rollup_honk") {
+            return verify_honk<UltraRollupFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraFlavor>(bytecode_path, output_path, recursive);
