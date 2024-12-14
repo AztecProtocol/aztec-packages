@@ -18,7 +18,10 @@ function build {
   echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
   denoise yarn install
 
-  if ! cache_download yarn-project-$hash.tar.gz ; then
+  # We append a cache busting number we can bump if need be.
+  tar_file=yarn-project-$hash-1.tar.gz
+
+  if ! cache_download $tar_file; then
     case "${1:-}" in
       "fast")
         yarn build:fast
@@ -37,7 +40,7 @@ function build {
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    cache_upload yarn-project-$hash.tar.gz $files_to_upload
+    cache_upload $tar_file $files_to_upload
     echo
     echo -e "${green}Yarn project successfully built!${reset}"
   fi
