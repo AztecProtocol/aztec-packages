@@ -70,7 +70,7 @@ import { inspect } from 'util';
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -342,19 +342,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           siloedNullifier,
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           owner.address.toAddressPoint(),
+          note.noteTypeId,
         ),
         scope,
       );
@@ -387,19 +387,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNullifiedNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           Fr.ZERO, // We are not able to derive
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           note.owner.toAddressPoint(),
+          note.noteTypeId,
         ),
       );
     }

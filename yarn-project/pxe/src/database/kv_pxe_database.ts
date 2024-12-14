@@ -22,7 +22,7 @@ import {
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
 
-import { IncomingNoteDao } from './incoming_note_dao.js';
+import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -185,11 +185,11 @@ export class KVPxeDatabase implements PxeDatabase {
     return val?.map(b => Fr.fromBuffer(b));
   }
 
-  async addNote(note: IncomingNoteDao, scope?: AztecAddress): Promise<void> {
+  async addNote(note: NoteDao, scope?: AztecAddress): Promise<void> {
     await this.addNotes([note], scope);
   }
 
-  async addNotes(incomingNotes: IncomingNoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
+  async addNotes(incomingNotes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     if (!(await this.#scopes.hasAsync(scope.toString()))) {
       await this.#addScope(scope);
     }
@@ -217,7 +217,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.db.transactionAsync(async () => {
       const notes = await toArray(this.#notes.valuesAsync());
       for (const note of notes) {
-        const noteDao = IncomingNoteDao.fromBuffer(note);
+        const noteDao = NoteDao.fromBuffer(note);
         if (noteDao.l2BlockNumber > blockNumber) {
           const noteIndex = toBufferBE(noteDao.index, 32).toString('hex');
           await this.#notes.delete(noteIndex);
@@ -252,7 +252,7 @@ export class KVPxeDatabase implements PxeDatabase {
     );
     const noteDaos = nullifiedNoteBuffers
       .filter(buffer => buffer != undefined)
-      .map(buffer => IncomingNoteDao.fromBuffer(buffer!));
+      .map(buffer => NoteDao.fromBuffer(buffer!));
 
     await this.db.transactionAsync(async () => {
       for (const dao of noteDaos) {
@@ -286,7 +286,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
+  async getIncomingNotes(filter: IncomingNotesFilter): Promise<NoteDao[]> {
     const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
@@ -348,7 +348,7 @@ export class KVPxeDatabase implements PxeDatabase {
       });
     }
 
-    const result: IncomingNoteDao[] = [];
+    const result: NoteDao[] = [];
     for (const { ids, notes } of candidateNoteSources) {
       for (const id of ids) {
         const serializedNote = await notes.getAsync(id);
@@ -356,7 +356,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
-        const note = IncomingNoteDao.fromBuffer(serializedNote);
+        const note = NoteDao.fromBuffer(serializedNote);
         if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
           continue;
         }
@@ -384,13 +384,13 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
 
     return this.db.transactionAsync(async () => {
-      const nullifiedNotes: IncomingNoteDao[] = [];
+      const nullifiedNotes: NoteDao[] = [];
 
       for (const blockScopedNullifier of nullifiers) {
         const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
@@ -406,7 +406,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
         const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
-        const note = IncomingNoteDao.fromBuffer(noteBuffer);
+        const note = NoteDao.fromBuffer(noteBuffer);
         if (!note.addressPoint.equals(accountAddressPoint)) {
           // tried to nullify someone else's note
           continue;
@@ -445,7 +445,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async addNullifiedNote(note: IncomingNoteDao): Promise<void> {
+  async addNullifiedNote(note: NoteDao): Promise<void> {
     const noteIndex = toBufferBE(note.index, 32).toString('hex');
 
     await this.#nullifiedNotes.set(noteIndex, note.toBuffer());

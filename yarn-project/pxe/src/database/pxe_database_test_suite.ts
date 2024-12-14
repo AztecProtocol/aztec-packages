@@ -13,7 +13,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
-import { IncomingNoteDao } from './incoming_note_dao.js';
+import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -78,9 +78,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
-      let notes: IncomingNoteDao[];
+      let notes: NoteDao[];
 
-      const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
+      const filteringTests: [() => IncomingNotesFilter, () => NoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -119,7 +119,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          IncomingNoteDao.random({
+          NoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             addressPoint: owners[i % owners.length].address.toAddressPoint(),

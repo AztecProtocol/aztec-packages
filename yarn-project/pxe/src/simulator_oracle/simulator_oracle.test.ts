@@ -30,7 +30,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
@@ -638,7 +638,7 @@ describe('Simulator oracle', () => {
 
       // Check incoming
       {
-        const addedIncoming: IncomingNoteDao[] = addNotesSpy.mock.calls[0][0];
+        const addedIncoming: NoteDao[] = addNotesSpy.mock.calls[0][0];
         expect(addedIncoming.map(dao => dao)).toEqual([
           expect.objectContaining({ ...requests[0].snippetOfNoteDao, index: requests[0].indexWithinNoteHashTree }),
           expect.objectContaining({ ...requests[1].snippetOfNoteDao, index: requests[1].indexWithinNoteHashTree }),

@@ -34,7 +34,7 @@ import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -553,7 +553,7 @@ export class SimulatorOracle implements DBOracle {
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
-    const incomingNotes: IncomingNoteDao[] = [];
+    const incomingNotes: NoteDao[] = [];
 
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
@@ -624,7 +624,7 @@ export class SimulatorOracle implements DBOracle {
         });
       });
     }
-    const nullifiedNotes: IncomingNoteDao[] = [];
+    const nullifiedNotes: NoteDao[] = [];
     const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
     const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
     const currentBlockNumber = await this.getBlockNumber();
