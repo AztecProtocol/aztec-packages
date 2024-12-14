@@ -36,7 +36,7 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { type IncomingNotesFilter, IncomingNotesFilterSchema } from '../notes/incoming_notes_filter.js';
+import { type NotesFilter as NotesFilter, NotesFilterSchema } from '../notes/incoming_notes_filter.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -240,11 +240,11 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Gets incoming notes of accounts registered in this PXE based on the provided filter.
+   * Gets notes registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]>;
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]>;
 
   /**
    * Fetches an L1 to L2 message from the node.
@@ -494,7 +494,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .args(TxHash.schema)
     .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
-  getIncomingNotes: z.function().args(IncomingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
+  getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z
     .function()
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)

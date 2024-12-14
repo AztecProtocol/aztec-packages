@@ -1,4 +1,4 @@
-import { type InBlock, type IncomingNotesFilter, MerkleTreeId, NoteStatus } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter, MerkleTreeId, NoteStatus } from '@aztec/circuit-types';
 import {
   AztecAddress,
   BlockHeader,
@@ -189,13 +189,13 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.addNotes([note], scope);
   }
 
-  async addNotes(incomingNotes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
+  async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     if (!(await this.#scopes.hasAsync(scope.toString()))) {
       await this.#addScope(scope);
     }
 
     return this.db.transactionAsync(async () => {
-      for (const dao of incomingNotes) {
+      for (const dao of notes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
         // and should also return notes in the order that they were created.
@@ -286,7 +286,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async getIncomingNotes(filter: IncomingNotesFilter): Promise<NoteDao[]> {
+  async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
@@ -563,7 +563,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async estimateSize(): Promise<number> {
-    const incomingNotesSize = (await this.getIncomingNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
+    const noteSize = (await this.getNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
 
     const authWitsSize = (await toArray(this.#authWitnesses.valuesAsync())).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
@@ -572,7 +572,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const addressesSize = (await this.#completeAddresses.lengthAsync()) * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
-    return incomingNotesSize + treeRootsSize + authWitsSize + addressesSize;
+    return noteSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
   async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {

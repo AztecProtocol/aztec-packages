@@ -242,9 +242,9 @@ describe('e2e_2_pxes', () => {
         .send()
         .wait();
       await testContract.methods.sync_notes().simulate();
-      const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
-      expect(incomingNotes).toHaveLength(1);
-      note = incomingNotes[0];
+      const notes = await walletA.getNotes({ txHash: receipt.txHash });
+      expect(notes).toHaveLength(1);
+      note = notes[0];
     }
 
     // 3. Nullify the note

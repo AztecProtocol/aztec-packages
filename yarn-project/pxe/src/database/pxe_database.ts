@@ -1,4 +1,4 @@
-import { type InBlock, type IncomingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -50,11 +50,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   popCapsule(): Promise<Fr[] | undefined>;
 
   /**
-   * Gets incoming notes based on the provided filter.
+   * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<NoteDao[]>;
+  getNotes(filter: NotesFilter): Promise<NoteDao[]>;
 
   /**
    * Adds a note to DB.
@@ -75,11 +75,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param incomingNotes - An array of notes which were decrypted as incoming.
+   * @param notes - An array of notes.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: NoteDao[], scope?: AztecAddress): Promise<void>;
+  addNotes(notes: NoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.

@@ -37,15 +37,15 @@ export async function produceNoteDaos(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
   logger: Logger,
-): Promise<{ incomingNote: NoteDao | undefined }> {
+): Promise<{ note: NoteDao | undefined }> {
   if (!addressPoint) {
     throw new Error('addressPoint is undefined. Cannot create note.');
   }
 
-  let incomingNote: NoteDao | undefined;
+  let note: NoteDao | undefined;
 
   if (addressPoint) {
-    incomingNote = await produceNoteDaosForKey(
+    note = await produceNoteDaosForKey(
       simulator,
       db,
       addressPoint,
@@ -62,6 +62,6 @@ export async function produceNoteDaos(
   }
 
   return {
-    incomingNote,
+    note,
   };
 }

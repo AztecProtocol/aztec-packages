@@ -7,7 +7,7 @@ import {
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type InBlock,
-  type IncomingNotesFilter,
+  type NotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
@@ -272,8 +272,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getIncomingNotes(filter);
+  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    const noteDaos = await this.db.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;

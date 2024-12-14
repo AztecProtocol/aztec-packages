@@ -1,4 +1,4 @@
-import { type IncomingNotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { type NotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -80,7 +80,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let storageSlots: Fr[];
       let notes: NoteDao[];
 
-      const filteringTests: [() => IncomingNotesFilter, () => NoteDao[]][] = [
+      const filteringTests: [() => NotesFilter, () => NoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -135,7 +135,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
         await database.addNotes(notes);
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
@@ -145,7 +145,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note);
         }
 
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
@@ -167,7 +167,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         }
 
         await expect(
-          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+          database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
         ).resolves.toEqual(getExpected());
       });
 
@@ -184,8 +184,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const actualNotesWithDefault = await database.getIncomingNotes({});
-        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getNotes({});
+        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
@@ -206,7 +206,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
         await expect(database.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
 
-        const result = await database.getIncomingNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+        const result = await database.getNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
 
         expect(result.sort()).toEqual([...notesToNullify].sort());
       });
@@ -224,7 +224,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const result = await database.getIncomingNotes({
+        const result = await database.getNotes({
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 
@@ -242,23 +242,23 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note, owners[1].address);
         }
 
-        const owner0IncomingNotes = await database.getIncomingNotes({
+        const owner0Notes = await database.getNotes({
           scopes: [owners[0].address],
         });
 
-        expect(owner0IncomingNotes.sort()).toEqual(notes.slice(0, 5).sort());
+        expect(owner0Notes.sort()).toEqual(notes.slice(0, 5).sort());
 
-        const owner1IncomingNotes = await database.getIncomingNotes({
+        const owner1Notes = await database.getNotes({
           scopes: [owners[1].address],
         });
 
-        expect(owner1IncomingNotes.sort()).toEqual(notes.slice(5).sort());
+        expect(owner1Notes.sort()).toEqual(notes.slice(5).sort());
 
-        const bothOwnerIncomingNotes = await database.getIncomingNotes({
+        const bothOwnerNotes = await database.getNotes({
           scopes: [owners[0].address, owners[1].address],
         });
 
-        expect(bothOwnerIncomingNotes.sort()).toEqual(notes.sort());
+        expect(bothOwnerNotes.sort()).toEqual(notes.sort());
       });
 
       it('a nullified note removes notes from all accounts in the pxe', async () => {
@@ -266,12 +266,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNote(notes[0], owners[1].address);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([notes[0]]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([notes[0]]);
@@ -290,12 +290,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         ).resolves.toEqual([notes[0]]);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([]);
@@ -305,7 +305,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNotes(notes, owners[0].address);
 
         await database.removeNotesAfter(5);
-        const result = await database.getIncomingNotes({ scopes: [owners[0].address] });
+        const result = await database.getNotes({ scopes: [owners[0].address] });
         expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
       });
     });

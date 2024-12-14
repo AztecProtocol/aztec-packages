@@ -53,7 +53,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
       // Owner of a note
       let noteCreationBlockNumber: number;
-      let noteHashes, visibleIncomingNotes: ExtendedNote[];
+      let noteHashes, visibleNotes: ExtendedNote[];
       const value = 100n;
       let validNoteBlockNumber: any;
 
@@ -65,13 +65,13 @@ describe('e2e_inclusion_proofs_contract', () => {
         ({ noteHashes } = receipt.debugInfo!);
 
         await contract.methods.sync_notes().simulate();
-        visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
+        visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
       });
 
       it('should return the correct values for creating a note', () => {
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       });
@@ -161,11 +161,11 @@ describe('e2e_inclusion_proofs_contract', () => {
         const { noteHashes } = receipt.debugInfo!;
 
         await contract.methods.sync_notes().simulate();
-        const visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
+        const visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
 
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       }

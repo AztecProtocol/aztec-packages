@@ -455,13 +455,13 @@ describe('Simulator oracle', () => {
 
   describe('Process notes', () => {
     let addNotesSpy: any;
-    let getIncomingNotesSpy: any;
+    let getNotesSpy: any;
     let removeNullifiedNotesSpy: any;
     let simulator: MockProxy<AcirSimulator>;
 
     beforeEach(() => {
       addNotesSpy = jest.spyOn(database, 'addNotes');
-      getIncomingNotesSpy = jest.spyOn(database, 'getIncomingNotes');
+      getNotesSpy = jest.spyOn(database, 'getNotes');
       removeNullifiedNotesSpy = jest.spyOn(database, 'removeNullifiedNotes');
       removeNullifiedNotesSpy.mockImplementation(() => Promise.resolve([]));
       simulator = mock<AcirSimulator>();
@@ -477,7 +477,7 @@ describe('Simulator oracle', () => {
 
     afterEach(() => {
       addNotesSpy.mockReset();
-      getIncomingNotesSpy.mockReset();
+      getNotesSpy.mockReset();
       removeNullifiedNotesSpy.mockReset();
       simulator.computeNoteHashAndOptionallyANullifier.mockReset();
       aztecNode.getTxEffect.mockReset();
@@ -663,7 +663,7 @@ describe('Simulator oracle', () => {
 
       const taggedLogs = mockTaggedLogs(requests, 2);
 
-      getIncomingNotesSpy.mockResolvedValueOnce(Promise.resolve(requests.map(request => request.snippetOfNoteDao)));
+      getNotesSpy.mockResolvedValueOnce(Promise.resolve(requests.map(request => request.snippetOfNoteDao)));
 
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
