@@ -97,9 +97,8 @@ function compile {
   contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
   export REBUILD_PATTERNS="^noir-projects/noir-contracts/contracts/$contract/"
-  contract_hash=$(cache_content_hash)
+  contract_hash="$(cache_content_hash ../../noir/.rebuild_patterns_native ../../avm-transpiler/.rebuild_patterns)"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
     $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
