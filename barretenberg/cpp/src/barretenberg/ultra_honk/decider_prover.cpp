@@ -77,25 +77,15 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         auto total_time = 0.0;
         auto start = high_resolution_clock::now();
 
-        // size_t log_circuit_size = proving_key->proving_key.log_circuit_size;
-        zk_sumcheck_data.setup_challenge_polynomial(sumcheck_output.challenge);
-
-        // compute masked big sum polynomial, commit to it
-        zk_sumcheck_data.setup_big_sum_polynomial();
-        Commitment big_sum_commitment = ck->commit(zk_sumcheck_data.big_sum_polynomial);
-        transcript->template send_to_verifier("Libra:big_sum_commitment", big_sum_commitment);
-
-        zk_sumcheck_data.compute_batched_polynomial();
-        zk_sumcheck_data.compute_batched_quotient();
-        Commitment libra_batched_quotient = ck->commit(zk_sumcheck_data.batched_quotient);
-        transcript->template send_to_verifier("Libra:quotient_commitment", libra_batched_quotient);
+        zk_sumcheck_data.compute_witnesses_and_commit(sumcheck_output.challenge, transcript, ck);
 
         auto end = high_resolution_clock::now();
         total_time += duration<double, std::milli>(end - start).count();
 
         info("total time", total_time);
 
-        std::array<Polynomial, 3> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+        std::array<Polynomial, 4> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+                                                        zk_sumcheck_data.big_sum_polynomial,
                                                         zk_sumcheck_data.big_sum_polynomial,
                                                         zk_sumcheck_data.batched_quotient };
 

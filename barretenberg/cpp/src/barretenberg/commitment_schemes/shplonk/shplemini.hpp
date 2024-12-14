@@ -29,7 +29,7 @@ template <typename Curve> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
-                              const std::array<Polynomial, 3>& libra_polynomials = {},
+                              const std::array<Polynomial, 4>& libra_polynomials = {},
                               const FF& libra_evaluation = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
@@ -51,32 +51,22 @@ template <typename Curve> class ShpleminiProver_ {
         //     FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
         static constexpr FF subgroup_generator =
             FF(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
-        const auto gemini_r = opening_claims[0].opening_pair.challenge;
         OpeningClaim new_claim;
+
         if (has_zk) {
-            new_claim.polynomial = libra_polynomials[0];
-            new_claim.opening_pair.challenge = gemini_r;
-            new_claim.opening_pair.evaluation = libra_polynomials[0].evaluate(gemini_r);
-            transcript->send_to_verifier("Libra:concatenation_eval", new_claim.opening_pair.evaluation);
-            libra_opening_claims.push_back(new_claim);
+            const auto gemini_r = opening_claims[0].opening_pair.challenge;
 
-            new_claim.polynomial = libra_polynomials[1];
-            new_claim.opening_pair.challenge = subgroup_generator * gemini_r;
-            new_claim.opening_pair.evaluation = libra_polynomials[1].evaluate(new_claim.opening_pair.challenge);
-            transcript->send_to_verifier("Libra:shifted_big_sum_eval", new_claim.opening_pair.evaluation);
-            libra_opening_claims.push_back(new_claim);
-
-            new_claim.polynomial = libra_polynomials[1];
-            new_claim.opening_pair.challenge = gemini_r;
-            new_claim.opening_pair.evaluation = libra_polynomials[1].evaluate(gemini_r);
-            transcript->send_to_verifier("Libra:big_sum_eval", new_claim.opening_pair.evaluation);
-            libra_opening_claims.push_back(new_claim);
-
-            new_claim.polynomial = libra_polynomials[2];
-            new_claim.opening_pair.challenge = gemini_r;
-            new_claim.opening_pair.evaluation = libra_polynomials[2].evaluate(gemini_r);
-            transcript->send_to_verifier("Libra:quotient_eval", new_claim.opening_pair.evaluation);
-            libra_opening_claims.push_back(new_claim);
+            std::array<std::string, 4> libra_eval_labels = {
+                "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
+            };
+            const std::array<FF, 4> evaluation_points = { gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r };
+            for (size_t idx = 0; idx < 4; idx++) {
+                new_claim.polynomial = std::move(libra_polynomials[idx]);
+                new_claim.opening_pair.challenge = evaluation_points[idx];
+                new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
+                transcript->send_to_verifier(libra_eval_labels[idx], new_claim.opening_pair.evaluation);
+                libra_opening_claims.push_back(new_claim);
+            }
         }
 
         const OpeningClaim batched_claim =
@@ -161,7 +151,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
-        std::vector<Commitment> libra_commitments = {},
+        const std::array<Commitment, 3>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
@@ -214,7 +204,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Process Shplonk transcript data:
         // - Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
-        info("shplonk nu verifier ", shplonk_batching_challenge);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -651,8 +640,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void add_zk_data(std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
-                            std::vector<Commitment> libra_commitments,
-                            std::array<Fr, 4> libra_evaluations,
+                            const std::array<Commitment, 3>& libra_commitments,
+                            const std::array<Fr, 4>& libra_evaluations,
                             const Fr& gemini_evaluation_challenge,
                             const Fr& shplonk_batching_challenge,
                             const Fr& shplonk_evaluation_challenge)
@@ -690,14 +679,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         info(shplonk_challenge_power);
         scalars.push_back(-scaling_factor);
         shplonk_challenge_power *= shplonk_batching_challenge;
-        // update the constant term of the Shplonk batched claim
         constant_term += scaling_factor * libra_evaluations[0];
 
         commitments.push_back(libra_commitments[1]);
         scaling_factor = denominators[1] * shplonk_challenge_power;
-        // scalars.push_back((-scaling_factor));
         shplonk_challenge_power *= shplonk_batching_challenge;
-        // update the constant term of the Shplonk batched claim
         constant_term += scaling_factor * libra_evaluations[1];
         scaling_factor += denominators[2] * shplonk_challenge_power;
         scalars.push_back(-scaling_factor);
@@ -709,9 +695,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         scaling_factor = denominators[3] * shplonk_challenge_power;
         scalars.push_back(-scaling_factor);
         shplonk_challenge_power *= shplonk_batching_challenge;
-        // update the constant term of the Shplonk batched claim
         constant_term += scaling_factor * libra_evaluations[3];
     }
+
     // Need to check that L_1(r) A(r) + (r-1) (A(g*r) - A(r) - F(r) G(r)) + L_{m+1}(r) (A(r) - s) = T(r) Z_H(r)
     static bool libra_consistency_check(std::array<Fr, 4>& libra_evaluations,
                                         const Fr& gemini_evaluation_challenge,
@@ -724,14 +710,9 @@ template <typename Curve> class ShpleminiVerifier_ {
             Fr(1) / Fr(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
         Fr vanishing_poly_eval = gemini_evaluation_challenge.pow(87) - Fr(1);
-        std::vector<Fr> lagrange_coeffs(87);
-        // for (size_t idx = 0; idx < 87; idx++) {
-        //     lagrange_coeffs[idx] = Fr{ 0 };
-        // }
-        std::array<Fr, 87> challenge_polynomial_lagrange;
-        for (size_t idx = 0; idx < 87; idx++) {
-            challenge_polynomial_lagrange[idx] = Fr{ 0 };
-        }
+
+        std::vector<Fr> challenge_polynomial_lagrange(87);
+
         challenge_polynomial_lagrange[0] = Fr{ 1 };
         auto challenge_sqr = Fr{ 1 };
         for (size_t poly_idx = 0; poly_idx < CONST_PROOF_SIZE_LOG_N; poly_idx++) {
@@ -761,7 +742,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         };
     }
 
-    static std::array<Fr, 3> compute_barycentric_evaluation(std::array<Fr, 87> coeffs,
+    static std::array<Fr, 3> compute_barycentric_evaluation(const std::vector<Fr>& coeffs,
                                                             const size_t num_coeffs,
                                                             const Fr& z,
                                                             const Fr& inverse_root_of_unity)

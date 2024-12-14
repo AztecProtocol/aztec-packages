@@ -46,12 +46,9 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     auto sumcheck = SumcheckVerifier<Flavor>(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments = {};
+    std::array<Commitment, 3> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
-
-        Commitment libra_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-        libra_commitments.push_back(libra_commitment);
+        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
@@ -60,12 +57,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
         libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
-        Commitment libra_big_sum_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-        libra_commitments.push_back(libra_big_sum_commitment);
-        Commitment libra_quotient_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-        libra_commitments.push_back(libra_quotient_commitment);
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
         // info("big sum received");
     }
 

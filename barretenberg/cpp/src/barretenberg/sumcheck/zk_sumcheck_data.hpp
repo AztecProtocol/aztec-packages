@@ -249,20 +249,15 @@ template <typename Flavor> struct ZKSumcheckData {
             libra_concatenated_monomial_form.at(idx) = libra_concatenated_monomial_form_unmasked.at(idx);
         }
 
-        libra_concatenated_monomial_form.at(0) -= masking_scalars.value_at(0);
-        libra_concatenated_monomial_form.at(1) -= masking_scalars.value_at(1);
-
-        libra_concatenated_monomial_form.at(SUBGROUP_SIZE) += masking_scalars.value_at(0);
-        libra_concatenated_monomial_form.at(SUBGROUP_SIZE + 1) += masking_scalars.value_at(1);
-    }
-    void setup_challenge_polynomial(const std::vector<FF> multivariate_challenge)
-    {
-        std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_basis;
-        coeffs_lagrange_basis[0] = FF(1);
-
-        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
-            coeffs_lagrange_basis[idx] = FF{ 0 };
+        for (size_t idx = 0; idx < masking_scalars.size(); idx++) {
+            libra_concatenated_monomial_form.at(idx) -= masking_scalars.value_at(idx);
+            libra_concatenated_monomial_form.at(SUBGROUP_SIZE + idx) += masking_scalars.value_at(idx);
         }
+    }
+    void setup_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
+    {
+        std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
+        coeffs_lagrange_basis[0] = FF(1);
 
         for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
             for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
@@ -276,6 +271,8 @@ template <typename Flavor> struct ZKSumcheckData {
 
     void setup_big_sum_polynomial()
     {
+        // setup_challenge_polynomial(multivariate_challenge);
+
         big_sum_lagrange_coeffs[0] = 0;
 
         // Compute the big sum coefficients recursively
@@ -357,23 +354,39 @@ template <typename Flavor> struct ZKSumcheckData {
                 batched_polynomial.at(i + j) += big_sum_polynomial.at(i) * lagrange_first_monomial.at(j);
             }
         }
-        FF claimed_sum = constant_term;
+        FF claimed_libra_evaluation = constant_term;
         for (FF& libra_eval : libra_evaluations) {
-            claimed_sum += libra_eval;
+            claimed_libra_evaluation += libra_eval;
         }
         for (size_t idx = 0; idx < lagrange_last_monomial.size(); idx++) {
-            batched_polynomial.at(idx) -= lagrange_last_monomial.at(idx) * claimed_sum;
+            batched_polynomial.at(idx) -= lagrange_last_monomial.at(idx) * claimed_libra_evaluation;
         }
     }
 
     // Compute the quotient of batched_polynomial by Z_H = X^{|H|} - 1
     void compute_batched_quotient()
     {
+
         auto remainder = batched_polynomial;
         for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx >= SUBGROUP_SIZE; idx--) {
             batched_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
             remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
         }
+    }
+
+    void compute_witnesses_and_commit(const std::vector<FF> multivariate_challenge,
+                                      std::shared_ptr<typename Flavor::Transcript> transcript,
+                                      std::shared_ptr<typename Flavor::CommitmentKey> commitment_key)
+    {
+        setup_challenge_polynomial(multivariate_challenge);
+        setup_big_sum_polynomial();
+
+        transcript->template send_to_verifier("Libra:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
+
+        compute_batched_polynomial();
+        compute_batched_quotient();
+
+        transcript->template send_to_verifier("Libra:quotient_commitment", commitment_key->commit(batched_quotient));
     }
 };
 

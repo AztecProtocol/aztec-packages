@@ -178,6 +178,19 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
+    zk_sumcheck_data.setup_challenge_polynomial(sumcheck_output.challenge);
+    zk_sumcheck_data.setup_big_sum_polynomial();
+    transcript->template send_to_verifier("Libra:big_sum_commitment",
+                                          key->commitment_key->commit(zk_sumcheck_data.big_sum_polynomial));
+    zk_sumcheck_data.compute_batched_polynomial();
+    zk_sumcheck_data.compute_batched_quotient();
+    transcript->template send_to_verifier("Libra:quotient_commitment",
+                                          key->commitment_key->commit(zk_sumcheck_data.batched_quotient));
+
+    std::array<Polynomial, 3> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+                                                    zk_sumcheck_data.big_sum_polynomial,
+                                                    zk_sumcheck_data.batched_quotient };
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->circuit_size,
                                        key->polynomials.get_unshifted_without_concatenated(),
@@ -185,8 +198,8 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->commitment_key,
                                        transcript,
-                                       zk_sumcheck_data.libra_univariates_monomial,
-                                       sumcheck_output.claimed_libra_evaluations,
+                                       libra_polynomials,
+                                       sumcheck_output.claimed_libra_evaluation,
                                        key->polynomials.get_concatenated(),
                                        key->polynomials.get_groups_to_be_concatenated());
 
