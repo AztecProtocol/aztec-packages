@@ -10,7 +10,7 @@
     "formatting:fix": "FORCE_COLOR=true yarn workspaces foreach -A -p -v run formatting:fix",
     "lint": "yarn eslint --cache --ignore-pattern l1-artifacts .",
     "format": "yarn prettier --cache -w .",
-    "test": "RAYON_NUM_THREADS=4 FORCE_COLOR=true yarn workspaces foreach -A --exclude @aztec/aztec3-packages --exclude @aztec/bb-prover --exclude @aztec/prover-client -p -v run test",
+    "test": "RAYON_NUM_THREADS=4 FORCE_COLOR=true yarn workspaces foreach -A --exclude @aztec/end-to-end --exclude @aztec/aztec3-packages --exclude @aztec/bb-prover --exclude @aztec/prover-client -p -v run test",
     "build": "FORCE_COLOR=true yarn workspaces foreach -A --parallel --topological-dev --verbose --exclude @aztec/aztec3-packages --exclude @aztec/docs run build",
     "build:fast": "cd foundation && yarn build && cd ../l1-artifacts && yarn build && cd ../circuits.js && yarn build && cd .. && yarn generate && tsc -b",
     "build:dev": "./watch.sh",

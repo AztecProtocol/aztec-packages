@@ -38,9 +38,6 @@ format-check:
 test:
     FROM +bootstrap
     RUN yarn test
-    # TODO move into build image
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN cd ivc-integration && npx playwright install && npx playwright install-deps
 
 run-e2e:
     ARG test
