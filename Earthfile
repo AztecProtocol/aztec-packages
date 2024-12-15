@@ -381,14 +381,6 @@ network-test:
   WORKDIR /usr/src/yarn-project
   ENV DENOISE=1
   RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  # All script arguments are in the end-to-end/scripts/native-network folder
   ENV LOG_LEVEL=verbose
-  RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-      "$test" \
-      ./deploy-l1-contracts.sh \
-      ./deploy-l2-contracts.sh \
-      ./boot-node.sh \
-      ./ethereum.sh \
-      "./prover-node.sh 8078 false" \
-      ./pxe.sh \
-      "./validators.sh $validators"
+  WORKDIR /usr/src/
+  RUN scripts/run_native_testnet.sh -i
