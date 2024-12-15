@@ -8,8 +8,9 @@
 
 set -eu
 
+e2e_root=$(git rev-parse --show-top-level)/yarn-project/end-to-end
 # go above this folder
-cd $(dirname "${BASH_SOURCE[0]}")/..
+cd "$e2e_root"
 # Main positional parameter
 export TEST="$1"
 shift
@@ -49,9 +50,9 @@ fi
 
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
-  $(dirname "$0")/e2e_compose_test.sh "$test_path" "$@" || [ "$ignore_failures" = "true" ]
+  "$e2e_root/scripts/e2e_compose_test.sh" "$test_path" "$@" || [ "$ignore_failures" = "true" ]
 elif [ "$(echo "$test_config" | yq e '.with_alerts // false' -)" = "true" ]; then
-  $(dirname "$0")/e2e_test_with_alerts.sh "$test_path" "$@" || [ "$ignore_failures" = "true" ]
+  "$e2e_root/scripts/e2e_test_with_alerts.sh" "$test_path" "$@" || [ "$ignore_failures" = "true" ]
 else
   # Set environment variables
   while IFS='=' read -r key value; do
