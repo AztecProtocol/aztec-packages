@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
 
 hash=$(cache_content_hash ../noir/.rebuild_patterns* \
@@ -69,7 +70,13 @@ function test_e2e {
   denoise docker pull aztecprotocol/build:2.0
 
   # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.
+  # All tests are run within a docker container to keep them isolated.
+  # The first element describes how the test should be run, the second is a path to a unique test file.
+  # Any further elements are environment variables passed to the launching script.
+  # "simple" tests are single jest tests launched by ./scripts/test_simple.sh in docker.
+  # "compose" tests are the same, but are launched via docker compose and ./scripts/docker-compose.yml.
   # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.
+  # To mark it a flake it becomes e.g. "simple-flake" or "compose-flake".
   # If you can, try to find whoever is responsible for the test, and have them acknowledge they'll resolve it later.
   # DO NOT just re-run your PR and leave flakey tests running to impact on other engineers.
   # If you've been tasked with resolving a flakey test, grind on it using e.g.:
@@ -86,7 +93,7 @@ function test_e2e {
     "simple e2e_blacklist_token_contract/transfer_private"
     "simple e2e_blacklist_token_contract/transfer_public"
     "simple e2e_blacklist_token_contract/unshielding"
-    "flake e2e_block_building"
+    "simple-flake e2e_block_building"
     "simple e2e_bot"
     "simple e2e_card_game"
     "simple e2e_cheat_codes"
@@ -123,10 +130,10 @@ function test_e2e {
     "simple e2e_outbox"
     "simple e2e_p2p/gossip_network"
     "simple e2e_p2p/rediscovery"
-    "flake e2e_p2p/reqresp"
-    "flake e2e_p2p/upgrade_governance_proposer"
+    "simple-flake e2e_p2p/reqresp"
+    "simple-flake e2e_p2p/upgrade_governance_proposer"
     "simple e2e_private_voting_contract"
-    "flake e2e_prover/full FAKE_PROOFS=1"
+    "simple-flake e2e_prover/full FAKE_PROOFS=1"
     "simple e2e_prover_coordination"
     "simple e2e_public_testnet_transfer"
     "simple e2e_state_vars"
@@ -142,7 +149,7 @@ function test_e2e {
     "simple e2e_token_contract/transfer_to_private"
     "simple e2e_token_contract/transfer_to_public"
     "simple e2e_token_contract/transfer.test"
-    "flake flakey_e2e_inclusion_proofs_contract"
+    "simple-flake flakey_e2e_inclusion_proofs_contract"
 
     "compose composed/docs_examples"
     "compose composed/e2e_aztec_js_browser"
@@ -163,14 +170,20 @@ function test_e2e {
     cmd=$(echo "$entry" | awk '{print $1}')
     test=$(echo "$entry" | awk '{print $2}')
     env=$(echo "$entry" | cut -d' ' -f3-)
-    commands+=("$cmd")
-    tests+=("$test")
-    env_vars+=("$env")
+    if [[ ("$TEST_FLAKES" -eq 1 && "$cmd" =~ .*"-flake") ||
+          ("$TEST_FLAKES" -eq 0 && ! "$cmd" =~ .*"-flake") ]]; then
+      commands+=("$cmd")
+      tests+=("$test")
+      env_vars+=("$env")
+    fi
   done
+
+  # We will halt immediately on failure, unless testing flakes, in which case let it run to the end.
+  [ "$TEST_FLAKES" -eq 0 ] && local args="--halt now,fail=1"
 
   rm -rf results
   set +e
-  parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}-{#}/ --halt now,fail=1 \
+  parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}-{#}/ ${args:-} \
       '{3} ./scripts/test.sh {1} {2} 2>&1' ::: ${commands[@]} :::+ ${tests[@]} :::+ "${env_vars[@]}"
   code=$?
   set -e
@@ -215,6 +228,9 @@ case "$cmd" in
     ;;
   "test-e2e")
     TEST=1 test_e2e
+    ;;
+  "test-e2e-flakes")
+    TEST=1 TEST_FLAKES=1 test_e2e
     ;;
   "ci")
     build

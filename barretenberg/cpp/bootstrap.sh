@@ -86,6 +86,10 @@ function build {
 function test {
   if test_should_run barretenberg-test-$hash; then
     github_group "bb test"
+
+    echo "Check formatting..."
+    ./format.sh check
+
     echo "Building tests..."
     denoise cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert "&&" cmake --build --preset $preset
 
