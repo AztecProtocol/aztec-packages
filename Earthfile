@@ -44,6 +44,7 @@ bootstrap:
   ARG EARTHLY_GIT_HASH
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
+  # TODO don't retry noir projects. It seems to have been flakey.
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
     git init >/dev/null 2>&1 && \
@@ -55,7 +56,7 @@ bootstrap:
     DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/bootstrap.sh fast" && \
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
-    DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast && \
+    (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) && \
     DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
