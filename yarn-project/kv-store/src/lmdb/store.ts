@@ -65,9 +65,6 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     ephemeral: boolean = false,
     log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
-    if (!path) {
-      console.log(`UNDEFINED`);
-    }
     const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
     mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
