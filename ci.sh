@@ -184,11 +184,11 @@ case "$cmd" in
     exit 0
     ;;
   "test-kind-network")
-    test=${2:-transfer.test.ts}
-    values=${3:-3-validators}
-    ./bootstrap.sh image-e2e
+    test=${1:-transfer.test.ts}
+    values=${2:-3-validators}
+    echo ./bootstrap.sh image-e2e
     cd yarn-project/end-to-end
-    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
+    echo NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
     exit 0
     ;;
   "test-network")
