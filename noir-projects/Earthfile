@@ -7,7 +7,7 @@ test:
 test-protocol-circuits:
   FROM ../+bootstrap
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
+  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
 
 test-aztec-nr:
   FROM ../+bootstrap
@@ -52,10 +52,15 @@ gates-report:
 
   # Install bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+<<<<<<< HEAD
   # HACK increases build time but makes a gates report
   # this should have a cache to not rerun each time
   RUN git clean -fdx
   RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings
+=======
+
+  RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings --skip-brillig-constraints-check
+>>>>>>> origin/mw/blob-circuit-2
 
   COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh

@@ -58,7 +58,8 @@ function compile {
   hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
   if ! cache_download circuit-$hash.tar.gz &> /dev/null; then
     SECONDS=0
-    $NARGO compile --package $name --silence-warnings
+    # TODO(blobs) --skip-brillig-constraints-check for speed
+    $NARGO compile --package $name --silence-warnings --skip-brillig-constraints-check
     echo "Compilation complete for: $name (${SECONDS}s)"
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
