@@ -375,12 +375,7 @@ base-log-uploader:
 # Tests
 ########################################################################################################################
 network-test:
-  FROM +bootstrap-with-verifier
+  FROM +bootstrap
   ARG test=./test-transfer.sh
   ARG validators=3
-  WORKDIR /usr/src/yarn-project
-  ENV DENOISE=1
-  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-  ENV LOG_LEVEL=verbose
-  WORKDIR /usr/src/
-  RUN scripts/run_native_testnet.sh -i
+  RUN scripts/run_native_testnet.sh -i -t $test -val $validators -v
