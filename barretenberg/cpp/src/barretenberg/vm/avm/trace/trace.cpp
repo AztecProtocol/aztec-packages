@@ -3754,7 +3754,8 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     // We push the current ext call ctx onto the stack and initialize a new one
     current_ext_call_ctx.last_pc = pc;
-    current_ext_call_ctx.success_offset = resolved_success_offset,
+    current_ext_call_ctx.success_offset = resolved_success_offset;
+    current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
     external_call_ctx_stack.emplace(current_ext_call_ctx);
 
     // Ext Ctx setup
@@ -3763,6 +3764,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     set_call_ptr(static_cast<uint8_t>(clk));
 
+<<<<<<< HEAD
     // Don't try allocating more than the gas that is actually left
     const auto l2_gas_allocated_to_nested_call =
         std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
@@ -3781,6 +3783,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .l2_gas_left = l2_gas_allocated_to_nested_call,
         .da_gas_left = da_gas_allocated_to_nested_call,
         .internal_return_ptr_stack = {},
+        .tree_snapshot = {},
     };
 
     allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
@@ -3940,6 +3943,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
             write_to_memory(
                 current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
+            current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
         }
     }
 
@@ -4079,6 +4083,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
             write_to_memory(
                 current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
+            merkle_tree_trace_builder.set_tree_snapshots(current_ext_call_ctx.tree_snapshot);
         }
     }
 

@@ -276,6 +276,7 @@ class AvmTraceBuilder {
         uint32_t l2_gas_left; // as of start of latest nested call
         uint32_t da_gas_left; // as of start of latest nested call
         std::stack<uint32_t> internal_return_ptr_stack;
+        TreeSnapshots tree_snapshot; // This is the tree state at the time of the call
     };
 
     ExtCallCtx current_ext_call_ctx{};

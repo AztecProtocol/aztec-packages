@@ -42,6 +42,7 @@ class AvmMerkleTreeTraceBuilder {
     FF compute_public_tree_leaf_slot(uint32_t clk, FF contract_address, FF leaf_index);
 
     TreeSnapshots& get_tree_snapshots() { return tree_snapshots; }
+    void set_tree_snapshots(TreeSnapshots& tree_snapshots) { this->tree_snapshots = tree_snapshots; }
 
     // Public Data Tree
     bool perform_storage_read(uint32_t clk,
