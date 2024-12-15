@@ -130,9 +130,7 @@ runs:
     - name: Run On Builder
       id: test
       env:
-        # avoid double shell interpolation
         RUN_SCRIPT: |
-          export GITHUB_REF_NAME=${{ github.ref_name }};
           cd ~/run-${{ env.RUN_ID }};
           ci3/aws_handle_evict "${{ inputs.run }}"
       shell: bash

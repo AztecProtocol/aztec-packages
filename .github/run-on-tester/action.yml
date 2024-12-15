@@ -1,5 +1,5 @@
-name: Run on Builder
-description: "Target builder with actions"
+name: Run on Tester
+description: "Target tester with actions"
 
 inputs:
   run:
@@ -14,6 +14,8 @@ runs:
     - name: Run On Tester
       env:
         # avoid double shell interpolation
-        RUN_SCRIPT: export GITHUB_REF_NAME=${{ github.ref_name }} ; cd ~/run-${{ env.RUN_ID }} ; ${{ inputs.run }}
+        RUN_SCRIPT: |
+          cd ~/run-${{ env.RUN_ID }}
+          ${{ inputs.run }}
       shell: bash
       run: scripts/run_on_tester "$RUN_SCRIPT"
