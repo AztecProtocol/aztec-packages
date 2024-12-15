@@ -138,6 +138,10 @@ runs:
         set +e;
         scripts/run_on_tester "$RUN_SCRIPT";
         exit_code=$?;
+        if [ $exit_code = 255 ]; then
+          echo "Treating exit 255 as spot eviction (TODO investigate termination cause).";
+          exit_code=155;
+        fi;
         echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
         if [ $exit_code = 155 ]; then
           echo "Spot eviction detected - retrying with on-demand.";
