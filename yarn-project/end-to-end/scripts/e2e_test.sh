@@ -8,7 +8,7 @@
 
 set -eu
 
-e2e_root=$(git rev-parse --show-top-level)/yarn-project/end-to-end
+e2e_root=$(git rev-parse --show-toplevel)/yarn-project/end-to-end
 # go above this folder
 cd "$e2e_root"
 # Main positional parameter
