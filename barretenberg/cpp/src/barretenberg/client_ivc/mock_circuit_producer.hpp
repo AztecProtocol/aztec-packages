@@ -113,6 +113,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
             ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
         } else {
+            // bool use_large_circuit = false; // first circuit is size 2^19
             bool use_large_circuit = (circuit_counter == 1);                            // first circuit is size 2^19
             GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
             mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
