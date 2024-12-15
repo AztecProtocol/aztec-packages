@@ -269,8 +269,6 @@ export type SetupOptions = {
   startProverNode?: boolean;
   /** Whether to fund the rewardDistributor */
   fundRewardDistributor?: boolean;
-  /** Data directory for the components under test */
-  dataDirectory?: string;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
