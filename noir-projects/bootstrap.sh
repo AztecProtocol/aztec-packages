@@ -12,7 +12,7 @@ github_group "noir-projects build"
 
 # TODO: Move the build image, or better, just use devcontainer as our build container.
 if ! command -v xxd &> /dev/null; then
-  apt update && apt install -y xxd
+  denoise "apt update && apt install -y xxd"
 fi
 
 # Use fmt as a trick to download dependencies.

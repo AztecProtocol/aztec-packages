@@ -187,6 +187,7 @@
     "grumpkin",
     "gtest",
     "wasi",
-    "memfree"
+    "memfree",
+    "tmpfs"
   ]
 }

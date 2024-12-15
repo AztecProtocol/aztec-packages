@@ -97,15 +97,13 @@ function compile {
   contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns
   export REBUILD_PATTERNS="^noir-projects/noir-contracts/contracts/$contract/"
-  contract_hash=$(cache_content_hash)
+  contract_hash="$(cache_content_hash ../../noir/.rebuild_patterns ../../avm-transpiler/.rebuild_patterns)"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
     $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
+    $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
   fi
-
-  $TRANSPILER $json_path $json_path
 
   # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
   # The returned jsons from process_function are converted back to a json array in the second jq -s call.
@@ -156,7 +154,7 @@ case "$cmd" in
   "full")
     build
     ;;
-  "build")
+  "compile")
     shift
     build $1
     ;;

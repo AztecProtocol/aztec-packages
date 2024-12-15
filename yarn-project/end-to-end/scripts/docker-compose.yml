@@ -28,8 +28,13 @@ services:
     image: aztecprotocol/build:2.0
     volumes:
       - ../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
+    tmpfs:
+      - /tmp:rw,size=1g
+      - /tmp-jest:rw,size=512m
     working_dir: /root/aztec-packages/yarn-project/end-to-end
     environment:
+      JEST_CACHE_DIR: /tmp-jest
       BENCHMARK: 'true'
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOST: http://fork:8545
