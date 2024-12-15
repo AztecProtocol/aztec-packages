@@ -1,6 +1,11 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type ProverCoordination, type WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
+import {
+  P2PClientType,
+  type ProverCoordination,
+  type WorldStateSynchronizer,
+  createAztecNodeClient,
+} from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createP2PClient } from '@aztec/p2p';
@@ -42,6 +47,7 @@ export async function createProverCoordination(
 
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     const p2pClient = await createP2PClient(
+      P2PClientType.Prover,
       config,
       deps.archiver,
       proofVerifier,
