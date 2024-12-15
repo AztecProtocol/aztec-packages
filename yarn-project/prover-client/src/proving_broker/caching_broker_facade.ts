@@ -64,6 +64,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
   ): Promise<ProvingJobResultsMap[T]> {
     // first try the cache
     let jobEnqueued = false;
+    let jobRejected = undefined;
     try {
       const cachedResult = await this.cache.getProvingJobStatus(id);
       if (cachedResult.status !== 'not-found') {
@@ -78,8 +79,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
           this.log.warn(`Cached result type mismatch for job=${id}. Expected=${type} but got=${output.type}`);
         }
       } else if (cachedResult.status === 'rejected') {
-        // prefer returning a rejected promises so that we don't trigger the catch block below
-        return Promise.reject(new Error(cachedResult.reason));
+        jobRejected = cachedResult.reason ?? 'Job rejected for unknown reason';
       } else if (cachedResult.status === 'in-progress' || cachedResult.status === 'in-queue') {
         jobEnqueued = true;
       } else {
@@ -87,6 +87,10 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       }
     } catch (err) {
       this.log.warn(`Failed to get cached proving job id=${id}: ${err}. Re-running job`);
+    }
+
+    if (jobRejected) {
+      throw new Error(jobRejected);
     }
 
     if (!jobEnqueued) {
@@ -142,10 +146,10 @@ export class CachingBrokerFacade implements ServerCircuitProver {
         if (output.type === type) {
           return output.result as ProvingJobResultsMap[T];
         } else {
-          return Promise.reject(new Error(`Unexpected proof type: ${output.type}. Expected: ${type}`));
+          throw new Error(`Unexpected proof type: ${output.type}. Expected: ${type}`);
         }
       } else {
-        return Promise.reject(new Error(result.reason));
+        throw new Error(result.reason);
       }
     } finally {
       signal?.removeEventListener('abort', abortFn);
