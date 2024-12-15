@@ -1,3 +1,4 @@
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';
@@ -64,13 +65,15 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     ephemeral: boolean = false,
     log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
-    if (path) {
-      mkdirSync(path, { recursive: true });
+    if (!path) {
+      console.log(`UNDEFINED`);
     }
+    const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
+    mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
     log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
-    const rootDb = open({ path, noSync: ephemeral, mapSize });
-    return new AztecLmdbStore(rootDb, ephemeral, path);
+    const rootDb = open({ path: dbPath, noSync: ephemeral, mapSize });
+    return new AztecLmdbStore(rootDb, ephemeral, dbPath);
   }
 
   /**
