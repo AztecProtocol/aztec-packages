@@ -71,9 +71,9 @@ bootstrap-with-verifier:
   FROM +bootstrap
   WORKDIR /usr/src/yarn-project
   ENV DENOISE=1
-  RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
   COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
 
+# Locally downloaded aztec image contents.
 bootstrap-aztec:
   FROM +bootstrap-with-verifier
   WORKDIR /usr/src/yarn-project
@@ -96,7 +96,7 @@ bootstrap-aztec:
     yarn-project/end-to-end
   SAVE ARTIFACT /usr/src /usr/src
 
-# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
+# Locally downloaded end-to-end image contents.
 bootstrap-end-to-end:
   FROM +bootstrap-with-verifier
   WORKDIR /usr/src/yarn-project
