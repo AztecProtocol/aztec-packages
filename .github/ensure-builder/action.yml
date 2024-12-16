@@ -145,7 +145,7 @@ runs:
         fi;
         echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
         if [ $exit_code = 155 ]; then
-          echo "Treating ssh termination as spot eviction.";
+          echo "Spot eviction detected - retrying with on-demand.";
         fi;
 
     - name: Re-run with On-Demand
