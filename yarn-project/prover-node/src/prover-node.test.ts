@@ -7,6 +7,7 @@ import {
   type L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
+  P2PClientType,
   type ProverCache,
   type ProverCoordination,
   WorldStateRunningState,
@@ -18,13 +19,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import {
-  type BootstrapNode,
-  InMemoryAttestationPool,
-  InMemoryTxPool,
-  MemoryEpochProofQuotePool,
-  P2PClient,
-} from '@aztec/p2p';
+import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory } from '@aztec/simulator';
@@ -299,16 +294,16 @@ describe('prover-node', () => {
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
   describe('Using a p2p coordination', () => {
     let bootnode: BootstrapNode;
-    let p2pClient: P2PClient;
-    let otherP2PClient: P2PClient;
+    let p2pClient: P2PClient<P2PClientType.Prover>;
+    let otherP2PClient: P2PClient<P2PClientType.Prover>;
 
     const createP2PClient = async (bootnodeAddr: string, port: number) => {
       const mempools = {
         txPool: new InMemoryTxPool(telemetryClient),
-        attestationPool: new InMemoryAttestationPool(telemetryClient),
         epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
       };
       const libp2pService = await createTestLibP2PService(
+        P2PClientType.Prover,
         [bootnodeAddr],
         l2BlockSource,
         worldState,
@@ -317,7 +312,7 @@ describe('prover-node', () => {
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0);
+      return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService, 0);
     };
 
     beforeEach(async () => {

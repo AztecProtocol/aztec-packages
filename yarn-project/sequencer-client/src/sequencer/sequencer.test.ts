@@ -222,7 +222,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -295,7 +294,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -329,7 +327,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -358,7 +355,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -389,7 +385,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -472,7 +467,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -513,10 +507,10 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
+    expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
   });
@@ -556,7 +550,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      3,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

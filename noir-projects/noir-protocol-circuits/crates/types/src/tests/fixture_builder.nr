@@ -221,6 +221,10 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
+
     pub fn set_protocol_contract_root(&mut self) {
         let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
         self.protocol_contract_tree_root = tree.get_root();
@@ -537,6 +541,38 @@ impl FixtureBuilder {
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
+    }
+
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
@@ -916,6 +952,10 @@ impl FixtureBuilder {
         self.contract_address
     }
 
+    pub fn set_gas_used(&mut self, da_gas: u32, l2_gas: u32) {
+        self.gas_used = Gas { da_gas, l2_gas };
+    }
+
     pub fn set_public_teardown_call_request(&mut self) {
         self.public_teardown_call_request = self.mock_public_teardown_call_request();
     }
@@ -1046,42 +1086,6 @@ impl FixtureBuilder {
         let counter = self.counter;
         self.counter += 1;
         counter
-    }
-
-    fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
-    }
-
-    pub fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
-        result
-    }
-
-    pub fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
-        result
-    }
-
-    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
-        AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
-            public_data_writes: self.public_data_writes.storage(),
-        }
-    }
-
-    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
-        let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-
-        result
     }
 }
 

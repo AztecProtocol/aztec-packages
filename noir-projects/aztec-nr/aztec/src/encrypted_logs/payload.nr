@@ -260,7 +260,7 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let _ = OracleMock::mock("getAppTaggingSecretAsSender").returns([69420, 1337]);
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns([69420, 1337]);
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 

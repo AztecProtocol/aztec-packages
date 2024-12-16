@@ -6,6 +6,7 @@ import {
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
   PrivateTubeData,
+  SpongeBlob,
   VkWitnessData,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
@@ -41,6 +42,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const vkTreeRoot = getVKTreeRoot();
 
     const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
+    const startSpongeBlob = SpongeBlob.init(tx.txEffect.toBlobFields().length);
 
     logger.verbose('Building empty private proof');
     const privateInputs = new PrivateKernelEmptyInputData(
@@ -59,7 +61,12 @@ describe('prover/bb_prover/base-rollup', () => {
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
-    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, await context.getFork());
+    const baseRollupHints = await buildBaseRollupHints(
+      tx,
+      context.globalVariables,
+      await context.getFork(),
+      startSpongeBlob,
+    );
     const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');

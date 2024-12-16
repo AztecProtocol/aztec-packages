@@ -69,7 +69,7 @@ contract UniswapPortalTest is Test {
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber + 1));
+    vm.store(address(rollup), bytes32(uint256(13)), bytes32(l2BlockNumber + 1));
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn

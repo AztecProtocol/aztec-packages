@@ -215,7 +215,7 @@ jobs:
       - run: "echo Full E2E tests enabled."
 
   network-test-gate:
-    needs: [build, configure]
+    needs: [build, yarn-project-test, configure]
     if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-20.04
     steps:
@@ -240,7 +240,7 @@ jobs:
           runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
-        timeout-minutes: 40
+        timeout-minutes: 50
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
@@ -667,7 +667,7 @@ jobs:
         with:
           concurrency_key: prover-client-test-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   network-transfer-test:
@@ -684,7 +684,7 @@ jobs:
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./test-transfer.sh
 
   network-full-test:
-    needs: [network-test-gate, configure]
+    needs: [network-test-gate, network-transfer-test, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       max-parallel: 1

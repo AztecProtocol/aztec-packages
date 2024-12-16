@@ -42,7 +42,6 @@ import {
   PublicDataWrite,
   ScopedL2ToL1Message,
   ScopedLogHash,
-  type ScopedNoteHash,
   SerializableContractInstance,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
@@ -74,7 +73,7 @@ export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
 
   publicDataWrites: PublicDataUpdateRequest[];
-  noteHashes: ScopedNoteHash[];
+  noteHashes: NoteHash[];
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
 
@@ -111,7 +110,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private publicDataWrites: PublicDataUpdateRequest[] = [];
   private protocolPublicDataWritesLength: number = 0;
   private userPublicDataWritesLength: number = 0;
-  private noteHashes: ScopedNoteHash[] = [];
+  private noteHashes: NoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
@@ -194,6 +193,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.sideEffectCounter++;
   }
 
+  public getNoteHashCount() {
+    return this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length;
+  }
+
   public tracePublicStorageRead(
     contractAddress: AztecAddress,
     slot: Fr,
@@ -272,19 +275,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(
-    contractAddress: AztecAddress,
-    noteHash: Fr,
-    leafIndex: Fr = Fr.zero(),
-    path: Fr[] = emptyNoteHashPath(),
-  ) {
+  public traceNewNoteHash(noteHash: Fr, leafIndex: Fr = Fr.zero(), path: Fr[] = emptyNoteHashPath()) {
     if (this.noteHashes.length + this.previousSideEffectArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
-    // TODO(dbanks12): make unique and silo instead of scoping
-    //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
