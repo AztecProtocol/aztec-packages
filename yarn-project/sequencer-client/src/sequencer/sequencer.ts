@@ -545,21 +545,17 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(
-          validTxs,
-          blockSize,
-          blockBuilder,
-          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
-        ),
+        processor.process(validTxs, blockSize, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+      await blockBuilder.addTxs(processedTxs);
 
       await interrupt?.(processedTxs);
 
@@ -650,7 +646,6 @@ export class Sequencer {
       const blockHash = block.hash();
       const txHashes = validTxs.map(tx => tx.getTxHash());
       this.log.info(`Built block ${block.number} with hash ${blockHash}`, {
-        txEffectsHash: block.header.contentCommitment.txsEffectsHash.toString('hex'),
         blockHash,
         globalVariables: block.header.globalVariables.toInspect(),
         txHashes,
