@@ -6,7 +6,7 @@ fn validate_with_rollup_data_success() {
     builder.validate_with_rollup_data();
 }
 
-#[test(should_fail_with = "max fee_per_da_gas in settings must not be less than the global value")]
+#[test(should_fail_with = "da gas is higher than the maximum specified by the tx")]
 fn validate_with_rollup_data_not_enough_fee_per_da_gas_fails() {
     let mut builder = PrivateTubeDataValidatorBuilder::new();
 
@@ -16,7 +16,7 @@ fn validate_with_rollup_data_not_enough_fee_per_da_gas_fails() {
     builder.validate_with_rollup_data();
 }
 
-#[test(should_fail_with = "max fee_per_l2_gas in settings must not be less than the global value")]
+#[test(should_fail_with = "l2 gas is higher than the maximum specified by the tx")]
 fn validate_with_rollup_data_not_enough_fee_per_l2_gas_fails() {
     let mut builder = PrivateTubeDataValidatorBuilder::new();
 
