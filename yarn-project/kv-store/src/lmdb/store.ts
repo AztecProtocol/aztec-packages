@@ -30,7 +30,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #multiMapData: Database<unknown, Key>;
   #log = createLogger('kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
+  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path: string) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -78,10 +78,9 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @returns A new AztecLmdbStore.
    */
   async fork() {
-    const baseDir = this.path ? dirname(this.path) : tmpdir();
+    const baseDir = this.path;
     this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath =
-      (await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+    const forkPath = await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'));
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
