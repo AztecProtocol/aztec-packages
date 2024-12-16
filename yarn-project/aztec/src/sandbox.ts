@@ -3,7 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
+import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import {
   type DeployL1Contracts,
   NULL_KEY,

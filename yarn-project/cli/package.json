@@ -10,6 +10,7 @@
     "./pxe": "./dest/cmds/pxe/index.js",
     "./cli-utils": "./dest/utils/index.js",
     "./misc": "./dest/cmds/misc/index.js",
+    "./setup-contracts": "./dest/cmds/misc/setup_contracts.js",
     "./utils": "./dest/utils/index.js",
     "./inspect": "./dest/utils/inspect.js"
   },
