@@ -26,12 +26,6 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
      */
     private wallet: Wallet,
 
-    // TODO(benesjan): nuke this
-    /**
-     * Address that the FPC sends notes it receives to.
-     */
-    private feeRecipient: AztecAddress,
-
     /**
      * If true, the max fee will be set to 1.
      * TODO(#7694): Remove this param once the lacking feature in TXE is implemented.

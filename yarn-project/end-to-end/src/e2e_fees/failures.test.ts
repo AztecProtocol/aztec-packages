@@ -56,7 +56,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, t.sequencerAddress),
+            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -80,7 +80,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, t.sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({ dontThrowOnRevert: true });

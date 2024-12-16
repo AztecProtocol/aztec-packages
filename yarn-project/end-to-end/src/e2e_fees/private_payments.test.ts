@@ -93,7 +93,7 @@ describe('e2e_fees private_payment', () => {
     const settings = {
       fee: {
         gasSettings,
-        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
       },
     };
     const localTx = await interaction.prove(settings);
@@ -173,7 +173,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait();
@@ -221,7 +221,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait();
@@ -275,7 +275,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet, sequencerAddress),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait();
@@ -317,7 +317,7 @@ describe('e2e_fees private_payment', () => {
           skipPublicSimulation: true,
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet, aliceAddress),
+            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -334,7 +334,6 @@ describe('e2e_fees private_payment', () => {
           paymentMethod: new PrivateFeePaymentMethod(
             bananaFPC.address,
             aliceWallet,
-            sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
             true, // We set max fee/funded amount to 1 to trigger the error.
           ),
         },

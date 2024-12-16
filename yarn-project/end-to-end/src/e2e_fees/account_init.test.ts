@@ -115,11 +115,7 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
-      const paymentMethod = new PrivateFeePaymentMethod(
-        bananaFPC.address,
-        await bobsAccountManager.getWallet(),
-        t.sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
-      );
+      const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, await bobsAccountManager.getWallet());
 
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       const actualFee = tx.transactionFee!;

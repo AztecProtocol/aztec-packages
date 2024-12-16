@@ -103,7 +103,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(fpc.address, aliceWallet, sequencerAddress),
+      () => new PrivateFeePaymentMethod(fpc.address, aliceWallet),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:

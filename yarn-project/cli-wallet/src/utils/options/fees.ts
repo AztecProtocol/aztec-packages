@@ -129,15 +129,10 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    if (!parsed.feeRecipient) {
-      // Recipient of a fee in the refund flow
-      throw new Error('Missing "feeRecipient" in payment option');
-    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
-    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
+    return [AztecAddress.fromString(parsed.asset), fpc];
   };
 
   return async (sender: AccountWallet) => {
@@ -179,10 +174,10 @@ export function parsePaymentMethod(
         return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
-        log(`Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient}`);
+        const [asset, fpc] = getFpcOpts(parsed, db);
+        log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PrivateFeePaymentMethod(fpc, sender, feeRecipient);
+        return new PrivateFeePaymentMethod(fpc, sender);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');
