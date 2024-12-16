@@ -1,7 +1,7 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  ClientIvcProof,
+  type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,

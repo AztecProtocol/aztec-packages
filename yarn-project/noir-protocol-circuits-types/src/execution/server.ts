@@ -136,6 +136,20 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
 }
 
 /**
+ * Converts the inputs of the simulated block root rollup circuit into a witness map.
+ * @param inputs - The block root rollup inputs.
+ * @returns The witness map
+ */
+export function convertSimulatedBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
+  const mapped = mapBlockRootRollupInputsToNoir(inputs);
+  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
+  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+/**
  * Converts the inputs of the empty block root rollup circuit into a witness map.
  * @param inputs - The empty block root rollup inputs.
  * @returns The witness map
@@ -286,6 +300,23 @@ export function convertEmptyBlockRootRollupOutputsFromWitnessMap(
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the simulated block root rollup circuit from a witness map.
+ * @param outputs - The block root rollup outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertSimulatedBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootReturnType;
 
   return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
 }

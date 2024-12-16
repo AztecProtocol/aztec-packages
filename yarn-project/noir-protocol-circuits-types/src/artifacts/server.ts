@@ -13,9 +13,9 @@ import PublicBaseRollupSimulatedJson from '../../artifacts/rollup_base_public_si
 import BlockMergeRollupJson from '../../artifacts/rollup_block_merge.json' assert { type: 'json' };
 import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' assert { type: 'json' };
 import EmptyBlockRootRollupJson from '../../artifacts/rollup_block_root_empty.json' assert { type: 'json' };
+import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' assert { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' assert { type: 'json' };
-import BlockRootRollupSimulatedJson from '../artifacts/rollup_block_root_simulated.json' assert { type: 'json' };
 
 // These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
