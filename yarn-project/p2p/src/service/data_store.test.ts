@@ -17,7 +17,7 @@ import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 
 import { AztecDatastore } from './data_store.js';
 
-const CLEANUP_TIMEOUT = 60_000;
+const CLEANUP_TIMEOUT = 120_000;
 
 describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;

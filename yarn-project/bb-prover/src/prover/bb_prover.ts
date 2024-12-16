@@ -42,7 +42,7 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -76,7 +76,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import crypto from 'crypto';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import {
@@ -100,7 +100,7 @@ import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
-const logger = createDebugLogger('aztec:bb-prover');
+const logger = createLogger('bb-prover');
 
 // All `ServerCircuitArtifact` are recursive.
 const SERVER_CIRCUIT_RECURSIVE = true;
@@ -795,8 +795,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const json = JSON.parse(proofString);
       const fields = json
         .slice(0, 3)
-        .map(Fr.fromString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+        .map(Fr.fromHexString)
+        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
       return new RecursiveProof(
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
@@ -877,8 +877,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
-      .map(Fr.fromString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+      .map(Fr.fromHexString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

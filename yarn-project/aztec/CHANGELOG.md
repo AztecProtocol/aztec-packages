@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.66.0...aztec-package-v0.67.0) (2024-12-13)
+
+
+### Features
+
+* Deploy faucet ([#10580](https://github.com/AztecProtocol/aztec-packages/issues/10580)) ([09e95a1](https://github.com/AztecProtocol/aztec-packages/commit/09e95a1d033deb5c31d9967d5100a6aeb8485ab5))
+* Expose P2P service API and clean up logs ([#10552](https://github.com/AztecProtocol/aztec-packages/issues/10552)) ([98cea58](https://github.com/AztecProtocol/aztec-packages/commit/98cea58dd9c7a4518daa8e625dd794a2b6f4b314)), closes [#10299](https://github.com/AztecProtocol/aztec-packages/issues/10299)
+* PXE in the browser ([#10353](https://github.com/AztecProtocol/aztec-packages/issues/10353)) ([676f673](https://github.com/AztecProtocol/aztec-packages/commit/676f673dfbcb14f5351a0068aef9ad9fa4ebf879))
+* PXE sync on demand ([#10613](https://github.com/AztecProtocol/aztec-packages/issues/10613)) ([b2f1159](https://github.com/AztecProtocol/aztec-packages/commit/b2f11596e5c79be0c11ad298e734885e9657e640))
+
+
+### Bug Fixes
+
+* Do not load pino-pretty in production bundles ([#10578](https://github.com/AztecProtocol/aztec-packages/issues/10578)) ([e515e6e](https://github.com/AztecProtocol/aztec-packages/commit/e515e6e7644180bab72eb693d83b9496919cc159))
+* Tweaking Fr and Fq fromString functionality to distinguish number-only strings ([#10529](https://github.com/AztecProtocol/aztec-packages/issues/10529)) ([736fce1](https://github.com/AztecProtocol/aztec-packages/commit/736fce1f77533925943ef363d1803b2e55f83609))
+
+
+### Miscellaneous
+
+* Bump jest default test timeout to 30s ([#10550](https://github.com/AztecProtocol/aztec-packages/issues/10550)) ([841bf48](https://github.com/AztecProtocol/aztec-packages/commit/841bf48c27767c3a4a53aacd0115582e8397910f))
+* Rename logger modules ([#10404](https://github.com/AztecProtocol/aztec-packages/issues/10404)) ([7441767](https://github.com/AztecProtocol/aztec-packages/commit/7441767d7e8e7e7d602c447ca843dee43f8dc8f8)), closes [#10125](https://github.com/AztecProtocol/aztec-packages/issues/10125)
+
 ## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.2...aztec-package-v0.66.0) (2024-12-06)
 
 

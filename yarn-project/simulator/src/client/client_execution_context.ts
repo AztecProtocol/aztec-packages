@@ -23,7 +23,7 @@ import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
@@ -74,7 +74,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     db: DBOracle,
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
-    log = createDebugLogger('aztec:simulator:client_execution_context'),
+    log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
     super(callContext.contractAddress, authWitnesses, db, node, log, scopes);
@@ -247,9 +247,10 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, n.noteHash);
-        const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
-        this.noteHashLeafIndexMap.set(siloedNoteHash.toBigInt(), n.index);
+        const siloedNoteHash = siloNoteHash(n.contractAddress, n.noteHash);
+        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
+
+        this.noteHashLeafIndexMap.set(uniqueNoteHash.toBigInt(), n.index);
       }
     });
 
@@ -419,7 +420,14 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedValuesCache.unpack(argsHash);
 
     this.log.verbose(
-      `Created PublicExecutionRequest to ${targetArtifact.name}@${targetContractAddress}, of type [${callType}], side-effect counter [${sideEffectCounter}]`,
+      `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
+      {
+        sideEffectCounter,
+        isStaticCall,
+        functionSelector,
+        targetContractAddress,
+        callType,
+      },
     );
 
     const request = PublicExecutionRequest.from({
@@ -537,7 +545,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]) {
-    this.log.verbose(`debug_log ${applyStringFormatting(message, fields)}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   public getDebugFunctionName() {
@@ -557,5 +565,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
+
+    await this.db.removeNullifiedNotes(this.contractAddress);
   }
 }

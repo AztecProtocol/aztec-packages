@@ -4,9 +4,11 @@ use crate::{
             avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
             PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
         },
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
         gas_settings::GasSettings,
@@ -45,13 +47,13 @@ use crate::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
         PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -91,6 +93,7 @@ pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
+    pub is_private_only: bool,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -114,7 +117,7 @@ pub struct FixtureBuilder {
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
-    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub gas_used: Gas,
@@ -155,6 +158,9 @@ pub struct FixtureBuilder {
     // Protocol contracts.
     pub protocol_contract_tree_root: Field,
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+
+    // Tree snapshots.
+    pub archive_tree: AppendOnlyTreeSnapshot,
 
     // Counters.
     pub min_revertible_side_effect_counter: u32,
@@ -213,6 +219,10 @@ impl FixtureBuilder {
         self.vk_tree_root = vk_tree.get_root();
 
         *self
+    }
+
+    pub fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
     pub fn set_protocol_contract_root(&mut self) {
@@ -282,6 +292,15 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            global_variables: self.global_variables,
+        }
+    }
+
+    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
+        ConstantRollupData {
+            last_archive: self.archive_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -462,6 +481,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
         }
     }
 
@@ -523,6 +543,38 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
+    }
+
     pub fn add_new_note_hash(&mut self, value: Field) {
         self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(
             self.contract_address,
@@ -530,14 +582,23 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        // First nullifier is tx hash.
-        let tx_hash = self.nullifiers.get(0).value();
-        let index = self.note_hashes.len();
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
+    }
+
+    pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let current_index = self.note_hashes.len();
+        let first_nullifier = self.nullifiers.get(0).value();
+        let unique_siloed_value =
+            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+
+        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
+            .scope(AztecAddress::zero()));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -556,6 +617,16 @@ impl FixtureBuilder {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_siloed_note_hash(value);
+            }
+        }
+    }
+
+    pub fn append_siloed_unique_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_unique_note_hash(value);
             }
         }
     }
@@ -881,6 +952,10 @@ impl FixtureBuilder {
         self.contract_address
     }
 
+    pub fn set_gas_used(&mut self, da_gas: u32, l2_gas: u32) {
+        self.gas_used = Gas { da_gas, l2_gas };
+    }
+
     pub fn set_public_teardown_call_request(&mut self) {
         self.public_teardown_call_request = self.mock_public_teardown_call_request();
     }
@@ -1012,42 +1087,6 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
-
-    fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
-    }
-
-    fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
-        result
-    }
-
-    fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
-        result
-    }
-
-    fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
-        AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
-            public_data_writes: self.public_data_writes.storage(),
-        }
-    }
-
-    fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
-        let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-
-        result
-    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1055,6 +1094,7 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
+            is_private_only: false,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
@@ -1097,6 +1137,7 @@ impl Empty for FixtureBuilder {
             vk_tree_root: FixtureBuilder::vk_tree_root(),
             protocol_contract_tree_root: 0,
             protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
+            archive_tree: AppendOnlyTreeSnapshot::zero(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

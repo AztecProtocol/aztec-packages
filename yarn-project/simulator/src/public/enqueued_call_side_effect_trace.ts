@@ -7,7 +7,6 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
-  AvmExternalCallHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -26,12 +25,14 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -41,7 +42,6 @@ import {
   PublicDataWrite,
   ScopedL2ToL1Message,
   ScopedLogHash,
-  type ScopedNoteHash,
   SerializableContractInstance,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
@@ -49,11 +49,11 @@ import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
-import { assert } from 'console';
+import { strict as assert } from 'assert';
 
-import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
@@ -73,7 +73,7 @@ export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
 
   publicDataWrites: PublicDataUpdateRequest[];
-  noteHashes: ScopedNoteHash[];
+  noteHashes: NoteHash[];
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
 
@@ -84,6 +84,7 @@ export type SideEffects = {
 export class SideEffectArrayLengths {
   constructor(
     public readonly publicDataWrites: number,
+    public readonly protocolPublicDataWrites: number,
     public readonly noteHashes: number,
     public readonly nullifiers: number,
     public readonly l2ToL1Msgs: number,
@@ -91,7 +92,7 @@ export class SideEffectArrayLengths {
   ) {}
 
   static empty() {
-    return new this(0, 0, 0, 0, 0);
+    return new this(0, 0, 0, 0, 0, 0);
   }
 }
 
@@ -99,7 +100,7 @@ export class SideEffectArrayLengths {
  * Trace side effects for an entire enqueued call.
  */
 export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createDebugLogger('aztec:public_enqueued_call_side_effect_trace');
+  public log = createLogger('simulator:public_enqueued_call_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;
@@ -107,7 +108,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private enqueuedCalls: PublicCallRequest[] = [];
 
   private publicDataWrites: PublicDataUpdateRequest[] = [];
-  private noteHashes: ScopedNoteHash[] = [];
+  private protocolPublicDataWritesLength: number = 0;
+  private userPublicDataWritesLength: number = 0;
+  private noteHashes: NoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
@@ -135,7 +138,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new PublicEnqueuedCallSideEffectTrace(
       this.sideEffectCounter,
       new SideEffectArrayLengths(
-        this.previousSideEffectArrayLengths.publicDataWrites + this.publicDataWrites.length,
+        this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
+        this.previousSideEffectArrayLengths.protocolPublicDataWrites + this.protocolPublicDataWritesLength,
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
@@ -169,13 +173,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private mergeHints(forkedTrace: this) {
     this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
 
-    this.avmCircuitHints.storageValues.items.push(...forkedTrace.avmCircuitHints.storageValues.items);
-    this.avmCircuitHints.noteHashExists.items.push(...forkedTrace.avmCircuitHints.noteHashExists.items);
-    this.avmCircuitHints.nullifierExists.items.push(...forkedTrace.avmCircuitHints.nullifierExists.items);
-    this.avmCircuitHints.l1ToL2MessageExists.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageExists.items);
-
-    this.avmCircuitHints.externalCalls.items.push(...forkedTrace.avmCircuitHints.externalCalls.items);
-
     this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
     this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
 
@@ -196,21 +193,22 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.sideEffectCounter++;
   }
 
+  public getNoteHashCount() {
+    return this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length;
+  }
+
   public tracePublicStorageRead(
-    _contractAddress: AztecAddress,
+    contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
     leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!leafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
-    }
-
     this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
-    this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
+    this.log.debug(
+      `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
+    );
     this.incrementSideEffectCounter();
   }
 
@@ -218,24 +216,35 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyPublicDataPath(),
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
   ) {
-    if (!lowLeafIndex.equals(Fr.zero())) {
-      // if we have real merkle hint content, make sure the value matches the the provided preimage
-      assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
-    }
-    if (
-      this.publicDataWrites.length + this.previousSideEffectArrayLengths.publicDataWrites >=
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError(
-        'public data (contract storage) write',
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      );
+    if (protocolWrite) {
+      if (
+        this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
+        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'protocol public data (contract storage) write',
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.protocolPublicDataWritesLength++;
+    } else {
+      if (
+        this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      ) {
+        throw new SideEffectLimitReachedError(
+          'public data (contract storage) write',
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+      }
+      this.userPublicDataWritesLength++;
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
@@ -248,7 +257,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
 
     this.log.debug(
-      `Traced public data write (address=${contractAddress}, slot=${slot}, leafSlot=${leafSlot}): value=${value} (counter=${this.sideEffectCounter})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
   }
@@ -266,19 +275,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(
-    contractAddress: AztecAddress,
-    noteHash: Fr,
-    leafIndex: Fr = Fr.zero(),
-    path: Fr[] = emptyNoteHashPath(),
-  ) {
+  public traceNewNoteHash(noteHash: Fr, leafIndex: Fr = Fr.zero(), path: Fr[] = emptyNoteHashPath()) {
     if (this.noteHashes.length + this.previousSideEffectArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
-    // TODO(dbanks12): make unique and silo instead of scoping
-    //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
@@ -424,45 +426,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   /**
-   * Trace a nested call.
-   * Accept some results from a finished nested call's trace into this one.
-   */
-  public traceNestedCall(
-    /** The trace of the nested call. */
-    _nestedCallTrace: this,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    _bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name for logging */
-    _functionName: string = 'unknown',
-  ) {
-    // TODO(4805): check if some threshold is reached for max nested calls (to unique contracts?)
-    //
-    // Store end side effect counter before it gets updated by absorbing nested call trace
-    const endSideEffectCounter = new Fr(this.sideEffectCounter);
-
-    const gasUsed = new Gas(
-      startGasLeft.daGas - avmCallResults.gasLeft.daGas,
-      startGasLeft.l2Gas - avmCallResults.gasLeft.l2Gas,
-    );
-
-    this.avmCircuitHints.externalCalls.items.push(
-      new AvmExternalCallHint(
-        /*success=*/ new Fr(avmCallResults.reverted ? 0 : 1),
-        avmCallResults.output,
-        gasUsed,
-        endSideEffectCounter,
-        nestedEnvironment.address,
-      ),
-    );
-  }
-
-  /**
    * Trace an enqueued call.
    * Accept some results from a finished call's trace into this one.
    */
@@ -525,6 +488,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     startGasUsed: Gas,
     /** How much gas was available for this public execution. */
     gasLimits: GasSettings,
+    /** Address of the fee payer. */
+    feePayer: AztecAddress,
     /** Call requests for setup phase. */
     publicSetupCallRequests: PublicCallRequest[],
     /** Call requests for app logic phase. */
@@ -548,6 +513,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       startTreeSnapshots,
       startGasUsed,
       gasLimits,
+      feePayer,
       padArrayEnd(publicSetupCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       padArrayEnd(publicAppLogicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       publicTeardownCallRequest,
@@ -603,7 +569,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       padArrayEnd(
         this.publicDataWrites.map(w => new PublicDataWrite(w.leafSlot, w.newValue)),
         PublicDataWrite.empty(),
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
     );
   }

@@ -41,6 +41,7 @@
     "./wasm": "./dest/wasm/index.js",
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
+    "./blob": "./dest/blob/index.js",
     "./types": "./dest/types/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
@@ -96,6 +97,13 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -103,6 +111,7 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
+    "c-kzg": "4.0.0-alpha.1",
     "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
@@ -133,7 +142,6 @@
     "@types/koa": "^2.13.5",
     "@types/koa-bodyparser": "^4.3.10",
     "@types/koa-compress": "^4.0.3",
-    "@types/koa-cors": "^0.0.2",
     "@types/koa-router": "^7.4.4",
     "@types/koa__cors": "^4.0.0",
     "@types/leveldown": "^4.0.3",

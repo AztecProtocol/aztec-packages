@@ -24,7 +24,8 @@ describe('CachingBrokerFacade', () => {
     broker = mock<ProvingJobProducer>({
       enqueueProvingJob: jest.fn<any>(),
       getProvingJobStatus: jest.fn<any>(),
-      removeAndCancelProvingJob: jest.fn<any>(),
+      cancelProvingJob: jest.fn<any>(),
+      cleanUpProvingJobState: jest.fn<any>(),
       waitForJobToSettle: jest.fn<any>(),
     });
     cache = new InMemoryProverCache();
@@ -100,5 +101,56 @@ describe('CachingBrokerFacade', () => {
 
     await expect(facade.getBaseParityProof(inputs)).resolves.toEqual(result);
     expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(1); // job was only ever enqueued once
+  });
+
+  it('clears broker state after a job resolves', async () => {
+    const { promise, resolve } = promiseWithResolvers<any>();
+    broker.enqueueProvingJob.mockResolvedValue(Promise.resolve());
+    broker.waitForJobToSettle.mockResolvedValue(promise);
+
+    const inputs = makeBaseParityInputs();
+    void facade.getBaseParityProof(inputs);
+    await jest.advanceTimersToNextTimerAsync();
+
+    const job = broker.enqueueProvingJob.mock.calls[0][0];
+    const result = makePublicInputsAndRecursiveProof(
+      makeParityPublicInputs(),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
+    );
+    const outputUri = await proofStore.saveProofOutput(job.id, ProvingRequestType.BASE_PARITY, result);
+    resolve({
+      status: 'fulfilled',
+      value: outputUri,
+    });
+
+    await jest.advanceTimersToNextTimerAsync();
+    expect(broker.cleanUpProvingJobState).toHaveBeenCalled();
+  });
+
+  it('clears broker state after a job is canceled', async () => {
+    const { promise, resolve } = promiseWithResolvers<any>();
+    const catchSpy = jest.fn();
+    broker.enqueueProvingJob.mockResolvedValue(Promise.resolve());
+    broker.waitForJobToSettle.mockResolvedValue(promise);
+
+    const inputs = makeBaseParityInputs();
+    const controller = new AbortController();
+    void facade.getBaseParityProof(inputs, controller.signal).catch(catchSpy);
+    await jest.advanceTimersToNextTimerAsync();
+
+    expect(broker.cancelProvingJob).not.toHaveBeenCalled();
+    controller.abort();
+    await jest.advanceTimersToNextTimerAsync();
+    expect(broker.cancelProvingJob).toHaveBeenCalled();
+
+    resolve({
+      status: 'rejected',
+      reason: 'Aborted',
+    });
+
+    await jest.advanceTimersToNextTimerAsync();
+    expect(broker.cleanUpProvingJobState).toHaveBeenCalled();
+    expect(catchSpy).toHaveBeenCalledWith(new Error('Aborted'));
   });
 });

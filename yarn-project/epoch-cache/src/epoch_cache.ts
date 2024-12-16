@@ -6,8 +6,10 @@ import {
 } from '@aztec/circuit-types';
 import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
+import { EventEmitter } from 'node:events';
 import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
@@ -28,27 +30,33 @@ type EpochAndSlot = {
  *
  * Note: This class is very dependent on the system clock being in sync.
  */
-export class EpochCache {
+export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], bigint] }> {
   private committee: EthAddress[];
   private cachedEpoch: bigint;
   private cachedSampleSeed: bigint;
-  private readonly log: Logger = createDebugLogger('aztec:EpochCache');
+  private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
     private rollup: RollupContract,
     initialValidators: EthAddress[] = [],
     initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
+    super();
     this.committee = initialValidators;
     this.cachedSampleSeed = initialSampleSeed;
 
     this.log.debug(`Initialized EpochCache with constants and validators`, { l1constants, initialValidators });
 
-    this.cachedEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
+    this.cachedEpoch = getEpochNumberAtTimestamp(this.nowInSeconds(), this.l1constants);
   }
 
-  static async create(rollupAddress: EthAddress, config?: EpochCacheConfig) {
+  static async create(
+    rollupAddress: EthAddress,
+    config?: EpochCacheConfig,
+    deps: { dateProvider?: DateProvider } = {},
+  ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -79,16 +87,20 @@ export class EpochCache {
       initialValidators.map(v => EthAddress.fromString(v)),
       sampleSeed,
       l1RollupConstants,
+      deps.dateProvider,
     );
   }
 
+  private nowInSeconds(): bigint {
+    return BigInt(Math.floor(this.dateProvider.now() / 1000));
+  }
+
   getEpochAndSlotNow(): EpochAndSlot {
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    return this.getEpochAndSlotAtTimestamp(now);
+    return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
   }
 
   getEpochAndSlotInNextSlot(): EpochAndSlot {
-    const nextSlotTs = BigInt(Math.floor(Date.now() / 1000) + this.l1constants.slotDuration);
+    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
@@ -111,14 +123,19 @@ export class EpochCache {
     const { epoch: calculatedEpoch, ts } = nextSlot ? this.getEpochAndSlotInNextSlot() : this.getEpochAndSlotNow();
 
     if (calculatedEpoch !== this.cachedEpoch) {
-      this.log.debug(`Epoch changed, updating validator set`, { calculatedEpoch, cachedEpoch: this.cachedEpoch });
-      this.cachedEpoch = calculatedEpoch;
+      this.log.debug(`Updating validator set for new epoch ${calculatedEpoch}`, {
+        epoch: calculatedEpoch,
+        previousEpoch: this.cachedEpoch,
+      });
       const [committeeAtTs, sampleSeedAtTs] = await Promise.all([
         this.rollup.getCommitteeAt(ts),
         this.rollup.getSampleSeedAt(ts),
       ]);
       this.committee = committeeAtTs.map((v: `0x${string}`) => EthAddress.fromString(v));
+      this.cachedEpoch = calculatedEpoch;
       this.cachedSampleSeed = sampleSeedAtTs;
+      this.log.debug(`Updated validator set for epoch ${calculatedEpoch}`, { commitee: this.committee });
+      this.emit('committeeChanged', this.committee, calculatedEpoch);
     }
 
     return this.committee;
@@ -151,7 +168,12 @@ export class EpochCache {
    * If we are at an epoch boundary, then we can update the cache for the next epoch, this is the last check
    * we do in the validator client, so we can update the cache here.
    */
-  async getProposerInCurrentOrNextSlot(): Promise<[EthAddress, EthAddress]> {
+  async getProposerInCurrentOrNextSlot(): Promise<{
+    currentProposer: EthAddress;
+    nextProposer: EthAddress;
+    currentSlot: bigint;
+    nextSlot: bigint;
+  }> {
     // Validators are sorted by their index in the committee, and getValidatorSet will cache
     const committee = await this.getCommittee();
     const { slot: currentSlot, epoch: currentEpoch } = this.getEpochAndSlotNow();
@@ -176,10 +198,10 @@ export class EpochCache {
       BigInt(committee.length),
     );
 
-    const calculatedProposer = committee[Number(proposerIndex)];
-    const nextCalculatedProposer = committee[Number(nextProposerIndex)];
+    const currentProposer = committee[Number(proposerIndex)];
+    const nextProposer = committee[Number(nextProposerIndex)];
 
-    return [calculatedProposer, nextCalculatedProposer];
+    return { currentProposer, nextProposer, currentSlot, nextSlot };
   }
 
   /**

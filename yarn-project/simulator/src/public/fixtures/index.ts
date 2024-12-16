@@ -12,7 +12,7 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   type PublicFunction,
@@ -28,7 +28,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -113,7 +113,7 @@ export function createTxForPublicCall(
 ): Tx {
   const callRequest = executionRequest.toCallRequest();
   // use max limits
-  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
+  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.

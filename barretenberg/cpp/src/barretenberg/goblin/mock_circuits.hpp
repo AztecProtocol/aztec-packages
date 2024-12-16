@@ -22,9 +22,9 @@ namespace bb {
  * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
  * they overflow
  */
-static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .busread = 1 << 14,
+static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
+                                                                    .busread = 1 << 14,
                                                                     .lookup = 1 << 14,
-                                                                    .ecc_op = 1 << 14,
                                                                     .pub_inputs = 1 << 14,
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
