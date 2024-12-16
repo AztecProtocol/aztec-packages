@@ -1,16 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 
-import { createConsoleLogger } from '../log/console.js';
-import { fileURLToPath } from '../url/index.js';
+import { createConsoleLogger } from '../../log/console.js';
+import { fileURLToPath } from '../../url/index.js';
+import { isGenerateTestDataEnabled } from '../index.js';
 
 const testData: { [key: string]: unknown[] } = {};
 let generateProtocolCircuitTestData = false;
-
-/** Returns whether test data generation is enabled */
-export function isGenerateTestDataEnabled() {
-  return ['1', 'true'].includes(process.env.AZTEC_GENERATE_TEST_DATA ?? '') && typeof expect !== 'undefined';
-}
 
 /**
  * This is separate so Prover.tomls don't get edited everytime any test is run,

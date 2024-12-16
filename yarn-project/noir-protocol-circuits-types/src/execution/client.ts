@@ -8,7 +8,7 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing';
+import { isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 
 import TOML from '@iarna/toml';
 import { type CompiledCircuit, type InputMap, Noir, type WitnessMap } from '@noir-lang/noir_js';
@@ -63,7 +63,11 @@ export async function executeInit(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
   };
-  updateProtocolCircuitSampleInputs('private-kernel-init', TOML.stringify(inputs));
+  // Gated to avoid importing the testing files module in the browser
+  if (isGenerateTestDataEnabled()) {
+    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+    updateProtocolCircuitSampleInputs('private-kernel-init', TOML.stringify(inputs));
+  }
   const returnType = await executePrivateKernelInitWithACVM(
     inputs.tx_request,
     inputs.vk_tree_root,
@@ -96,7 +100,11 @@ export async function executeInner(
       privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs,
     ),
   };
-  updateProtocolCircuitSampleInputs('private-kernel-inner', TOML.stringify(inputs));
+  // Gated to avoid importing the testing files module in the browser
+  if (isGenerateTestDataEnabled()) {
+    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+    updateProtocolCircuitSampleInputs('private-kernel-inner', TOML.stringify(inputs));
+  }
   const returnType = await executePrivateKernelInnerWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -137,7 +145,7 @@ export async function executeReset<
   const artifact = SimulatedClientCircuitArtifacts[getPrivateKernelResetArtifactName(dimensions)];
   const program = new Noir(artifact as CompiledCircuit);
   if (untrimmedPrivateKernelResetCircuitPrivateInputs) {
-    updateResetCircuitSampleInputs(untrimmedPrivateKernelResetCircuitPrivateInputs);
+    await updateResetCircuitSampleInputs(untrimmedPrivateKernelResetCircuitPrivateInputs);
   }
   const args: InputMap = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
@@ -162,7 +170,11 @@ export async function executeTail(
     previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
   };
-  updateProtocolCircuitSampleInputs('private-kernel-tail', TOML.stringify(inputs));
+  // Gated to avoid importing the testing files module in the browser
+  if (isGenerateTestDataEnabled()) {
+    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+    updateProtocolCircuitSampleInputs('private-kernel-tail', TOML.stringify(inputs));
+  }
   const returnType = await executePrivateKernelTailWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -185,7 +197,11 @@ export async function executeTailForPublic(
     previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
   };
-  updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', TOML.stringify(inputs));
+  // Gated to avoid importing the testing files module in the browser
+  if (isGenerateTestDataEnabled()) {
+    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+    updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', TOML.stringify(inputs));
+  }
   const returnType = await executePrivateKernelTailToPublicWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -392,7 +408,7 @@ export function convertPrivateKernelTailForPublicOutputsFromWitnessMap(
   return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
 }
 
-function updateResetCircuitSampleInputs(
+async function updateResetCircuitSampleInputs(
   privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputs,
 ) {
   const inputs = {
@@ -402,5 +418,9 @@ function updateResetCircuitSampleInputs(
     ),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
-  updateProtocolCircuitSampleInputs('private-kernel-reset', TOML.stringify(inputs));
+  // Gated to avoid importing the testing files module in the browser
+  if (isGenerateTestDataEnabled()) {
+    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+    updateProtocolCircuitSampleInputs('private-kernel-reset', TOML.stringify(inputs));
+  }
 }

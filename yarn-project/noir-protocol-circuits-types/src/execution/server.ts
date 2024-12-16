@@ -15,7 +15,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing';
+import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 
 import TOML from '@iarna/toml';
 import { type WitnessMap } from '@noir-lang/acvm_js';

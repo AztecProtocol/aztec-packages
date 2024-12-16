@@ -30,7 +30,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import { pushTestData } from '@aztec/foundation/testing';
+import { pushTestData } from '@aztec/foundation/testing/files';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client';
 import {

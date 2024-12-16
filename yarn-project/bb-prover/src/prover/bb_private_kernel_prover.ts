@@ -45,6 +45,7 @@ import { type BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -96,7 +97,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       throw new Error(provingResult.reason);
     }
 
-    const proof = await ClientIvcProof.readFromOutputDirectory(directory);
+    const proof = await readFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.durationMs,

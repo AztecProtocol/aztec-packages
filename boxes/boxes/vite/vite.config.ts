@@ -32,10 +32,7 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfillsFix({
-      overrides: {
-        fs: "memfs",
-        buffer: "buffer/",
-      },
+      exclude: ["fs"],
     }),
     topLevelAwait(),
   ],
