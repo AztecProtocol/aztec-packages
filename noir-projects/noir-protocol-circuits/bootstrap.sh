@@ -107,7 +107,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+    parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
   code=$?
   cat joblog.txt
   return $code
