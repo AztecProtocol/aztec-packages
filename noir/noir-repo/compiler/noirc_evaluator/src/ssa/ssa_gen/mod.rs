@@ -2,6 +2,7 @@ pub(crate) mod context;
 mod program;
 mod value;
 
+use noirc_frontend::token::FmtStrFragment;
 pub(crate) use program::Ssa;
 
 use context::SharedContext;
@@ -22,6 +23,7 @@ use self::{
 };
 
 use super::ir::instruction::ErrorType;
+use super::ir::types::NumericType;
 use super::{
     function_builder::data_bus::DataBus,
     ir::{
@@ -89,12 +91,18 @@ pub(crate) fn generate_ssa(
                 None,
             );
         }
+        let return_call_stack = function_context
+            .builder
+            .current_function
+            .dfg
+            .call_stack_data
+            .add_location_to_root(return_location);
         let return_instruction =
             function_context.builder.current_function.dfg[block].unwrap_terminator_mut();
+
         match return_instruction {
             TerminatorInstruction::Return { return_values, call_stack } => {
-                call_stack.clear();
-                call_stack.push_back(return_location);
+                *call_stack = return_call_stack;
                 // replace the returned values with the return data array
                 if let Some(return_data_bus) = return_data.databus {
                     return_values.clear();
@@ -222,18 +230,34 @@ impl<'a> FunctionContext<'a> {
             }
             ast::Literal::Integer(value, negative, typ, location) => {
                 self.builder.set_location(*location);
-                let typ = Self::convert_non_tuple_type(typ);
+                let typ = Self::convert_non_tuple_type(typ).unwrap_numeric();
                 self.checked_numeric_constant(*value, *negative, typ).map(Into::into)
             }
             ast::Literal::Bool(value) => {
                 // Don't need to call checked_numeric_constant here since `value` can only be true or false
-                Ok(self.builder.numeric_constant(*value as u128, Type::bool()).into())
+                Ok(self.builder.numeric_constant(*value as u128, NumericType::bool()).into())
             }
             ast::Literal::Str(string) => Ok(self.codegen_string(string)),
-            ast::Literal::FmtStr(string, number_of_fields, fields) => {
+            ast::Literal::FmtStr(fragments, number_of_fields, fields) => {
+                let mut string = String::new();
+                for fragment in fragments {
+                    match fragment {
+                        FmtStrFragment::String(value) => {
+                            // Escape curly braces in non-interpolations
+                            let value = value.replace('{', "{{").replace('}', "}}");
+                            string.push_str(&value);
+                        }
+                        FmtStrFragment::Interpolation(value, _span) => {
+                            string.push('{');
+                            string.push_str(value);
+                            string.push('}');
+                        }
+                    }
+                }
+
                 // A caller needs multiple pieces of information to make use of a format string
                 // The message string, the number of fields to be formatted, and the fields themselves
-                let string = self.codegen_string(string);
+                let string = self.codegen_string(&string);
                 let field_count = self.builder.length_constant(*number_of_fields as u128);
                 let fields = self.codegen_expression(fields)?;
 
@@ -255,7 +279,7 @@ impl<'a> FunctionContext<'a> {
 
     fn codegen_string(&mut self, string: &str) -> Values {
         let elements = vecmap(string.as_bytes(), |byte| {
-            let char = self.builder.numeric_constant(*byte as u128, Type::unsigned(8));
+            let char = self.builder.numeric_constant(*byte as u128, NumericType::char());
             (char.into(), false)
         });
         let typ = Self::convert_non_tuple_type(&ast::Type::String(elements.len() as u32));
@@ -332,7 +356,7 @@ impl<'a> FunctionContext<'a> {
             UnaryOp::Minus => {
                 let rhs = self.codegen_expression(&unary.rhs)?;
                 let rhs = rhs.into_leaf().eval(self);
-                let typ = self.builder.type_of_value(rhs);
+                let typ = self.builder.type_of_value(rhs).unwrap_numeric();
                 let zero = self.builder.numeric_constant(0u128, typ);
                 Ok(self.insert_binary(
                     zero,
@@ -426,7 +450,7 @@ impl<'a> FunctionContext<'a> {
         let index = self.make_array_index(index);
         let type_size = Self::convert_type(element_type).size_of_type();
         let type_size =
-            self.builder.numeric_constant(type_size as u128, Type::unsigned(SSA_WORD_SIZE));
+            self.builder.numeric_constant(type_size as u128, NumericType::length_type());
         let base_index =
             self.builder.set_location(location).insert_binary(index, BinaryOp::Mul, type_size);
 
@@ -465,7 +489,7 @@ impl<'a> FunctionContext<'a> {
             .make_array_index(length.expect("ICE: a length must be supplied for indexing slices"));
 
         let is_offset_out_of_bounds = self.builder.insert_binary(index, BinaryOp::Lt, array_len);
-        let true_const = self.builder.numeric_constant(true, Type::bool());
+        let true_const = self.builder.numeric_constant(true, NumericType::bool());
 
         self.builder.insert_constrain(
             is_offset_out_of_bounds,
@@ -476,7 +500,7 @@ impl<'a> FunctionContext<'a> {
 
     fn codegen_cast(&mut self, cast: &ast::Cast) -> Result<Values, RuntimeError> {
         let lhs = self.codegen_non_tuple_expression(&cast.lhs)?;
-        let typ = Self::convert_non_tuple_type(&cast.r#type);
+        let typ = Self::convert_non_tuple_type(&cast.r#type).unwrap_numeric();
 
         Ok(self.insert_safe_cast(lhs, typ, cast.location).into())
     }
@@ -685,7 +709,9 @@ impl<'a> FunctionContext<'a> {
         // Don't mutate the reference count if we're assigning an array literal to a Let:
         // `let mut foo = [1, 2, 3];`
         // we consider the array to be moved, so we should have an initial rc of just 1.
-        let should_inc_rc = !let_expr.expression.is_array_or_slice_literal();
+        //
+        // TODO: this exception breaks #6763
+        let should_inc_rc = true; // !let_expr.expression.is_array_or_slice_literal();
 
         values = values.map(|value| {
             let value = value.eval(self);
@@ -713,7 +739,7 @@ impl<'a> FunctionContext<'a> {
         assert_payload: &Option<Box<(Expression, HirType)>>,
     ) -> Result<Values, RuntimeError> {
         let expr = self.codegen_non_tuple_expression(expr)?;
-        let true_literal = self.builder.numeric_constant(true, Type::bool());
+        let true_literal = self.builder.numeric_constant(true, NumericType::bool());
 
         // Set the location here for any errors that may occur when we codegen the assert message
         self.builder.set_location(location);
