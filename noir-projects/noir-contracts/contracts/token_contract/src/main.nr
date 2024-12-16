@@ -255,9 +255,7 @@ contract Token {
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_unconstrained(&mut context, from, from),
         );
-        Token::at(context.this_address())._increase_public_balance_unsafe(to, amount).enqueue(
-            &mut context,
-        );
+        Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
     // docs:end:transfer_to_public
 
@@ -696,7 +694,7 @@ contract Token {
         let refund_amount = max_fee - tx_fee;
 
         // 3. We send the tx fee to the fee recipient in public.
-        _increase_public_balance(fee_recipient, tx_fee.to_field(), storage);
+        _increase_public_balance_inner(fee_recipient, tx_fee.to_field(), storage);
 
         // 4. We construct the user note finalization payload with the refund amount.
         let user_finalization_payload =
@@ -710,15 +708,17 @@ contract Token {
 
     /// Internal ///
     // docs:start:increase_public_balance
+    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
+    /// function.
     #[public]
     #[internal]
-    fn _increase_public_balance_unsafe(to: AztecAddress, amount: Field) {
-        _increase_public_balance(to, amount, storage);
+    fn _increase_public_balance(to: AztecAddress, amount: Field) {
+        _increase_public_balance_inner(to, amount, storage);
     }
     // docs:end:increase_public_balance
 
     #[contract_library_method]
-    fn _increase_public_balance(
+    fn _increase_public_balance_inner(
         to: AztecAddress,
         amount: Field,
         storage: Storage<&mut PublicContext>,
