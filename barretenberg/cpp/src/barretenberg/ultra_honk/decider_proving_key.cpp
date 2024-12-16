@@ -100,7 +100,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     size_t table_offset = circuit.blocks.lookup.trace_offset;
     const size_t max_tables_size =
         std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
-    // ASSERT(dyadic_circuit_size > max_tables_size);
+    ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraFlavor<Flavor>) {
@@ -156,7 +156,8 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
     proving_key.polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
 
-    proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
+    proving_key.polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
         circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);

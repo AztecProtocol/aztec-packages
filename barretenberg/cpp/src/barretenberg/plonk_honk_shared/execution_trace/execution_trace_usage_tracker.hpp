@@ -88,15 +88,12 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start) so we
-        // need to determine the dyadic size for this. We call the size function on the current circuit which will have
-        // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
-        // size.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1160)
+        // (Note: lookup tables are constructed from the beginning of the lookup block ; databus data is constructed at
+        // the start of the trace).
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
-        // max_databus_size } but this breaks for certain choices of num_threads.
-
+        // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
+        // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.emplace_back(0, databus_end);

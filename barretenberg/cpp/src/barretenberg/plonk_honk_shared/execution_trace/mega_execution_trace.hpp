@@ -14,7 +14,7 @@ namespace bb {
  *
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
- * Note: the ecc_op has to be the first in the execution trace.
+ * Note: the ecc_op block has to be the first in the execution trace to not break the Goblin functionality.
  */
 template <typename T> struct MegaTraceBlockData {
     T ecc_op;
