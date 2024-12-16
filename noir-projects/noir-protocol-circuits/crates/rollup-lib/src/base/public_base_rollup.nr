@@ -182,6 +182,25 @@ impl PublicBaseRollupInputs {
             combined_constant_data.historical_header,
         );
 
+        assert(
+            end_note_hash_tree_snapshot.eq(
+                self.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree,
+            ),
+            "Mismatch note hash tree base rollup vs AVM",
+        );
+        assert(
+            end_nullifier_tree_snapshot.eq(
+                self.avm_proof_data.public_inputs.end_tree_snapshots.nullifier_tree,
+            ),
+            "Mismatch nullifier tree base rollup vs AVM",
+        );
+        assert(
+            end_public_data_tree_snapshot.eq(
+                self.avm_proof_data.public_inputs.end_tree_snapshots.public_data_tree,
+            ),
+            "Mismatch public data tree base rollup vs AVM",
+        );
+
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
