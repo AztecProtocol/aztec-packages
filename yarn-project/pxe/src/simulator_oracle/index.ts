@@ -628,7 +628,6 @@ export class SimulatorOracle implements DBOracle {
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
     for (const recipient of await this.keyStore.getAccounts()) {
-      const nullifiedNotes: IncomingNoteDao[] = [];
       const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
@@ -641,7 +640,7 @@ export class SimulatorOracle implements DBOracle {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
+      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
