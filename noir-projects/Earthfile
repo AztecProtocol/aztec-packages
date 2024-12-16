@@ -52,7 +52,6 @@ gates-report:
 
   # Install bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
-  RUN git clean -fdx
   RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings --skip-brillig-constraints-check
 
   COPY ./gates_report.sh ./gates_report.sh
