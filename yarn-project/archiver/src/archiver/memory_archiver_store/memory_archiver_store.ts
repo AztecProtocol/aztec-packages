@@ -86,6 +86,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
 
+  private functionNames = new Map<string, string>();
+
   #log = createLogger('archiver:data-store');
 
   constructor(
@@ -739,17 +741,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.contractArtifacts.get(address.toString()));
   }
 
-  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const artifact = await this.getContractArtifact(address);
+  public getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.functionNames.get(selector.toString()));
+  }
 
-    if (!artifact) {
-      return undefined;
+  public registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    for (const [selector, name] of Object.entries(names)) {
+      this.functionNames.set(selector, name);
     }
 
-    const func = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
-    );
-    return Promise.resolve(func?.name);
+    return Promise.resolve();
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

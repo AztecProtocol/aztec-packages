@@ -261,12 +261,10 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
-
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
+  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**

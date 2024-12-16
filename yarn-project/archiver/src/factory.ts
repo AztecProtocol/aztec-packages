@@ -4,6 +4,7 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -43,7 +44,15 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       privateFunctions: [],
       unconstrainedFunctions: [],
     };
-    await store.addContractArtifact(contract.address, contract.artifact);
+
+    const functionNames: Record<string, string> = {};
+    for (const fn of contract.artifact.functions) {
+      if (fn.functionType === FunctionType.PUBLIC) {
+        functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
+      }
+    }
+
+    await store.registerContractFunctionName(contract.address, functionNames);
     const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
