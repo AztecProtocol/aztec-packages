@@ -252,11 +252,19 @@ export class TXE implements TypedOracle {
 
   async addSiloedNullifiers(siloedNullifiers: Fr[]) {
     const db = await this.trees.getLatest();
-    await db.batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      siloedNullifiers.map(n => n.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
+    try {
+      await db.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        siloedNullifiers.map(n => n.toBuffer()),
+        NULLIFIER_SUBTREE_HEIGHT,
+      );
+    } catch (err: any) {
+      if (err.message === 'Nullifiers are create only') {
+        throw new Error(`Rejecting tx for emitting duplicate nullifiers`);
+      } else {
+        throw err;
+      }
+    }
   }
 
   async addSiloedNullifiersFromPublic(siloedNullifiers: Fr[]) {
@@ -708,6 +716,10 @@ export class TXE implements TypedOracle {
     this.addPrivateLogs(
       targetContractAddress,
       publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
+    );
+    await this.addNullifiers(
+      targetContractAddress,
+      publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
     );
 
     this.setContractAddress(currentContractAddress);
