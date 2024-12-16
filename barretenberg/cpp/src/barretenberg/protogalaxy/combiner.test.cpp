@@ -213,8 +213,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
             // Get the result of the 0th subrelation of the arithmetic relation
             FF key_offset = std::get<0>(temporary_accumulator)[0];
-            // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the
-            optimisation) keys_data[1]->proving_key.polynomials.q_c.at(0) -= key_offset;
+            // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the optimisation)
+            keys_data[1]->proving_key.polynomials.q_c.at(0) -= key_offset;
             std::vector<typename Flavor::ProverPolynomials>
                 extended_polynomials; // These hold the extensions of prover polynomials
 
