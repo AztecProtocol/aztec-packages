@@ -1,9 +1,10 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
+import { L1TxUtils, MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
+import { encodeFunctionData } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
@@ -48,6 +49,8 @@ export async function sequencers(opts: {
 
   const who = (maybeWho as `0x{string}`) ?? walletClient?.account.address.toString();
 
+  const l1TxUtils = walletClient ? new L1TxUtils(publicClient, walletClient, debugLogger) : undefined;
+
   if (command === 'list') {
     const sequencers = await rollup.read.getAttesters();
     if (sequencers.length === 0) {
@@ -59,8 +62,8 @@ export async function sequencers(opts: {
       }
     }
   } else if (command === 'add') {
-    if (!who || !writeableRollup || !walletClient) {
-      throw new Error(`Missing sequencer address`);
+    if (!who || !writeableRollup || !walletClient || !l1TxUtils) {
+      throw new Error(`Missing sequencer address or wallet configuration`);
     }
 
     log(`Adding ${who} as sequencer`);
@@ -71,24 +74,62 @@ export async function sequencers(opts: {
       client: walletClient,
     });
 
-    await Promise.all(
-      [
-        await stakingAsset.write.mint([walletClient.account.address, MINIMUM_STAKE], {} as any),
-        await stakingAsset.write.approve([rollup.address, MINIMUM_STAKE], {} as any),
-      ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
-    );
+    const mintRequest = {
+      to: stakingAsset.address,
+      data: encodeFunctionData({
+        abi: stakingAsset.abi,
+        functionName: 'mint',
+        args: [walletClient.account.address, MINIMUM_STAKE],
+      }),
+    };
+    const approveRequest = {
+      to: stakingAsset.address,
+      data: encodeFunctionData({
+        abi: stakingAsset.abi,
+        functionName: 'approve',
+        args: [rollup.address, MINIMUM_STAKE],
+      }),
+    };
 
-    const hash = await writeableRollup.write.deposit([who, who, who, MINIMUM_STAKE]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    log(`Added in tx ${hash}`);
+    // Send transactions first
+    const [mintTxRes, approveTxRes] = await Promise.all([
+      l1TxUtils.sendTransaction(mintRequest),
+      l1TxUtils.sendTransaction(approveRequest),
+    ]);
+
+    // Monitor transactions in parallel
+    await Promise.all([
+      l1TxUtils.monitorTransaction(mintRequest, mintTxRes.txHash, { gasLimit: mintTxRes.gasLimit }),
+      l1TxUtils.monitorTransaction(approveRequest, approveTxRes.txHash, { gasLimit: approveTxRes.gasLimit }),
+    ]);
+
+    // Now send and monitor deposit transaction
+    const depositReceipt = await l1TxUtils.sendAndMonitorTransaction({
+      to: writeableRollup.address,
+      data: encodeFunctionData({
+        abi: writeableRollup.abi,
+        functionName: 'deposit',
+        args: [who, who, who, MINIMUM_STAKE],
+      }),
+    });
+
+    log(`Added in tx ${depositReceipt.transactionHash}`);
   } else if (command === 'remove') {
-    if (!who || !writeableRollup) {
-      throw new Error(`Missing sequencer address`);
+    if (!who || !writeableRollup || !l1TxUtils) {
+      throw new Error(`Missing sequencer address or wallet configuration`);
     }
     log(`Removing ${who} as sequencer`);
-    const hash = await writeableRollup.write.initiateWithdraw([who, who]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    log(`Removed in tx ${hash}`);
+
+    const receipt = await l1TxUtils.sendAndMonitorTransaction({
+      to: writeableRollup.address,
+      data: encodeFunctionData({
+        abi: writeableRollup.abi,
+        functionName: 'initiateWithdraw',
+        args: [who, who],
+      }),
+    });
+
+    log(`Removed in tx ${receipt.transactionHash}`);
   } else if (command === 'who-next') {
     const next = await rollup.read.getCurrentProposer();
     log(`Sequencer expected to build is ${next}`);

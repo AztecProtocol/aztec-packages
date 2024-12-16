@@ -7,7 +7,7 @@ import {
   type SiblingPath,
   computeSecretHash,
 } from '@aztec/aztec.js';
-import { extractEvent } from '@aztec/ethereum';
+import { L1TxUtils, extractEvent } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 
@@ -19,6 +19,7 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
+  encodeFunctionData,
   getContract,
   toFunctionSelector,
 } from 'viem';
@@ -59,6 +60,7 @@ export function generateClaimSecret(logger?: Logger): [Fr, Fr] {
 /** Helper for managing an ERC20 on L1. */
 export class L1TokenManager {
   private contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
+  private l1TxUtils: L1TxUtils;
 
   public constructor(
     /** Address of the ERC20 contract. */
@@ -72,6 +74,7 @@ export class L1TokenManager {
       abi: TestERC20Abi,
       client: this.walletClient,
     });
+    this.l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
   }
 
   /**
@@ -90,8 +93,13 @@ export class L1TokenManager {
    */
   public async mint(amount: bigint, address: Hex, addressName?: string) {
     this.logger.info(`Minting ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.contract.write.mint([address, amount]),
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.contract.address,
+      data: encodeFunctionData({
+        abi: this.contract.abi,
+        functionName: 'mint',
+        args: [address, amount],
+      }),
     });
   }
 
@@ -103,8 +111,13 @@ export class L1TokenManager {
    */
   public async approve(amount: bigint, address: Hex, addressName = '') {
     this.logger.info(`Approving ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.contract.write.approve([address, amount]),
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.contract.address,
+      data: encodeFunctionData({
+        abi: this.contract.abi,
+        functionName: 'approve',
+        args: [address, amount],
+      }),
     });
   }
 }
@@ -116,6 +129,7 @@ export class L1FeeJuicePortalManager {
     typeof FeeJuicePortalAbi,
     WalletClient<HttpTransport, Chain, Account>
   >;
+  private readonly l1TxUtils: L1TxUtils;
 
   constructor(
     portalAddress: EthAddress,
@@ -130,6 +144,7 @@ export class L1FeeJuicePortalManager {
       abi: FeeJuicePortalAbi,
       client: this.walletClient,
     });
+    this.l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
   }
 
   /** Returns the associated token manager for the L1 ERC20. */
@@ -156,8 +171,13 @@ export class L1FeeJuicePortalManager {
 
     await this.contract.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
-      hash: await this.contract.write.depositToAztecPublic(args),
+    const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.contract.address,
+      data: encodeFunctionData({
+        abi: this.contract.abi,
+        functionName: 'depositToAztecPublic',
+        args,
+      }),
     });
 
     const log = extractEvent(
@@ -210,6 +230,7 @@ export class L1FeeJuicePortalManager {
 export class L1ToL2TokenPortalManager {
   protected readonly portal: GetContractReturnType<typeof TokenPortalAbi, WalletClient<HttpTransport, Chain, Account>>;
   protected readonly tokenManager: L1TokenManager;
+  protected readonly l1TxUtils: L1TxUtils;
 
   constructor(
     portalAddress: EthAddress,
@@ -224,6 +245,7 @@ export class L1ToL2TokenPortalManager {
       abi: TokenPortalAbi,
       client: this.walletClient,
     });
+    this.l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
   }
 
   /** Returns the token manager for the underlying L1 token. */
@@ -241,15 +263,22 @@ export class L1ToL2TokenPortalManager {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed publicly');
-    const { request } = await this.portal.simulate.depositToAztecPublic([
-      to.toString(),
-      amount,
-      claimSecretHash.toString(),
-    ]);
+    const args = [to.toString(), amount, claimSecretHash.toString()] as const;
+    const { request } = await this.portal.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
-      hash: await this.walletClient.writeContract(request),
-    });
+    const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: request.address!,
+        data: encodeFunctionData({
+          abi: this.portal.abi,
+          functionName: 'depositToAztecPublic',
+          args,
+        }),
+      },
+      {
+        fixedGas: request.gas,
+      },
+    );
 
     const log = extractEvent(
       txReceipt.logs,
@@ -286,10 +315,13 @@ export class L1ToL2TokenPortalManager {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
-    const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
-
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
-      hash: await this.walletClient.writeContract(request),
+    const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.portal.address,
+      data: encodeFunctionData({
+        abi: this.portal.abi,
+        functionName: 'depositToAztecPrivate',
+        args: [amount, claimSecretHash.toString()],
+      }),
     });
 
     const log = extractEvent(
@@ -368,17 +400,30 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       throw new Error(`L1 to L2 message at block ${blockNumber} index ${messageIndex} has already been consumed`);
     }
 
-    // Call function on L1 contract to consume the message
-    const { request: withdrawRequest } = await this.portal.simulate.withdraw([
+    const withdrawArgs = [
       recipient.toString(),
       amount,
       false,
       BigInt(blockNumber),
       messageIndex,
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
-    ]);
+    ] as const;
+    // Call function on L1 contract to consume the message
+    const { request } = await this.portal.simulate.withdraw(withdrawArgs);
 
-    await this.publicClient.waitForTransactionReceipt({ hash: await this.walletClient.writeContract(withdrawRequest) });
+    await this.l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: request.address!,
+        data: encodeFunctionData({
+          abi: this.portal.abi,
+          functionName: 'withdraw',
+          args: withdrawArgs,
+        }),
+      },
+      {
+        fixedGas: request.gas,
+      },
+    );
 
     const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
     if (!isConsumedAfter) {
