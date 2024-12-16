@@ -20,7 +20,8 @@ node ./scripts/generate_variants.js
 
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 echo "Compiling protocol circuits with ${RAYON_NUM_THREADS:-1} threads"
-RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1} $NARGO compile --silence-warnings
+# NOTE: --skip-brillig-constraints-check added temporarily for blobs build time
+RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1} $NARGO compile --silence-warnings --skip-brillig-constraints-check
 
 BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH

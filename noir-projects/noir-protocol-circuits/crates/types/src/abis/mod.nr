@@ -38,6 +38,7 @@ pub mod call_context;
 
 pub mod private_circuit_public_inputs;
 
+pub mod sponge_blob;
 pub mod gas_fees;
 pub mod gas_settings;
 pub mod gas;
