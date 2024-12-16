@@ -307,22 +307,12 @@ impl<'context> Elaborator<'context> {
 
         // We have to run any comptime attributes on functions before the function is elaborated
         // since the generated items are checked beforehand as well.
-        let generated_items = self.run_attributes(
+        self.run_attributes(
             &items.traits,
             &items.types,
             &items.functions,
             &items.module_attributes,
         );
-
-        // After everything is collected, we can elaborate our generated items.
-        // It may be better to inline these within `items` entirely since elaborating them
-        // all here means any globals will not see these. Inlining them completely within `items`
-        // means we must be more careful about missing any additional items that need to be already
-        // elaborated. E.g. if a new struct is created, we've already passed the code path to
-        // elaborate them.
-        if !generated_items.is_empty() {
-            self.elaborate_items(generated_items);
-        }
 
         for functions in items.functions {
             self.elaborate_functions(functions);
@@ -440,6 +430,9 @@ impl<'context> Elaborator<'context> {
         // so we need to reintroduce the same IDs into scope here.
         for parameter in &func_meta.parameter_idents {
             let name = self.interner.definition_name(parameter.id).to_owned();
+            if name == "_" {
+                continue;
+            }
             let warn_if_unused = !(func_meta.trait_impl.is_some() && name == "self");
             self.add_existing_variable_to_scope(name, parameter.clone(), warn_if_unused);
         }

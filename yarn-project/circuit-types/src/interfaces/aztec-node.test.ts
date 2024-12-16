@@ -1,15 +1,16 @@
 import {
   ARCHIVE_HEIGHT,
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
@@ -179,6 +180,19 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(true);
   });
 
+  it('getNodeInfo', async () => {
+    const response = await context.client.getNodeInfo();
+    expect(response).toEqual({
+      ...(await handler.getNodeInfo()),
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, expect.any(EthAddress)]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)]),
+      ) as ProtocolContractAddresses,
+    });
+  });
+
   it('getBlocks', async () => {
     const response = await context.client.getBlocks(1, 1);
     expect(response).toHaveLength(1);
@@ -270,7 +284,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const response = await context.client.getBlockHeader();
-    expect(response).toBeInstanceOf(Header);
+    expect(response).toBeInstanceOf(BlockHeader);
   });
 
   it('simulatePublicCalls', async () => {
@@ -451,6 +465,20 @@ class MockAztecNode implements AztecNode {
   isReady(): Promise<boolean> {
     return Promise.resolve(true);
   }
+  getNodeInfo(): Promise<NodeInfo> {
+    return Promise.resolve({
+      nodeVersion: '1.0',
+      l1ChainId: 1,
+      protocolVersion: 1,
+      enr: 'enr',
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, EthAddress.random()]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
+      ) as ProtocolContractAddresses,
+    });
+  }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return Promise.resolve(times(limit, i => L2Block.random(from + i)));
   }
@@ -525,8 +553,8 @@ class MockAztecNode implements AztecNode {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<Header> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
+    return Promise.resolve(BlockHeader.empty());
   }
   simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

@@ -23,7 +23,7 @@ This removes any other arguments, allowing you to ensure an isolated environment
 In another terminal, run:
 
 ```bash
-aztec start --port 8081 --pxe nodeUrl=http://host.docker.internal:8080/
+aztec start --port 8081 --pxe --pxe.nodeUrl=http://host.docker.internal:8080/
 ```
 
 This command uses the default ports, so they might need to be changed depending on yuor configuration. It will run the PXE on port `8081`.

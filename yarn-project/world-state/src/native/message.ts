@@ -56,7 +56,7 @@ export enum WorldStateMessageType {
   GET_SIBLING_PATH,
   GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
-  FIND_LEAF_INDEX,
+  FIND_LEAF_INDICES,
   FIND_LOW_LEAF,
 
   APPEND_LEAVES,
@@ -329,8 +329,8 @@ export type SerializedIndexedLeaf = {
   nextValue: Buffer; // Fr
 };
 
-interface WithLeafValue {
-  leaf: SerializedLeafValue;
+interface WithLeafValues {
+  leaves: SerializedLeafValue[];
 }
 
 interface BlockShiftRequest {
@@ -371,10 +371,12 @@ type GetLeafResponse = SerializedLeafValue | undefined;
 interface GetLeafPreImageRequest extends WithTreeId, WithLeafIndex, WithWorldStateRevision {}
 type GetLeafPreImageResponse = SerializedIndexedLeaf | undefined;
 
-interface FindLeafIndexRequest extends WithTreeId, WithLeafValue, WithWorldStateRevision {
+interface FindLeafIndicesRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {
   startIndex: bigint;
 }
-type FindLeafIndexResponse = bigint | null;
+interface FindLeafIndicesResponse {
+  indices: bigint[];
+}
 
 interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {
   key: Fr;
@@ -461,7 +463,7 @@ export type WorldStateRequest = {
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathRequest;
   [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesRequest;
 
-  [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexRequest;
+  [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesRequest;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafRequest;
 
   [WorldStateMessageType.APPEND_LEAVES]: AppendLeavesRequest;
@@ -497,7 +499,7 @@ export type WorldStateResponse = {
   [WorldStateMessageType.GET_SIBLING_PATH]: GetSiblingPathResponse;
   [WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES]: GetBlockNumbersForLeafIndicesResponse;
 
-  [WorldStateMessageType.FIND_LEAF_INDEX]: FindLeafIndexResponse;
+  [WorldStateMessageType.FIND_LEAF_INDICES]: FindLeafIndicesResponse;
   [WorldStateMessageType.FIND_LOW_LEAF]: FindLowLeafResponse;
 
   [WorldStateMessageType.APPEND_LEAVES]: void;

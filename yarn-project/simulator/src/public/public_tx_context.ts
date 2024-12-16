@@ -2,6 +2,7 @@ import {
   type AvmProvingRequest,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -9,40 +10,42 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
+  AvmCircuitInputs,
   type AvmCircuitPublicInputs,
+  type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
+  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
+  TreeSnapshots,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { PublicSideEffectTrace } from './side_effect_trace.js';
-import { generateAvmCircuitPublicInputs, generateAvmProvingRequest } from './transitional_adapters.js';
+import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
  * The transaction-level context for public execution.
  */
 export class PublicTxContext {
-  private log: DebugLogger;
+  private log: Logger;
 
   /* Gas used including private, teardown gas _limit_, setup and app logic */
-  private gasUsed: Gas;
+  private gasUsedByPublic: Gas = Gas.empty();
   /* Gas actually used during teardown (different from limit) */
   public teardownGasUsed: Gas = Gas.empty();
 
@@ -58,10 +61,10 @@ export class PublicTxContext {
   constructor(
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
-    private readonly historicalHeader: Header, // FIXME(dbanks12): remove
     private readonly startStateReference: StateReference,
-    private readonly startGasUsed: Gas,
     private readonly gasSettings: GasSettings,
+    private readonly gasUsedByPrivate: Gas,
+    private readonly gasAllocatedToPublic: Gas,
     private readonly setupCallRequests: PublicCallRequest[],
     private readonly appLogicCallRequests: PublicCallRequest[],
     private readonly teardownCallRequests: PublicCallRequest[],
@@ -70,10 +73,10 @@ export class PublicTxContext {
     private readonly teardownExecutionRequests: PublicExecutionRequest[],
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
+    public readonly feePayer: AztecAddress,
     public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_context`);
-    this.gasUsed = startGasUsed;
+    this.log = createLogger(`simulator:public_tx_context`);
   }
 
   public static async create(
@@ -85,11 +88,11 @@ export class PublicTxContext {
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const innerCallTrace = new PublicSideEffectTrace();
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.nullifiers),
+      /*protocolPublicDataWrites*/ 0,
+      /*noteHashes*/ 0,
+      /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
     );
@@ -97,18 +100,27 @@ export class PublicTxContext {
       /*startSideEffectCounter=*/ 0,
       previousAccumulatedDataArrayLengths,
     );
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations);
+    const txStateManager = await AvmPersistableStateManager.create(
+      worldStateDB,
+      enqueuedCallTrace,
+      doMerkleOperations,
+      fetchTxHash(nonRevertibleAccumulatedDataFromPrivate),
+    );
+
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasUsedByPrivate = tx.data.gasUsed;
+    // Gas allocated to public is "whatever's left" after private, but with some max applied.
+    const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
 
     return new PublicTxContext(
       new PhaseStateManager(txStateManager),
       globalVariables,
-      tx.data.constants.historicalHeader,
       await db.getStateReference(),
-      tx.data.gasUsed,
-      tx.data.constants.txContext.gasSettings,
+      gasSettings,
+      gasUsedByPrivate,
+      gasAllocatedToPublic,
       getCallRequestsByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
@@ -117,6 +129,7 @@ export class PublicTxContext {
       getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
+      tx.data.feePayer,
       enqueuedCallTrace,
     );
   }
@@ -178,12 +191,7 @@ export class PublicTxContext {
    * @returns The transaction's hash.
    */
   getTxHash(): TxHash {
-    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
-    if (!firstNullifier || firstNullifier.isZero()) {
-      throw new Error(`Cannot get tx hash since first nullifier is missing`);
-    }
-    return new TxHash(firstNullifier.toBuffer());
+    return fetchTxHash(this.nonRevertibleAccumulatedDataFromPrivate);
   }
 
   /**
@@ -229,13 +237,14 @@ export class PublicTxContext {
   }
 
   /**
-   * How much gas is left for the specified phase?
+   * How much gas is left as of the specified phase?
    */
-  getGasLeftForPhase(phase: TxExecutionPhase): Gas {
+  getGasLeftAtPhase(phase: TxExecutionPhase): Gas {
     if (phase === TxExecutionPhase.TEARDOWN) {
-      return this.gasSettings.teardownGasLimits;
+      return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
     } else {
-      return this.gasSettings.gasLimits.sub(this.gasUsed);
+      const gasLeftForPublic = this.gasAllocatedToPublic.sub(this.gasUsedByPublic);
+      return gasLeftForPublic;
     }
   }
 
@@ -246,8 +255,16 @@ export class PublicTxContext {
     if (phase === TxExecutionPhase.TEARDOWN) {
       this.teardownGasUsed = this.teardownGasUsed.add(gas);
     } else {
-      this.gasUsed = this.gasUsed.add(gas);
+      this.gasUsedByPublic = this.gasUsedByPublic.add(gas);
     }
+  }
+
+  /**
+   * The gasUsed by public and private,
+   * as if the entire teardown gas limit was consumed.
+   */
+  getTotalGasUsed(): Gas {
+    return this.gasUsedByPrivate.add(this.gasUsedByPublic);
   }
 
   /**
@@ -260,14 +277,7 @@ export class PublicTxContext {
     assert(this.halted, 'Can only compute actual gas used after tx execution ends');
     const requireTeardown = this.teardownCallRequests.length > 0;
     const teardownGasLimits = requireTeardown ? this.gasSettings.teardownGasLimits : Gas.empty();
-    return this.gasUsed.sub(teardownGasLimits).add(this.teardownGasUsed);
-  }
-
-  /**
-   * The gasUsed as if the entire teardown gas limit was consumed.
-   */
-  getGasUsedForFee(): Gas {
-    return this.gasUsed;
+    return this.getTotalGasUsed().sub(teardownGasLimits).add(this.teardownGasUsed);
   }
 
   /**
@@ -287,10 +297,10 @@ export class PublicTxContext {
    * Should only be called during or after teardown.
    */
   private getTransactionFeeUnsafe(): Fr {
-    const txFee = this.gasUsed.computeFee(this.globalVariables.gasFees);
+    const txFee = this.getTotalGasUsed().computeFee(this.globalVariables.gasFees);
     this.log.debug(`Computed tx fee`, {
       txFee,
-      gasUsed: inspect(this.gasUsed),
+      gasUsed: inspect(this.getTotalGasUsed()),
       gasFees: inspect(this.globalVariables.gasFees),
     });
     return txFee;
@@ -301,24 +311,38 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    // TODO(dbanks12): use the state roots from ephemeral trees
-    endStateReference.partial.nullifierTree.root = this.state
-      .getActiveStateManager()
-      .merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!
-      .getRoot();
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+
+    const getAppendSnaphot = (id: MerkleTreeId) => {
+      const tree = ephemeralTrees.get(id)!;
+      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
+    };
+
+    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      noteHashTree,
+      nullifierTree,
+      publicDataTree,
+    );
+
     return generateAvmCircuitPublicInputs(
       this.trace,
       this.globalVariables,
       this.startStateReference,
-      this.startGasUsed,
+      /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
+      this.feePayer,
       this.setupCallRequests,
       this.appLogicCallRequests,
       this.teardownCallRequests,
       this.nonRevertibleAccumulatedDataFromPrivate,
       this.revertibleAccumulatedDataFromPrivate,
-      endStateReference,
-      /*endGasUsed=*/ this.gasUsed,
+      endTreeSnapshots,
+      /*endGasUsed=*/ this.getTotalGasUsed(),
       this.getTransactionFeeUnsafe(),
       this.revertCode,
     );
@@ -328,38 +352,17 @@ export class PublicTxContext {
    * Generate the proving request for the AVM circuit.
    */
   generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
-    // TODO(dbanks12): Once we actually have tx-level proving, this will generate the entire
-    // proving request for the first time
-    this.avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(endStateReference);
-    return this.avmProvingRequest!;
-  }
-
-  // TODO(dbanks12): remove once AVM proves entire public tx
-  updateProvingRequest(
-    real: boolean,
-    phase: TxExecutionPhase,
-    fnName: string,
-    stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest,
-    result: AvmFinalizedCallResult,
-    allocatedGas: Gas,
-  ) {
-    if (this.avmProvingRequest === undefined) {
-      // Propagate the very first avmProvingRequest of the tx for now.
-      // Eventually this will be the proof for the entire public portion of the transaction.
-      this.avmProvingRequest = generateAvmProvingRequest(
-        real,
-        fnName,
-        stateManager,
-        this.historicalHeader,
-        this.globalVariables,
-        executionRequest,
-        // TODO(dbanks12): do we need this return type unless we are doing an isolated call?
-        stateManager.trace.toPublicEnqueuedCallExecutionResult(result),
-        allocatedGas,
-        this.getTransactionFee(phase),
-      );
-    }
+    const hints = this.trace.getAvmCircuitHints();
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs(
+        'public_dispatch',
+        [],
+        PublicCircuitPublicInputs.empty(),
+        hints,
+        this.generateAvmCircuitPublicInputs(endStateReference),
+      ),
+    };
   }
 }
 
@@ -374,12 +377,12 @@ export class PublicTxContext {
  * transaction level one.
  */
 class PhaseStateManager {
-  private log: DebugLogger;
+  private log: Logger;
 
   private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
 
   constructor(private readonly txStateManager: AvmPersistableStateManager) {
-    this.log = createDebugLogger(`aztec:public_phase_state_manager`);
+    this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 
   fork() {
@@ -411,4 +414,23 @@ class PhaseStateManager {
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }
+}
+
+/**
+ * Apply L2 gas maximum.
+ */
+function applyMaxToAvailableGas(availableGas: Gas) {
+  return new Gas(
+    /*daGas=*/ availableGas.daGas,
+    /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+  );
+}
+
+function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData): TxHash {
+  // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+  const firstNullifier = nonRevertibleAccumulatedData.nullifiers[0];
+  if (!firstNullifier || firstNullifier.isZero()) {
+    throw new Error(`Cannot get tx hash since first nullifier is missing`);
+  }
+  return new TxHash(firstNullifier.toBuffer());
 }

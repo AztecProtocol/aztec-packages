@@ -53,7 +53,7 @@ build:
     WORKDIR /usr/src/yarn-project
     COPY . .
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN ./bootstrap.sh full
+    RUN ./bootstrap.sh
 
 
 build-dev:
@@ -302,15 +302,16 @@ test:
 
 run-e2e:
     ARG test
+    ARG log_level=""
     ARG debug=""
     FROM +end-to-end
-    RUN DEBUG=$debug yarn test $test
+    RUN DEBUG=$debug LOG_LEVEL=$log_level yarn test $test
 
 prover-client-test:
     FROM +build
     ARG test
-    ARG debug=""
-    RUN cd prover-client && DEBUG=$debug yarn test $test
+    ARG log_level=""
+    RUN cd prover-client && LOG_LEVEL=$log_level yarn test $test
 
 # NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
 # Running this inside the main builder as the point is not to run this through dockerization.
@@ -327,7 +328,7 @@ network-test:
     ENV LOG_LEVEL=verbose
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
         "$test" \
-        ./deploy-l1-contracts.sh \
+        "./deploy-l1-contracts.sh $validators" \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \

@@ -102,7 +102,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraFlavor<Flavor>) {
+        if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
             if (block.size() > 0) {
                 proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
             }
@@ -150,6 +150,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
+
     return trace_data;
 }
 

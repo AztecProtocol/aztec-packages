@@ -3,12 +3,11 @@ import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   type ExtendedNote,
   Fr,
+  type Logger,
   type PXE,
   type Wallet,
-  retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -28,7 +27,7 @@ describe('e2e_2_pxes', () => {
   let pxeB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
@@ -57,8 +56,7 @@ describe('e2e_2_pxes', () => {
     await teardownA();
   });
 
-  // TODO #10296
-  it.skip('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
+  it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
@@ -103,20 +101,11 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const awaitServerSynchronized = async (server: PXE) => {
-    const isServerSynchronized = async () => {
-      return await server.isGlobalStateSynchronized();
-    };
-    await retryUntil(isServerSynchronized, 'server sync', 10);
-  };
-
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
     pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
-
-    await awaitServerSynchronized(pxeA);
 
     // Add Child to PXE B
     await pxeB.registerContract({
@@ -128,8 +117,6 @@ describe('e2e_2_pxes', () => {
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pub_inc_value(newValueToSet).send().wait({ interval: 0.1 });
-
-    await awaitServerSynchronized(pxeA);
 
     const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
     expect(storedValueOnB).toEqual(newValueToSet);
@@ -248,21 +235,16 @@ describe('e2e_2_pxes', () => {
     let note: ExtendedNote;
     {
       const owner = walletA.getAddress();
-      const outgoingViewer = owner;
+      const sender = owner;
 
       const receipt = await testContract.methods
-        .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
+        .call_create_note(noteValue, owner, sender, noteStorageSlot)
         .send()
         .wait();
       await testContract.methods.sync_notes().simulate();
       const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
-      const outgoingNotes = await walletA.getOutgoingNotes({ txHash: receipt.txHash });
       expect(incomingNotes).toHaveLength(1);
       note = incomingNotes[0];
-
-      // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
-      expect(outgoingNotes).toHaveLength(1);
-      expect(outgoingNotes[0]).toEqual(note);
     }
 
     // 3. Nullify the note

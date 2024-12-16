@@ -109,9 +109,10 @@ impl Context {
             }
 
             let old_block = &mut old_function.dfg[old_block_id];
-            let mut terminator = old_block
-                .take_terminator()
-                .map_values(|value| self.new_ids.map_value(new_function, old_function, value));
+            let mut terminator = old_block.take_terminator();
+            terminator
+                .map_values_mut(|value| self.new_ids.map_value(new_function, old_function, value));
+
             terminator.mutate_blocks(|old_block| self.new_ids.blocks[&old_block]);
             new_function.dfg.set_block_terminator(new_block_id, terminator);
         }
@@ -177,7 +178,7 @@ impl IdMaps {
             }
 
             Value::NumericConstant { constant, typ } => {
-                new_function.dfg.make_constant(*constant, typ.clone())
+                new_function.dfg.make_constant(*constant, *typ)
             }
             Value::Intrinsic(intrinsic) => new_function.dfg.import_intrinsic(*intrinsic),
             Value::ForeignFunction(name) => new_function.dfg.import_foreign_function(name),

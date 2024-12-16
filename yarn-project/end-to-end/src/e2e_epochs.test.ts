@@ -1,5 +1,5 @@
-import { type EpochConstants, getTimestampRangeForEpoch } from '@aztec/archiver/epoch';
-import { type DebugLogger, retryUntil } from '@aztec/aztec.js';
+// eslint-disable-next-line no-restricted-imports
+import { type EpochConstants, type Logger, getTimestampRangeForEpoch, retryUntil } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 
@@ -15,7 +15,7 @@ describe('e2e_epochs', () => {
   let l1Client: PublicClient;
   let rollup: RollupContract;
   let constants: EpochConstants;
-  let logger: DebugLogger;
+  let logger: Logger;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
 
@@ -111,7 +111,7 @@ describe('e2e_epochs', () => {
 
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${l2BlockNumber}`, 60, 0.1);
+    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {

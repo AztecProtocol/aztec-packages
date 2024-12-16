@@ -1,10 +1,10 @@
 import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
 import { ClientIvcProof } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,7 +13,7 @@ import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } fr
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createLogger('ivc-integration:test:native');
 
 jest.setTimeout(120_000);
 

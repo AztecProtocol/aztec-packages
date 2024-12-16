@@ -16,12 +16,12 @@ import {
   wrapInBlock,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
-  type Header,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -30,7 +30,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -86,7 +86,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
 
-  #log = createDebugLogger('aztec:archiver:data-store');
+  #log = createLogger('archiver:data-store');
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -105,7 +105,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   public getContractClassIds(): Promise<Fr[]> {
-    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromString(key)));
+    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -427,7 +427,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
   }
 
-  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  public async getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     const blocks = await this.getBlocks(from, limit);
     return blocks.map(block => block.data.header);
   }

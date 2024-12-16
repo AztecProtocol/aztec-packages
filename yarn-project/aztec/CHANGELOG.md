@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.66.0...aztec-package-v0.67.0) (2024-12-13)
+
+
+### Features
+
+* Deploy faucet ([#10580](https://github.com/AztecProtocol/aztec-packages/issues/10580)) ([09e95a1](https://github.com/AztecProtocol/aztec-packages/commit/09e95a1d033deb5c31d9967d5100a6aeb8485ab5))
+* Expose P2P service API and clean up logs ([#10552](https://github.com/AztecProtocol/aztec-packages/issues/10552)) ([98cea58](https://github.com/AztecProtocol/aztec-packages/commit/98cea58dd9c7a4518daa8e625dd794a2b6f4b314)), closes [#10299](https://github.com/AztecProtocol/aztec-packages/issues/10299)
+* PXE in the browser ([#10353](https://github.com/AztecProtocol/aztec-packages/issues/10353)) ([676f673](https://github.com/AztecProtocol/aztec-packages/commit/676f673dfbcb14f5351a0068aef9ad9fa4ebf879))
+* PXE sync on demand ([#10613](https://github.com/AztecProtocol/aztec-packages/issues/10613)) ([b2f1159](https://github.com/AztecProtocol/aztec-packages/commit/b2f11596e5c79be0c11ad298e734885e9657e640))
+
+
+### Bug Fixes
+
+* Do not load pino-pretty in production bundles ([#10578](https://github.com/AztecProtocol/aztec-packages/issues/10578)) ([e515e6e](https://github.com/AztecProtocol/aztec-packages/commit/e515e6e7644180bab72eb693d83b9496919cc159))
+* Tweaking Fr and Fq fromString functionality to distinguish number-only strings ([#10529](https://github.com/AztecProtocol/aztec-packages/issues/10529)) ([736fce1](https://github.com/AztecProtocol/aztec-packages/commit/736fce1f77533925943ef363d1803b2e55f83609))
+
+
+### Miscellaneous
+
+* Bump jest default test timeout to 30s ([#10550](https://github.com/AztecProtocol/aztec-packages/issues/10550)) ([841bf48](https://github.com/AztecProtocol/aztec-packages/commit/841bf48c27767c3a4a53aacd0115582e8397910f))
+* Rename logger modules ([#10404](https://github.com/AztecProtocol/aztec-packages/issues/10404)) ([7441767](https://github.com/AztecProtocol/aztec-packages/commit/7441767d7e8e7e7d602c447ca843dee43f8dc8f8)), closes [#10125](https://github.com/AztecProtocol/aztec-packages/issues/10125)
+
+## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.2...aztec-package-v0.66.0) (2024-12-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355))
+
+### Features
+
+* Agent and broker expose OTEL metrics  ([#10264](https://github.com/AztecProtocol/aztec-packages/issues/10264)) ([c2c8cc6](https://github.com/AztecProtocol/aztec-packages/commit/c2c8cc6f7336cf4b2fa14d9a7f1af1a30f1b8f79))
+* Epoch cache, do not attest if not in committee or from current proposer ([#10327](https://github.com/AztecProtocol/aztec-packages/issues/10327)) ([9ebaa65](https://github.com/AztecProtocol/aztec-packages/commit/9ebaa65ce290481e5dc00174e92137561360549a))
+* Staking integration ([#10403](https://github.com/AztecProtocol/aztec-packages/issues/10403)) ([ecd6c4f](https://github.com/AztecProtocol/aztec-packages/commit/ecd6c4ff914129236b23ab6f4924e4faa3e9d523))
+
+
+### Miscellaneous
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355)) ([c246aba](https://github.com/AztecProtocol/aztec-packages/commit/c246aba5dd51391e2b8a3bd8cdc67f0115b85a7a))
+
 ## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.1...aztec-package-v0.65.2) (2024-11-28)
 
 

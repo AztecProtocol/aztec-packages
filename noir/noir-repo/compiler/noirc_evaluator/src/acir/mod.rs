@@ -31,6 +31,7 @@ use crate::brillig::{
     Brillig,
 };
 use crate::errors::{InternalError, InternalWarning, RuntimeError, SsaReport};
+use crate::ssa::ir::instruction::Hint;
 use crate::ssa::{
     function_builder::data_bus::DataBus,
     ir::{
@@ -571,7 +572,7 @@ impl<'a> Context<'a> {
                 AcirValue::Array(_) => {
                     let block_id = self.block_id(param_id);
                     let len = if matches!(typ, Type::Array(_, _)) {
-                        typ.flattened_size()
+                        typ.flattened_size() as usize
                     } else {
                         return Err(InternalError::Unexpected {
                             expected: "Block params should be an array".to_owned(),
@@ -816,17 +817,17 @@ impl<'a> Context<'a> {
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
                                 let output_count = result_ids
                                     .iter()
-                                    .map(|result_id| dfg.type_of_value(*result_id).flattened_size())
+                                    .map(|result_id| {
+                                        dfg.type_of_value(*result_id).flattened_size() as usize
+                                    })
                                     .sum();
 
-                                let Some(acir_function_id) =
-                                    ssa.entry_point_to_generated_index.get(id)
-                                else {
+                                let Some(acir_function_id) = ssa.get_entry_point_index(id) else {
                                     unreachable!("Expected an associated final index for call to acir function {id} with args {arguments:?}");
                                 };
 
                                 let output_vars = self.acir_context.call_acir_function(
-                                    AcirFunctionId(*acir_function_id),
+                                    AcirFunctionId(acir_function_id),
                                     inputs,
                                     output_count,
                                     self.current_side_effects_enabled_var,
@@ -948,7 +949,7 @@ impl<'a> Context<'a> {
                 let block_id = self.block_id(&array_id);
                 let array_typ = dfg.type_of_value(array_id);
                 let len = if matches!(array_typ, Type::Array(_, _)) {
-                    array_typ.flattened_size()
+                    array_typ.flattened_size() as usize
                 } else {
                     Self::flattened_value_size(&output)
                 };
@@ -1444,7 +1445,7 @@ impl<'a> Context<'a> {
         // a separate SSA value and restrictions on slice indices should be generated elsewhere in the SSA.
         let array_typ = dfg.type_of_value(array);
         let array_len = if !array_typ.contains_slice_element() {
-            array_typ.flattened_size()
+            array_typ.flattened_size() as usize
         } else {
             self.flattened_slice_size(array, dfg)
         };
@@ -1539,7 +1540,7 @@ impl<'a> Context<'a> {
                     let value = self.convert_value(array, dfg);
                     let array_typ = dfg.type_of_value(array);
                     let len = if !array_typ.contains_slice_element() {
-                        array_typ.flattened_size()
+                        array_typ.flattened_size() as usize
                     } else {
                         self.flattened_slice_size(array, dfg)
                     };
@@ -1810,7 +1811,7 @@ impl<'a> Context<'a> {
 
         return_values
             .iter()
-            .fold(0, |acc, value_id| acc + dfg.type_of_value(*value_id).flattened_size())
+            .fold(0, |acc, value_id| acc + dfg.type_of_value(*value_id).flattened_size() as usize)
     }
 
     /// Converts an SSA terminator's return values into their ACIR representations
@@ -1871,14 +1872,15 @@ impl<'a> Context<'a> {
 
         let acir_value = match value {
             Value::NumericConstant { constant, typ } => {
-                AcirValue::Var(self.acir_context.add_constant(*constant), typ.into())
+                let typ = AcirType::from(Type::Numeric(*typ));
+                AcirValue::Var(self.acir_context.add_constant(*constant), typ)
             }
             Value::Intrinsic(..) => todo!(),
             Value::Function(function_id) => {
                 // This conversion is for debugging support only, to allow the
                 // debugging instrumentation code to work. Taking the reference
                 // of a function in ACIR is useless.
-                let id = self.acir_context.add_constant(function_id.to_usize());
+                let id = self.acir_context.add_constant(function_id.to_u32());
                 AcirValue::Var(id, AcirType::field())
             }
             Value::ForeignFunction(_) => unimplemented!(
@@ -2131,6 +2133,15 @@ impl<'a> Context<'a> {
         result_ids: &[ValueId],
     ) -> Result<Vec<AcirValue>, RuntimeError> {
         match intrinsic {
+            Intrinsic::Hint(Hint::BlackBox) => {
+                // Identity function; at the ACIR level this is a no-op, it only affects the SSA.
+                assert_eq!(
+                    arguments.len(),
+                    result_ids.len(),
+                    "ICE: BlackBox input and output lengths should match."
+                );
+                Ok(arguments.iter().map(|v| self.convert_value(*v, dfg)).collect())
+            }
             Intrinsic::BlackBox(black_box) => {
                 // Slices are represented as a tuple of (length, slice contents).
                 // We must check the inputs to determine if there are slices
@@ -2156,7 +2167,7 @@ impl<'a> Context<'a> {
                 let inputs = vecmap(&arguments_no_slice_len, |arg| self.convert_value(*arg, dfg));
 
                 let output_count = result_ids.iter().fold(0usize, |sum, result_id| {
-                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
+                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1) as usize
                 });
 
                 let vars = self.acir_context.black_box_function(black_box, inputs, output_count)?;
@@ -2180,7 +2191,7 @@ impl<'a> Context<'a> {
                         endian,
                         field,
                         radix,
-                        array_length as u32,
+                        array_length,
                         result_type[0].clone().into(),
                     )
                     .map(|array| vec![array])
@@ -2194,12 +2205,7 @@ impl<'a> Context<'a> {
                 };
 
                 self.acir_context
-                    .bit_decompose(
-                        endian,
-                        field,
-                        array_length as u32,
-                        result_type[0].clone().into(),
-                    )
+                    .bit_decompose(endian, field, array_length, result_type[0].clone().into())
                     .map(|array| vec![array])
             }
             Intrinsic::ArrayLen => {
@@ -2220,7 +2226,7 @@ impl<'a> Context<'a> {
                 let acir_value = self.convert_value(slice_contents, dfg);
 
                 let array_len = if !slice_typ.contains_slice_element() {
-                    slice_typ.flattened_size()
+                    slice_typ.flattened_size() as usize
                 } else {
                     self.flattened_slice_size(slice_contents, dfg)
                 };
@@ -2887,7 +2893,6 @@ mod test {
         },
         FieldElement,
     };
-    use im::vector;
     use noirc_errors::Location;
     use noirc_frontend::monomorphization::ast::InlineType;
     use std::collections::BTreeMap;
@@ -2897,7 +2902,13 @@ mod test {
         brillig::Brillig,
         ssa::{
             function_builder::FunctionBuilder,
-            ir::{function::FunctionId, instruction::BinaryOp, map::Id, types::Type},
+            ir::{
+                dfg::CallStack,
+                function::FunctionId,
+                instruction::BinaryOp,
+                map::Id,
+                types::{NumericType, Type},
+            },
         },
     };
 
@@ -2919,13 +2930,15 @@ mod test {
             builder.new_function("foo".into(), foo_id, inline_type);
         }
         // Set a call stack for testing whether `brillig_locations` in the `GeneratedAcir` was accurately set.
-        builder.set_call_stack(vector![Location::dummy(), Location::dummy()]);
+        let mut stack = CallStack::unit(Location::dummy());
+        stack.push_back(Location::dummy());
+        builder.set_call_stack(stack);
 
         let foo_v0 = builder.add_parameter(Type::field());
         let foo_v1 = builder.add_parameter(Type::field());
 
         let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
-        let zero = builder.numeric_constant(0u128, Type::unsigned(1));
+        let zero = builder.numeric_constant(0u128, NumericType::unsigned(1));
         builder.insert_constrain(foo_equality_check, zero, None);
         builder.terminate_with_return(vec![foo_v0]);
     }
@@ -2982,7 +2995,7 @@ mod test {
 
         build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
-        let ssa = builder.finish();
+        let ssa = builder.finish().generate_entry_point_index();
 
         let (acir_functions, _, _, _) = ssa
             .into_acir(&Brillig::default(), ExpressionWidth::default())
@@ -3090,6 +3103,7 @@ mod test {
         let ssa = builder.finish();
 
         let (acir_functions, _, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
         // The expected result should look very similar to the above test expect that the input witnesses of the `Call`
@@ -3187,7 +3201,7 @@ mod test {
 
         build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
-        let ssa = builder.finish();
+        let ssa = builder.finish().generate_entry_point_index();
 
         let (acir_functions, _, _, _) = ssa
             .into_acir(&Brillig::default(), ExpressionWidth::default())
@@ -3314,6 +3328,7 @@ mod test {
         let brillig = ssa.to_brillig(false);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3367,7 +3382,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3378,6 +3393,7 @@ mod test {
         // The Brillig bytecode we insert for the stdlib is hardcoded so we do not need to provide any
         // Brillig artifacts to the ACIR gen pass.
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3439,7 +3455,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3452,6 +3468,7 @@ mod test {
         println!("{}", ssa);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3524,7 +3541,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3540,6 +3557,7 @@ mod test {
         println!("{}", ssa);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 

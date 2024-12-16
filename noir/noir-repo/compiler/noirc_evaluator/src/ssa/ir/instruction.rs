@@ -1,4 +1,3 @@
-use noirc_errors::Location;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -11,7 +10,7 @@ use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
-use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
+use crate::ssa::{ir::function::RuntimeType, opt::flatten_cfg::value_merger::ValueMerger};
 
 use super::{
     basic_block::BasicBlockId,
@@ -64,6 +63,7 @@ pub(crate) enum Intrinsic {
     ToBits(Endian),
     ToRadix(Endian),
     BlackBox(BlackBoxFunc),
+    Hint(Hint),
     FromField,
     AsField,
     AsWitness,
@@ -95,6 +95,7 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::ToRadix(Endian::Big) => write!(f, "to_be_radix"),
             Intrinsic::ToRadix(Endian::Little) => write!(f, "to_le_radix"),
             Intrinsic::BlackBox(function) => write!(f, "{function}"),
+            Intrinsic::Hint(Hint::BlackBox) => write!(f, "black_box"),
             Intrinsic::FromField => write!(f, "from_field"),
             Intrinsic::AsField => write!(f, "as_field"),
             Intrinsic::AsWitness => write!(f, "as_witness"),
@@ -143,6 +144,9 @@ impl Intrinsic {
             | Intrinsic::IsUnconstrained
             | Intrinsic::DerivePedersenGenerators
             | Intrinsic::FieldLessThan => false,
+
+            // Treat the black_box hint as-if it could potentially have side effects.
+            Intrinsic::Hint(Hint::BlackBox) => true,
 
             // Some black box functions have side-effects
             Intrinsic::BlackBox(func) => matches!(
@@ -214,6 +218,7 @@ impl Intrinsic {
             "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
             "derive_pedersen_generators" => Some(Intrinsic::DerivePedersenGenerators),
             "field_less_than" => Some(Intrinsic::FieldLessThan),
+            "black_box" => Some(Intrinsic::Hint(Hint::BlackBox)),
             "array_refcount" => Some(Intrinsic::ArrayRefCount),
             "slice_refcount" => Some(Intrinsic::SliceRefCount),
 
@@ -229,6 +234,16 @@ pub(crate) enum Endian {
     Little,
 }
 
+/// Compiler hints.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum Hint {
+    /// Hint to the compiler to treat the call as having potential side effects,
+    /// so that the value passed to it can survive SSA passes without being
+    /// simplified out completely. This facilitates testing and reproducing
+    /// runtime behavior with constants.
+    BlackBox,
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 /// Instructions are used to perform tasks.
 /// The instructions that the IR is able to specify are listed below.
@@ -236,8 +251,8 @@ pub(crate) enum Instruction {
     /// Binary Operations like +, -, *, /, ==, !=
     Binary(Binary),
 
-    /// Converts `Value` into Typ
-    Cast(ValueId, Type),
+    /// Converts `Value` into the given NumericType
+    Cast(ValueId, NumericType),
 
     /// Computes a bit wise not
     Not(ValueId),
@@ -315,7 +330,12 @@ pub(crate) enum Instruction {
     ///     else_value
     /// }
     /// ```
-    IfElse { then_condition: ValueId, then_value: ValueId, else_value: ValueId },
+    IfElse {
+        then_condition: ValueId,
+        then_value: ValueId,
+        else_condition: ValueId,
+        else_value: ValueId,
+    },
 
     /// Creates a new array or slice.
     ///
@@ -334,9 +354,8 @@ impl Instruction {
     pub(crate) fn result_type(&self) -> InstructionResultType {
         match self {
             Instruction::Binary(binary) => binary.result_type(),
-            Instruction::Cast(_, typ) | Instruction::MakeArray { typ, .. } => {
-                InstructionResultType::Known(typ.clone())
-            }
+            Instruction::Cast(_, typ) => InstructionResultType::Known(Type::Numeric(*typ)),
+            Instruction::MakeArray { typ, .. } => InstructionResultType::Known(typ.clone()),
             Instruction::Not(value)
             | Instruction::Truncate { value, .. }
             | Instruction::ArraySet { array: value, .. }
@@ -389,9 +408,22 @@ impl Instruction {
             // This should never be side-effectful
             MakeArray { .. } => false,
 
+            // Some binary math can overflow or underflow
+            Binary(binary) => match binary.operator {
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    true
+                }
+                BinaryOp::Eq
+                | BinaryOp::Lt
+                | BinaryOp::And
+                | BinaryOp::Or
+                | BinaryOp::Xor
+                | BinaryOp::Shl
+                | BinaryOp::Shr => false,
+            },
+
             // These can have different behavior depending on the EnableSideEffectsIf context.
-            Binary(_)
-            | Cast(_, _)
+            Cast(_, _)
             | Not(_)
             | Truncate { .. }
             | IfElse { .. }
@@ -411,7 +443,7 @@ impl Instruction {
     /// conditional on whether the caller wants the predicate to be taken into account or not.
     pub(crate) fn can_be_deduplicated(
         &self,
-        dfg: &DataFlowGraph,
+        function: &Function,
         deduplicate_with_predicate: bool,
     ) -> bool {
         use Instruction::*;
@@ -425,7 +457,7 @@ impl Instruction {
             | IncrementRc { .. }
             | DecrementRc { .. } => false,
 
-            Call { func, .. } => match dfg[*func] {
+            Call { func, .. } => match function.dfg[*func] {
                 Value::Intrinsic(intrinsic) => {
                     intrinsic.can_be_deduplicated(deduplicate_with_predicate)
                 }
@@ -435,8 +467,11 @@ impl Instruction {
             // We can deduplicate these instructions if we know the predicate is also the same.
             Constrain(..) | RangeCheck { .. } => deduplicate_with_predicate,
 
-            // This should never be side-effectful
-            MakeArray { .. } => true,
+            // Arrays can be mutated in unconstrained code so code that handles this case must
+            // take care to track whether the array was possibly mutated or not before
+            // deduplicating. Since we don't know if the containing pass checks for this, we
+            // can only assume these are safe to deduplicate in constrained code.
+            MakeArray { .. } => function.runtime().is_acir(),
 
             // These can have different behavior depending on the EnableSideEffectsIf context.
             // Replacing them with a similar instruction potentially enables replacing an instruction
@@ -449,7 +484,7 @@ impl Instruction {
             | IfElse { .. }
             | ArrayGet { .. }
             | ArraySet { .. } => {
-                deduplicate_with_predicate || !self.requires_acir_gen_predicate(dfg)
+                deduplicate_with_predicate || !self.requires_acir_gen_predicate(&function.dfg)
             }
         }
     }
@@ -478,8 +513,19 @@ impl Instruction {
             | ArraySet { .. }
             | MakeArray { .. } => true,
 
+            // Store instructions must be removed by DIE in acir code, any load
+            // instructions should already be unused by that point.
+            //
+            // Note that this check assumes that it is being performed after the flattening
+            // pass and after the last mem2reg pass. This is currently the case for the DIE
+            // pass where this check is done, but does mean that we cannot perform mem2reg
+            // after the DIE pass.
+            Store { .. } => {
+                matches!(function.runtime(), RuntimeType::Acir(_))
+                    && function.reachable_blocks().len() == 1
+            }
+
             Constrain(..)
-            | Store { .. }
             | EnableSideEffectsIf { .. }
             | IncrementRc { .. }
             | DecrementRc { .. }
@@ -555,7 +601,7 @@ impl Instruction {
                 rhs: f(binary.rhs),
                 operator: binary.operator,
             }),
-            Instruction::Cast(value, typ) => Instruction::Cast(f(*value), typ.clone()),
+            Instruction::Cast(value, typ) => Instruction::Cast(f(*value), *typ),
             Instruction::Not(value) => Instruction::Not(f(*value)),
             Instruction::Truncate { value, bit_size, max_bit_size } => Instruction::Truncate {
                 value: f(*value),
@@ -608,15 +654,82 @@ impl Instruction {
                     assert_message: assert_message.clone(),
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_value } => Instruction::IfElse {
-                then_condition: f(*then_condition),
-                then_value: f(*then_value),
-                else_value: f(*else_value),
-            },
+            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+                Instruction::IfElse {
+                    then_condition: f(*then_condition),
+                    then_value: f(*then_value),
+                    else_condition: f(*else_condition),
+                    else_value: f(*else_value),
+                }
+            }
             Instruction::MakeArray { elements, typ } => Instruction::MakeArray {
                 elements: elements.iter().copied().map(f).collect(),
                 typ: typ.clone(),
             },
+        }
+    }
+
+    /// Maps each ValueId inside this instruction to a new ValueId in place.
+    pub(crate) fn map_values_mut(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
+        match self {
+            Instruction::Binary(binary) => {
+                binary.lhs = f(binary.lhs);
+                binary.rhs = f(binary.rhs);
+            }
+            Instruction::Cast(value, _) => *value = f(*value),
+            Instruction::Not(value) => *value = f(*value),
+            Instruction::Truncate { value, bit_size: _, max_bit_size: _ } => {
+                *value = f(*value);
+            }
+            Instruction::Constrain(lhs, rhs, assert_message) => {
+                *lhs = f(*lhs);
+                *rhs = f(*rhs);
+                if let Some(ConstrainError::Dynamic(_, _, payload_values)) = assert_message {
+                    for value in payload_values {
+                        *value = f(*value);
+                    }
+                }
+            }
+            Instruction::Call { func, arguments } => {
+                *func = f(*func);
+                for argument in arguments {
+                    *argument = f(*argument);
+                }
+            }
+            Instruction::Allocate => (),
+            Instruction::Load { address } => *address = f(*address),
+            Instruction::Store { address, value } => {
+                *address = f(*address);
+                *value = f(*value);
+            }
+            Instruction::EnableSideEffectsIf { condition } => {
+                *condition = f(*condition);
+            }
+            Instruction::ArrayGet { array, index } => {
+                *array = f(*array);
+                *index = f(*index);
+            }
+            Instruction::ArraySet { array, index, value, mutable: _ } => {
+                *array = f(*array);
+                *index = f(*index);
+                *value = f(*value);
+            }
+            Instruction::IncrementRc { value } => *value = f(*value),
+            Instruction::DecrementRc { value } => *value = f(*value),
+            Instruction::RangeCheck { value, max_bit_size: _, assert_message: _ } => {
+                *value = f(*value);
+            }
+            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+                *then_condition = f(*then_condition);
+                *then_value = f(*then_value);
+                *else_condition = f(*else_condition);
+                *else_value = f(*else_value);
+            }
+            Instruction::MakeArray { elements, typ: _ } => {
+                for element in elements.iter_mut() {
+                    *element = f(*element);
+                }
+            }
         }
     }
 
@@ -671,9 +784,10 @@ impl Instruction {
             | Instruction::RangeCheck { value, .. } => {
                 f(*value);
             }
-            Instruction::IfElse { then_condition, then_value, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
                 f(*then_condition);
                 f(*then_value);
+                f(*else_condition);
                 f(*else_value);
             }
             Instruction::MakeArray { elements, typ: _ } => {
@@ -699,7 +813,7 @@ impl Instruction {
         use SimplifyResult::*;
         match self {
             Instruction::Binary(binary) => binary.simplify(dfg),
-            Instruction::Cast(value, typ) => simplify_cast(*value, typ, dfg),
+            Instruction::Cast(value, typ) => simplify_cast(*value, *typ, dfg),
             Instruction::Not(value) => {
                 match &dfg[dfg.resolve(*value)] {
                     // Limit optimizing ! on constants to only booleans. If we tried it on fields,
@@ -708,7 +822,7 @@ impl Instruction {
                     Value::NumericConstant { constant, typ } if typ.is_unsigned() => {
                         // As we're casting to a `u128`, we need to clear out any upper bits that the NOT fills.
                         let value = !constant.to_u128() % (1 << typ.bit_size());
-                        SimplifiedTo(dfg.make_constant(value.into(), typ.clone()))
+                        SimplifiedTo(dfg.make_constant(value.into(), *typ))
                     }
                     Value::Instruction { instruction, .. } => {
                         // !!v => v
@@ -836,7 +950,7 @@ impl Instruction {
                     None
                 }
             }
-            Instruction::IfElse { then_condition, then_value, else_value } => {
+            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
                 let typ = dfg.type_of_value(*then_value);
 
                 if let Some(constant) = dfg.get_numeric_constant(*then_condition) {
@@ -855,11 +969,13 @@ impl Instruction {
 
                 if matches!(&typ, Type::Numeric(_)) {
                     let then_condition = *then_condition;
+                    let else_condition = *else_condition;
 
                     let result = ValueMerger::merge_numeric_values(
                         dfg,
                         block,
                         then_condition,
+                        else_condition,
                         then_value,
                         else_value,
                     );
@@ -1141,7 +1257,7 @@ impl TerminatorInstruction {
     }
 
     /// Mutate each ValueId to a new ValueId using the given mapping function
-    pub(crate) fn mutate_values(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
+    pub(crate) fn map_values_mut(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
         use TerminatorInstruction::*;
         match self {
             JmpIf { condition, .. } => {
@@ -1195,7 +1311,7 @@ impl TerminatorInstruction {
         }
     }
 
-    pub(crate) fn call_stack(&self) -> im::Vector<Location> {
+    pub(crate) fn call_stack(&self) -> CallStack {
         match self {
             TerminatorInstruction::JmpIf { call_stack, .. }
             | TerminatorInstruction::Jmp { call_stack, .. }

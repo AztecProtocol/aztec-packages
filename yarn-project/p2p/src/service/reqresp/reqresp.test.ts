@@ -4,10 +4,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespNode,
   connectToPeers,
   createNodes,
   startNodes,
@@ -23,15 +24,22 @@ const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
 // and ask for specific data that they missed via the traditional gossip protocol.
 describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
+  let nodes: ReqRespNode[];
 
   beforeEach(() => {
     peerManager = mock<PeerManager>();
   });
 
+  afterEach(async () => {
+    if (nodes) {
+      await stopNodes(nodes as ReqRespNode[]);
+    }
+  });
+
   it('Should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
-    const nodes = await createNodes(peerManager, 2);
+    nodes = await createNodes(peerManager, 2);
     const { req: pinger } = nodes[0];
 
     await startNodes(nodes);
@@ -45,12 +53,10 @@ describe('ReqResp', () => {
 
     await sleep(500);
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
-
-    await stopNodes(nodes);
   });
 
   it('Should handle gracefully if a peer connected peer is offline', async () => {
-    const nodes = await createNodes(peerManager, 2);
+    nodes = await createNodes(peerManager, 2);
 
     const { req: pinger } = nodes[0];
     const { req: ponger } = nodes[1];
@@ -66,12 +72,10 @@ describe('ReqResp', () => {
     const res = await pinger.sendRequest(PING_PROTOCOL, PING_REQUEST);
 
     expect(res).toBeUndefined();
-
-    await stopNodes(nodes);
   });
 
   it('Should request from a later peer if other peers are offline', async () => {
-    const nodes = await createNodes(peerManager, 4);
+    nodes = await createNodes(peerManager, 4);
 
     await startNodes(nodes);
     await sleep(500);
@@ -82,16 +86,32 @@ describe('ReqResp', () => {
     void nodes[1].req.stop();
     void nodes[2].req.stop();
 
+    const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
+
     // send from the first node
     const res = await nodes[0].req.sendRequest(PING_PROTOCOL, PING_REQUEST);
 
-    expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
+    // We expect the logger to have been called twice with the peer ids citing the inability to connect
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`Connection reset: ${nodes[1].p2p.peerId.toString()}`),
+      {
+        peerId: nodes[1].p2p.peerId.toString(),
+        subProtocol: PING_PROTOCOL,
+      },
+    );
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`Connection reset: ${nodes[2].p2p.peerId.toString()}`),
+      {
+        peerId: nodes[2].p2p.peerId.toString(),
+        subProtocol: PING_PROTOCOL,
+      },
+    );
 
-    await stopNodes(nodes);
+    expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
   });
 
   it('Should hit a rate limit if too many requests are made in quick succession', async () => {
-    const nodes = await createNodes(peerManager, 2);
+    nodes = await createNodes(peerManager, 2);
 
     await startNodes(nodes);
 
@@ -109,26 +129,24 @@ describe('ReqResp', () => {
 
     // Make sure the error message is logged
     const errorMessage = `Rate limit exceeded for ${PING_PROTOCOL} from ${nodes[0].p2p.peerId.toString()}`;
-    expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
-
-    await stopNodes(nodes);
+    expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(errorMessage));
   });
 
-  describe('TX REQ PROTOCOL', () => {
+  describe('Tx req protocol', () => {
     it('Can request a Tx from TxHash', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Uint8Array> => {
+      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Buffer> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
-          return Promise.resolve(Uint8Array.from(tx.toBuffer()));
+          return Promise.resolve(tx.toBuffer());
         }
-        return Promise.resolve(Uint8Array.from(Buffer.from('')));
+        return Promise.resolve(Buffer.from(''));
       };
 
-      const nodes = await createNodes(peerManager, 2);
+      nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -137,8 +155,29 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
       expect(res).toEqual(tx);
+    });
 
-      await stopNodes(nodes);
+    it('Handle returning empty buffers', async () => {
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Buffer> => {
+        return Promise.resolve(Buffer.alloc(0));
+      };
+
+      nodes = await createNodes(peerManager, 2);
+
+      const spySendRequestToPeer = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      expect(spySendRequestToPeer).toHaveBeenCalledTimes(1);
+      expect(res).toEqual(undefined);
     });
 
     it('Does not crash if tx hash returns undefined', async () => {
@@ -147,11 +186,11 @@ describe('ReqResp', () => {
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Return nothing
-      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Uint8Array> => {
-        return Promise.resolve(Uint8Array.from(Buffer.from('')));
+      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Buffer> => {
+        return Promise.resolve(Buffer.from(''));
       };
 
-      const nodes = await createNodes(peerManager, 2);
+      nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -160,12 +199,10 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
       expect(res).toBeUndefined();
-
-      await stopNodes(nodes);
     });
 
     it('Should hit individual timeout if nothing is returned over the stream', async () => {
-      const nodes = await createNodes(peerManager, 2);
+      nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes);
 
@@ -174,7 +211,7 @@ describe('ReqResp', () => {
       });
 
       // Spy on the logger to make sure the error message is logged
-      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'error');
+      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 
       await sleep(500);
       await connectToPeers(nodes);
@@ -185,10 +222,16 @@ describe('ReqResp', () => {
       expect(res).toBeUndefined();
 
       // Make sure the error message is logged
-      const errorMessage = `${
-        new IndiviualReqRespTimeoutError().message
-      } | peerId: ${nodes[1].p2p.peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`;
-      expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
+      const peerId = nodes[1].p2p.peerId.toString();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        `Timeout error: ${
+          new IndividualReqRespTimeoutError().message
+        } | peerId: ${peerId} | subProtocol: ${TX_REQ_PROTOCOL}`,
+        expect.objectContaining({
+          peerId: peerId,
+          subProtocol: TX_REQ_PROTOCOL,
+        }),
+      );
 
       // Expect the peer to be penalized for timing out
       expect(peerManager.penalizePeer).toHaveBeenCalledWith(
@@ -197,12 +240,10 @@ describe('ReqResp', () => {
         }),
         PeerErrorSeverity.HighToleranceError,
       );
-
-      await stopNodes(nodes);
     });
 
     it('Should hit collective timeout if nothing is returned over the stream from multiple peers', async () => {
-      const nodes = await createNodes(peerManager, 4);
+      nodes = await createNodes(peerManager, 4);
 
       await startNodes(nodes);
 
@@ -213,7 +254,7 @@ describe('ReqResp', () => {
       }
 
       // Spy on the logger to make sure the error message is logged
-      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'error');
+      const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 
       await sleep(500);
       await connectToPeers(nodes);
@@ -226,8 +267,6 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const errorMessage = `${new CollectiveReqRespTimeoutError().message} | subProtocol: ${TX_REQ_PROTOCOL}`;
       expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
-
-      await stopNodes(nodes);
     });
 
     it('Should penalize peer if transaction validation fails', async () => {
@@ -236,12 +275,12 @@ describe('ReqResp', () => {
 
       // Mock that the node will respond with the tx
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Uint8Array> => {
+      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Buffer> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
-          return Promise.resolve(Uint8Array.from(tx.toBuffer()));
+          return Promise.resolve(tx.toBuffer());
         }
-        return Promise.resolve(Uint8Array.from(Buffer.from('')));
+        return Promise.resolve(Buffer.from(''));
       };
 
       // Mock that the receiving node will find that the transaction is invalid
@@ -251,7 +290,7 @@ describe('ReqResp', () => {
         return Promise.resolve(false);
       };
 
-      const nodes = await createNodes(peerManager, 2);
+      nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes, protocolHandlers, protocolValidators);
       await sleep(500);
@@ -268,8 +307,6 @@ describe('ReqResp', () => {
         }),
         PeerErrorSeverity.LowToleranceError,
       );
-
-      await stopNodes(nodes);
     });
   });
 });

@@ -10,16 +10,16 @@ import {
   BatchCall,
   CheatCodes,
   type ContractMethod,
-  type DebugLogger,
   type DeployL1Contracts,
   EthCheatCodes,
+  type Logger,
   NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
   deployL1Contracts,
   makeFetch,
@@ -38,11 +38,12 @@ import {
 } from '@aztec/ethereum';
 import { startAnvil } from '@aztec/ethereum/test';
 import { retryUntil } from '@aztec/foundation/retry';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -95,7 +96,7 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
+  logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
@@ -137,7 +138,7 @@ export async function setupPXEService(
   /**
    * Logger instance named as the current test.
    */
-  logger: DebugLogger;
+  logger: Logger;
   /**
    * Teardown function
    */
@@ -146,9 +147,7 @@ export async function setupPXEService(
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
   const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
-  const teardown = async () => {
-    await pxe.stop();
-  };
+  const teardown = async () => {};
 
   return {
     pxe,
@@ -169,7 +168,7 @@ export async function setupPXEService(
 async function setupWithRemoteEnvironment(
   account: Account,
   config: AztecNodeConfig,
-  logger: DebugLogger,
+  logger: Logger,
   numberOfAccounts: number,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
@@ -227,6 +226,7 @@ async function setupWithRemoteEnvironment(
     logger,
     cheatCodes,
     watcher: undefined,
+    dateProvider: undefined,
     teardown,
   };
 }
@@ -276,11 +276,13 @@ export type EndToEndContext = {
   /** The wallets to be used. */
   wallets: AccountWalletWithSecretKey[];
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** The anvil test watcher (undefined if connected to remove environment) */
+  /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
+  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
+  dateProvider: TestDateProvider | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -377,7 +379,7 @@ export async function setup(
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeJuice.contractAbi,
+      abi: l1Artifacts.feeAsset.contractAbi,
       client: deployL1ContractsValues.walletClient,
     });
 
@@ -417,7 +419,8 @@ export async function setup(
 
   const telemetry = await telemetryPromise;
   const publisher = new TestL1Publisher(config, telemetry);
-  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
   const sequencer = aztecNode.getSequencer();
 
   let proverNode: ProverNode | undefined = undefined;
@@ -445,9 +448,6 @@ export async function setup(
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
     }
-    if (pxe instanceof PXEService) {
-      await pxe?.stop();
-    }
 
     if (acvmConfig?.cleanup) {
       // remove the temp directory created for the acvm
@@ -471,6 +471,7 @@ export async function setup(
     cheatCodes,
     sequencer,
     watcher,
+    dateProvider,
     teardown,
   };
 }
@@ -544,9 +545,9 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createDebugLogger('aztec:' + name);
+    return createLogger('e2e:' + name);
   }
-  return createDebugLogger('aztec:' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName);
 }
 
 /**

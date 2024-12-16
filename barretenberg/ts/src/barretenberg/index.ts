@@ -68,7 +68,7 @@ export class Barretenberg extends BarretenbergApi {
 
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
-    const crs = await Crs.new(2 ** 19 + 1, this.options.crsPath);
+    const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, this.options.crsPath);
 
     // Load CRS into wasm global CRS state.

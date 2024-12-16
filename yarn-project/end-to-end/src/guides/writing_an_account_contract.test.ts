@@ -14,7 +14,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from '../fixtures/utils.js';
 
 // docs:start:account-contract
-const PRIVATE_KEY = GrumpkinScalar.fromString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
+const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {

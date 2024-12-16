@@ -1,5 +1,5 @@
 import { type Fr } from '@aztec/foundation/fields';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 
 import {
   type Abi,
@@ -27,7 +27,7 @@ export function extractEvent<
   abi: TAbi,
   eventName: TEventName,
   filter?: (log: TEventType) => boolean,
-  logger?: DebugLogger,
+  logger?: Logger,
 ): TEventType {
   const event = tryExtractEvent(logs, address, abi, eventName, filter, logger);
   if (!event) {
@@ -46,10 +46,10 @@ function tryExtractEvent<
   abi: TAbi,
   eventName: TEventName,
   filter?: (log: TEventType) => boolean,
-  logger?: DebugLogger,
+  logger?: Logger,
 ): TEventType | undefined {
   for (const log of logs) {
-    if (log.address === address) {
+    if (log.address.toLowerCase() === address.toLowerCase()) {
       try {
         const decodedEvent = decodeEventLog({ abi, ...log });
         if (decodedEvent.eventName === eventName) {

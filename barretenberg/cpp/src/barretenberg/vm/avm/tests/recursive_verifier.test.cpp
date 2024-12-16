@@ -25,15 +25,16 @@ class AvmRecursiveTests : public ::testing::Test {
     using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
 
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
-    using InnerBuilder = AvmCircuitBuilder;
-    using InnerProver = AvmProver;
-    using InnerVerifier = AvmVerifier;
+    using InnerBuilder = bb::avm::AvmCircuitBuilder;
+    using InnerProver = bb::avm::AvmProver;
+    using InnerVerifier = bb::avm::AvmVerifier;
+    using InnerComposer = bb::avm::AvmComposer;
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
 
     using Transcript = InnerFlavor::Transcript;
 
-    using RecursiveVerifier = AvmRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::avm::AvmRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using OuterProver = UltraProver;
@@ -45,11 +46,11 @@ class AvmRecursiveTests : public ::testing::Test {
     AvmPublicInputs public_inputs;
 
     // Generate an extremely simple avm trace
-    AvmCircuitBuilder generate_avm_circuit()
+    InnerBuilder generate_avm_circuit()
     {
         public_inputs = generate_base_public_inputs();
         AvmTraceBuilder trace_builder(public_inputs);
-        AvmCircuitBuilder builder;
+        InnerBuilder builder;
 
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
@@ -70,8 +71,8 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    AvmCircuitBuilder circuit_builder = generate_avm_circuit();
-    AvmComposer composer = AvmComposer();
+    InnerBuilder circuit_builder = generate_avm_circuit();
+    InnerComposer composer = InnerComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
     InnerVerifier verifier = composer.create_verifier(circuit_builder);
 
@@ -96,7 +97,7 @@ TEST_F(AvmRecursiveTests, recursion)
     ASSERT_TRUE(verified) << "native proof verification failed";
 
     // Create the outer verifier, to verify the proof
-    const std::shared_ptr<AvmFlavor::VerificationKey> verification_key = verifier.key;
+    const std::shared_ptr<InnerFlavor::VerificationKey> verification_key = verifier.key;
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
 
@@ -109,8 +110,6 @@ TEST_F(AvmRecursiveTests, recursion)
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-
-    vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
@@ -138,6 +137,8 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);
+
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
     auto recursion_proof = ultra_prover.construct_proof();
     bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);

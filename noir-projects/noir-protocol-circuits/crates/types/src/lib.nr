@@ -17,7 +17,7 @@ pub mod traits;
 pub mod type_serialization;
 
 pub mod content_commitment;
-pub mod header;
+pub mod block_header;
 
 mod tests;
 
