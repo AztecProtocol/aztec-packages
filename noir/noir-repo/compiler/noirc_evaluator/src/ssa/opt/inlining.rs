@@ -11,8 +11,7 @@ use crate::ssa::{
     function_builder::FunctionBuilder,
     ir::{
         basic_block::BasicBlockId,
-        call_stack::CallStackId,
-        dfg::InsertInstructionResult,
+        dfg::{CallStack, InsertInstructionResult},
         function::{Function, FunctionId, RuntimeType},
         instruction::{Instruction, InstructionId, TerminatorInstruction},
         value::{Value, ValueId},
@@ -84,7 +83,7 @@ struct InlineContext {
     recursion_level: u32,
     builder: FunctionBuilder,
 
-    call_stack: CallStackId,
+    call_stack: CallStack,
 
     // The FunctionId of the entry point function we're inlining into in the old, unmodified Ssa.
     entry_point: FunctionId,
@@ -366,7 +365,7 @@ impl InlineContext {
             builder,
             recursion_level: 0,
             entry_point,
-            call_stack: CallStackId::root(),
+            call_stack: CallStack::new(),
             inline_no_predicates_functions,
             functions_not_to_inline,
         }
@@ -661,25 +660,13 @@ impl<'function> PerFunctionContext<'function> {
         let old_results = self.source_function.dfg.instruction_results(call_id);
         let arguments = vecmap(arguments, |arg| self.translate_value(*arg));
 
-        let call_stack = self.source_function.dfg.get_instruction_call_stack(call_id);
+        let call_stack = self.source_function.dfg.get_call_stack(call_id);
         let call_stack_len = call_stack.len();
-        let new_call_stack = self
-            .context
-            .builder
-            .current_function
-            .dfg
-            .call_stack_data
-            .extend_call_stack(self.context.call_stack, &call_stack);
+        self.context.call_stack.append(call_stack);
 
-        self.context.call_stack = new_call_stack;
         let new_results = self.context.inline_function(ssa, function, &arguments);
-        self.context.call_stack = self
-            .context
-            .builder
-            .current_function
-            .dfg
-            .call_stack_data
-            .unwind_call_stack(self.context.call_stack, call_stack_len);
+
+        self.context.call_stack.truncate(self.context.call_stack.len() - call_stack_len);
 
         let new_results = InsertInstructionResult::Results(call_id, &new_results);
         Self::insert_new_instruction_results(&mut self.values, old_results, new_results);
@@ -690,15 +677,9 @@ impl<'function> PerFunctionContext<'function> {
     fn push_instruction(&mut self, id: InstructionId) {
         let instruction = self.source_function.dfg[id].map_values(|id| self.translate_value(id));
 
-        let mut call_stack = self.context.call_stack;
-        let source_call_stack = self.source_function.dfg.get_instruction_call_stack(id);
-        call_stack = self
-            .context
-            .builder
-            .current_function
-            .dfg
-            .call_stack_data
-            .extend_call_stack(call_stack, &source_call_stack);
+        let mut call_stack = self.context.call_stack.clone();
+        call_stack.append(self.source_function.dfg.get_call_stack(id));
+
         let results = self.source_function.dfg.instruction_results(id);
         let results = vecmap(results, |id| self.source_function.dfg.resolve(*id));
 
@@ -755,14 +736,8 @@ impl<'function> PerFunctionContext<'function> {
                 let destination = self.translate_block(*destination, block_queue);
                 let arguments = vecmap(arguments, |arg| self.translate_value(*arg));
 
-                let call_stack = self.source_function.dfg.get_call_stack(*call_stack);
-                let new_call_stack = self
-                    .context
-                    .builder
-                    .current_function
-                    .dfg
-                    .call_stack_data
-                    .extend_call_stack(self.context.call_stack, &call_stack);
+                let mut new_call_stack = self.context.call_stack.clone();
+                new_call_stack.append(call_stack.clone());
 
                 self.context
                     .builder
@@ -777,14 +752,9 @@ impl<'function> PerFunctionContext<'function> {
                 call_stack,
             } => {
                 let condition = self.translate_value(*condition);
-                let call_stack = self.source_function.dfg.get_call_stack(*call_stack);
-                let new_call_stack = self
-                    .context
-                    .builder
-                    .current_function
-                    .dfg
-                    .call_stack_data
-                    .extend_call_stack(self.context.call_stack, &call_stack);
+
+                let mut new_call_stack = self.context.call_stack.clone();
+                new_call_stack.append(call_stack.clone());
 
                 // See if the value of the condition is known, and if so only inline the reachable
                 // branch. This lets us inline some recursive functions without recurring forever.
@@ -821,16 +791,8 @@ impl<'function> PerFunctionContext<'function> {
                 let block_id = self.context.builder.current_block();
 
                 if self.inlining_entry {
-                    let call_stack =
-                        self.source_function.dfg.call_stack_data.get_call_stack(*call_stack);
-                    let new_call_stack = self
-                        .context
-                        .builder
-                        .current_function
-                        .dfg
-                        .call_stack_data
-                        .extend_call_stack(self.context.call_stack, &call_stack);
-
+                    let mut new_call_stack = self.context.call_stack.clone();
+                    new_call_stack.append(call_stack.clone());
                     self.context
                         .builder
                         .set_call_stack(new_call_stack)

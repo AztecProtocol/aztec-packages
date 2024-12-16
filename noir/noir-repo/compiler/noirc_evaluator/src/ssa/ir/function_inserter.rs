@@ -4,8 +4,7 @@ use crate::ssa::ir::types::Type;
 
 use super::{
     basic_block::BasicBlockId,
-    call_stack::CallStackId,
-    dfg::InsertInstructionResult,
+    dfg::{CallStack, InsertInstructionResult},
     function::Function,
     instruction::{Instruction, InstructionId},
     value::ValueId,
@@ -73,10 +72,10 @@ impl<'f> FunctionInserter<'f> {
     }
 
     /// Get an instruction and make sure all the values in it are freshly resolved.
-    pub(crate) fn map_instruction(&mut self, id: InstructionId) -> (Instruction, CallStackId) {
+    pub(crate) fn map_instruction(&mut self, id: InstructionId) -> (Instruction, CallStack) {
         let mut instruction = self.function.dfg[id].clone();
         instruction.map_values_mut(|id| self.resolve(id));
-        (instruction, self.function.dfg.get_instruction_call_stack_id(id))
+        (instruction, self.function.dfg.get_call_stack(id))
     }
 
     /// Maps a terminator in place, replacing any ValueId in the terminator with the
@@ -115,7 +114,7 @@ impl<'f> FunctionInserter<'f> {
         instruction: Instruction,
         id: InstructionId,
         mut block: BasicBlockId,
-        call_stack: CallStackId,
+        call_stack: CallStack,
     ) -> InsertInstructionResult {
         let results = self.function.dfg.instruction_results(id);
         let results = vecmap(results, |id| self.function.dfg.resolve(*id));

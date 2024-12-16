@@ -5,8 +5,7 @@ use acvm::{acir::AcirField, FieldElement};
 use crate::ssa::{
     ir::{
         basic_block::BasicBlockId,
-        call_stack::CallStackId,
-        dfg::InsertInstructionResult,
+        dfg::{CallStack, InsertInstructionResult},
         function::{Function, RuntimeType},
         instruction::{Binary, BinaryOp, Endian, Instruction, InstructionId, Intrinsic},
         types::{NumericType, Type},
@@ -41,7 +40,7 @@ impl Function {
             function: self,
             new_instructions: Vec::new(),
             block,
-            call_stack: CallStackId::root(),
+            call_stack: CallStack::default(),
         };
 
         context.remove_bit_shifts();
@@ -53,7 +52,7 @@ struct Context<'f> {
     new_instructions: Vec<InstructionId>,
 
     block: BasicBlockId,
-    call_stack: CallStackId,
+    call_stack: CallStack,
 }
 
 impl Context<'_> {
@@ -65,8 +64,7 @@ impl Context<'_> {
                 Instruction::Binary(Binary { lhs, rhs, operator })
                     if matches!(operator, BinaryOp::Shl | BinaryOp::Shr) =>
                 {
-                    self.call_stack =
-                        self.function.dfg.get_instruction_call_stack_id(instruction_id);
+                    self.call_stack = self.function.dfg.get_call_stack(instruction_id).clone();
                     let old_result =
                         *self.function.dfg.instruction_results(instruction_id).first().unwrap();
 
@@ -297,7 +295,7 @@ impl Context<'_> {
             instruction,
             self.block,
             ctrl_typevars,
-            self.call_stack,
+            self.call_stack.clone(),
         );
 
         if let InsertInstructionResult::Results(instruction_id, _) = result {

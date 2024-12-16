@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use acvm::{
     acir::{
@@ -31,7 +31,7 @@ use super::execute_program;
 
 #[derive(Debug)]
 pub enum TestStatus {
-    Pass,
+    Pass(Duration),
     Fail { message: String, error_diagnostic: Option<FileDiagnostic> },
     Skipped,
     CompileError(FileDiagnostic),
@@ -39,7 +39,7 @@ pub enum TestStatus {
 
 impl TestStatus {
     pub fn failed(&self) -> bool {
-        !matches!(self, TestStatus::Pass | TestStatus::Skipped)
+        !matches!(self, TestStatus::Pass(_) | TestStatus::Skipped)
     }
 }
 
@@ -61,6 +61,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
         .0
         .is_empty();
 
+    let now = std::time::Instant::now();
     match compile_no_check(context, config, test_function.get_id(), None, false) {
         Ok(compiled_program) => {
             // Do the same optimizations as `compile_cmd`.
@@ -89,6 +90,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     &compiled_program.abi,
                     &compiled_program.debug,
                     &circuit_execution,
+                    now.elapsed(),
                 );
 
                 let ignore_foreign_call_failures =
@@ -129,6 +131,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     let abi = compiled_program.abi.clone();
                     let debug = compiled_program.debug.clone();
 
+                    let now = std::time::Instant::now();
                     let executor =
                         |program: &Program<FieldElement>,
                          initial_witness: WitnessMap<FieldElement>|
@@ -150,6 +153,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                                 &abi,
                                 &debug,
                                 &circuit_execution,
+                                now.elapsed(),
                             );
 
                             if let TestStatus::Fail { message, error_diagnostic: _ } = status {
@@ -159,12 +163,11 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                                 Ok(WitnessStack::default())
                             }
                         };
-
                     let fuzzer = FuzzedExecutor::new(compiled_program.into(), executor, runner);
 
                     let result = fuzzer.fuzz();
                     if result.success {
-                        TestStatus::Pass
+                        TestStatus::Pass(now.elapsed())
                     } else {
                         TestStatus::Fail {
                             message: result.reason.unwrap_or_default(),
@@ -190,7 +193,12 @@ fn test_status_program_compile_fail(err: CompileError, test_function: &TestFunct
         return TestStatus::CompileError(err.into());
     }
 
-    check_expected_failure_message(test_function, None, Some(err.into()))
+    check_expected_failure_message(
+        test_function,
+        None,
+        Some(err.into()),
+        std::time::Duration::new(0, 0),
+    )
 }
 
 /// The test function compiled successfully.
@@ -202,6 +210,7 @@ fn test_status_program_compile_pass(
     abi: &Abi,
     debug: &[DebugInfo],
     circuit_execution: &Result<WitnessStack<FieldElement>, NargoError<FieldElement>>,
+    time: Duration,
 ) -> TestStatus {
     let circuit_execution_err = match circuit_execution {
         // Circuit execution was successful; ie no errors or unsatisfied constraints
@@ -213,7 +222,7 @@ fn test_status_program_compile_pass(
                     error_diagnostic: None,
                 };
             }
-            return TestStatus::Pass;
+            return TestStatus::Pass(time);
         }
         Err(err) => err,
     };
@@ -234,6 +243,7 @@ fn test_status_program_compile_pass(
         test_function,
         circuit_execution_err.user_defined_failure_message(&abi.error_types),
         diagnostic,
+        time,
     )
 }
 
@@ -241,6 +251,7 @@ fn check_expected_failure_message(
     test_function: &TestFunction,
     failed_assertion: Option<String>,
     error_diagnostic: Option<FileDiagnostic>,
+    time: Duration,
 ) -> TestStatus {
     // Extract the expected failure message, if there was one
     //
@@ -249,7 +260,7 @@ fn check_expected_failure_message(
     //
     let expected_failure_message = match test_function.failure_reason() {
         Some(reason) => reason,
-        None => return TestStatus::Pass,
+        None => return TestStatus::Pass(time),
     };
 
     // Match the failure message that the user will see, i.e. the failed_assertion
@@ -263,7 +274,7 @@ fn check_expected_failure_message(
         .map(|message| message.contains(expected_failure_message))
         .unwrap_or(false);
     if expected_failure_message_matches {
-        return TestStatus::Pass;
+        return TestStatus::Pass(time);
     }
 
     // The expected failure message does not match the actual failure message
