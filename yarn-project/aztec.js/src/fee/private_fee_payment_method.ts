@@ -26,6 +26,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
      */
     private wallet: Wallet,
 
+    // TODO(benesjan): nuke this
     /**
      * Address that the FPC sends notes it receives to.
      */
@@ -100,8 +101,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.feeRecipient.toField(), this.wallet.getAddress().toField(), maxFee, nonce],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field)'),
+        args: [this.wallet.getAddress().toField(), maxFee, nonce],
+        selector: FunctionSelector.fromSignature('setup_refund((Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),

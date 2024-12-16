@@ -39,7 +39,6 @@ describe('e2e_fees private_payment', () => {
   let initialBobPrivateBananas: bigint;
 
   let initialFPCPublicBananas: bigint;
-  let initialSequencerPrivateBananas: bigint;
   let initialFPCGas: bigint;
 
   let initialSequencerGas: bigint;
@@ -53,11 +52,11 @@ describe('e2e_fees private_payment', () => {
     initialSequencerL1Gas = await t.getCoinbaseBalance();
 
     [
-      [initialAlicePrivateBananas, initialBobPrivateBananas, initialSequencerPrivateBananas],
+      [initialAlicePrivateBananas, initialBobPrivateBananas],
       [initialAlicePublicBananas, initialBobPublicBananas, initialFPCPublicBananas],
       [initialAliceGas, initialFPCGas, initialSequencerGas],
     ] = await Promise.all([
-      t.getBananaPrivateBalanceFn(aliceAddress, bobAddress, sequencerAddress),
+      t.getBananaPrivateBalanceFn(aliceAddress, bobAddress),
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
@@ -135,14 +134,12 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
-      [
-        initialAlicePrivateBananas - feeAmount - transferAmount,
-        transferAmount,
-        0n,
-        initialSequencerPrivateBananas + feeAmount,
-      ],
+      [aliceAddress, bobAddress],
+      [initialAlicePrivateBananas - feeAmount - transferAmount, transferAmount],
     );
+
+    // FPC should have received fee amount of bananas
+    await expectMapping(t.getBananaPublicBalanceFn, [bananaFPC.address], [initialFPCPublicBananas + feeAmount]);
 
     await expectMapping(
       t.getGasBalanceFn,
@@ -185,9 +182,13 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas - feeAmount + newlyMintedBananas, 0n, initialSequencerPrivateBananas + feeAmount],
+      [aliceAddress],
+      [initialAlicePrivateBananas - feeAmount + newlyMintedBananas],
     );
+
+    // FPC should have received fee amount of bananas
+    await expectMapping(t.getBananaPublicBalanceFn, [bananaFPC.address], [initialFPCPublicBananas + feeAmount]);
+
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
@@ -229,17 +230,13 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bananaFPC.address, sequencerAddress],
-      [
-        initialAlicePrivateBananas - feeAmount + amountTransferredToPrivate,
-        0n,
-        initialSequencerPrivateBananas + feeAmount,
-      ],
+      [aliceAddress],
+      [initialAlicePrivateBananas - feeAmount + amountTransferredToPrivate],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
-      [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas, 0n],
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas + feeAmount],
     );
     await expectMapping(
       t.getGasBalanceFn,
@@ -287,18 +284,16 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
+      [aliceAddress, bobAddress],
       [
         initialAlicePrivateBananas - feeAmount - amountTransferredInPrivate + amountTransferredToPrivate,
         initialBobPrivateBananas + amountTransferredInPrivate,
-        0n,
-        initialSequencerPrivateBananas + feeAmount,
       ],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
-      [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas, 0n],
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePublicBananas - amountTransferredToPrivate, initialFPCPublicBananas + feeAmount],
     );
     await expectMapping(
       t.getGasBalanceFn,

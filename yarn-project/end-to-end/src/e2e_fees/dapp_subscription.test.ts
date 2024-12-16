@@ -127,7 +127,7 @@ describe('e2e_fees dapp_subscription', () => {
 
     // alice, bob, fpc
     await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - transactionFee!, t.SUBSCRIPTION_AMOUNT, 0n);
-    await expectBananasPublicDelta(0n, 0n, 0n);
+    await expectBananasPublicDelta(0n, 0n, transactionFee!);
 
     // REFUND_AMOUNT is a transparent note note
   });

@@ -66,13 +66,11 @@ describe('e2e_fees account_init', () => {
   // Seeded by initBalances below in a beforeEach hook
   let fpcsInitialGas: bigint;
   let fpcsInitialPublicBananas: bigint;
-  let sequencerInitialPrivateBananas: bigint;
 
   async function initBalances() {
-    [[fpcsInitialGas], [fpcsInitialPublicBananas], [sequencerInitialPrivateBananas]] = await Promise.all([
+    [[fpcsInitialGas], [fpcsInitialPublicBananas]] = await Promise.all([
       t.getGasBalanceFn(bananaFPC.address),
       t.getBananaPublicBalanceFn(bananaFPC.address),
-      t.getBananaPrivateBalanceFn(t.sequencerAddress),
     ]);
   }
 
@@ -131,8 +129,8 @@ describe('e2e_fees account_init', () => {
       await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
 
       // the FPC admin (set to sequencer) got the banana fee note so his private balance should have increased by the actual fee
-      await expect(t.getBananaPrivateBalanceFn(t.sequencerAddress)).resolves.toEqual([
-        sequencerInitialPrivateBananas + actualFee,
+      await expect(t.getBananaPublicBalanceFn(t.bananaFPC.address)).resolves.toEqual([
+        fpcsInitialPublicBananas + actualFee,
       ]);
 
       // the FPC should have been the fee payer
