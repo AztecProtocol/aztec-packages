@@ -163,14 +163,12 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
         size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
 
-        size_t lookup_active = 0;
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
             for (size_t i = start; i < end; ++i) {
                 // We only compute the inverse if this row contains a lookup gate or data that has been looked up
                 if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
-                    lookup_active++;
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                     auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
                     auto value = compute_read_term<FF, 0>(row, relation_parameters) *
@@ -179,7 +177,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                 }
             }
         });
-        info("lookup active: ", lookup_active);
+
         // Compute inverse polynomial I in place by inverting the product at each row
         FF::batch_invert(inverse_polynomial.coeffs());
     };

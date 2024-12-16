@@ -24,7 +24,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
-    size_t offset = Flavor::has_zero_row ? 1 : 0;
+    size_t offset = circuit.blocks.lookup.trace_offset;
     // if constexpr (IsPlonkFlavor<Flavor>) {
     //     offset = dyadic_circuit_size - tables_size - additional_offset;
     // }
@@ -53,11 +53,11 @@ template <typename Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit,
-                                  [[maybe_unused]] const size_t dyadic_circuit_size = 0)
+                                  [[maybe_unused]] const size_t additional_offset = 0)
 {
     // const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = Flavor::has_zero_row ? 1 : 0;
+    size_t table_offset = circuit.blocks.lookup.trace_offset;
     // if constexpr (IsPlonkFlavor<Flavor>) {
     //     offset = dyadic_circuit_size - tables_size - additional_offset;
     // }

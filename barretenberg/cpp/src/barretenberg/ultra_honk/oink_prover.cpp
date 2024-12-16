@@ -41,7 +41,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
     {
 
-        PROFILE_THIS_NAME();
+        PROFILE_THIS_NAME("execute_log_derivative_inverse_round");
 
         // Fiat-Shamir: beta & gamma
         execute_log_derivative_inverse_round();

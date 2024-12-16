@@ -33,16 +33,16 @@ struct ExecutionTraceUsageTracker {
     size_t max_tables_size = 0;
 
     // For printing only. Must match the order of the members in the arithmetization
-    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+    static constexpr std::array<std::string_view, 13> block_labels{ "busread",
+                                                                    "lookup",
+                                                                    "ecc_op",
                                                                     "pub_inputs",
-                                                                    "busread",
                                                                     "arithmetic",
                                                                     "delta_range",
                                                                     "elliptic",
                                                                     "aux",
                                                                     "poseidon2_external",
                                                                     "poseidon2_internal",
-                                                                    "lookup",
                                                                     "overflow",
                                                                     "databus_table_data",
                                                                     "lookup_table_data" };
@@ -93,15 +93,18 @@ struct ExecutionTraceUsageTracker {
         // the same fixed block sizes but might also have an overflow block potentially influencing the dyadic circuit
         // size.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1160)
-        // const size_t dyadic_circuit_size = circuit.blocks.get_structured_dyadic_size();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.emplace_back(0, databus_end);
+
+        // TODO: we should allocate the range starting from lookup_start but for some reason that breaks proofs, should
+        // be investigated
+        size_t lookups_start = fixed_sizes.lookup.trace_offset;
         size_t lookups_end =
-            std::max(max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset + max_sizes.lookup));
+            std::max(lookups_start + max_tables_size, static_cast<size_t>(lookups_start + max_sizes.lookup));
         active_ranges.emplace_back(0, lookups_end);
     }
 

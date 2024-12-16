@@ -91,6 +91,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 final_active_wire_idx = block.trace_offset + block.size() - 1;
             }
         }
+        info("Final active wire idx: ", final_active_wire_idx);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
@@ -184,9 +185,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
 
-                size_t table_offset = Flavor::has_zero_row ? 1 : 0;
-                const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE) - table_offset,
-                                                        dyadic_circuit_size - table_offset);
+                size_t table_offset = circuit.blocks.lookup.trace_offset;
+                const size_t max_tables_size =
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
                 // size_t table_offset = dyadic_circuit_size - max_tables_size;
 
                 {
@@ -221,10 +222,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
-                    const size_t lookup_block_end =
-                        static_cast<size_t>((table_offset + circuit.blocks.lookup.get_fixed_size(is_structured)));
-                    const auto tables_end =
-                        std::min(dyadic_circuit_size - table_offset, MAX_LOOKUP_TABLES_SIZE + table_offset);
+                    const size_t lookup_block_end = static_cast<size_t>(
+                        circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+                    const auto tables_end = circuit.blocks.lookup.trace_offset + max_tables_size;
 
                     // Allocate the lookup_inverses polynomial
                     // const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);

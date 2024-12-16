@@ -16,10 +16,10 @@ namespace bb {
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
  */
 template <typename T> struct MegaTraceBlockData {
-    T ecc_op;
-    T pub_inputs;
     T busread;
     T lookup;
+    T ecc_op;
+    T pub_inputs;
     T arithmetic;
     T delta_range;
     T elliptic;
@@ -30,46 +30,22 @@ template <typename T> struct MegaTraceBlockData {
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",
-                 "pub_inputs",
-                 "busread",
-                 "lookup",
-                 "arithmetic",
-                 "delta_range",
-                 "elliptic",
-                 "aux",
-                 "poseidon2_external",
-                 "poseidon2_internal",
+        return { "busread",     "lookup",   "ecc_op", "pub_inputs",         "arithmetic",
+                 "delta_range", "elliptic", "aux",    "poseidon2_external", "poseidon2_internal",
                  "overflow" };
     }
 
     auto get()
     {
-        return RefArray{ ecc_op,
-                         pub_inputs,
-                         busread,
-                         lookup,
-                         arithmetic,
-                         delta_range,
-                         elliptic,
-                         aux,
-                         poseidon2_external,
-                         poseidon2_internal,
+        return RefArray{ busread,     lookup,   ecc_op, pub_inputs,         arithmetic,
+                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
                          overflow };
     }
 
     auto get() const
     {
-        return RefArray{ ecc_op,
-                         pub_inputs,
-                         busread,
-                         lookup,
-                         arithmetic,
-                         delta_range,
-                         elliptic,
-                         aux,
-                         poseidon2_external,
-                         poseidon2_internal,
+        return RefArray{ busread,     lookup,   ecc_op, pub_inputs,         arithmetic,
+                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
                          overflow };
     }
 
@@ -225,14 +201,14 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
     void summarize() const
     {
         info("Gate blocks summary: (actual gates / fixed capacity)");
+        info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
+        info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
         info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
         info("pub inputs    :\t",
              this->pub_inputs.size(),
              "/",
              this->pub_inputs.get_fixed_size(),
              " (populated in decider pk constructor)");
-        info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
-        info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
         info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
         info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
         info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
@@ -266,10 +242,10 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 /**
  * @brief A tiny structuring (for testing without recursive verifications only)
  */
-static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
-                                                     .pub_inputs = 1,
-                                                     .busread = 3,
+static constexpr TraceStructure TINY_TEST_STRUCTURE{ .busread = 3,
                                                      .lookup = 2,
+                                                     .ecc_op = 18,
+                                                     .pub_inputs = 1,
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,
@@ -281,10 +257,10 @@ static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
 /**
  * @brief An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
  */
-static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
-                                                      .pub_inputs = 1 << 14,
-                                                      .busread = 1 << 14,
+static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .busread = 1 << 14,
                                                       .lookup = 1 << 14,
+                                                      .ecc_op = 1 << 14,
+                                                      .pub_inputs = 1 << 14,
                                                       .arithmetic = 1 << 15,
                                                       .delta_range = 1 << 14,
                                                       .elliptic = 1 << 14,
@@ -297,10 +273,10 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
  * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
  * benchmark.
  */
-static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-                                                            .pub_inputs = 1 << 7,
-                                                            .busread = 1 << 7,
+static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .busread = 1 << 7,
                                                             .lookup = 72000,
+                                                            .ecc_op = 1 << 10,
+                                                            .pub_inputs = 1 << 7,
                                                             .arithmetic = 198000,
                                                             .delta_range = 90000,
                                                             .elliptic = 9000,
@@ -312,10 +288,10 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
 /**
  * @brief An example structuring of size 2^18.
  */
-static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
-                                            .pub_inputs = 1 << 6,
-                                            .busread = 1 << 6,
+static constexpr TraceStructure EXAMPLE_18{ .busread = 1 << 6,
                                             .lookup = 36000,
+                                            .ecc_op = 1 << 10,
+                                            .pub_inputs = 1 << 6,
                                             .arithmetic = 84000,
                                             .delta_range = 45000,
                                             .elliptic = 9000,
@@ -327,10 +303,10 @@ static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
 /**
  * @brief An example structuring of size 2^20.
  */
-static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
-                                            .pub_inputs = 1 << 8,
-                                            .busread = 1 << 8,
+static constexpr TraceStructure EXAMPLE_20{ .busread = 1 << 8,
                                             .lookup = 144000,
+                                            .ecc_op = 1 << 11,
+                                            .pub_inputs = 1 << 8,
                                             .arithmetic = 396000,
                                             .delta_range = 180000,
                                             .elliptic = 18000,
@@ -342,10 +318,10 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
 /**
  * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
  */
-static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
-                                                         .pub_inputs = 4000,
-                                                         .busread = 6000,
+static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .busread = 6000,
                                                          .lookup = 200000,
+                                                         .ecc_op = 1 << 10,
+                                                         .pub_inputs = 4000,
                                                          .arithmetic = 200000,
                                                          .delta_range = 25000,
                                                          .elliptic = 80000,
