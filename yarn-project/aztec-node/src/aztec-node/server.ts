@@ -901,10 +901,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    this.log.info(`Adding contract artifact ${artifact.name} for ${address.toString()} via API`);
-    // TODO: Node should validate the artifact before accepting it
-    return this.contractDataSource.addContractArtifact(address, artifact);
+  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    return this.contractDataSource.registerContractFunctionNames(names);
   }
 
   public flushTxs(): Promise<void> {
