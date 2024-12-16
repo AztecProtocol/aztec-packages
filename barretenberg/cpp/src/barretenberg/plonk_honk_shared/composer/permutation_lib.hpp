@@ -92,7 +92,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
             }
         }
 
-        const size_t num_threads = get_num_cpus_pow2();
+        const size_t num_threads = calculate_num_threads_pow2(circuit_size, /*min_iterations_per_thread=*/1 << 10);
         size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
 
         auto initialize_chunk = [&](size_t thread_idx) {
