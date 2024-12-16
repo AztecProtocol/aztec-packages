@@ -65,8 +65,14 @@ export class EpochProvingJob {
   public async run() {
     const epochNumber = Number(this.epochNumber);
     const epochSize = this.blocks.length;
-    const firstBlockNumber = this.blocks[0].number;
-    this.log.info(`Starting epoch proving job`, { firstBlockNumber, epochSize, epochNumber, uuid: this.uuid });
+    const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
+    this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
+      fromBlock,
+      toBlock,
+      epochSize,
+      epochNumber,
+      uuid: this.uuid,
+    });
     this.state = 'processing';
     const timer = new Timer();
 
@@ -74,17 +80,17 @@ export class EpochProvingJob {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, firstBlockNumber, epochSize);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSize);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
-        const txs = await this.getTxs(txHashes);
+        const txs = await this.getTxs(txHashes, block.number);
         const previousHeader = await this.getBlockHeader(block.number - 1);
 
-        this.log.verbose(`Starting block processing`, {
+        this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
           blockHash: block.hash().toString(),
           lastArchive: block.header.lastArchive.root,
@@ -104,7 +110,7 @@ export class EpochProvingJob {
         const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables);
         await this.processTxs(publicProcessor, txs, txCount);
         await db.close();
-        this.log.verbose(`Processed all txs for block`, {
+        this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
           uuid: this.uuid,
@@ -116,17 +122,16 @@ export class EpochProvingJob {
 
       this.state = 'awaiting-prover';
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
+      this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.state = 'publishing-proof';
-      const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
       await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
       this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'completed';
       this.metrics.recordProvingJob(timer);
     } catch (err) {
-      this.log.error(`Error running epoch prover job`, err, { uuid: this.uuid });
+      this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
@@ -149,13 +154,15 @@ export class EpochProvingJob {
     return this.l2BlockSource.getBlockHeader(blockNumber);
   }
 
-  private async getTxs(txHashes: TxHash[]): Promise<Tx[]> {
+  private async getTxs(txHashes: TxHash[], blockNumber: number): Promise<Tx[]> {
     const txs = await Promise.all(
       txHashes.map(txHash => this.coordination.getTxByHash(txHash).then(tx => [txHash, tx] as const)),
     );
     const notFound = txs.filter(([_, tx]) => !tx);
     if (notFound.length) {
-      throw new Error(`Txs not found: ${notFound.map(([txHash]) => txHash.toString()).join(', ')}`);
+      throw new Error(
+        `Txs not found for block ${blockNumber}: ${notFound.map(([txHash]) => txHash.toString()).join(', ')}`,
+      );
     }
     return txs.map(([_, tx]) => tx!);
   }

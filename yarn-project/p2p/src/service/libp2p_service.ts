@@ -8,13 +8,14 @@ import {
   MerkleTreeId,
   type PeerInfo,
   type RawGossipMessage,
-  TopicType,
   TopicTypeMap,
   Tx,
   TxHash,
   type WorldStateSynchronizer,
+  getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
+import { P2PClientType } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -64,7 +65,7 @@ import type { P2PService, PeerDiscoveryService } from './service.js';
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService extends WithTracer implements P2PService {
+export class LibP2PService<T extends P2PClientType> extends WithTracer implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -80,10 +81,11 @@ export class LibP2PService extends WithTracer implements P2PService {
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
 
   constructor(
+    private clientType: T,
     private config: P2PConfig,
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
-    private mempools: MemPools,
+    private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -131,7 +133,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic in TopicType) {
+    for (const topic of getTopicTypeForClientType(this.clientType)) {
       this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
     }
 
@@ -188,11 +190,12 @@ export class LibP2PService extends WithTracer implements P2PService {
    * @param txPool - The transaction pool to be accessed by the service.
    * @returns The new service.
    */
-  public static async new(
+  public static async new<T extends P2PClientType>(
+    clientType: T,
     config: P2PConfig,
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
-    mempools: MemPools,
+    mempools: MemPools<T>,
     l2BlockSource: L2BlockSource,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
@@ -301,6 +304,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
 
     return new LibP2PService(
+      clientType,
       config,
       node,
       peerDiscoveryService,
@@ -383,7 +387,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       const tx = Tx.fromBuffer(Buffer.from(message.data));
       await this.processTxFromPeer(tx, peerId);
     }
-    if (message.topic === BlockAttestation.p2pTopic) {
+    if (message.topic === BlockAttestation.p2pTopic && this.clientType === P2PClientType.Full) {
       const attestation = BlockAttestation.fromBuffer(Buffer.from(message.data));
       await this.processAttestationFromPeer(attestation);
     }
@@ -412,7 +416,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
     this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
-    await this.mempools.attestationPool.addAttestations([attestation]);
+    await this.mempools.attestationPool!.addAttestations([attestation]);
   }
 
   /**Process block from peer

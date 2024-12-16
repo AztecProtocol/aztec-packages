@@ -76,6 +76,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,

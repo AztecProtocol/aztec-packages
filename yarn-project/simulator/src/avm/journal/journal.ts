@@ -1,4 +1,4 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
+import { MerkleTreeId, type TxHash } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
@@ -12,7 +12,13 @@ import {
   ROUTER_ADDRESS,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -55,6 +61,7 @@ export class AvmPersistableStateManager {
     private readonly doMerkleOperations: boolean = false,
     /** Ephmeral forest for merkle tree operations */
     public merkleTrees: AvmEphemeralForest,
+    public readonly txHash: TxHash,
   ) {}
 
   /**
@@ -65,6 +72,7 @@ export class AvmPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     pendingSiloedNullifiers: Fr[],
     doMerkleOperations: boolean = false,
+    txHash: TxHash,
   ) {
     const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
@@ -75,6 +83,7 @@ export class AvmPersistableStateManager {
       /*nullifiers=*/ parentNullifiers.fork(),
       doMerkleOperations,
       ephemeralForest,
+      txHash,
     );
   }
 
@@ -85,6 +94,7 @@ export class AvmPersistableStateManager {
     worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
+    txHash: TxHash,
   ) {
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
@@ -94,6 +104,7 @@ export class AvmPersistableStateManager {
       /*nullifiers=*/ new NullifierManager(worldStateDB),
       /*doMerkleOperations=*/ doMerkleOperations,
       ephemeralForest,
+      txHash,
     );
   }
 
@@ -108,6 +119,7 @@ export class AvmPersistableStateManager {
       this.nullifiers.fork(),
       this.doMerkleOperations,
       this.merkleTrees.fork(),
+      this.txHash,
     );
   }
 
@@ -290,20 +302,41 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Write a note hash, trace the write.
+   * Write a raw note hash, silo it and make it unique, then trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
   public writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): void {
-    this.log.debug(`noteHashes(${contractAddress}) += @${noteHash}.`);
+    const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+
+    this.writeSiloedNoteHash(siloedNoteHash);
+  }
+
+  /**
+   * Write a note hash, make it unique, trace the write.
+   * @param noteHash - the non unique note hash to write
+   */
+  public writeSiloedNoteHash(noteHash: Fr): void {
+    const txHash = Fr.fromBuffer(this.txHash.toBuffer());
+    const nonce = computeNoteHashNonce(txHash, this.trace.getNoteHashCount());
+    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+
+    this.writeUniqueNoteHash(uniqueNoteHash);
+  }
+
+  /**
+   * Write a note hash, trace the write.
+   * @param noteHash - the siloed unique hash to write
+   */
+  public writeUniqueNoteHash(noteHash: Fr): void {
+    this.log.debug(`noteHashes += @${noteHash}.`);
 
     if (this.doMerkleOperations) {
       // Should write a helper for this
       const leafIndex = new Fr(this.merkleTrees.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!.leafCount);
-      const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
-      const insertionPath = this.merkleTrees.appendNoteHash(siloedNoteHash);
-      this.trace.traceNewNoteHash(contractAddress, noteHash, leafIndex, insertionPath);
+      const insertionPath = this.merkleTrees.appendNoteHash(noteHash);
+      this.trace.traceNewNoteHash(noteHash, leafIndex, insertionPath);
     } else {
-      this.trace.traceNewNoteHash(contractAddress, noteHash);
+      this.trace.traceNewNoteHash(noteHash);
     }
   }
 
