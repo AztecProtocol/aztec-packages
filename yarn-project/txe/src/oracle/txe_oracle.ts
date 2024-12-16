@@ -921,6 +921,8 @@ export class TXE implements TypedOracle {
       await this.simulatorOracle.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
 
+    await this.simulatorOracle.removeNullifiedNotes(this.contractAddress);
+
     return Promise.resolve();
   }
 

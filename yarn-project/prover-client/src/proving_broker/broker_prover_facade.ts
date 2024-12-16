@@ -1,6 +1,5 @@
 import {
   type ProofAndVerificationKey,
-  type ProverCache,
   type ProvingJobId,
   type ProvingJobInputsMap,
   type ProvingJobProducer,
@@ -35,24 +34,20 @@ import {
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { truncate } from '@aztec/foundation/string';
 
 import { InlineProofStore, type ProofStore } from './proof_store.js';
-import { InMemoryProverCache } from './prover_cache/memory.js';
 
 // 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
 const MAX_WAIT_MS = 1_200_000;
 
-/**
- * A facade around a job broker that generates stable job ids and caches results
- */
-export class CachingBrokerFacade implements ServerCircuitProver {
+export class BrokerCircuitProverFacade implements ServerCircuitProver {
   constructor(
     private broker: ProvingJobProducer,
-    private cache: ProverCache = new InMemoryProverCache(),
     private proofStore: ProofStore = new InlineProofStore(),
     private waitTimeoutMs = MAX_WAIT_MS,
     private pollIntervalMs = 1000,
-    private log = createLogger('prover-client:caching-prover-broker'),
+    private log = createLogger('prover-client:broker-circuit-prover-facade'),
   ) {}
 
   private async enqueueAndWaitForJob<T extends ProvingRequestType>(
@@ -62,53 +57,23 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber = 0,
     signal?: AbortSignal,
   ): Promise<ProvingJobResultsMap[T]> {
-    // first try the cache
-    let jobEnqueued = false;
-    let jobRejected = undefined;
-    try {
-      const cachedResult = await this.cache.getProvingJobStatus(id);
-      if (cachedResult.status !== 'not-found') {
-        this.log.debug(`Found cached result for job=${id}: status=${cachedResult.status}`);
-      }
+    const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
+    await this.broker.enqueueProvingJob({
+      id,
+      type,
+      inputsUri,
+      epochNumber,
+    });
 
-      if (cachedResult.status === 'fulfilled') {
-        const output = await this.proofStore.getProofOutput(cachedResult.value);
-        if (output.type === type) {
-          return output.result as ProvingJobResultsMap[T];
-        } else {
-          this.log.warn(`Cached result type mismatch for job=${id}. Expected=${type} but got=${output.type}`);
-        }
-      } else if (cachedResult.status === 'rejected') {
-        jobRejected = cachedResult.reason ?? 'Job rejected for unknown reason';
-      } else if (cachedResult.status === 'in-progress' || cachedResult.status === 'in-queue') {
-        jobEnqueued = true;
-      } else {
-        jobEnqueued = false;
-      }
-    } catch (err) {
-      this.log.warn(`Failed to get cached proving job id=${id}: ${err}. Re-running job`);
-    }
-
-    if (jobRejected) {
-      throw new Error(jobRejected);
-    }
-
-    if (!jobEnqueued) {
-      try {
-        const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-        await this.broker.enqueueProvingJob({
-          id,
-          type,
-          inputsUri,
-          epochNumber,
-        });
-        await this.cache.setProvingJobStatus(id, { status: 'in-queue' });
-      } catch (err) {
-        this.log.error(`Failed to enqueue proving job id=${id}: ${err}`);
-        await this.cache.setProvingJobStatus(id, { status: 'not-found' });
-        throw err;
-      }
-    }
+    this.log.verbose(
+      `Sent proving job to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+      {
+        provingJobId: id,
+        provingJobType: ProvingRequestType[type],
+        epochNumber,
+        inputsUri: truncate(inputsUri),
+      },
+    );
 
     // notify broker of cancelled job
     const abortFn = async () => {
@@ -135,12 +100,6 @@ export class CachingBrokerFacade implements ServerCircuitProver {
         this.pollIntervalMs / 1000,
       );
 
-      try {
-        await this.cache.setProvingJobStatus(id, result);
-      } catch (err) {
-        this.log.warn(`Failed to cache proving job id=${id} resultStatus=${result.status}: ${err}`);
-      }
-
       if (result.status === 'fulfilled') {
         const output = await this.proofStore.getProofOutput(result.value);
         if (output.type === type) {
@@ -153,8 +112,6 @@ export class CachingBrokerFacade implements ServerCircuitProver {
       }
     } finally {
       signal?.removeEventListener('abort', abortFn);
-      // we've saved the result in our cache. We can tell the broker to clear its state
-      await this.broker.cleanUpProvingJobState(id);
     }
   }
 
@@ -164,7 +121,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PUBLIC_VM, inputs),
+      this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,
       inputs,
       epochNumber,
@@ -178,7 +135,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BASE_PARITY, inputs),
+      this.generateId(ProvingRequestType.BASE_PARITY, inputs, epochNumber),
       ProvingRequestType.BASE_PARITY,
       inputs,
       epochNumber,
@@ -192,7 +149,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input),
+      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_MERGE_ROLLUP,
       input,
       epochNumber,
@@ -206,7 +163,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
@@ -220,7 +177,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
@@ -234,7 +191,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs),
+      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
       ProvingRequestType.PRIVATE_KERNEL_EMPTY,
       inputs,
       epochNumber,
@@ -248,7 +205,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.MERGE_ROLLUP, input),
+      this.generateId(ProvingRequestType.MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.MERGE_ROLLUP,
       input,
       epochNumber,
@@ -261,7 +218,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput),
+      this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput, epochNumber),
       ProvingRequestType.PRIVATE_BASE_ROLLUP,
       baseRollupInput,
       epochNumber,
@@ -275,7 +232,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs),
+      this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs, epochNumber),
       ProvingRequestType.PUBLIC_BASE_ROLLUP,
       inputs,
       epochNumber,
@@ -289,7 +246,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.ROOT_PARITY, inputs),
+      this.generateId(ProvingRequestType.ROOT_PARITY, inputs, epochNumber),
       ProvingRequestType.ROOT_PARITY,
       inputs,
       epochNumber,
@@ -303,7 +260,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.ROOT_ROLLUP,
       input,
       epochNumber,
@@ -317,7 +274,7 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput),
+      this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput, epochNumber),
       ProvingRequestType.TUBE_PROOF,
       tubeInput,
       epochNumber,
@@ -325,8 +282,8 @@ export class CachingBrokerFacade implements ServerCircuitProver {
     );
   }
 
-  private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }) {
+  private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }, epochNumber = 0) {
     const inputsHash = sha256(inputs.toBuffer());
-    return `${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
+    return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
   }
 }
