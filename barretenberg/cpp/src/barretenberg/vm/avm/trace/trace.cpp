@@ -100,7 +100,9 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     auto old_size = main_trace.size();
     for (auto const& clk : custom_clk) {
         if (clk >= old_size) {
-            main_trace.push_back(Row{ .main_clk = FF(clk) });
+            Row row{};
+            row.main_clk = clk;
+            main_trace.push_back(row);
         }
     }
 
@@ -219,6 +221,19 @@ uint32_t AvmTraceBuilder::get_inserted_note_hashes_count()
            public_inputs.start_tree_snapshots.note_hash_tree.size;
 }
 
+uint32_t AvmTraceBuilder::get_inserted_nullifiers_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().nullifier_tree.size -
+           public_inputs.start_tree_snapshots.nullifier_tree.size;
+}
+
+// Keeping track of the public data writes isn't as simple as comparing sizes
+// because of updates to leaves that were already in the tree and state squashing
+uint32_t AvmTraceBuilder::get_public_data_writes_count()
+{
+    return static_cast<uint32_t>(merkle_tree_trace_builder.get_public_data_unique_writes().size());
+}
+
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
                                            const std::vector<FF>& unique_note_hashes)
 {
@@ -305,6 +320,7 @@ void AvmTraceBuilder::pay_fee()
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }
 
+    // TS equivalent:
     // writeStorage(FEE_JUICE_ADDRESS, balance_slot, updated_balance);
     PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
     ASSERT(write_hint.new_leaf_preimage.value == updated_balance);
@@ -2818,15 +2834,17 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 
 AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    uint32_t unique_public_data_slot_writes = get_public_data_writes_count();
+    AvmError error = current_ext_call_ctx.is_static_call ? AvmError::STATIC_CALL_ALTERATION
+                     : unique_public_data_slot_writes >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                         ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                         : AvmError::NO_ERROR;
 
-    if (storage_write_counter >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+    if (!is_ok(error)) {
         // NOTE: the circuit constraint for this limit should only be applied
         // for the storage writes performed by this opcode. An exception should before
         // made for the fee juice storage write made after teardown.
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -3005,8 +3023,11 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     uint32_t inserted_note_hashes_count = get_inserted_note_hashes_count();
-    if (inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX) {
-        AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+    AvmError error = current_ext_call_ctx.is_static_call                    ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                            : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -3019,8 +3040,12 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
         return error;
     }
 
-    auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
+    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
@@ -3157,12 +3182,14 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 
 AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    if (nullifier_write_counter >= MAX_NULLIFIERS_PER_TX) {
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+    uint32_t inserted_nullifier_count = get_inserted_nullifiers_count();
+    AvmError error = current_ext_call_ctx.is_static_call                 ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_nullifier_count >= MAX_NULLIFIERS_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                         : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -3756,6 +3783,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     current_ext_call_ctx.last_pc = pc;
     current_ext_call_ctx.success_offset = resolved_success_offset;
     current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
+    current_ext_call_ctx.public_data_unique_writes = merkle_tree_trace_builder.get_public_data_unique_writes();
     external_call_ctx_stack.emplace(current_ext_call_ctx);
 
     // Ext Ctx setup
@@ -3764,7 +3792,6 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     set_call_ptr(static_cast<uint8_t>(clk));
 
-<<<<<<< HEAD
     // Don't try allocating more than the gas that is actually left
     const auto l2_gas_allocated_to_nested_call =
         std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
@@ -3773,6 +3800,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     current_ext_call_ctx = ExtCallCtx{
         .context_id = static_cast<uint8_t>(clk),
         .parent_id = current_ext_call_ctx.context_id,
+        .is_static_call = opcode == OpCode::STATICCALL,
         .contract_address = read_addr.val,
         .calldata = calldata,
         .nested_returndata = {},
@@ -3943,7 +3971,6 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
             write_to_memory(
                 current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
-            current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
         }
     }
 
@@ -4083,7 +4110,8 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
             write_to_memory(
                 current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
-            merkle_tree_trace_builder.set_tree_snapshots(current_ext_call_ctx.tree_snapshot);
+            merkle_tree_trace_builder.restore_tree_state(current_ext_call_ctx.tree_snapshot,
+                                                         current_ext_call_ctx.public_data_unique_writes);
         }
     }
 
@@ -4096,7 +4124,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             .main_internal_return_ptr = FF(internal_return_ptr),
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
-            .main_sel_op_external_return = 1,
+            .main_sel_op_external_revert = 1,
         });
 
         pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
