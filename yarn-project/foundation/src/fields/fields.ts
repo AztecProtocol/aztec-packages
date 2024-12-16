@@ -233,11 +233,30 @@ export class Fr extends BaseField {
   }
 
   /**
+   * Creates a Fr instance from a string.
+   * @param buf - the string to create a Fr from.
+   * @returns the Fr instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fr(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fr);
+    }
+
+    throw new Error('Tried to create a Fr from an invalid string');
+  }
+
+  /**
    * Creates a Fr instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fr instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fr);
   }
 
@@ -369,11 +388,30 @@ export class Fq extends BaseField {
   }
 
   /**
+   * Creates a Fq instance from a string.
+   * @param buf - the string to create a Fq from.
+   * @returns the Fq instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fq(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fq);
+    }
+
+    throw new Error('Tried to create a Fq from an invalid string');
+  }
+
+  /**
    * Creates a Fq instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fq instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fq);
   }
 

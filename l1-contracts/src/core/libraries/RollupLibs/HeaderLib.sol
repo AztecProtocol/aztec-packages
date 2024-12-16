@@ -41,7 +41,7 @@ struct GlobalVariables {
 
 struct ContentCommitment {
   uint256 numTxs;
-  bytes32 txsEffectsHash;
+  bytes32 blobsHash;
   bytes32 inHash;
   bytes32 outHash;
 }
@@ -74,7 +74,7 @@ struct Header {
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
  *  |                                                                                  |              |   ContentCommitment {
  *  | 0x0024                                                                           | 0x20         |     numTxs
- *  | 0x0044                                                                           | 0x20         |     txsEffectsHash
+ *  | 0x0044                                                                           | 0x20         |     blobsHash
  *  | 0x0064                                                                           | 0x20         |     inHash
  *  | 0x0084                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
@@ -106,7 +106,7 @@ struct Header {
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
-  uint256 private constant HEADER_LENGTH = 0x288; // Header byte length
+  uint256 private constant HEADER_LENGTH = Constants.BLOCK_HEADER_LENGTH_BYTES; // Header byte length
 
   /**
    * @notice Decodes the header
@@ -128,7 +128,7 @@ library HeaderLib {
 
     // Reading ContentCommitment
     header.contentCommitment.numTxs = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsEffectsHash = bytes32(_header[0x0044:0x0064]);
+    header.contentCommitment.blobsHash = bytes32(_header[0x0044:0x0064]);
     header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
     header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
 
@@ -164,79 +164,5 @@ library HeaderLib {
     header.totalManaUsed = uint256(bytes32(_header[0x0268:0x0288]));
 
     return header;
-  }
-
-  function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
-    bytes32[] memory fields = new bytes32[](25);
-
-    // must match the order in the Header.getFields
-    fields[0] = _header.lastArchive.root;
-    fields[1] = bytes32(uint256(_header.lastArchive.nextAvailableLeafIndex));
-    fields[2] = bytes32(_header.contentCommitment.numTxs);
-    fields[3] = _header.contentCommitment.txsEffectsHash;
-    fields[4] = _header.contentCommitment.inHash;
-    fields[5] = _header.contentCommitment.outHash;
-    fields[6] = _header.stateReference.l1ToL2MessageTree.root;
-    fields[7] = bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex));
-    fields[8] = _header.stateReference.partialStateReference.noteHashTree.root;
-    fields[9] = bytes32(
-      uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex)
-    );
-    fields[10] = _header.stateReference.partialStateReference.nullifierTree.root;
-    fields[11] = bytes32(
-      uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex)
-    );
-    fields[12] = _header.stateReference.partialStateReference.publicDataTree.root;
-    fields[13] = bytes32(
-      uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)
-    );
-    fields[14] = bytes32(_header.globalVariables.chainId);
-    fields[15] = bytes32(_header.globalVariables.version);
-    fields[16] = bytes32(_header.globalVariables.blockNumber);
-    fields[17] = bytes32(_header.globalVariables.slotNumber);
-    fields[18] = bytes32(_header.globalVariables.timestamp);
-    fields[19] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
-    fields[20] = bytes32(_header.globalVariables.feeRecipient);
-    fields[21] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
-    fields[22] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
-    fields[23] = bytes32(_header.totalFees);
-    fields[24] = bytes32(_header.totalManaUsed);
-    // fail if the header structure has changed without updating this function
-    require(
-      fields.length == Constants.HEADER_LENGTH,
-      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
-    );
-
-    return fields;
-  }
-
-  // TODO(#7346): Currently using the below to verify block root proofs until batch rollups fully integrated.
-  // Once integrated, remove the below fn (not used anywhere else).
-  function toFields(GlobalVariables memory _globalVariables)
-    internal
-    pure
-    returns (bytes32[] memory)
-  {
-    bytes32[] memory fields = new bytes32[](Constants.GLOBAL_VARIABLES_LENGTH);
-
-    fields[0] = bytes32(_globalVariables.chainId);
-    fields[1] = bytes32(_globalVariables.version);
-    fields[2] = bytes32(_globalVariables.blockNumber);
-    fields[3] = bytes32(_globalVariables.slotNumber);
-    fields[4] = bytes32(_globalVariables.timestamp);
-    fields[5] = bytes32(uint256(uint160(_globalVariables.coinbase)));
-    fields[6] = bytes32(_globalVariables.feeRecipient);
-    fields[7] = bytes32(_globalVariables.gasFees.feePerDaGas);
-    fields[8] = bytes32(_globalVariables.gasFees.feePerL2Gas);
-
-    // fail if the header structure has changed without updating this function
-    // TODO(Miranda): Temporarily using this method and below error while block-root proofs are verified
-    // When we verify root proofs, this method can be removed => no need for separate named error
-    require(
-      fields.length == Constants.GLOBAL_VARIABLES_LENGTH,
-      Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length)
-    );
-
-    return fields;
   }
 }

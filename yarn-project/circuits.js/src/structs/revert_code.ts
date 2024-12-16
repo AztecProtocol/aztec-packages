@@ -33,6 +33,10 @@ export class RevertCode {
   static readonly TEARDOWN_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.TEARDOWN_REVERTED);
   static readonly BOTH_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.BOTH_REVERTED);
 
+  public getCode(): RevertCodeEnum {
+    return this.code;
+  }
+
   public equals(other: RevertCode): boolean {
     return this.code === other.code;
   }

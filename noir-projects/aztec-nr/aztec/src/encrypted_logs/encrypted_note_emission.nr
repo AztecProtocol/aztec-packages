@@ -1,20 +1,16 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::payload::compute_private_log_payload,
-    keys::getters::get_ovsk_app,
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    public_keys::OvpkM,
 };
 
 /// Computes private note log payload
 fn compute_payload<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
-    ovsk_app: Field,
-    ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> ([Field; PRIVATE_LOG_SIZE_IN_FIELDS], u32)
@@ -34,14 +30,7 @@ where
 
     let plaintext = note.to_be_bytes(storage_slot);
 
-    let payload = compute_private_log_payload(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        recipient,
-        sender,
-        plaintext,
-    );
+    let payload = compute_private_log_payload(contract_address, recipient, sender, plaintext);
 
     (payload, note_hash_counter)
 }
@@ -49,15 +38,13 @@ where
 unconstrained fn compute_payload_unconstrained<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
-    ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> ([Field; PRIVATE_LOG_SIZE_IN_FIELDS], u32)
 where
     Note: NoteInterface<N>,
 {
-    let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_payload(context, note, ovsk_app, ovpk, recipient, sender)
+    compute_payload(context, note, recipient, sender)
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -65,30 +52,26 @@ where
 // If you get weird behavior it might be because of it.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
-    ovpk: OvpkM,
     recipient: AztecAddress,
-    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
+    // We need this because to compute a tagging secret, we require a sender:
     sender: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
     |e: NoteEmission<Note>| {
-        let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-
         let (encrypted_log, note_hash_counter) =
-            compute_payload(*context, e.note, ovsk_app, ovpk, recipient, sender);
+            compute_payload(*context, e.note, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
 
 pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
-    ovpk: OvpkM,
     recipient: AztecAddress,
-    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
+    // We need this because to compute a tagging secret, we require a sender:
     sender: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
@@ -104,7 +87,7 @@ where
         // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
         // be wrong.
         let (encrypted_log, note_hash_counter) =
-            unsafe { compute_payload_unconstrained(*context, e.note, ovpk, recipient, sender) };
+            unsafe { compute_payload_unconstrained(*context, e.note, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }

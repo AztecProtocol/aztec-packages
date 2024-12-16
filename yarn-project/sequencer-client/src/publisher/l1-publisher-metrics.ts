@@ -38,9 +38,6 @@ export class L1PublisherMetrics {
       description: 'The duration of transaction processing',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: [10, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
-      },
     });
 
     this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
@@ -51,11 +48,8 @@ export class L1PublisherMetrics {
 
     this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
       description: 'The size of the calldata in transactions',
-      unit: 'bytes',
+      unit: 'By',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: [0, 100, 200, 500, 1000, 2000, 5000, 10000],
-      },
     });
 
     this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {

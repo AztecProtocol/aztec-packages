@@ -58,18 +58,6 @@ export class L1EventPayload {
     );
   }
 
-  static decryptAsOutgoing(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log, sk);
-    if (!decryptedLog) {
-      return undefined;
-    }
-
-    return this.#fromIncomingBodyPlaintextAndContractAddress(
-      decryptedLog.incomingBodyPlaintext,
-      decryptedLog.contractAddress,
-    );
-  }
-
   /**
    * Serializes the L1EventPayload object into a Buffer.
    * @returns Buffer representation of the L1EventPayload object.

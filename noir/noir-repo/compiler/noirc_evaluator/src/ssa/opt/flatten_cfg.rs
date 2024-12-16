@@ -706,6 +706,7 @@ impl<'f> Context<'f> {
                         let argument_type = self.inserter.function.dfg.type_of_value(field);
 
                         let cast = Instruction::Cast(condition, argument_type.unwrap_numeric());
+
                         let casted_condition = self.insert_instruction(cast, call_stack);
                         let field = self.insert_instruction(
                             Instruction::binary(BinaryOp::Mul, field, casted_condition),
@@ -1453,7 +1454,7 @@ mod test {
           b2():
             return
           b1():
-            jmp b2()           
+            jmp b2()
         }
         ";
         let merged_ssa = Ssa::from_str(src).unwrap();

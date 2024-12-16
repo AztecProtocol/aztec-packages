@@ -1,0 +1,36 @@
+#pragma once
+
+#include <array>
+#include <optional>
+
+namespace bb::{{snakeCase name}} {
+
+// The entities that will be used in the flavor.
+// clang-format off
+#define {{shoutySnakeCase name}}_PRECOMPUTED_ENTITIES {{#each fixed as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_WIRE_ENTITIES {{#each witness_without_inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES {{#each inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_SHIFTED_ENTITIES {{#each shifted as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_ALL_ENTITIES {{#if (len fixed)}}{{shoutySnakeCase name}}_PRECOMPUTED_ENTITIES{{/if}}{{#if (len witness_without_inverses)}}, {{shoutySnakeCase name}}_WIRE_ENTITIES{{/if}}{{#if (len lookups)}}, {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES{{/if}}{{#if (len shifted)}}, {{shoutySnakeCase name}}_SHIFTED_ENTITIES{{/if}}
+#define {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES {{shoutySnakeCase name}}_PRECOMPUTED_ENTITIES, {{shoutySnakeCase name}}_WIRE_ENTITIES, {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES
+
+#define {{shoutySnakeCase name}}_TO_BE_SHIFTED_COLUMNS {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}Column::{{item}}{{/each}}
+#define {{shoutySnakeCase name}}_SHIFTED_COLUMNS {{#each shifted as |item|}}{{#if @index}}, {{/if}}ColumnAndShifts::{{item}}{{/each}}
+// clang-format on
+
+// All columns minus shifts.
+enum class Column { {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES };
+
+// C++ doesn't allow enum extension, so we'll have to cast.
+enum class ColumnAndShifts {
+    {{shoutySnakeCase name}}_ALL_ENTITIES,
+    // Sentinel.
+    NUM_COLUMNS,
+};
+
+constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutySnakeCase name}}_TO_BE_SHIFTED_COLUMNS }; }();
+constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutySnakeCase name}}_SHIFTED_COLUMNS }; }();
+static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
+
+} // namespace bb::{{snakeCase name}}

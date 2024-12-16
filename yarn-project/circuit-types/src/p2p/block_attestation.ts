@@ -3,7 +3,10 @@ import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
@@ -35,6 +38,15 @@ export class BlockAttestation extends Gossipable {
     public readonly signature: Signature,
   ) {
     super();
+  }
+
+  static get schema(): ZodFor<BlockAttestation> {
+    return z
+      .object({
+        payload: ConsensusPayload.schema,
+        signature: Signature.schema,
+      })
+      .transform(obj => new BlockAttestation(obj.payload, obj.signature));
   }
 
   override p2pMessageIdentifier(): Buffer32 {

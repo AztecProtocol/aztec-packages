@@ -1,11 +1,11 @@
 import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import { type UltraHonkFlavor } from '../honk.js';
@@ -201,7 +201,6 @@ export async function executeBbClientIvcProof(
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
-  noAutoVerify = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -238,9 +237,7 @@ export async function executeBbClientIvcProof(
       '--input_type',
       'runtime_stack',
     ];
-    if (noAutoVerify) {
-      args.push('--no_auto_verify');
-    }
+
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`bb - ${message}`);
@@ -508,7 +505,7 @@ export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
-  logger: DebugLogger,
+  logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {

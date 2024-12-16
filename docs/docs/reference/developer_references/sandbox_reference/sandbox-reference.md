@@ -37,7 +37,6 @@ ARCHIVER_POLLING_INTERVAL_MS=50
 P2P_BLOCK_CHECK_INTERVAL_MS=50
 SEQ_TX_POLLING_INTERVAL_MS=50
 WS_BLOCK_CHECK_INTERVAL_MS=50
-PXE_BLOCK_POLLING_INTERVAL_MS=50
 ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
 ```
 
@@ -90,7 +89,6 @@ Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-PXE_BLOCK_POLLING_INTERVAL_MS=50 # Interval to check for new L2 blocks. (default: 50)
 PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 ```
 

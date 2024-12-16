@@ -13,7 +13,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
@@ -23,7 +23,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-workflow');
+const logger = createLogger('prover-client:test:orchestrator-workflow');
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
@@ -76,7 +76,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, [message]);
+        await orchestrator.startNewBlock(globalVariables, [message]);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -105,9 +105,8 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(context.makeProcessedTx(1));
-        await orchestrator.addNewTx(context.makeProcessedTx(2));
+        await orchestrator.startNewBlock(globalVariables, []);
+        await orchestrator.addTxs([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

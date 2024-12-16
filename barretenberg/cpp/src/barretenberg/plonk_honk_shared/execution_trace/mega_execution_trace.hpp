@@ -59,7 +59,7 @@ template <typename T> struct MegaTraceBlockData {
         };
     }
 
-    auto get_gate_blocks()
+    auto get_gate_blocks() const
     {
         return RefArray{
             busread, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal, lookup
