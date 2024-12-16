@@ -5,6 +5,7 @@ test:
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
   RUN ./scripts/test_native.sh
 
 examples:

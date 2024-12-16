@@ -11,7 +11,7 @@ function build {
     # Continue with bootstrapping if the cache was not used or nargo verification failed.
     # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-    parallel ::: "denoise ./scripts/bootstrap_native.sh" "denoise ./scripts/bootstrap_packages.sh"
+    parallel denoise ::: ./scripts/bootstrap_native.sh ./scripts/bootstrap_packages.sh
     cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm packages
   fi
   github_endgroup
@@ -24,6 +24,7 @@ function test {
   test_flag=noir-test-$(test_hash)
   if test_should_run $test_flag; then
     github_group "noir test"
+    export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     export PATH="$PWD/noir-repo/target/release/:$PATH"
     parallel --tag --line-buffered --timeout 5m --halt now,fail=1 \
       denoise ::: ./scripts/test_native.sh ./scripts/test_js_packages.sh
