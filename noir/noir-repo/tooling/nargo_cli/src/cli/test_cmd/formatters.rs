@@ -261,7 +261,7 @@ impl Formatter for TerseFormatter {
         let mut writer = writer.lock();
 
         match &test_result.status {
-            TestStatus::Pass { .. }=> {
+            TestStatus::Pass { .. } => {
                 writer.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
                 write!(writer, ".")?;
                 writer.reset()?;
