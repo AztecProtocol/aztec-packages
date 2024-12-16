@@ -38,7 +38,6 @@ function build {
   github_endgroup
 
   github_group "acir_tests building browser-test-app"
-  # Keep build as part of CI only.
   (cd browser-test-app && yarn build)
   github_endgroup
 }

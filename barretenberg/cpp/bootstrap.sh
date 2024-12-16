@@ -16,18 +16,8 @@ else
 fi
 
 # Pick native toolchain.
-if [ "$os" == "macos" ]; then
-  preset=default
-else
-  if [ "$(which clang++-16)" != "" ]; then
-    # TODO: Change to clang16-assert, but currently fails.
-    preset=clang16
-  else
-    preset=default
-  fi
-fi
-
-pic_preset="$preset-pic"
+preset=clang16-assert
+pic_preset="clang16-pic"
 
 hash=$(cache_content_hash .rebuild_patterns)
 

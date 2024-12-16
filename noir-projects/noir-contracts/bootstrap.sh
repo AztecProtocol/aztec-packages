@@ -127,7 +127,7 @@ function build {
     set +e
     echo "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+      parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
     code=$?
     cat joblog.txt
     return $code
