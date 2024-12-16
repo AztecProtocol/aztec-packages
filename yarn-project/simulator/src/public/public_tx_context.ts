@@ -327,14 +327,14 @@ export class PublicTxContext {
     }
     noteHashTree.nextAvailableLeafIndex = paddedNoteHashTreeSize;
 
-    const paddedNullifierTree =
+    const paddedNullifierTreeSize =
       this.startStateReference.partial.nullifierTree.nextAvailableLeafIndex + MAX_NULLIFIERS_PER_TX;
-    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTree) {
+    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTreeSize) {
       throw new Error(
-        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTree}`,
+        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTreeSize}`,
       );
     }
-    nullifierTree.nextAvailableLeafIndex = paddedNullifierTree;
+    nullifierTree.nextAvailableLeafIndex = paddedNullifierTreeSize;
 
     const endTreeSnapshots = new TreeSnapshots(
       endStateReference.l1ToL2MessageTree,
