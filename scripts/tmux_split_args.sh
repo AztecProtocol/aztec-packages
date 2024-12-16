@@ -23,23 +23,29 @@ tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"} \
   -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-} \
   -e LOG_JSON=${LOG_JSON:-}
 
+echo "DONE"
+
 shift 1
 commands=("$@")
 
 # Set pane-border-status to top and pane-border-format to display pane title
 tmux set-option -t "$session_name" pane-border-status top
 tmux set-option -t "$session_name" pane-border-format "#{pane_title}"
+base_index=$(tmux show-options -g base-index 2>/dev/null | awk '{print $2}')
+base_index=${base_index:-0}
+
+echo "base_index=$base_index"
 
 # Create the necessary number of panes and set titles
 num_commands=${#commands[@]}
 for ((i=0; i<num_commands; i++)); do
   if [[ $i -gt 0 ]]; then
     # Split the first pane each time
-    tmux split-window -t "$session_name:0.0" -h
-    tmux select-layout -t "$session_name:0" tiled
+    tmux split-window -t "$session_name:${base_index}.${base_index}" -h
+    tmux select-layout -t "$session_name:${base_index}" tiled
   fi
   # Set the pane title
-  tmux select-pane -t "$session_name:0.$i" -T "${commands[i]}"
+  tmux select-pane -t "$session_name:${base_index}.$((base_index + i))" -T "${commands[i]}"
 done
 
 # Ensure this finishes when pane 0 is finished
@@ -47,7 +53,7 @@ tmux set-hook -t "$session_name" pane-exited "if-shell -F '#{==:#{pane_index},0}
 
 # Now send commands to each pane
 for ((i=0; i<num_commands; i++)); do
-  tmux send-keys -t "$session_name:0.$i" "${commands[$i]}" C-m
+  tmux send-keys -t "$session_name:$base_index.$((base_index + i))" "${commands[$i]}" C-m
 done
 
 # Attach to the session
