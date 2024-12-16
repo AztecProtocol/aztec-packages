@@ -255,7 +255,7 @@ export class UltraHonkBackend {
     await this.instantiate();
     const vkBuf =
       vk ?? (await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive));
-    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, vkBuf);
+    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
