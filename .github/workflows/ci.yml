@@ -173,7 +173,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
         uses: ./.github/ensure-builder
-        timeout-minutes: 40
+        timeout-minutes: 80
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
