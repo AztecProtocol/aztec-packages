@@ -104,12 +104,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     /**
-        * @brief For a valid circuit, ensures that computing the value of the full UH/MegaHonk relation at each row in
-        its
-        * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of
-        * Goblin) will be 0.
-        *
-        */
+     * @brief For a valid circuit, ensures that computing the value of the full UH/MegaHonk relation at each row in its
+     * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of
+     * Goblin) will be 0.
+     *
+     */
     static void test_full_honk_evaluations_valid_circuit()
     {
         auto builder = typename Flavor::CircuitBuilder();
@@ -219,86 +218,86 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      * and check them against the evaluations returned by the function.
      *
      */
-    // static void test_combiner_quotient()
-    // {
-    //     auto perturbator_evaluation = FF(2); // F(\alpha) in the paper
-    //     auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
-    //     auto combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
+    static void test_combiner_quotient()
+    {
+        auto perturbator_evaluation = FF(2); // F(\alpha) in the paper
+        auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
+        auto combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-    //     // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for DeciderProvingKeys::NUM = 2
-    //     // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-    //     auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
-    //         (FF(22) - (FF(1) - FF(2)) * perturbator_evaluation) / (FF(2) * FF(2 - 1)),
-    //         (FF(23) - (FF(1) - FF(3)) * perturbator_evaluation) / (FF(3) * FF(3 - 1)),
-    //         (FF(24) - (FF(1) - FF(4)) * perturbator_evaluation) / (FF(4) * FF(4 - 1)),
-    //         (FF(25) - (FF(1) - FF(5)) * perturbator_evaluation) / (FF(5) * FF(5 - 1)),
-    //         (FF(26) - (FF(1) - FF(6)) * perturbator_evaluation) / (FF(6) * FF(6 - 1)),
-    //         (FF(27) - (FF(1) - FF(7)) * perturbator_evaluation) / (FF(7) * FF(7 - 1)),
-    //         (FF(28) - (FF(1) - FF(8)) * perturbator_evaluation) / (FF(8) * FF(8 - 1)),
-    //         (FF(29) - (FF(1) - FF(9)) * perturbator_evaluation) / (FF(9) * FF(9 - 1)),
-    //         (FF(30) - (FF(1) - FF(10)) * perturbator_evaluation) / (FF(10) * FF(10 - 1)),
-    //         (FF(31) - (FF(1) - FF(11)) * perturbator_evaluation) / (FF(11) * FF(11 - 1)),
-    //     });
+        // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for DeciderProvingKeys::NUM = 2
+        // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
+        auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
+            (FF(22) - (FF(1) - FF(2)) * perturbator_evaluation) / (FF(2) * FF(2 - 1)),
+            (FF(23) - (FF(1) - FF(3)) * perturbator_evaluation) / (FF(3) * FF(3 - 1)),
+            (FF(24) - (FF(1) - FF(4)) * perturbator_evaluation) / (FF(4) * FF(4 - 1)),
+            (FF(25) - (FF(1) - FF(5)) * perturbator_evaluation) / (FF(5) * FF(5 - 1)),
+            (FF(26) - (FF(1) - FF(6)) * perturbator_evaluation) / (FF(6) * FF(6 - 1)),
+            (FF(27) - (FF(1) - FF(7)) * perturbator_evaluation) / (FF(7) * FF(7 - 1)),
+            (FF(28) - (FF(1) - FF(8)) * perturbator_evaluation) / (FF(8) * FF(8 - 1)),
+            (FF(29) - (FF(1) - FF(9)) * perturbator_evaluation) / (FF(9) * FF(9 - 1)),
+            (FF(30) - (FF(1) - FF(10)) * perturbator_evaluation) / (FF(10) * FF(10 - 1)),
+            (FF(31) - (FF(1) - FF(11)) * perturbator_evaluation) / (FF(11) * FF(11 - 1)),
+        });
 
-    //     for (size_t idx = 2; idx < 7; idx++) {
-    //         EXPECT_EQ(combiner_quotient.value_at(idx), expected_evals.value_at(idx));
-    //     }
-    // }
+        for (size_t idx = 2; idx < 7; idx++) {
+            EXPECT_EQ(combiner_quotient.value_at(idx), expected_evals.value_at(idx));
+        }
+    }
 
     /**
      * @brief For two dummy decider proving keys with their relation parameter η set, check that combining them in a
      * univariate, barycentrially extended to the desired number of evaluations, is performed correctly.
      *
      */
-    // static void test_compute_extended_relation_parameters()
-    // {
-    //     Builder builder1;
-    //     auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
-    //     pk_1->relation_parameters.eta = 1;
+    static void test_compute_extended_relation_parameters()
+    {
+        Builder builder1;
+        auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
+        pk_1->relation_parameters.eta = 1;
 
-    //     Builder builder2;
-    //     builder2.add_variable(3);
-    //     auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
-    //     pk_2->relation_parameters.eta = 3;
+        Builder builder2;
+        builder2.add_variable(3);
+        auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
+        pk_2->relation_parameters.eta = 3;
 
-    //     DeciderProvingKeys pks{ { pk_1, pk_2 } };
-    //     auto relation_parameters_no_optimistic_skipping = PGInternal::template compute_extended_relation_parameters<
-    //         typename PGInternal::UnivariateRelationParametersNoOptimisticSkipping>(pks);
-    //     auto relation_parameters = PGInternal::template compute_extended_relation_parameters<
-    //         typename FoldingProver::UnivariateRelationParameters>(pks);
+        DeciderProvingKeys pks{ { pk_1, pk_2 } };
+        auto relation_parameters_no_optimistic_skipping = PGInternal::template compute_extended_relation_parameters<
+            typename PGInternal::UnivariateRelationParametersNoOptimisticSkipping>(pks);
+        auto relation_parameters = PGInternal::template compute_extended_relation_parameters<
+            typename FoldingProver::UnivariateRelationParameters>(pks);
 
-    //     bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
-    //     EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
-    //     // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
-    //     // deriving values from them
-    //     for (size_t i = 0; i < 11; i++) {
-    //         EXPECT_EQ(relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
-    //     }
-    // }
+        bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
+        EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
+        // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
+        // deriving values from them
+        for (size_t i = 0; i < 11; i++) {
+            EXPECT_EQ(relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
+        }
+    }
 
-    // /**
-    //  * @brief Given two dummy decider proving_keys with the batching challenges alphas set (one for each subrelation)
-    //  * ensure combining them in a univariate of desired length works as expected.
-    //  */
-    // static void test_compute_and_extend_alphas()
-    // {
-    //     Builder builder1;
-    //     auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
-    //     pk_1->alphas.fill(2);
+    /**
+     * @brief Given two dummy decider proving_keys with the batching challenges alphas set (one for each subrelation)
+     * ensure combining them in a univariate of desired length works as expected.
+     */
+    static void test_compute_and_extend_alphas()
+    {
+        Builder builder1;
+        auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
+        pk_1->alphas.fill(2);
 
-    //     Builder builder2;
-    //     builder2.add_variable(3);
-    //     auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
-    //     pk_2->alphas.fill(4);
+        Builder builder2;
+        builder2.add_variable(3);
+        auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
+        pk_2->alphas.fill(4);
 
-    //     DeciderProvingKeys pks{ { pk_1, pk_2 } };
-    //     auto alphas = PGInternal::compute_and_extend_alphas(pks);
+        DeciderProvingKeys pks{ { pk_1, pk_2 } };
+        auto alphas = PGInternal::compute_and_extend_alphas(pks);
 
-    //     bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
-    //     for (const auto& alpha : alphas) {
-    //         EXPECT_EQ(alpha, expected_alphas);
-    //     }
-    // }
+        bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
+        for (const auto& alpha : alphas) {
+            EXPECT_EQ(alpha, expected_alphas);
+        }
+    }
 
     /**
      * @brief Testing one valid round of folding (plus decider) for two inhomogeneous circuits
@@ -442,13 +441,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     /**
-        * @brief Testing folding a larger circuit into a smaller one by increasing the virtual size of the first.
-        * @details Fold two circuits using a structured trace, where the second overflows the trace such that the dyadic
-        * size is doubled. The virtual size of the polynomials in the first key is increased internally in the PG prover
-        to
-        * match the size of the second.
-        *
-        */
+     * @brief Testing folding a larger circuit into a smaller one by increasing the virtual size of the first.
+     * @details Fold two circuits using a structured trace, where the second overflows the trace such that the dyadic
+     * size is doubled. The virtual size of the polynomials in the first key is increased internally in the PG prover to
+     * match the size of the second.
+     *
+     */
     static void test_fold_with_virtual_size_expansion()
     {
         uint32_t overflow_capacity = 0; // consider the case where the overflow is not known until runtime
@@ -607,20 +605,20 @@ TYPED_TEST(ProtogalaxyTests, PerturbatorPolynomial)
     TestFixture::test_pertubator_polynomial();
 }
 
-// TYPED_TEST(ProtogalaxyTests, CombinerQuotient)
-// {
-//     TestFixture::test_combiner_quotient();
-// }
+TYPED_TEST(ProtogalaxyTests, CombinerQuotient)
+{
+    TestFixture::test_combiner_quotient();
+}
 
-// TYPED_TEST(ProtogalaxyTests, CombineRelationParameters)
-// {
-//     TestFixture::test_compute_extended_relation_parameters();
-// }
+TYPED_TEST(ProtogalaxyTests, CombineRelationParameters)
+{
+    TestFixture::test_compute_extended_relation_parameters();
+}
 
-// TYPED_TEST(ProtogalaxyTests, CombineAlphas)
-// {
-//     TestFixture::test_compute_and_extend_alphas();
-// }
+TYPED_TEST(ProtogalaxyTests, CombineAlphas)
+{
+    TestFixture::test_compute_and_extend_alphas();
+}
 
 TYPED_TEST(ProtogalaxyTests, ProtogalaxyInhomogeneous)
 {
@@ -662,8 +660,8 @@ TYPED_TEST(ProtogalaxyTests, BadLookupFailure)
     TestFixture::test_protogalaxy_bad_lookup_failure();
 }
 
-// We only fold one incoming decider key pair since this is all we plan to use, and compiling for higher values of k
-// is a significant compilation time cost.
+// We only fold one incoming decider key pair since this is all we plan to use, and compiling for higher values of k is
+// a significant compilation time cost.
 TYPED_TEST(ProtogalaxyTests, Fold1)
 {
     TestFixture::template test_fold_k_key_pairs<1>();

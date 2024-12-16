@@ -275,7 +275,7 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
  * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
  * benchmark.
  */
-static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 14,
+static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .busread = 1 << 7,
                                                             .lookup = 72000,
                                                             .pub_inputs = 1 << 7,
