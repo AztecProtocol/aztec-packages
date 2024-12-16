@@ -5,8 +5,17 @@ test:
   BUILD +test-contracts
 
 test-protocol-circuits:
+<<<<<<< HEAD
   FROM ../+bootstrap
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+=======
+  FROM +build
+
+  # Install nargo
+  COPY ../noir/+nargo/nargo /usr/bin/nargo
+
+  # TODO(#10754): Remove --skip-brillig-constraints-check
+>>>>>>> origin/mw/blob-abi-errs
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
 
 test-aztec-nr:
