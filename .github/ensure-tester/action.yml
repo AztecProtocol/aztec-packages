@@ -139,7 +139,7 @@ runs:
         scripts/run_on_tester "$RUN_SCRIPT";
         exit_code=$?;
         if [ $exit_code = 255 ]; then
-          echo "Treating exit 255 as spot eviction (TODO investigate termination cause).";
+          echo "Treating ssh termination as spot eviction.";
           exit_code=155;
         fi;
         echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
