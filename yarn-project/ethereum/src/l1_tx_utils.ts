@@ -206,7 +206,7 @@ export class L1TxUtils {
   public async monitorTransaction(
     request: L1TxRequest,
     initialTxHash: Hex,
-    params?: { gasLimit: bigint },
+    params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig>,
     _blobInputs?: L1BlobInputs,
   ): Promise<TransactionReceipt> {
