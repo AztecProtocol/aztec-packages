@@ -54,6 +54,10 @@ class AvmExecutionTests : public ::testing::Test {
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
         public_inputs.start_gas_used.l2_gas = 0;
         public_inputs.start_gas_used.da_gas = 0;
+        public_inputs.end_tree_snapshots.note_hash_tree.size =
+            public_inputs.start_tree_snapshots.note_hash_tree.size + MAX_NOTE_HASHES_PER_TX;
+        public_inputs.end_tree_snapshots.nullifier_tree.size =
+            public_inputs.start_tree_snapshots.nullifier_tree.size + MAX_NULLIFIERS_PER_TX;
 
         // These values are magic because of how some tests work! Don't change them
         PublicCallRequest dummy_request = {
