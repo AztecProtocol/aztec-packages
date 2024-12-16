@@ -1,4 +1,10 @@
-import { type ProofUri, type ProvingJob, type ProvingJobId, ProvingRequestType } from '@aztec/circuit-types';
+import {
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobId,
+  type ProvingJobStatus,
+  ProvingRequestType,
+} from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -55,6 +61,28 @@ describe.each([
 
     afterEach(async () => {
       await broker.stop();
+    });
+
+    it('refuses stale jobs', async () => {
+      const id = makeProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        epochNumber: 42,
+        type: ProvingRequestType.BASE_PARITY,
+        inputsUri: makeInputsUri(),
+      });
+      expect(await broker.getProvingJobStatus(id)).toEqual({ status: 'in-queue' });
+
+      const id2 = makeProvingJobId();
+      await expect(
+        broker.enqueueProvingJob({
+          id: id2,
+          epochNumber: 1,
+          type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+          inputsUri: makeInputsUri(),
+        }),
+      ).rejects.toThrow();
+      await assertJobStatus(id2, 'not-found');
     });
 
     it('enqueues jobs', async () => {
@@ -204,15 +232,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       };
 
-      const provingJob3: ProvingJob = {
-        id: makeProvingJobId(),
-        type: ProvingRequestType.BASE_PARITY,
-        epochNumber: 3,
-        inputsUri: makeInputsUri(),
-      };
-
       await broker.enqueueProvingJob(provingJob2);
-      await broker.enqueueProvingJob(provingJob3);
       await broker.enqueueProvingJob(provingJob1);
 
       await getAndAssertNextJobId(provingJob1.id, ProvingRequestType.BASE_PARITY);
@@ -639,10 +659,8 @@ describe.each([
       await assertJobStatus(id, 'in-progress');
 
       // advance time so job times out because of no heartbeats
-      await sleep(jobTimeoutMs + brokerIntervalMs);
-
-      // should be back in the queue now
-      await assertJobStatus(id, 'in-queue');
+      await sleep(jobTimeoutMs);
+      await assertJobTransition(id, 'in-progress', 'in-queue');
     });
 
     it('cancel stale jobs that time out', async () => {
@@ -659,10 +677,10 @@ describe.each([
       await assertJobStatus(id, 'in-progress');
 
       // advance time so job times out because of no heartbeats
-      await sleep(jobTimeoutMs + brokerIntervalMs);
+      await sleep(jobTimeoutMs);
 
       // should be back in the queue now
-      await assertJobStatus(id, 'in-queue');
+      await assertJobTransition(id, 'in-progress', 'in-queue');
 
       // another agent picks it up
       await getAndAssertNextJobId(id);
@@ -926,48 +944,6 @@ describe.each([
       await getAndAssertNextJobId(id2);
     });
 
-    it('clears job state when job is removed', async () => {
-      const id1 = makeProvingJobId();
-
-      await database.addProvingJob({
-        id: id1,
-        type: ProvingRequestType.BASE_PARITY,
-        epochNumber: 1,
-        inputsUri: makeInputsUri(),
-      });
-      await database.setProvingJobResult(id1, makeOutputsUri());
-
-      const id2 = makeProvingJobId();
-      await database.addProvingJob({
-        id: id2,
-        type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
-        epochNumber: 2,
-        inputsUri: makeInputsUri(),
-      });
-
-      await broker.start();
-
-      await assertJobStatus(id1, 'fulfilled');
-      await assertJobStatus(id2, 'in-queue');
-
-      jest.spyOn(database, 'deleteProvingJobAndResult');
-
-      await broker.cleanUpProvingJobState(id1);
-      await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).toHaveBeenNthCalledWith(1, id1);
-
-      await broker.cancelProvingJob(id2);
-      await broker.cleanUpProvingJobState(id2);
-      await sleep(brokerIntervalMs);
-
-      expect(database.deleteProvingJobAndResult).toHaveBeenNthCalledWith(2, id2);
-
-      await expect(broker.getProvingJobStatus(id1)).resolves.toEqual({ status: 'not-found' });
-      await expect(broker.getProvingJobStatus(id2)).resolves.toEqual({ status: 'not-found' });
-      await assertJobStatus(id1, 'not-found');
-      await assertJobStatus(id2, 'not-found');
-    });
-
     it('saves job when enqueued', async () => {
       await broker.start();
       const job: ProvingJob = {
@@ -1017,7 +993,7 @@ describe.each([
       expect(database.setProvingJobResult).toHaveBeenCalledWith(job.id, expect.any(String));
     });
 
-    it('does not retain job result if database fails to save', async () => {
+    it('saves result even if database fails to save', async () => {
       await broker.start();
       jest.spyOn(database, 'setProvingJobResult').mockRejectedValue(new Error('db error'));
       const id = makeProvingJobId();
@@ -1028,7 +1004,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
       await expect(broker.reportProvingJobSuccess(id, makeOutputsUri())).rejects.toThrow(new Error('db error'));
-      await assertJobStatus(id, 'in-queue');
+      await assertJobStatus(id, 'fulfilled');
     });
 
     it('saves job error', async () => {
@@ -1050,7 +1026,7 @@ describe.each([
       expect(database.setProvingJobError).toHaveBeenCalledWith(id, error);
     });
 
-    it('does not retain job error if database fails to save', async () => {
+    it('saves job error even if database fails to save', async () => {
       await broker.start();
       jest.spyOn(database, 'setProvingJobError').mockRejectedValue(new Error('db error'));
       const id = makeProvingJobId();
@@ -1061,7 +1037,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
       await expect(broker.reportProvingJobError(id, 'test error')).rejects.toThrow(new Error('db error'));
-      await assertJobStatus(id, 'in-queue');
+      await assertJobStatus(id, 'rejected');
     });
 
     it('does not save job result if job is unknown', async () => {
@@ -1167,8 +1143,28 @@ describe.each([
     });
   });
 
-  async function assertJobStatus(id: ProvingJobId, status: string) {
+  async function assertJobStatus(id: ProvingJobId, status: ProvingJobStatus['status']) {
     await expect(broker.getProvingJobStatus(id)).resolves.toEqual(expect.objectContaining({ status }));
+  }
+
+  async function assertJobTransition(
+    id: ProvingJobId,
+    currentStatus: ProvingJobStatus['status'],
+    expectedStatus: ProvingJobStatus['status'],
+    timeoutMs = 5000,
+    interval = brokerIntervalMs / 4,
+  ): Promise<void> {
+    let status;
+    const timeout = now() + timeoutMs;
+    while (now() < timeout) {
+      ({ status } = await broker.getProvingJobStatus(id));
+      if (status !== currentStatus) {
+        break;
+      }
+      await sleep(interval);
+    }
+
+    expect(status).toEqual(expectedStatus);
   }
 
   async function getAndAssertNextJobId(id: ProvingJobId, ...allowList: ProvingRequestType[]) {
