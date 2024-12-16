@@ -1,6 +1,6 @@
 import { type AccountWalletWithSecretKey, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
 import { type FeeOptions } from '@aztec/aztec.js/entrypoint';
-import { type Fr, type GasSettings } from '@aztec/circuits.js';
+import { type Fr, GasFees, GasSettings } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
 
 export async function cancelTx(
@@ -12,6 +12,7 @@ export async function cancelTx(
     cancellable,
   }: { txHash: TxHash; gasSettings: GasSettings; nonce: Fr; cancellable: boolean },
   paymentMethod: FeePaymentMethod,
+  increasedFees: GasFees,
   log: LogFn,
 ) {
   const receipt = await wallet.getTxReceipt(txHash);
@@ -20,12 +21,19 @@ export async function cancelTx(
     return;
   }
 
+  const maxFeesPerGas = new GasFees(
+    gasSettings.maxFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
+    gasSettings.maxFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+  );
+  const maxPriorityFeesPerGas = new GasFees(
+    gasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
+    gasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+  );
+
   const fee: FeeOptions = {
     paymentMethod,
-    gasSettings,
+    gasSettings: GasSettings.from({ ...gasSettings, maxFeesPerGas, maxPriorityFeesPerGas }),
   };
-
-  // TODO(#9805): Increase max_priority_fee_per_gas.
 
   const txRequest = await wallet.createTxExecutionRequest({
     calls: [],
