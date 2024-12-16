@@ -52,6 +52,7 @@ import {
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
+  FunctionType,
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -242,8 +243,14 @@ export class PXEService implements PXE {
 
       await this.db.addContractArtifact(contractClassId, artifact);
 
-      // TODO: PXE may not want to broadcast the artifact to the network
-      await this.node.addContractArtifact(instance.address, artifact);
+      const functionNames: Record<string, string> = {};
+      for (const fn of artifact.functions) {
+        if (fn.functionType === FunctionType.PUBLIC) {
+          functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
+        }
+      }
+
+      await this.node.registerContractFunctionNames(instance.address, functionNames);
 
       // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
