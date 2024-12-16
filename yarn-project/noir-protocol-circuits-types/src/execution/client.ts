@@ -45,11 +45,13 @@ import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset
 
 // Utility function with self-contained dynamic imports, so it can be stripped from browser bundles
 // This is only ever used in testing, so it's safe to do so
+/* testing-only-start */
 async function updateProtocolCircuitSampleInputs(circuitName: string, inputs: any) {
   const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
   const TOML = await import('@iarna/toml');
   updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(inputs));
 }
+/* testing-only-end */
 
 /**
  * Executes the init private kernel.
@@ -71,9 +73,9 @@ export async function executeInit(
   };
 
   // Allow bundlers to remove this code
-  /* testing-only:start */
+  /* testing-only-start */
   await updateProtocolCircuitSampleInputs('private-kernel-init', inputs);
-  /* testing-only:end */
+  /* testing-only-end */
 
   const returnType = await executePrivateKernelInitWithACVM(
     inputs.tx_request,
@@ -109,9 +111,9 @@ export async function executeInner(
   };
 
   // Allow bundlers to remove this code
-  /* testing-only:start */
+  /* testing-only-start */
   await updateProtocolCircuitSampleInputs('private-kernel-inner', inputs);
-  /* testing-only:end */
+  /* testing-only-end */
 
   const returnType = await executePrivateKernelInnerWithACVM(
     inputs.previous_kernel,
@@ -180,9 +182,9 @@ export async function executeTail(
   };
 
   // Allow bundlers to remove this code
-  /* testing-only:start */
+  /* testing-only-start */
   await updateProtocolCircuitSampleInputs('private-kernel-tail', inputs);
-  /* testing-only:end */
+  /* testing-only-end */
 
   const returnType = await executePrivateKernelTailWithACVM(
     inputs.previous_kernel,
@@ -208,9 +210,9 @@ export async function executeTailForPublic(
   };
 
   // Allow bundlers to remove this code
-  /* testing-only:start */
+  /* testing-only-start */
   await updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', inputs);
-  /* testing-only:end */
+  /* testing-only-end */
 
   const returnType = await executePrivateKernelTailToPublicWithACVM(
     inputs.previous_kernel,
@@ -430,7 +432,7 @@ async function updateResetCircuitSampleInputs(
   };
 
   // Allow bundlers to remove this code
-  /* testing-only:start */
+  /* testing-only-start */
   await updateProtocolCircuitSampleInputs('private-kernel-reset', inputs);
-  /* testing-only:end */
+  /* testing-only-end */
 }

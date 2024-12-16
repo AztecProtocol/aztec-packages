@@ -201,10 +201,7 @@ export class KernelProver {
           isPrivateOnlyTx,
         );
 
-        // Allow bundlers to remove this code
-        /* testing-only:start */
         pushTestData('private-kernel-inputs-init', proofInput);
-        /* testing-only:end */
 
         output = await this.proofCreator.simulateProofInit(proofInput);
 
@@ -223,10 +220,7 @@ export class KernelProver {
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
-        // Allow bundlers to remove this code
-        /* testing-only:start */
         pushTestData('private-kernel-inputs-inner', proofInput);
-        /* testing-only:end */
 
         output = await this.proofCreator.simulateProofInner(proofInput);
 
@@ -279,10 +273,7 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
-    // Allow bundlers to remove this code
-    /* testing-only:start */
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    /* testing-only:end */
 
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {

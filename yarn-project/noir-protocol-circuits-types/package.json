@@ -93,7 +93,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "types": "./dest/index.d.ts",
   "engines": {
