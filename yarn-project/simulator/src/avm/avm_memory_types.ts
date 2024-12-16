@@ -232,13 +232,14 @@ export class TaggedMemory implements TaggedMemoryInterface {
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';
 
-  // FIXME: memory should be 2^32, but TS max array size is: 2^32 - 1
-  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 1n);
-  private _mem: MemoryValue[];
+  // Memory is modelled by a map with key type being number.
+  // We however restrict the keys to be non-negative integers smaller than
+  // MAX_MEMORY_SIZE.
+  static readonly MAX_MEMORY_SIZE = Number(1n << 32n);
+  private _mem: Map<number, MemoryValue>;
 
   constructor() {
-    // We do not initialize memory size here because otherwise tests blow up when diffing.
-    this._mem = [];
+    this._mem = new Map<number, MemoryValue>();
   }
 
   public getMaxMemorySize(): number {
@@ -257,8 +258,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getAs<T>(offset: number): T {
+    assert(Number.isInteger(offset));
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const word = this._mem[offset];
+    const word = this._mem.get(offset);
     TaggedMemory.log.trace(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
@@ -268,46 +270,46 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
+    assert(Number.isInteger(offset) && Number.isInteger(size));
     assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
-    const value = this._mem.slice(offset, offset + size);
-    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${value}`);
-    for (let i = 0; i < value.length; i++) {
-      if (value[i] === undefined) {
-        value[i] = new Field(0);
-      }
+    const slice = new Array<MemoryValue>(size);
+
+    for (let i = 0; i < size; i++) {
+      slice[i] = this._mem.get(offset + i) ?? new Field(0);
     }
-    assert(value.length === size, `Expected slice of size ${size}, got ${value.length}.`);
-    return value;
+
+    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);
+    return slice;
   }
 
   public getSliceAs<T>(offset: number, size: number): T[] {
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this.getSlice(offset, size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
-    return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);
+    return this.getSlice(offset, size).map(TaggedMemory.getTag);
   }
 
   public set(offset: number, v: MemoryValue) {
+    assert(Number.isInteger(offset));
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    this._mem[offset] = v;
+    this._mem.set(offset, v);
     TaggedMemory.log.trace(`set(${offset}, ${v})`);
   }
 
-  public setSlice(offset: number, vs: MemoryValue[]) {
-    assert(offset + vs.length <= TaggedMemory.MAX_MEMORY_SIZE);
-    // We may need to extend the memory size, otherwise splice doesn't insert.
-    if (offset + vs.length > this._mem.length) {
-      this._mem.length = offset + vs.length;
-    }
-    this._mem.splice(offset, vs.length, ...vs);
-    TaggedMemory.log.trace(`setSlice(${offset}, ${vs})`);
+  public setSlice(offset: number, slice: MemoryValue[]) {
+    assert(Number.isInteger(offset));
+    assert(offset + slice.length <= TaggedMemory.MAX_MEMORY_SIZE);
+    slice.forEach((element, idx) => {
+      this._mem.set(offset + idx, element);
+    });
+    TaggedMemory.log.trace(`setSlice(${offset}, ${slice})`);
   }
 
   public getTag(offset: number): TypeTag {
-    return TaggedMemory.getTag(this._mem[offset]);
+    assert(Number.isInteger(offset));
+    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    return TaggedMemory.getTag(this._mem.get(offset));
   }
 
   /**
