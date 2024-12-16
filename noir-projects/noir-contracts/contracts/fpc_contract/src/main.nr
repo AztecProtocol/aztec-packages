@@ -38,8 +38,8 @@ contract FPC {
     /// ## Overview
     /// Uses partial notes to implement a refund flow which works as follows:
     /// 1. `setup_refund` function subtracts the `max_fee` from user's balance of AA and prepares partial note
-    /// for the msg_sender (for refund note of the AA) and sets a public teardown function (in which the partial note
-    /// will be finalized and the fee will be paid to FPC),
+    /// for the user (for refund note of the AA) and sets a public teardown function (in which the partial note
+    /// will be finalized and the fee will be paid to FPC in public),
     /// 2. then the private and public functions of a tx get executed,
     /// 3. at this point we know the tx fee so we can compute in the teardown function how much of AA the user needs
     /// to pay to the FPC and how much of it will be refunded back (this is computed based on an exchange rate between
