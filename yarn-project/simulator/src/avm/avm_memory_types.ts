@@ -275,12 +275,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     const slice = new Array<MemoryValue>(size);
 
     for (let i = 0; i < size; i++) {
-      const value = this._mem.get(offset + i);
-      if (value === undefined) {
-        slice[i] = new Field(0);
-      } else {
-        slice[i] = value;
-      }
+      slice[i] = this._mem.get(offset + i) ?? new Field(0);
     }
 
     TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);

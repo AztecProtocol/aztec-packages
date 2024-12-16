@@ -1,3 +1,5 @@
+import { AssertionError } from 'assert';
+
 import {
   Field,
   MeteredTaggedMemory,
@@ -44,6 +46,24 @@ describe('TaggedMemory', () => {
     mem.setSlice(10, val);
 
     expect(mem.getSlice(10, /*size=*/ 2)).toStrictEqual(val);
+  });
+
+  it(`Should access and write in last index of memory`, () => {
+    const last = TaggedMemory.MAX_MEMORY_SIZE - 1;
+    const mem = new TaggedMemory();
+    const val = new Uint64(42);
+    mem.set(last, val);
+    expect(mem.get(last)).toStrictEqual(val);
+  });
+
+  it(`Should not access beyond memory last index`, () => {
+    const mem = new TaggedMemory();
+
+    expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE, new Field(1))).toThrow(AssertionError);
+    expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE)).toThrow(AssertionError);
+
+    expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE + 15, new Field(1))).toThrow(AssertionError);
+    expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE + 7)).toThrow(AssertionError);
   });
 });
 
