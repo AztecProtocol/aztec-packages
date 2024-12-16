@@ -391,7 +391,7 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
   });
 
-  it('builds a block out of several txs skipping txs not providing enough fee per gas', async () => {
+  it('builds a block out of several txs skipping the ones not providing enough fee per gas', async () => {
     const gasFees = new GasFees(10, 20);
     mockedGlobalVariables.gasFees = gasFees;
 
@@ -423,9 +423,7 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    const includedNumTxs = txs.length - skippedTxIndexes.length;
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      includedNumTxs,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
