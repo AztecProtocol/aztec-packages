@@ -318,10 +318,23 @@ export class PublicTxContext {
     const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
     // Pad the note hash and nullifier trees
-    noteHashTree.nextAvailableLeafIndex =
+    const paddedNoteHashTreeSize =
       this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
-    nullifierTree.nextAvailableLeafIndex =
+    if (noteHashTree.nextAvailableLeafIndex > paddedNoteHashTreeSize) {
+      throw new Error(
+        `Inserted too many leaves in note hash tree: ${noteHashTree.nextAvailableLeafIndex} > ${paddedNoteHashTreeSize}`,
+      );
+    }
+    noteHashTree.nextAvailableLeafIndex = paddedNoteHashTreeSize;
+
+    const paddedNullifierTree =
       this.startStateReference.partial.nullifierTree.nextAvailableLeafIndex + MAX_NULLIFIERS_PER_TX;
+    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTree) {
+      throw new Error(
+        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTree}`,
+      );
+    }
+    nullifierTree.nextAvailableLeafIndex = paddedNullifierTree;
 
     const endTreeSnapshots = new TreeSnapshots(
       endStateReference.l1ToL2MessageTree,
