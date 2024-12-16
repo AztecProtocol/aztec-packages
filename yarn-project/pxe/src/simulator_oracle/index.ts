@@ -482,7 +482,7 @@ export class SimulatorOracle implements DBOracle {
             // The logs for the given tag exist so we store them for later processing
             logsForRecipient.push(...logsByTag);
 
-            // We the indexed tagging secret corresponding to the log as I need that to evaluate whether
+            // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
