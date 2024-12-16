@@ -45,8 +45,10 @@ function hash {
   cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
 }
 function test {
+  github_group "acir_tests testing"
   local hash=$(hash)
   if ! test_should_run barretenberg-acir-tests-$hash; then
+    github_endgroup
     return
   fi
 

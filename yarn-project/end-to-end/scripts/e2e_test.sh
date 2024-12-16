@@ -4,7 +4,7 @@
 # Optional environment variables:
 #   HARDWARE_CONCURRENCY (default: "")
 #   FAKE_PROOFS (default: "")
-#   COMPOSE_FILE (default: "./scripts/docker-compose.yml")
+#   COMPOSE_FILE (default: "./scripts/docker-compose-images.yml")
 
 set -eu
 
@@ -18,7 +18,7 @@ shift
 # Default values for environment variables
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export FAKE_PROOFS="${FAKE_PROOFS:-}"
-export COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose-images.yml}"
 export AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 
 # Function to load test configuration
