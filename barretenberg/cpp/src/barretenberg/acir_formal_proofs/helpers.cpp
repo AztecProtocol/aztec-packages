@@ -24,7 +24,6 @@ smt_circuit::STerm pow2_8(smt_circuit::STerm v0, smt_solver::Solver* solver)
     for (uint32_t i = 1; i < BIT_SIZE + 1; i++) {
         auto r2 = res * res;
         auto mask = pow_num(2, BIT_SIZE - i);
-        info(mask);
         // same thing as taking ith bit in little endian
         auto b = (v0 & mask) >> (BIT_SIZE - i);
         res = (r2 * two * b) + (1 - b) * r2;
