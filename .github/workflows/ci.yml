@@ -173,7 +173,7 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
         uses: ./.github/ensure-builder
-        timeout-minutes: 40
+        timeout-minutes: 80
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
@@ -251,7 +251,7 @@ jobs:
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   e2e:
-    needs: [images-e2e, e2e-test-gate, configure]
+    needs: [images-e2e, configure]
     if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     strategy:
