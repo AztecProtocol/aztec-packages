@@ -51,9 +51,13 @@ struct permutation_subgroup_element {
     bool is_tag = false;
 };
 
+/**
+ * @brief Stores permutation mapping data for a single wire column
+ *
+ */
 struct Mapping {
-    std::shared_ptr<uint32_t[]> row_idx;
-    std::shared_ptr<uint8_t[]> col_idx;
+    std::shared_ptr<uint32_t[]> row_idx; // row idx of next entry in copy cycle
+    std::shared_ptr<uint8_t[]> col_idx;  // column idx of next entry in copy cycle
     std::shared_ptr<bool[]> is_public_input;
     std::shared_ptr<bool[]> is_tag;
     size_t _size = 0;
@@ -81,26 +85,21 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
-
         PROFILE_THIS_NAME("PermutationMapping constructor");
 
-        {
-            PROFILE_THIS_NAME("PermutationMapping PRE");
-            for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                sigmas[wire_idx] = Mapping(circuit_size);
-                ids[wire_idx] = Mapping(circuit_size);
-            }
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            sigmas[wire_idx] = Mapping(circuit_size);
+            ids[wire_idx] = Mapping(circuit_size);
         }
 
         const size_t num_threads = calculate_num_threads_pow2(circuit_size, /*min_iterations_per_thread=*/1 << 10);
         size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
 
-        auto initialize_chunk = [&](size_t thread_idx) {
+        parallel_for(num_threads, [&](size_t thread_idx) {
             uint32_t start = static_cast<uint32_t>(thread_idx * iterations_per_thread);
             uint32_t end = static_cast<uint32_t>((thread_idx + 1) * iterations_per_thread);
 
             // Initialize every element to point to itself
-            // WORKTODO: I think no need for this?
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
                 for (uint32_t row_idx = start; row_idx < end; ++row_idx) {
                     auto idx = static_cast<ptrdiff_t>(row_idx);
@@ -116,12 +115,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
                     }
                 }
             }
-        };
-
-        {
-            PROFILE_THIS_NAME("PermutationMapping init");
-            parallel_for(num_threads, initialize_chunk);
-        }
+        });
     }
 };
 
