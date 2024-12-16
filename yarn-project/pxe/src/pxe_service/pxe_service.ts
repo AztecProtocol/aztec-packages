@@ -58,11 +58,8 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
-import {
-  ProtocolContractAddress,
-  getCanonicalProtocolContract,
-  protocolContractNames,
-} from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { type AcirSimulator } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
