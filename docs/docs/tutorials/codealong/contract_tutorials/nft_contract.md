@@ -103,7 +103,7 @@ These functions are useful for getting contract information for use in other con
 
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
-- [`transfer_to_private`](#transfer_to_private) - initiates the transfer of an NFT from the public context to the private context
+- [`transfer_to_private`](#transfer_to_private) - privately initiates the transfer of an NFT from the public context to the private context by creating a [partial note](../../../aztec/concepts/storage/partial_notes.md)
 - [`prepare_private_balance_increase`](#prepare_private_balance_increase) - creates a [partial note](../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
 - [`cancel_authwit`](#cancel_authwit) - emits a nullifier to cancel a private authwit
 - [`transfer_in_private`](#transfer_in_private) - transfers an NFT to another account, privately
