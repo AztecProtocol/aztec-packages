@@ -46,7 +46,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifiedNotesByTxHash: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByAddressPoint: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByNullifier: AztecAsyncMap<string, string>;
-  #syncedBlockPerPublicKey: AztecAsyncMap<string, number>;
   #contractArtifacts: AztecAsyncMap<string, Buffer>;
   #contractInstances: AztecAsyncMap<string, Buffer>;
   #db: AztecAsyncKVStore;
@@ -79,7 +78,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#contractInstances = db.openMap('contracts_instances');
 
     this.#synchronizedBlock = db.openSingleton('header');
-    this.#syncedBlockPerPublicKey = db.openMap('synced_block_per_public_key');
 
     this.#notes = db.openMap('notes');
     this.#nullifiedNotes = db.openMap('nullified_notes');
@@ -564,14 +562,6 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined> {
-    return this.#syncedBlockPerPublicKey.getAsync(account.toString());
-  }
-
-  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void> {
-    return this.#syncedBlockPerPublicKey.set(account.toString(), blockNumber);
-  }
-
   async estimateSize(): Promise<number> {
     const incomingNotesSize = (await this.getIncomingNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
 
@@ -595,7 +585,9 @@ export class KVPxeDatabase implements PxeDatabase {
 
   async #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecAsyncMap<string, number>) {
     await Promise.all(
-      indexedSecrets.map(indexedSecret => storageMap.set(indexedSecret.secret.toString(), indexedSecret.index)),
+      indexedSecrets.map(indexedSecret =>
+        storageMap.set(indexedSecret.appTaggingSecret.toString(), indexedSecret.index),
+      ),
     );
   }
 

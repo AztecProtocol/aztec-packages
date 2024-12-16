@@ -24,3 +24,9 @@ variable "L1_DEPLOYMENT_MNEMONIC" {
   type        = string
   sensitive   = true
 }
+
+variable "L1_DEPLOYMENT_SALT" {
+  description = "Salt to use for the L1 contract deployments"
+  type        = string
+  default     = ""
+}

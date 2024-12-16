@@ -11,13 +11,13 @@ use crate::{
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
-    components::{compute_kernel_out_hash, compute_tx_effects_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
 };
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-        tube::PrivateTubeData,
+        sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
@@ -38,6 +38,7 @@ pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
 
     start: PartialStateReference,
+    start_sponge_blob: SpongeBlob,
 
     state_diff_hints: PrivateBaseStateDiffHints,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
@@ -102,7 +103,7 @@ impl PrivateBaseRollupInputs {
             [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         all_public_data_update_requests[0] = fee_public_data_write;
 
-        // Calculate the tx effects hash of the transaction
+        // Append the tx effects for blob(s)
         let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,
@@ -111,12 +112,13 @@ impl PrivateBaseRollupInputs {
             ),
         );
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
-        let tx_effects_hash = compute_tx_effects_hash(
+        let end_sponge_blob = append_tx_effects_for_blob(
             self.tube_data.public_inputs.end,
             self.tube_data.public_inputs.revert_code,
             transaction_fee,
             all_public_data_update_requests,
-            out_hash,
+            siloed_l2_to_l1_msgs,
+            self.start_sponge_blob,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -136,7 +138,8 @@ impl PrivateBaseRollupInputs {
                 nullifier_tree: end_nullifier_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot,
             },
-            txs_effects_hash: tx_effects_hash,
+            start_sponge_blob: self.start_sponge_blob,
+            end_sponge_blob,
             out_hash,
             accumulated_fees: transaction_fee,
             accumulated_mana_used: self.tube_data.public_inputs.gas_used.l2_gas as Field,
@@ -229,20 +232,28 @@ mod tests {
             private_base_rollup::PrivateBaseRollupInputs,
             state_diff_hints::PrivateBaseStateDiffHints,
         },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS,
+        components::{
+            append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
+        },
     };
     use dep::types::{
         abis::{
+            accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            nullifier_leaf_preimage::NullifierLeafPreimage,
+            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            PRIVATE_KERNEL_EMPTY_INDEX, PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
+            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -256,8 +267,8 @@ mod tests {
         },
         traits::{Empty, is_empty},
         utils::{
-            arrays::get_sorted_tuple::get_sorted_tuple,
-            field::{field_from_bytes_32_trunc, full_field_less_than},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            field::{field_from_bytes, full_field_less_than},
         },
     };
 
@@ -377,6 +388,36 @@ mod tests {
                     }
                 },
             )
+        }
+
+        fn compute_transaction_fee(self) -> Field {
+            let gas_fees = self.constants.global_variables.gas_fees;
+            let gas_used = self.tube_data.gas_used;
+            gas_used.compute_fee(gas_fees)
+        }
+
+        fn build_pre_existing_tx_effects(
+            self,
+        ) -> (CombinedAccumulatedData, [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+            let mut res = CombinedAccumulatedData::empty();
+            res.note_hashes = self.pre_existing_notes;
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
+                nullifier.nullifier
+            });
+            let all_public_data_update_requests = self.pre_existing_public_data.map(
+                |leaf_preimage: PublicDataTreeLeafPreimage| {
+                    PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
+                },
+            );
+            let padded_all_public_data_update_requests = array_concat(
+                all_public_data_update_requests,
+                [
+                    PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                        - PRE_EXISTING_PUBLIC_DATA_LEAVES
+                ],
+            );
+
+            (res, padded_all_public_data_update_requests)
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
@@ -542,6 +583,18 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
+            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) =
+                self.build_pre_existing_tx_effects();
+
+            let start_sponge_blob = append_tx_effects_for_blob(
+                pre_existing_tx_effects,
+                0,
+                0,
+                pre_existing_public_data_update_requests,
+                [0; MAX_L2_TO_L1_MSGS_PER_TX],
+                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
+            );
+
             let state_diff_hints = PrivateBaseStateDiffHints {
                 nullifier_predecessor_preimages,
                 nullifier_predecessor_membership_witnesses,
@@ -557,6 +610,7 @@ mod tests {
             PrivateBaseRollupInputs {
                 tube_data,
                 start,
+                start_sponge_blob,
                 state_diff_hints,
                 archive_root_membership_witness: MembershipWitness {
                     leaf_index: 0,
@@ -771,13 +825,185 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_tx_effects_hash() {
+    unconstrained fn empty_tx_effects_sponge() {
         let outputs = PrivateBaseRollupInputsBuilder::new().execute();
+        let mut expected_sponge = outputs.start_sponge_blob;
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
 
-        let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-        let sha_digest = std::hash::sha256(hash_input_flattened);
-        let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
-        assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
+    #[test]
+    unconstrained fn non_empty_tx_effects_sponge() {
+        let mut builder = PrivateBaseRollupInputsBuilder::new();
+        builder.tube_data.append_note_hashes(50);
+        let outputs = builder.execute();
+        let mut tx_effects = [0; 53];
+        // TODO(#8954): This test uses 50 notes and 3 extra absorbed fields
+        // This may change when logs are deconstructed
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // The first 3 are: i=0 init field, i=1: tx fee, i=2: note prefix
+        tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
+        tx_effects[1] = field_from_bytes(
+            array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
+            true,
+        );
+        tx_effects[2] = encode_blob_prefix(NOTES_PREFIX, 50);
+        for i in 0..50 {
+            tx_effects[i + 3] = builder.tube_data.note_hashes.storage()[i].value();
+        }
+        let mut expected_sponge = outputs.start_sponge_blob;
+
+        expected_sponge.absorb(tx_effects, tx_effects.len());
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
+
+    #[test]
+    unconstrained fn fuller_tx_effects_sponge() {
+        let NUM_NOTES = 25;
+        let NUM_NULLIFIERS = 3;
+        let NUM_MSGS = 5;
+        let NUM_PRIV_EVENT_LOGS = 4;
+        let NUM_UNENC_LOGS = 6;
+        let NUM_CC_LOGS = 1;
+        let TOTAL_BLOB_FIELDS = 2 // revert code and tx fee
+            + NUM_NOTES
+            + 1 // notes and prefix
+            + NUM_NULLIFIERS
+            + 1 // nullifiers and prefix
+            + NUM_MSGS
+            + 1 // L2 to L1 msgs and prefix
+            + NUM_UNENC_LOGS
+            + 1 // unenc. logs and prefix
+            + NUM_CC_LOGS
+            + 1 // contract class logs and prefix
+            + (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS
+            + 1; // private logs and prefix
+        let mut builder = PrivateBaseRollupInputsBuilder::new();
+        builder.tube_data.set_gas_used(100, 200);
+        builder.constants.global_variables.gas_fees.fee_per_da_gas = 1;
+        builder.constants.global_variables.gas_fees.fee_per_l2_gas = 1;
+        let tx_fee = builder.compute_transaction_fee();
+        // builder.transaction_fee = tx_fee;
+        builder.tube_data.append_note_hashes_with_logs(NUM_NOTES);
+        // Copied from nullifier tests above:
+        builder.pre_existing_nullifiers[0] =
+            NullifierLeafPreimage { nullifier: 0, next_nullifier: 7, next_index: 1 };
+        builder.pre_existing_nullifiers[1] =
+            NullifierLeafPreimage { nullifier: 7, next_nullifier: 0, next_index: 0 };
+        for i in 0..NUM_NULLIFIERS {
+            builder.nullifiers.push(
+                NullifierInsertion { existing_index: 1, value: (8 + i) as Field },
+            );
+        }
+        builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
+        // Copied from public data test below:
+        builder.pre_existing_public_data[0] =
+            PublicDataTreeLeafPreimage { slot: 20, value: 40, next_slot: 0, next_index: 0 };
+        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
+        builder.tube_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
+        // Below will only work with NUM_CC_LOGS=1
+        builder.tube_data.add_contract_class_log_hash(1, 2);
+        let outputs = builder.execute();
+
+        let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // revert code = 0
+        let total_blob_fields_bytes = (TOTAL_BLOB_FIELDS as Field).to_be_bytes::<2>();
+        reconstructed_tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [
+                    0,
+                    total_blob_fields_bytes[0],
+                    total_blob_fields_bytes[1],
+                    0,
+                    REVERT_CODE_PREFIX,
+                    0,
+                    0,
+                ],
+            ),
+            true,
+        );
+        // tx fee
+        reconstructed_tx_effects[1] = field_from_bytes(
+            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
+            true,
+        );
+        // notes
+        let mut offset = 2;
+        let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
+        reconstructed_tx_effects[offset] = notes_prefix;
+        offset += 1;
+        for i in 0..NUM_NOTES {
+            reconstructed_tx_effects[offset + i] =
+                builder.tube_data.note_hashes.storage()[i].value();
+        }
+        offset += NUM_NOTES;
+        // nullifiers
+        let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, NUM_NULLIFIERS);
+        reconstructed_tx_effects[offset] = nullifiers_prefix;
+        offset += 1;
+        for i in 0..NUM_NULLIFIERS {
+            reconstructed_tx_effects[offset + i] = builder.nullifiers.storage()[i].value;
+        }
+        offset += NUM_NULLIFIERS;
+        // l2 to l1 msgs
+        let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, NUM_MSGS);
+        reconstructed_tx_effects[offset] = l2_to_l1_msgs_prefix;
+        offset += 1;
+        for i in 0..NUM_MSGS {
+            reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
+                builder.tube_data.l2_to_l1_msgs.storage()[i],
+                builder.tube_data.tx_context.version,
+                builder.tube_data.tx_context.chain_id,
+            );
+        }
+        offset += NUM_MSGS;
+        // private logs
+        let total_private_logs_len = (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
+        reconstructed_tx_effects[offset] = private_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_NOTES + NUM_PRIV_EVENT_LOGS {
+            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
+                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            }
+        }
+        offset += total_private_logs_len;
+        // unenc logs
+        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, NUM_UNENC_LOGS);
+        reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_UNENC_LOGS {
+            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+                builder.tube_data.unencrypted_logs_hashes.storage()[i],
+            );
+        }
+        offset += NUM_UNENC_LOGS;
+        // cc logs
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
+        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_CC_LOGS {
+            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+                builder.tube_data.contract_class_logs_hashes.storage()[i],
+            );
+        }
+        offset += NUM_CC_LOGS;
+
+        // Sanity check
+        assert(offset == TOTAL_BLOB_FIELDS);
+
+        let mut expected_sponge = outputs.start_sponge_blob;
+        expected_sponge.absorb(reconstructed_tx_effects, offset);
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
     }
 
     #[test]

@@ -344,6 +344,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -551,7 +552,6 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@noble/curves": "npm:^1.0.0"
-    "@sinonjs/fake-timers": "npm:^13.0.5"
     "@swc/core": "npm:^1.4.11"
     "@swc/jest": "npm:^0.2.36"
     "@types/fs-extra": "npm:^11.0.2"
@@ -692,6 +692,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^6.2.1"
     "@typescript-eslint/parser": "npm:^6.2.1"
     bn.js: "npm:^5.2.1"
+    c-kzg: "npm:4.0.0-alpha.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
     debug: "npm:^4.3.4"
@@ -877,6 +878,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
@@ -1237,6 +1239,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/telemetry-client@workspace:telemetry-client"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@opentelemetry/api": "npm:^1.9.0"
@@ -4531,7 +4534,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sinonjs/commons@npm:^3.0.0, @sinonjs/commons@npm:^3.0.1":
+"@sinonjs/commons@npm:^3.0.0":
   version: 3.0.1
   resolution: "@sinonjs/commons@npm:3.0.1"
   dependencies:
@@ -4546,15 +4549,6 @@ __metadata:
   dependencies:
     "@sinonjs/commons": "npm:^3.0.0"
   checksum: 10/78155c7bd866a85df85e22028e046b8d46cf3e840f72260954f5e3ed5bd97d66c595524305a6841ffb3f681a08f6e5cef572a2cce5442a8a232dc29fb409b83e
-  languageName: node
-  linkType: hard
-
-"@sinonjs/fake-timers@npm:^13.0.5":
-  version: 13.0.5
-  resolution: "@sinonjs/fake-timers@npm:13.0.5"
-  dependencies:
-    "@sinonjs/commons": "npm:^3.0.1"
-  checksum: 10/11ee417968fc4dce1896ab332ac13f353866075a9d2a88ed1f6258f17cc4f7d93e66031b51fcddb8c203aa4d53fd980b0ae18aba06269f4682164878a992ec3f
   languageName: node
   linkType: hard
 
@@ -7701,6 +7695,17 @@ __metadata:
   version: 3.1.2
   resolution: "bytes@npm:3.1.2"
   checksum: 10/a10abf2ba70c784471d6b4f58778c0beeb2b5d405148e66affa91f23a9f13d07603d0a0354667310ae1d6dc141474ffd44e2a074be0f6e2254edb8fc21445388
+  languageName: node
+  linkType: hard
+
+"c-kzg@npm:4.0.0-alpha.1":
+  version: 4.0.0-alpha.1
+  resolution: "c-kzg@npm:4.0.0-alpha.1"
+  dependencies:
+    bindings: "npm:^1.5.0"
+    node-addon-api: "npm:^5.0.0"
+    node-gyp: "npm:latest"
+  checksum: 10/4095348ee345cc6db318e52fd14a6619200e5e76e5b9dcd665948bcb0b5273deb97833d910ac2aaa1ee6697610af36998f122c36a3ecb7bd674e3343328fcb42
   languageName: node
   linkType: hard
 
@@ -15138,6 +15143,15 @@ __metadata:
     lower-case: "npm:^2.0.2"
     tslib: "npm:^2.0.3"
   checksum: 10/0b2ebc113dfcf737d48dde49cfebf3ad2d82a8c3188e7100c6f375e30eafbef9e9124aadc3becef237b042fd5eb0aad2fd78669c20972d045bbe7fea8ba0be5c
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "node-addon-api@npm:5.1.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/595f59ffb4630564f587c502119cbd980d302e482781021f3b479f5fc7e41cf8f2f7280fdc2795f32d148e4f3259bd15043c52d4a3442796aa6f1ae97b959636
   languageName: node
   linkType: hard
 

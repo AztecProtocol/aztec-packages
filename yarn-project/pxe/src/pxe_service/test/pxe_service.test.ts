@@ -22,7 +22,6 @@ async function createPXEService(): Promise<PXE> {
   const db = await KVPxeDatabase.create(kvStore);
   const tips = new L2TipsStore(kvStore, 'pxe');
   const config: PXEServiceConfig = {
-    l2BlockPollingIntervalMS: 100,
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
@@ -67,7 +66,6 @@ describe('PXEService', () => {
     tips = new L2TipsStore(kvStore, 'pxe');
     db = await KVPxeDatabase.create(kvStore);
     config = {
-      l2BlockPollingIntervalMS: 100,
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,
       proverEnabled: false,
       dataDirectory: undefined,

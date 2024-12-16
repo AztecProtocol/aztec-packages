@@ -164,8 +164,8 @@ export function parsePaymentMethod(
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
           return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
-            claimAmount: typeof claimAmount === 'string' ? Fr.fromString(claimAmount) : new Fr(claimAmount),
-            claimSecret: Fr.fromString(claimSecret),
+            claimAmount: typeof claimAmount === 'string' ? Fr.fromHexString(claimAmount) : new Fr(claimAmount),
+            claimSecret: Fr.fromHexString(claimSecret),
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {

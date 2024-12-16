@@ -134,7 +134,7 @@ proverAgent:
   replicas: 4
 
 bot:
-  replicas: 1
+  replicas: 6
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
