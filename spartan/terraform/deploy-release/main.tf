@@ -47,24 +47,36 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.AZTEC_DOCKER_IMAGE
   }
 
-  set {
-    name  = "aztec.l1DeploymentMnemonic"
-    value = var.L1_DEPLOYMENT_MNEMONIC
+  dynamic "set" {
+    for_each = var.L1_DEPLOYMENT_MNEMONIC != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "aztec.l1DeploymentMnemonic"
+      value = var.L1_DEPLOYMENT_MNEMONIC
+    }
   }
 
-  set {
-    name  = "ethereum.deployL1ContractsPrivateKey"
-    value = var.L1_DEPLOYMENT_PRIVATE_KEY
+  dynamic "set" {
+    for_each = var.L1_DEPLOYMENT_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.deployL1ContractsPrivateKey"
+      value = var.L1_DEPLOYMENT_PRIVATE_KEY
+    }
   }
 
-  set {
-    name  = "bootNode.seqPublisherPrivateKey"
-    value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
+  dynamic "set" {
+    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "bootNode.seqPublisherPrivateKey"
+      value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
+    }
   }
 
-  set {
-    name  = "proverNode.proverPublisherPrivateKey"
-    value = var.PROVER_PUBLISHER_PRIVATE_KEY
+  dynamic "set" {
+    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "proverNode.proverPublisherPrivateKey"
+      value = var.PROVER_PUBLISHER_PRIVATE_KEY
+    }
   }
 
   dynamic "set_list" {
