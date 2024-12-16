@@ -138,7 +138,16 @@ template <typename FF> struct RowDisablingPolynomial {
     FF eval_at_1{ 1 };
 
     RowDisablingPolynomial() = default;
-
+    /**
+     * @brief Compute the evaluations of L^{(i)} at 0 and 1.
+     *
+     * @details In every round, the contribution from the Honk relation computed at
+     * disabled rows has to be mutiplied by \f$ L^{(i)} \f$, which is a linear combination of Lagrange polynomials
+     * defined above.
+     *
+     * @param round_challenge Sumcheck round challenge
+     * @param round_idx Sumcheck round index
+     */
     void update_evaluations(FF round_challenge, size_t round_idx)
     {
         if (round_idx == 1) {
@@ -148,7 +157,13 @@ template <typename FF> struct RowDisablingPolynomial {
             eval_at_1 *= round_challenge;
         }
     }
-
+    /**
+     * @brief Compute the evaluation of \f$ 1 - L \f$ at the sumcheck challenge
+     *
+     * @param multivariate_challenge
+     * @param log_circuit_size
+     * @return FF
+     */
     static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
     {
         FF evaluation_at_multivariate_challenge{ 1 };

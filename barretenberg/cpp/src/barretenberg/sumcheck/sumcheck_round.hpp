@@ -236,9 +236,10 @@ template <typename Flavor> class SumcheckProverRound {
                                             gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
         }
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
-        auto row_disabling_factor =
+        bb::Univariate<FF, 2> row_disabling_factor =
             bb::Univariate<FF, 2>({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
-        auto row_disabling_factor_extended = row_disabling_factor.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        SumcheckRoundUnivariate row_disabling_factor_extended =
+            row_disabling_factor.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         result *= row_disabling_factor_extended;
 
         return result;
