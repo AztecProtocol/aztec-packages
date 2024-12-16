@@ -25,7 +25,7 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as htt
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-export const defaultMnemonic = 'test test test test test test test test test test test junk';
+import { DefaultMnemonic } from './mnemonic.js';
 
 const logger = createLogger('sandbox');
 
@@ -110,7 +110,7 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const hdAccount = mnemonicToAccount(config.l1Mnemonic || defaultMnemonic);
+  const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
