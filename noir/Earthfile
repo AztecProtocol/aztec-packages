@@ -9,7 +9,7 @@ test:
   RUN ./scripts/test_native.sh
 
 examples:
-  FROM ../+bootstrap-noir-bbp
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
 
