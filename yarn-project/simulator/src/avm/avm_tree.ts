@@ -552,8 +552,8 @@ export class AvmEphemeralForest {
   }
 
   getTreeSnapshot(id: MerkleTreeId): AppendOnlyTreeSnapshot {
-    const noteHashTree = this.treeMap.get(id)!;
-    return new AppendOnlyTreeSnapshot(noteHashTree.getRoot(), Number(noteHashTree.leafCount));
+    const tree = this.treeMap.get(id)!;
+    return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
   }
 }
 
