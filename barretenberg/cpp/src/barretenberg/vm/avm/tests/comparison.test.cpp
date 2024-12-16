@@ -113,9 +113,8 @@ TEST_P(AvmCmpTestsLT, ParamTest)
 
     if (mem_tag == AvmMemoryTag::FF) {
         calldata = { a, b };
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
         trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
         trace_builder.op_set(0, a, 0, mem_tag);
@@ -152,9 +151,8 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
 
     if (mem_tag == AvmMemoryTag::FF) {
         calldata = { a, b };
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
         trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
         trace_builder.op_set(0, a, 0, mem_tag);
@@ -333,7 +331,7 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
     const auto [failure_string, failure_mode] = failure;
     const auto [a, b, output] = params;
 
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ a, b, output })
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0) //, std::vector<FF>{ a, b, output })
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 3, 0);
@@ -355,7 +353,7 @@ TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
     const auto [failure, params] = GetParam();
     const auto [failure_string, failure_mode] = failure;
     const auto [a, b, output] = params;
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ a, b, output })
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0) //, std::vector<FF>{ a, b, output })
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 3, 0);

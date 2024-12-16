@@ -10,8 +10,8 @@ import {
   type TreeInfo,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   Fr,
-  type Header,
   NullifierLeaf,
   NullifierLeafPreimage,
   PartialStateReference,
@@ -37,35 +37,37 @@ import { type NativeWorldStateInstance } from './native_world_state_instance.js'
 export class MerkleTreesFacade implements MerkleTreeReadOperations {
   constructor(
     protected readonly instance: NativeWorldStateInstance,
-    protected readonly initialHeader: Header,
+    protected readonly initialHeader: BlockHeader,
     protected readonly revision: WorldStateRevision,
   ) {}
 
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     return this.initialHeader;
   }
 
-  findLeafIndex(treeId: MerkleTreeId, value: MerkleTreeLeafType<MerkleTreeId>): Promise<bigint | undefined> {
-    return this.findLeafIndexAfter(treeId, value, 0n);
+  findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
+    return this.findLeafIndicesAfter(treeId, values, 0n);
   }
 
-  async findLeafIndexAfter(
+  async findLeafIndicesAfter(
     treeId: MerkleTreeId,
-    leaf: MerkleTreeLeafType<MerkleTreeId>,
+    leaves: MerkleTreeLeafType<MerkleTreeId>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined> {
-    const index = await this.instance.call(WorldStateMessageType.FIND_LEAF_INDEX, {
-      leaf: serializeLeaf(hydrateLeaf(treeId, leaf)),
+  ): Promise<(bigint | undefined)[]> {
+    const response = await this.instance.call(WorldStateMessageType.FIND_LEAF_INDICES, {
+      leaves: leaves.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf))),
       revision: this.revision,
       treeId,
       startIndex,
     });
 
-    if (typeof index === 'number' || typeof index === 'bigint') {
-      return BigInt(index);
-    } else {
-      return undefined;
-    }
+    return response.indices.map(index => {
+      if (typeof index === 'number' || typeof index === 'bigint') {
+        return BigInt(index);
+      } else {
+        return undefined;
+      }
+    });
   }
 
   async getLeafPreimage(treeId: IndexedTreeId, leafIndex: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
@@ -182,13 +184,13 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
-  constructor(instance: NativeWorldStateInstance, initialHeader: Header, revision: WorldStateRevision) {
+  constructor(instance: NativeWorldStateInstance, initialHeader: BlockHeader, revision: WorldStateRevision) {
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
 
-  async updateArchive(header: Header): Promise<void> {
+  async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
       blockHeaderHash: header.hash().toBuffer(),

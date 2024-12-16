@@ -6,26 +6,27 @@ use crate::{
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-            fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PublicBaseStateDiffHints,
     },
-    components::{compute_kernel_out_hash, compute_tx_effects_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
 };
 use dep::types::{
     abis::{
-        accumulated_data::CombinedAccumulatedData,
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData, log_hash::ScopedLogHash,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+        accumulated_data::{self, CombinedAccumulatedData},
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        avm_circuit_public_inputs::AvmProofData,
+        combined_constant_data::CombinedConstantData,
+        log_hash::ScopedLogHash,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_write::PublicDataWrite,
+        sponge_blob::SpongeBlob,
         tube::PublicTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
     },
-    data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
@@ -33,7 +34,7 @@ use dep::types::{
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
     traits::is_empty,
-    utils::arrays::{array_merge, find_index_hint},
+    utils::arrays::array_merge,
 };
 
 pub struct PublicBaseRollupInputs {
@@ -41,9 +42,9 @@ pub struct PublicBaseRollupInputs {
     avm_proof_data: AvmProofData,
 
     start: PartialStateReference,
+    start_sponge_blob: SpongeBlob,
 
     state_diff_hints: PublicBaseStateDiffHints,
-    fee_payer_fee_juice_balance_read_hint: PublicDataHint,
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     constants: ConstantRollupData,
@@ -98,9 +99,9 @@ impl PublicBaseRollupInputs {
         }
 
         // Warning: Fake verification! TODO(#8470)
-        if !dep::std::runtime::is_unconstrained() {
-            self.avm_proof_data.fake_verify();
-        }
+        // if !dep::std::runtime::is_unconstrained() {
+        //    self.avm_proof_data.fake_verify();
+        // }
 
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
@@ -149,17 +150,11 @@ impl PublicBaseRollupInputs {
         let end_nullifier_tree_snapshot =
             self.check_nullifier_tree_non_membership_and_insert_to_tree(combined_accumulated_data);
 
-        // Inject protocol update requests for deducting tx_fee from fee_payer's balance
-        let all_public_data_update_requests = self.calculate_all_public_data_update_requests(
-            self.avm_proof_data.public_inputs.transaction_fee,
-            combined_accumulated_data,
-        );
-
         // Validate public data update requests and update public data tree
         let end_public_data_tree_snapshot =
-            self.validate_and_process_public_state(all_public_data_update_requests);
+            self.validate_and_process_public_state(combined_accumulated_data.public_data_writes);
 
-        // Calculate the tx effects hash of the transaction
+        // Append the tx effects for blob(s)
         let siloed_l2_to_l1_msgs = combined_accumulated_data.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,
@@ -171,12 +166,13 @@ impl PublicBaseRollupInputs {
 
         let revert_code = if reverted { 1 } else { 0 };
 
-        let tx_effects_hash = compute_tx_effects_hash(
+        let end_sponge_blob = append_tx_effects_for_blob(
             combined_accumulated_data,
             revert_code,
             self.avm_proof_data.public_inputs.transaction_fee,
-            all_public_data_update_requests,
-            out_hash,
+            combined_accumulated_data.public_data_writes,
+            siloed_l2_to_l1_msgs,
+            self.start_sponge_blob,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -196,7 +192,8 @@ impl PublicBaseRollupInputs {
                 nullifier_tree: end_nullifier_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot,
             },
-            txs_effects_hash: tx_effects_hash,
+            start_sponge_blob: self.start_sponge_blob,
+            end_sponge_blob,
             out_hash,
             accumulated_fees: self.avm_proof_data.public_inputs.transaction_fee,
             accumulated_mana_used: self.avm_proof_data.public_inputs.end_gas_used.l2_gas as Field,
@@ -262,90 +259,6 @@ impl PublicBaseRollupInputs {
         }
         snapshot
     }
-
-    // Returns an array with all public data update requests for this tx. This includes all update requests
-    // generated by app circuits, plus the protocol update requests injected by this circuit. The only protocol
-    // update request we have at the time of this writing is deducting the tx_fee from the fee_payer balance.
-    fn calculate_all_public_data_update_requests(
-        self,
-        tx_fee: Field,
-        accumulated_data: CombinedAccumulatedData,
-    ) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-        let mut all_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] =
-            [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            all_update_requests[i] = accumulated_data.public_data_writes[i];
-        }
-
-        let (payment_update_request, payment_update_index) =
-            self.build_or_patch_payment_update_request(tx_fee, accumulated_data);
-        all_update_requests[payment_update_index] = payment_update_request;
-
-        all_update_requests
-    }
-
-    // Deducts the tx_fee from the FeeJuice balance of the fee_payer. If there is already a PublicDataWrite
-    // in this tx for their balance (because they issued a 'claim' to increase their balance by bridging from L1),
-    // update it by subtracting the tx_fee. Otherwise, build a new PublicDataWrite to subtract the tx_fee
-    // from the balance of the fee_payer, using the fee_payer_fee_juice_balance_read_hint to read the current balance.
-    // Returns the data update request that subtracts the tx_fee from the fee_payer's balance, and the index where it
-    // should be inserted in the public data update requests array.
-    fn build_or_patch_payment_update_request(
-        self,
-        tx_fee: Field,
-        accumulated_data: CombinedAccumulatedData,
-    ) -> (PublicDataWrite, u32) {
-        let fee_payer = self.tube_data.public_inputs.fee_payer;
-
-        // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
-        if !fee_payer.is_zero() {
-            let read_hint = self.fee_payer_fee_juice_balance_read_hint;
-            let leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-            let existing_update_index = unsafe {
-                find_index_hint(
-                    accumulated_data.public_data_writes,
-                    |w: PublicDataWrite| w.leaf_slot == leaf_slot,
-                )
-            };
-
-            if existing_update_index != MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-                // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update = accumulated_data.public_data_writes[existing_update_index];
-                assert(
-                    existing_update.leaf_slot == leaf_slot,
-                    "Wrong leaf slot for Fee Juice balance update request",
-                );
-                assert(
-                    !existing_update.value.lt(tx_fee),
-                    "Not enough balance for fee payer after claim to pay for transaction",
-                );
-
-                let value = compute_public_data_tree_value(existing_update.value - tx_fee);
-                let protocol_update_request = PublicDataWrite { leaf_slot, value };
-                (protocol_update_request, existing_update_index as u32)
-            } else {
-                // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
-                read_hint.validate(self.start.public_data_tree.root);
-
-                let balance = read_hint.value;
-                assert(
-                    read_hint.leaf_slot == leaf_slot,
-                    "Wrong leaf slot for Fee Juice balance read hint",
-                );
-                assert(
-                    !balance.lt(tx_fee),
-                    "Not enough balance for fee payer to pay for transaction",
-                );
-
-                let value = compute_public_data_tree_value(balance - tx_fee);
-                let protocol_update_request = PublicDataWrite { leaf_slot, value };
-                (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-            }
-        } else {
-            // Nothing to do, just place an empty update request at the end of the array
-            (PublicDataWrite::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-        }
-    }
 }
 
 mod tests {
@@ -355,27 +268,32 @@ mod tests {
             constant_rollup_data::ConstantRollupData,
         },
         base::{
-            components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             public_base_rollup::PublicBaseRollupInputs, state_diff_hints::PublicBaseStateDiffHints,
         },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS,
+        components::{
+            append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
+        },
     };
     use dep::types::{
         abis::{
+            accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            sponge_blob::SpongeBlob,
         },
-        address::{AztecAddress, EthAddress},
+        address::EthAddress,
         constants::{
-            ARCHIVE_HEIGHT, AVM_VK_INDEX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-            MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
-            NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            PRIVATE_KERNEL_EMPTY_INDEX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
+            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+            REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
+            UNENCRYPTED_LOGS_PREFIX,
         },
-        data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
+        data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
@@ -383,8 +301,8 @@ mod tests {
         tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
         traits::{Empty, is_empty},
         utils::{
-            arrays::get_sorted_tuple::get_sorted_tuple,
-            field::{field_from_bytes_32_trunc, full_field_less_than},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            field::{field_from_bytes, full_field_less_than},
         },
     };
 
@@ -467,17 +385,9 @@ mod tests {
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; PRE_EXISTING_PUBLIC_DATA_LEAVES],
         pre_existing_blocks: [Field; 2],
-        // Public data writes generated by app code
-        public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-        // Public data writes overwritten by the base rollup circuit
-        overwritten_public_data_writes: [Option<PublicDataTreeLeaf>; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-        // New public data writes to be created by the protocol (eg a data update request for updating fee payer balance)
-        protocol_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+        public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
-        // Index of the item in the pre_existing_public_data array that contains the fee payer's Fee Juice balance.
-        // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
-        fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>,
     }
 
     impl PublicBaseRollupInputsBuilder {
@@ -501,27 +411,28 @@ mod tests {
             builder
         }
 
-        fn build_fee_payer_fee_juice_balance_read_hint(
+        fn build_pre_existing_tx_effects(
             self,
-            start_public_data_tree: NonEmptyMerkleTree<AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST, AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST>,
-        ) -> PublicDataHint {
-            self.fee_payer_fee_juice_balance_pre_existing_public_data_index.map_or(
-                PublicDataHint::empty(),
-                |leaf_index_u32: u32| {
-                    let leaf_index = leaf_index_u32 as Field;
-                    let leaf_preimage = self.pre_existing_public_data[leaf_index];
-                    let membership_witness = MembershipWitness {
-                        leaf_index,
-                        sibling_path: start_public_data_tree.get_sibling_path(leaf_index_u32),
-                    };
-                    PublicDataHint {
-                        leaf_slot: leaf_preimage.slot,
-                        value: leaf_preimage.value,
-                        membership_witness,
-                        leaf_preimage,
-                    }
+        ) -> (CombinedAccumulatedData, [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+            let mut res = CombinedAccumulatedData::empty();
+            res.note_hashes = self.pre_existing_notes;
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
+                nullifier.nullifier
+            });
+            let all_public_data_update_requests = self.pre_existing_public_data.map(
+                |leaf_preimage: PublicDataTreeLeafPreimage| {
+                    PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 },
-            )
+            );
+            let padded_all_public_data_update_requests = array_concat(
+                all_public_data_update_requests,
+                [
+                    PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                        - PRE_EXISTING_PUBLIC_DATA_LEAVES
+                ],
+            );
+
+            (res, padded_all_public_data_update_requests)
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
@@ -547,7 +458,7 @@ mod tests {
 
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -648,9 +559,6 @@ mod tests {
                 next_available_leaf_index: self.pre_existing_public_data.len(),
             };
 
-            let fee_payer_fee_juice_balance_read_hint =
-                self.build_fee_payer_fee_juice_balance_read_hint(start_public_data_tree);
-
             let start_archive = NonEmptyMerkleTree::new(
                 self.pre_existing_blocks,
                 [0; ARCHIVE_HEIGHT],
@@ -678,26 +586,10 @@ mod tests {
                 [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
             );
 
-            let mut final_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
-                BoundedVec::new();
-            final_public_data_writes.extend_from_array(self.public_data_writes.storage);
-            final_public_data_writes.extend_from_array(self.protocol_public_data_writes.storage);
-            for i in 0..self.overwritten_public_data_writes.len() {
-                if self.overwritten_public_data_writes[i].is_some() {
-                    final_public_data_writes.set(
-                        i,
-                        (
-                            final_public_data_writes.get(i).0,
-                            self.overwritten_public_data_writes[i].unwrap_unchecked(),
-                        ),
-                    );
-                }
-            }
-
             let (low_public_data_writes_preimages, low_public_data_writes_witnesses, public_data_tree_sibling_paths) = update_public_data_tree(
                 &mut start_public_data_tree,
                 start_public_data_tree_snapshot,
-                final_public_data_writes.storage(),
+                self.public_data_writes.storage(),
                 self.pre_existing_public_data,
             );
 
@@ -712,6 +604,18 @@ mod tests {
                 nullifier_tree: start_nullifier_tree_snapshot,
                 public_data_tree: start_public_data_tree_snapshot,
             };
+
+            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) =
+                self.build_pre_existing_tx_effects();
+
+            let start_sponge_blob = append_tx_effects_for_blob(
+                pre_existing_tx_effects,
+                0,
+                0,
+                pre_existing_public_data_update_requests,
+                [0; MAX_L2_TO_L1_MSGS_PER_TX],
+                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
+            );
 
             let state_diff_hints = PublicBaseStateDiffHints {
                 nullifier_predecessor_preimages,
@@ -729,13 +633,13 @@ mod tests {
                 tube_data,
                 avm_proof_data,
                 start,
+                start_sponge_blob,
                 state_diff_hints,
                 archive_root_membership_witness: MembershipWitness {
                     leaf_index: 0,
                     sibling_path: start_archive.get_sibling_path(0),
                 },
                 constants: self.constants,
-                fee_payer_fee_juice_balance_read_hint,
             }
         }
 
@@ -768,13 +672,8 @@ mod tests {
                 ],
                 pre_existing_blocks: [0; 2],
                 public_data_writes: BoundedVec::new(),
-                overwritten_public_data_writes: [
-                    Option::none(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-                ],
-                protocol_public_data_writes: BoundedVec::new(),
                 nullifiers: BoundedVec::new(),
                 constants: ConstantRollupData::empty(),
-                fee_payer_fee_juice_balance_pre_existing_public_data_index: Option::none(),
             }
         }
     }
@@ -950,13 +849,198 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_tx_effects_hash() {
+    unconstrained fn empty_tx_effects_sponge() {
         let outputs = PublicBaseRollupInputsBuilder::new().execute();
+        let mut expected_sponge = outputs.start_sponge_blob;
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
 
-        let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-        let sha_digest = std::hash::sha256(hash_input_flattened);
-        let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
-        assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
+    #[test]
+    unconstrained fn non_empty_tx_effects_sponge() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.avm_data.append_note_hashes(50);
+        let outputs = builder.execute();
+        let mut tx_effects = [0; 53];
+        // TODO(#8954): This test uses 50 notes and 3 extra absorbed fields
+        // This may change when logs are deconstructed
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // The first 3 are: i=0 init field, i=1: tx fee, i=2: note prefix
+        tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
+        tx_effects[1] = field_from_bytes(
+            array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
+            true,
+        );
+        tx_effects[2] = encode_blob_prefix(NOTES_PREFIX, 50);
+        for i in 0..50 {
+            tx_effects[i + 3] = builder.avm_data.note_hashes.storage()[i].value();
+        }
+        let mut expected_sponge = outputs.start_sponge_blob;
+
+        expected_sponge.absorb(tx_effects, tx_effects.len());
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
+
+    #[test]
+    unconstrained fn fuller_tx_effects_sponge() {
+        let NUM_NOTES = 50;
+        let NUM_NULLIFIERS = 3;
+        let NUM_MSGS = 5;
+        let NUM_PRIV_EVENT_LOGS = 4;
+        let NUM_UNENC_LOGS = 6;
+        let NUM_CC_LOGS = 1;
+        let PUB_DATA_SLOT = 25;
+        let PUB_DATA_VALUE = 60;
+        let TOTAL_BLOB_FIELDS = 2 // revert code and tx fee
+            + NUM_NOTES
+            + 1 // notes and prefix
+            + NUM_NULLIFIERS
+            + 1 // nullifiers and prefix
+            + NUM_MSGS
+            + 1 // L2 to L1 msgs and prefix
+            + NUM_UNENC_LOGS
+            + 1 // unenc. logs and prefix
+            + NUM_CC_LOGS
+            + 1 // contract class logs and prefix
+            + 2
+            + 1 // single public data update (2 fields) and prefix
+            + NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS
+            + 1; // private logs and prefix
+        let tx_fee = 100_000;
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.transaction_fee = tx_fee;
+        builder.avm_data.append_note_hashes(NUM_NOTES);
+        // Copied from nullifier tests above:
+        builder.pre_existing_nullifiers[0] =
+            NullifierLeafPreimage { nullifier: 0, next_nullifier: 7, next_index: 1 };
+        builder.pre_existing_nullifiers[1] =
+            NullifierLeafPreimage { nullifier: 7, next_nullifier: 0, next_index: 0 };
+        for i in 0..NUM_NULLIFIERS {
+            builder.nullifiers.push(
+                NullifierInsertion { existing_index: 1, value: (8 + i) as Field },
+            );
+        }
+        builder.avm_data.append_l2_to_l1_msgs(NUM_MSGS);
+        // Copied from public data test below:
+        builder.pre_existing_public_data[0] =
+            PublicDataTreeLeafPreimage { slot: 20, value: 40, next_slot: 0, next_index: 0 };
+        builder.public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
+        ));
+        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
+        builder.avm_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
+        // Below will only work with NUM_CC_LOGS=1
+        builder.tube_data.add_contract_class_log_hash(1, 2);
+        let outputs = builder.execute();
+
+        let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // revert code = 0
+        let total_blob_fields_bytes = (TOTAL_BLOB_FIELDS as Field).to_be_bytes::<2>();
+        reconstructed_tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [
+                    0,
+                    total_blob_fields_bytes[0],
+                    total_blob_fields_bytes[1],
+                    0,
+                    REVERT_CODE_PREFIX,
+                    0,
+                    0,
+                ],
+            ),
+            true,
+        );
+        // tx fee
+        reconstructed_tx_effects[1] = field_from_bytes(
+            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
+            true,
+        );
+        // notes
+        let mut offset = 2;
+        let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
+        reconstructed_tx_effects[offset] = notes_prefix;
+        offset += 1;
+        for i in 0..NUM_NOTES {
+            reconstructed_tx_effects[offset + i] =
+                builder.avm_data.note_hashes.storage()[i].value();
+        }
+        offset += NUM_NOTES;
+        // nullifiers
+        let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, NUM_NULLIFIERS);
+        reconstructed_tx_effects[offset] = nullifiers_prefix;
+        offset += 1;
+        for i in 0..NUM_NULLIFIERS {
+            reconstructed_tx_effects[offset + i] = builder.nullifiers.storage()[i].value;
+        }
+        offset += NUM_NULLIFIERS;
+        // l2 to l1 msgs
+        let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, NUM_MSGS);
+        reconstructed_tx_effects[offset] = l2_to_l1_msgs_prefix;
+        offset += 1;
+        for i in 0..NUM_MSGS {
+            reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
+                builder.avm_data.l2_to_l1_msgs.storage()[i],
+                builder.avm_data.tx_context.version,
+                builder.avm_data.tx_context.chain_id,
+            );
+        }
+        offset += NUM_MSGS;
+        // public data update
+        let public_data_update_requests_prefix =
+            encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 2);
+        reconstructed_tx_effects[offset] = public_data_update_requests_prefix;
+        offset += 1;
+        reconstructed_tx_effects[offset] = PUB_DATA_SLOT;
+        reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
+        offset += 2;
+        // private logs
+        let total_private_logs_len = NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
+        reconstructed_tx_effects[offset] = private_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_PRIV_EVENT_LOGS {
+            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
+                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            }
+        }
+        offset += total_private_logs_len;
+        // TODO(#8954): The below will change with log deconstruction
+        // unenc logs
+        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, NUM_UNENC_LOGS);
+        reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_UNENC_LOGS {
+            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+                builder.avm_data.unencrypted_logs_hashes.storage()[i],
+            );
+        }
+        offset += NUM_UNENC_LOGS;
+        // cc logs
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
+        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_CC_LOGS {
+            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+                builder.tube_data.contract_class_logs_hashes.storage()[i],
+            );
+        }
+        offset += NUM_CC_LOGS;
+
+        // Sanity check
+        assert(offset == TOTAL_BLOB_FIELDS);
+
+        let mut expected_sponge = outputs.start_sponge_blob;
+        expected_sponge.absorb(reconstructed_tx_effects, offset);
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
     }
 
     #[test]
@@ -1124,184 +1208,6 @@ mod tests {
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
-    }
-
-    #[test]
-    unconstrained fn updates_fee_payer_balance_with_new_data_write() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let initial_balance = 300_000;
-        let tx_fee = 100_000;
-        let expected_balance = 200_000;
-
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
-
-        // Set values for computing exact tx_fee
-        builder.transaction_fee = tx_fee;
-
-        // Set expected protocol data update
-        builder.protocol_public_data_writes.push((
-            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
-        ));
-
-        let outputs = builder.execute();
-
-        // The new public data tree should have updated the balance of the fee payer
-        let updated_leaf = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: expected_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
-            [updated_leaf.hash(), 0],
-            [0; PUBLIC_DATA_TREE_HEIGHT],
-            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1],
-        );
-
-        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
-    }
-
-    #[test]
-    unconstrained fn updates_fee_payer_balance_in_existing_data_write() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let initial_balance = 100_000;
-        let after_claim_balance = 300_000;
-        let tx_fee = 100_000;
-        let expected_balance = 200_000;
-
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance, but set no hint for it since we'll update a user update request
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-
-        // Set values for computing exact tx_fee
-        builder.transaction_fee = tx_fee;
-
-        // Rollup will overwrite the public data write we are about to push
-        builder.overwritten_public_data_writes[builder.public_data_writes.len()] = Option::some(
-            PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
-        );
-
-        // Create an existing data update that corresponds to a claim
-        builder.public_data_writes.push((
-            0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance },
-        ));
-
-        let outputs = builder.execute();
-
-        // The new public data tree should have updated the balance of the fee payer
-        let updated_leaf = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: expected_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
-            [updated_leaf.hash(), 0],
-            [0; PUBLIC_DATA_TREE_HEIGHT],
-            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1],
-        );
-
-        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
-    }
-
-    #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
-    unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        // Set low initial balance so it fails!
-        let initial_balance = 10_000;
-        let tx_fee = 100_000;
-
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
-
-        // Set values for computing exact tx_fee
-        builder.transaction_fee = tx_fee;
-
-        // Set expected protocol data update
-        builder.protocol_public_data_writes.push((
-            0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 },
-        ));
-
-        builder.fails();
-    }
-
-    #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
-    unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let initial_balance = 300_000;
-        let expected_balance = 200_000;
-        let tx_fee = 100_000;
-
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance in index 0
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-
-        builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
-            slot: 1,
-            value: initial_balance,
-            next_slot: balance_slot,
-            next_index: 0,
-        };
-
-        // But point the read hint to the wrong one!
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(1);
-
-        // Set values for computing exact tx_fee
-        builder.transaction_fee = tx_fee;
-
-        // Set expected protocol data update
-        builder.protocol_public_data_writes.push((
-            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
-        ));
-
-        builder.fails();
     }
 
     #[test]

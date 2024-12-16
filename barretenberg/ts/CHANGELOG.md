@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.66.0...barretenberg.js-v0.67.0) (2024-12-13)
+
+
+### Features
+
+* CIVC browser proveThenVerify  ([#10431](https://github.com/AztecProtocol/aztec-packages/issues/10431)) ([8c064d4](https://github.com/AztecProtocol/aztec-packages/commit/8c064d484c686fdf00a100f65f1f740be4ef13cb))
+* Keccak honk proving in bb.js ([#10489](https://github.com/AztecProtocol/aztec-packages/issues/10489)) ([e0d7431](https://github.com/AztecProtocol/aztec-packages/commit/e0d743121674bcfdd73f84836c17645a5bc2df92))
+
+
+### Bug Fixes
+
+* Bump hard coded SRS size for wasm from 2^19 to 2^10 ([#10596](https://github.com/AztecProtocol/aztec-packages/issues/10596)) ([a37f82d](https://github.com/AztecProtocol/aztec-packages/commit/a37f82d2ed6a4512eb38f8fa576f52a06ddbdfba))
+
 ## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.65.2...barretenberg.js-v0.66.0) (2024-12-06)
 
 

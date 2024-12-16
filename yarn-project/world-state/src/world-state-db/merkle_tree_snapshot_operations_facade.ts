@@ -5,7 +5,13 @@ import {
   type MerkleTreeReadOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { AppendOnlyTreeSnapshot, Fr, type Header, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import {
+  AppendOnlyTreeSnapshot,
+  type BlockHeader,
+  Fr,
+  PartialStateReference,
+  StateReference,
+} from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type IndexedTreeSnapshot } from '@aztec/merkle-tree';
 
@@ -34,20 +40,23 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     return this.#treeSnapshots[treeId]!;
   }
 
-  async findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined> {
+  async findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]> {
     const tree = await this.#getTreeSnapshot(treeId);
     // TODO #5448 fix "as any"
-    return tree.findLeafIndex(value as any);
+    return values.map(leaf => tree.findLeafIndex(leaf as any));
   }
 
-  async findLeafIndexAfter<ID extends MerkleTreeId>(
+  async findLeafIndicesAfter<ID extends MerkleTreeId>(
     treeId: MerkleTreeId,
-    value: MerkleTreeLeafType<ID>,
+    values: MerkleTreeLeafType<ID>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined> {
+  ): Promise<(bigint | undefined)[]> {
     const tree = await this.#getTreeSnapshot(treeId);
     // TODO #5448 fix "as any"
-    return tree.findLeafIndexAfter(value as any, startIndex);
+    return values.map(leaf => tree.findLeafIndexAfter(leaf as any, startIndex));
   }
 
   async getLeafPreimage<ID extends IndexedTreeId>(
@@ -136,7 +145,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeReadOperati
     );
   }
 
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     throw new Error('Getting initial header not supported on snapshot.');
   }
 }

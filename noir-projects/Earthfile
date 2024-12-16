@@ -19,8 +19,7 @@ source:
   COPY package.json yarn.lock .
   RUN yarn
 
-  COPY mega_honk_circuits.json .
-  COPY ivc_integration_circuits.json .
+  COPY client_ivc_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
 build-contracts:
@@ -106,7 +105,7 @@ test-protocol-circuits:
   # Install nargo
   COPY ../noir/+nargo/nargo /usr/bin/nargo
 
-  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
+  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
 
 test-aztec-nr:
   FROM ../yarn-project/+txe
@@ -162,7 +161,7 @@ gates-report:
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
 
-  RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings
+  RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings --skip-brillig-constraints-check
 
   COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh

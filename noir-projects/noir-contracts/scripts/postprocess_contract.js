@@ -38,7 +38,7 @@ async function generateVkForFunction(functionArtifact, outputFolder) {
   );
 
   try {
-    const writeVkCommand = `${BB_BIN_PATH} write_vk_mega_honk -h -b "${functionArtifactPath}" -o "${outputVkPath}" `;
+    const writeVkCommand = `${BB_BIN_PATH} write_vk_for_ivc -h -b "${functionArtifactPath}" -o "${outputVkPath}" `;
 
     console.log("WRITE VK CMD: ", writeVkCommand);
 

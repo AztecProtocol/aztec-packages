@@ -8,10 +8,6 @@ import {
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
-
 /**
  * Temporary configuration until WASM can be used instead of native
  */
@@ -32,8 +28,6 @@ export interface KernelProverConfig {
  * Configuration settings for the PXE.
  */
 export interface PXEConfig {
-  /** The interval to wait between polling for new blocks. */
-  l2BlockPollingIntervalMS: number;
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
 }
@@ -51,11 +45,6 @@ export type CliPXEOptions = {
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
-  l2BlockPollingIntervalMS: {
-    env: 'PXE_BLOCK_POLLING_INTERVAL_MS',
-    description: 'The interval to wait between polling for new blocks.',
-    ...numberConfigHelper(1_000),
-  },
   l2StartingBlock: {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
@@ -127,14 +116,4 @@ export function getCliPXEOptions(): CliPXEOptions & PXEServiceConfig {
     ...cliOptions,
     proverEnabled: pxeConfig.proverEnabled || !!cliOptions.network,
   };
-}
-
-/**
- * Returns package name and version.
- */
-export function getPackageInfo() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-
-  return { version, name };
 }

@@ -11,7 +11,7 @@ import {
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -27,7 +27,7 @@ import { foundry } from 'viem/chains';
 
 export const defaultMnemonic = 'test test test test test test test test test test test junk';
 
-const logger = createDebugLogger('aztec:sandbox');
+const logger = createLogger('sandbox');
 
 const localAnvil = foundry;
 
@@ -157,7 +157,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   const stop = async () => {
-    await pxe.stop();
     await node.stop();
     await watcher?.stop();
   };

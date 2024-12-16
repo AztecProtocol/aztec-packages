@@ -15,7 +15,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type ProtocolArtifact,
@@ -35,7 +35,7 @@ import { type WitnessMap } from '@noir-lang/types';
  * Test Proof Creator executes circuit simulations and provides fake proofs.
  */
 export class TestPrivateKernelProver implements PrivateKernelProver {
-  constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
+  constructor(private log = createLogger('pxe:test_proof_creator')) {}
 
   createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
@@ -73,7 +73,9 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     privateInputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantPrivateInputs = privateInputs.trimToSizes();
-    const [duration, result] = await elapsed(() => executeReset(variantPrivateInputs, privateInputs.dimensions));
+    const [duration, result] = await elapsed(() =>
+      executeReset(variantPrivateInputs, privateInputs.dimensions, privateInputs),
+    );
     this.log.debug(`Simulated private kernel reset`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-reset',

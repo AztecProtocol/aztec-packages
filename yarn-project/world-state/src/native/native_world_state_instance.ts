@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -82,7 +82,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, dbMapSizeKb: number, private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(dataDir: string, dbMapSizeKb: number, private log = createLogger('world-state:database')) {
     log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
@@ -178,17 +178,6 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
       if ('blockHeaderHash' in body) {
         data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
-      }
-
-      if ('leaf' in body) {
-        if (Buffer.isBuffer(body.leaf)) {
-          data['leaf'] = '0x' + body.leaf.toString('hex');
-        } else if ('slot' in body.leaf) {
-          data['slot'] = '0x' + body.leaf.slot.toString('hex');
-          data['value'] = '0x' + body.leaf.value.toString('hex');
-        } else {
-          data['nullifier'] = '0x' + body.leaf.value.toString('hex');
-        }
       }
 
       if ('leaves' in body) {

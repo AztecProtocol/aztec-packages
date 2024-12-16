@@ -1,7 +1,7 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -284,7 +284,7 @@ export const deployL1Contracts = async (
   rpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
-  logger: DebugLogger,
+  logger: Logger,
   args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
@@ -304,10 +304,10 @@ export const deployL1Contracts = async (
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    logger.info(`Set block interval to ${args.ethereumSlotDuration}`);
+    logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
-  logger.info(`Deploying contracts from ${account.address.toString()}...`);
+  logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
@@ -315,21 +315,21 @@ export const deployL1Contracts = async (
   const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
 
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
-  logger.info(`Deployed Registry at ${registryAddress}`);
+  logger.verbose(`Deployed Registry at ${registryAddress}`);
 
   const feeAssetAddress = await govDeployer.deploy(l1Artifacts.feeAsset, [
     'FeeJuice',
     'FEE',
     account.address.toString(),
   ]);
-  logger.info(`Deployed Fee Juice at ${feeAssetAddress}`);
+  logger.verbose(`Deployed Fee Juice at ${feeAssetAddress}`);
 
   const stakingAssetAddress = await govDeployer.deploy(l1Artifacts.stakingAsset, [
     'Staking',
     'STK',
     account.address.toString(),
   ]);
-  logger.info(`Deployed Staking Asset at ${stakingAssetAddress}`);
+  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
   // @todo  #8084
   // @note These numbers are just chosen to make testing simple.
@@ -340,7 +340,7 @@ export const deployL1Contracts = async (
     quorumSize,
     roundSize,
   ]);
-  logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
+  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
@@ -348,25 +348,25 @@ export const deployL1Contracts = async (
     feeAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
-  logger.info(`Deployed Governance at ${governanceAddress}`);
+  logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
   const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
     feeAssetAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
     governanceAddress.toString(),
   ]);
-  logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
+  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
     feeAssetAddress.toString(),
     registryAddress.toString(),
     governanceAddress.toString(),
   ]);
-  logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
+  logger.verbose(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
   logger.verbose(`Waiting for governance contracts to be deployed`);
   await govDeployer.waitForDeployments();
-  logger.info(`All governance contracts deployed`);
+  logger.verbose(`All governance contracts deployed`);
 
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
 
@@ -375,7 +375,7 @@ export const deployL1Contracts = async (
     feeAssetAddress.toString(),
     args.l2FeeJuiceAddress.toString(),
   ]);
-  logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
+  logger.verbose(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
@@ -394,10 +394,10 @@ export const deployL1Contracts = async (
     rollupConfigArgs,
   ];
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
-  logger.info(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+  logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   await deployer.waitForDeployments();
-  logger.info(`All core contracts deployed`);
+  logger.verbose(`All core contracts have been deployed`);
 
   const feeJuicePortal = getContract({
     address: feeJuicePortalAddress.toString(),
@@ -428,7 +428,7 @@ export const deployL1Contracts = async (
 
   {
     const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
-    logger.info(`Fee asset set to free for all in ${txHash}`);
+    logger.verbose(`Fee asset set to free for all in ${txHash}`);
     txHashes.push(txHash);
   }
 
@@ -464,7 +464,7 @@ export const deployL1Contracts = async (
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
   //        otherwise we execute subsequent transactions too soon
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
-  logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
+  logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
   if (!(await feeJuicePortal.read.initialized([]))) {
     const initPortalTxHash = await feeJuicePortal.write.initialize([]);
@@ -474,7 +474,7 @@ export const deployL1Contracts = async (
     logger.verbose(`Fee juice portal is already initialized`);
   }
 
-  logger.info(
+  logger.verbose(
     `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
@@ -504,15 +504,15 @@ export const deployL1Contracts = async (
   // Set initial blocks as proven if requested
   if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
     await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
-    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenThrough}`);
+    logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   const inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
-  logger.info(`Inbox available at ${inboxAddress}`);
+  logger.verbose(`Inbox available at ${inboxAddress}`);
 
   const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
-  logger.info(`Outbox available at ${outboxAddress}`);
+  logger.verbose(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -562,6 +562,8 @@ export const deployL1Contracts = async (
     governanceAddress,
   };
 
+  logger.info(`Aztec L1 contracts initialized`, l1Contracts);
+
   return {
     walletClient,
     publicClient,
@@ -576,7 +578,7 @@ class L1Deployer {
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
     private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
   }
@@ -666,7 +668,7 @@ export async function deployL1Contract(
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
   libraries?: Libraries,
-  logger?: DebugLogger,
+  logger?: Logger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;

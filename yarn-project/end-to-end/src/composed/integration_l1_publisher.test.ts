@@ -1,6 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createDebugLogger } from '@aztec/aztec.js';
+import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type L2Tips,
@@ -9,18 +9,21 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  BlockBlobPublicInputs,
+  type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
   GasSettings,
-  type Header,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { range } from '@aztec/foundation/array';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { Blob } from '@aztec/foundation/blob';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -60,7 +63,7 @@ import { setupL1Contracts } from '../fixtures/utils.js';
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
 const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
 
-const logger = createDebugLogger('aztec:integration_l1_publisher');
+const logger = createLogger('integration_l1_publisher');
 
 const config = getConfigEnvVars();
 config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
@@ -84,7 +87,7 @@ describe('L1Publisher integration', () => {
   let builderDb: MerkleTreeAdminDatabase;
 
   // The header of the last block
-  let prevHeader: Header;
+  let prevHeader: BlockHeader;
 
   let baseFee: GasFees;
 
@@ -242,6 +245,7 @@ describe('L1Publisher integration', () => {
     fileName: string,
     block: L2Block,
     l1ToL2Content: Fr[],
+    blobs: Blob[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ): void => {
@@ -268,13 +272,12 @@ describe('L1Publisher integration', () => {
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
+            blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
-            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -321,6 +324,7 @@ describe('L1Publisher integration', () => {
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         numTxs: block.body.txEffects.length,
       },
     };
@@ -333,10 +337,8 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork();
     const tempBuilder = new LightweightBlockBuilder(tempFork, new NoopTelemetryClient());
-    await tempBuilder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
-    for (const tx of txs) {
-      await tempBuilder.addNewTx(tx);
-    }
+    await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
+    await tempBuilder.addTxs(txs);
     const block = await tempBuilder.setBlockCompleted();
     await tempFork.close();
     return block;
@@ -401,7 +403,19 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
+
+        writeJson(
+          `mixed_block_${block.number}`,
+          block,
+          l1ToL2Content,
+          blobs,
+          recipientAddress,
+          deployerAccount.address,
+        );
 
         await publisher.proposeL2Block(block);
         blocks.push(block);
@@ -421,6 +435,10 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const blobPublicInputsHash = await rollup.read.getBlobPublicInputsHash([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -436,7 +454,9 @@ describe('L1Publisher integration', () => {
               txHashes: [],
             },
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
@@ -502,7 +522,12 @@ describe('L1Publisher integration', () => {
         prevHeader = block.header;
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
 
-        writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        expect(block.header.contentCommitment.blobsHash).toEqual(
+          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+        );
+
+        writeJson(`empty_block_${block.number}`, block, [], blobs, AztecAddress.ZERO, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
         blocks.push(block);
@@ -522,6 +547,10 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const blobPublicInputsHash = await rollup.read.getBlobPublicInputsHash([BigInt(i + 1)]);
+        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
+        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -537,7 +566,9 @@ describe('L1Publisher integration', () => {
               txHashes: [],
             },
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
@@ -590,14 +621,14 @@ describe('L1Publisher integration', () => {
       // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
-        expect.stringMatching(/^L1 Transaction 0x[a-f0-9]{64} reverted$/),
+        expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
       );
 
       // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/,
+          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({

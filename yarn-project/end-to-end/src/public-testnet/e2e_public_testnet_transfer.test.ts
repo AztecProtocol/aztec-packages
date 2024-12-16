@@ -1,5 +1,5 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type DebugLogger, Fr, type PXE } from '@aztec/aztec.js';
+import { Fr, type Logger, type PXE } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -16,7 +16,7 @@ describe(`deploys and transfers a private only token`, () => {
   let secretKey2: Fr;
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
@@ -43,12 +43,7 @@ describe(`deploys and transfers a private only token`, () => {
 
     const [deployerWallet, recipientWallet] = accounts;
 
-    const token = await EasyPrivateTokenContract.deploy(
-      deployerWallet,
-      initialBalance,
-      deployerWallet.getAddress(),
-      deployerWallet.getAddress(),
-    )
+    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
       .send({
         universalDeploy: true,
         skipPublicDeployment: true,
@@ -61,7 +56,7 @@ describe(`deploys and transfers a private only token`, () => {
     logger.info(`Performing transfer.`);
 
     await token.methods
-      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
+      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress())
       .send()
       .wait({ timeout: 300 });
 

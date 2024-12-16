@@ -49,8 +49,25 @@ library EpochProofLib {
       Errors.Rollup__InvalidEpoch(_interimValues.startEpoch, _interimValues.epochToProve)
     );
 
+    for (uint256 i = 0; i < _args.epochSize; i++) {
+      // This was moved from getEpochProofPublicInputs() due to stack too deep
+      uint256 blobOffset = i * Constants.BLOB_PUBLIC_INPUTS_BYTES + i;
+      uint8 blobsInBlock = uint8(_args.blobPublicInputs[blobOffset++]);
+      checkBlobPublicInputsHashes(
+        _args.blobPublicInputs,
+        _rollupStore.blobPublicInputsHashes[_interimValues.previousBlockNumber + i + 1],
+        blobOffset,
+        blobsInBlock
+      );
+    }
+
     bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _rollupStore, _args.epochSize, _args.args, _args.fees, _args.aggregationObject
+      _rollupStore,
+      _args.epochSize,
+      _args.args,
+      _args.fees,
+      _args.blobPublicInputs,
+      _args.aggregationObject
     );
 
     require(
@@ -144,6 +161,7 @@ library EpochProofLib {
    * @param  _epochSize - The size of the epoch (to be promoted to a constant)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   * @param _blobPublicInputs- The blob public inputs for the proof
    * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
@@ -151,6 +169,7 @@ library EpochProofLib {
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
+    bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) internal view returns (bytes32[] memory) {
     uint256 previousBlockNumber = _rollupStore.tips.provenBlockNumber;
@@ -208,10 +227,11 @@ library EpochProofLib {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
+    //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
-    //   prover_id: Field
+    //   prover_id: Field,
+    //   blob_public_inputs: [BlockBlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
     // }
 
     // previous_archive.root: the previous archive tree root
@@ -248,16 +268,45 @@ library EpochProofLib {
     for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
     }
-    uint256 feesEnd = 9 + feesLength;
+    uint256 offset = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[feesEnd] = _rollupStore.vkTreeRoot;
+    publicInputs[offset] = _rollupStore.vkTreeRoot;
+    offset += 1;
 
     // protocol_contract_tree_root
-    publicInputs[feesEnd + 1] = _rollupStore.protocolContractTreeRoot;
+    publicInputs[offset] = _rollupStore.protocolContractTreeRoot;
+    offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[feesEnd + 2] = _args[6];
+    publicInputs[offset] = _args[6];
+    offset += 1;
+
+    // blob_public_inputs
+    uint256 blobOffset = 0;
+    for (uint256 i = 0; i < _epochSize; i++) {
+      uint8 blobsInBlock = uint8(_blobPublicInputs[blobOffset++]);
+      for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
+        if (j < blobsInBlock) {
+          // z
+          publicInputs[offset++] = bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
+          // y
+          (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
+            bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
+          // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+          // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
+          // TODO: The below left pads, possibly inefficiently
+          // c[0]
+          publicInputs[offset++] =
+            bytes32(uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31]))));
+          // c[1]
+          publicInputs[offset++] =
+            bytes32(uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17]))));
+        } else {
+          offset += Constants.BLOB_PUBLIC_INPUTS;
+        }
+      }
+    }
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -268,9 +317,52 @@ library EpochProofLib {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + feesEnd + 3] = part;
+      publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
     }
 
     return publicInputs;
+  }
+
+  /**
+   * Helper fn to prevent stack too deep. Checks blob public input hashes match for a block:
+   * @param _blobPublicInputs - The provided blob public inputs bytes array
+   * @param _blobPublicInputsHash - The stored blob public inputs hash
+   * @param _index - The index to start in _blobPublicInputs
+   * @param _blobsInBlock - The number of blobs in this block
+   */
+  function checkBlobPublicInputsHashes(
+    bytes calldata _blobPublicInputs,
+    bytes32 _blobPublicInputsHash,
+    uint256 _index,
+    uint8 _blobsInBlock
+  ) internal pure {
+    bytes32 calcBlobPublicInputsHash = sha256(
+      abi.encodePacked(
+        _blobPublicInputs[_index:_index + Constants.BLOB_PUBLIC_INPUTS_BYTES * _blobsInBlock]
+      )
+    );
+    require(
+      calcBlobPublicInputsHash == _blobPublicInputsHash,
+      Errors.Rollup__InvalidBlobPublicInputsHash(_blobPublicInputsHash, calcBlobPublicInputsHash)
+    );
+  }
+
+  /**
+   * @notice  Converts a BLS12 field element from bytes32 to a nr BigNum type
+   * The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
+   * firstLimb = last 15 bytes;
+   * secondLimb = bytes 2 -> 17;
+   * thirdLimb = first 2 bytes;
+   * Used when verifying epoch proofs to gather blob specific public inputs.
+   * @param _input - The field in bytes32
+   */
+  function bytes32ToBigNum(bytes32 _input)
+    internal
+    pure
+    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
+  {
+    firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
+    secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
+    thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
   }
 }

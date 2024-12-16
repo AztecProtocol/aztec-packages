@@ -70,6 +70,7 @@ class MockProvingJobSource implements ProvingJobSource {
       id: 'a-job-id',
       type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
       inputsUri: 'inputs-uri' as ProofUri,
+      epochNumber: 1,
     });
   }
   heartbeat(jobId: string): Promise<void> {

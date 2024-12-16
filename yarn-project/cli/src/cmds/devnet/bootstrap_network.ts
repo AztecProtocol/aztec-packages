@@ -1,6 +1,13 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { BatchCall, type PXE, type WaitOpts, type Wallet, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
-import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
+import {
+  BatchCall,
+  L1FeeJuicePortalManager,
+  type PXE,
+  type WaitOpts,
+  type Wallet,
+  createCompatibleClient,
+  retryUntil,
+} from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
@@ -9,7 +16,7 @@ import {
   createL1Clients,
   deployL1Contract,
 } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -22,7 +29,7 @@ type ContractDeploymentInfo = {
 
 const waitOpts: WaitOpts = {
   timeout: 120,
-  provenTimeout: 1200,
+  provenTimeout: 4800,
   interval: 1,
 };
 
@@ -34,7 +41,7 @@ export async function bootstrapNetwork(
   l1Mnemonic: string,
   json: boolean,
   log: LogFn,
-  debugLog: DebugLogger,
+  debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
@@ -232,7 +239,7 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-contracts.js');
-  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress())
+  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress())
     .send({ universalDeploy: true })
     .deployed(waitOpts);
   const info: ContractDeploymentInfo = {
@@ -249,7 +256,7 @@ async function fundFPC(
   wallet: Wallet,
   l1Clients: L1Clients,
   fpcAddress: AztecAddress,
-  debugLog: DebugLogger,
+  debugLog: Logger,
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
@@ -274,7 +281,12 @@ async function fundFPC(
     true,
   );
 
-  await retryUntil(async () => await wallet.isL1ToL2MessageSynced(Fr.fromString(messageHash)), 'message sync', 600, 1);
+  await retryUntil(
+    async () => await wallet.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)),
+    'message sync',
+    600,
+    1,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
