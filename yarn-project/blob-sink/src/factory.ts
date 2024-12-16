@@ -1,5 +1,5 @@
 import { type AztecKVStore } from '@aztec/kv-store';
-import { createStore } from '@aztec/kv-store/utils';
+import { createStore } from '@aztec/kv-store/lmdb';
 
 import { type BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
@@ -18,7 +18,7 @@ async function getDataStoreConfig(config?: BlobSinkConfig): Promise<AztecKVStore
 /**
  * Creates a blob sink service from the provided config.
  */
-export async function createBlobSinkService(config?: BlobSinkConfig): Promise<BlobSinkServer> {
+export async function createBlobSinkServer(config?: BlobSinkConfig): Promise<BlobSinkServer> {
   const store = await getDataStoreConfig(config);
 
   return new BlobSinkServer(config, store);

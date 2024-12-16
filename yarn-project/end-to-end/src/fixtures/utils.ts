@@ -28,8 +28,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { createBlobSinkService } from '@aztec/blob-sink';
-import { BlobSinkService } from '@aztec/blob-sink';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink';
 import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -288,7 +287,7 @@ export type EndToEndContext = {
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
   /** The blob sink (undefined if connected to remote environment) */
-  blobSink: BlobSinkService | undefined;
+  blobSink: BlobSinkServer | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -368,7 +367,7 @@ export async function setup(
 
   // Blob sink service - blobs get posted here and served from here
   const blobSinkPort = await getPort();
-  const blobSink = await createBlobSinkService({ port: blobSinkPort });
+  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
   config.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   const deployL1ContractsValues =

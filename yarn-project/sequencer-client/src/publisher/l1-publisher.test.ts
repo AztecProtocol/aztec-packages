@@ -14,7 +14,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
-import express from 'express';
+import express, { json } from 'express';
 import { type Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
@@ -90,8 +90,6 @@ describe('L1Publisher', () => {
   let archive: Buffer;
   let blockHash: Buffer;
   let body: Buffer;
-
-  let account: PrivateKeyAccount;
 
   let mockBlobSinkServer: Server | undefined = undefined;
 
@@ -176,7 +174,7 @@ describe('L1Publisher', () => {
     const sendToBlobSinkSpy = jest.spyOn(publisher as any, 'sendBlobsToBlobSink');
 
     const app = express();
-    app.use(express.json({ limit: '10mb' }));
+    app.use(json({ limit: '10mb' }));
 
     app.post('/blob_sidecar', (req, res) => {
       const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
@@ -200,6 +198,13 @@ describe('L1Publisher', () => {
 
     const blobs = Blob.getBlobs(l2Block.body.toBlobFields());
 
+    // Check the blobs were forwarded to the blob sink service
+    const sendToBlobSinkSpy = expectBlobsAreSentToBlobSink(blockHash.toString('hex'), blobs);
+
+    const result = await publisher.proposeL2Block(l2Block);
+
+    expect(result).toEqual(true);
+
     const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
 
     const args = [
@@ -217,37 +222,14 @@ describe('L1Publisher', () => {
       `0x${body.toString('hex')}`,
       blobInput,
     ] as const;
-
     expect(l1TxUtils.sendAndMonitorTransaction).toHaveBeenCalledWith(
       {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
-      { blobs: blobs.map(b => b.data), kzg, maxFeePerBlobGas: 10000000000n },
+      { blobs: blobs.map(b => b.fullData), kzg, maxFeePerBlobGas: 10000000000n },
     );
-
-    const data = encodeFunctionData({
-      abi: RollupAbi,
-      functionName: 'propose',
-      args,
-    });
-
-    // Check the blobs were forwarded to the blob sink service
-    const sendToBlobSinkSpy = expectBlobsAreSentToBlobSink(blockHash.toString('hex'), blobs);
-
-    const result = await publisher.proposeL2Block(l2Block);
-
-    expect(result).toEqual(true);
-    expect(walletClient.sendTransaction).toHaveBeenCalledWith({
-      data,
-      account,
-      to: rollupContract.address,
-      blobs: blobs.map(blob => blob.fullData),
-      kzg,
-      maxFeePerBlobGas: 10000000000n,
-    });
-    expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);
     // If this does not return true, then the mocked server will have errored, and

@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/foundation/blob';
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -33,7 +33,7 @@ export class BlobSinkServer {
   private blobStore: BlobStore;
   private readonly port: number;
   private metrics: BlobSinkMetrics;
-  private log: Logger = createDebugLogger('aztec:blob-sink');
+  private log: Logger = createLogger('aztec:blob-sink');
 
   constructor(config?: BlobSinkConfig, store?: AztecKVStore, telemetry: TelemetryClient = new NoopTelemetryClient()) {
     this.port = config?.port ?? 5052; // 5052 is beacon chain default http port

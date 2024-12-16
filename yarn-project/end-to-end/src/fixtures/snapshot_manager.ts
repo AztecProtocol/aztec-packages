@@ -15,7 +15,7 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type BlobSinkServer, createBlobSinkService } from '@aztec/blob-sink';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink';
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -53,7 +53,7 @@ export type SubsystemsContext = {
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
   dateProvider: TestDateProvider;
-  blobSink: BlobSinkService;
+  blobSink: BlobSinkServer;
 };
 
 type SnapshotEntry = {
@@ -284,7 +284,7 @@ async function setupFromFresh(
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Setup blob sink service
-  const blobSink = await createBlobSinkService({
+  const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
     dataStoreConfig: {
       dataDirectory: statePath,
@@ -429,7 +429,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // TODO(md): will this revive state???
-  const blobSink = await createBlobSinkService({
+  const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
     dataStoreConfig: {
       dataDirectory: statePath,
