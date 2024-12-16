@@ -214,7 +214,7 @@ impl AvmProofData {
         );
 
         let mut result: [Field; 4] = [input_hash, 0, 0, 0];
-        for i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
+        for _i in 0..DUMMY_AVM_VERIFIER_NUM_ITERATIONS {
             result = poseidon2_permutation(result, 4);
         }
 
