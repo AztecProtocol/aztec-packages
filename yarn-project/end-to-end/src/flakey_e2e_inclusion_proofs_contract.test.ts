@@ -10,8 +10,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { randomInt } from '@aztec/foundation/crypto';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';

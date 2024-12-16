@@ -15,8 +15,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
