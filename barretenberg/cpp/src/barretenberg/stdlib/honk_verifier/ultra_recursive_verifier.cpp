@@ -46,7 +46,24 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
-    transcript = std::make_shared<Transcript>(proof);
+    Output output;
+    StdlibProof<Builder> honk_proof;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
+        const size_t HONK_PROOF_LENGTH = 473;
+        const size_t num_public_inputs = static_cast<size_t>(proof[1].get_value());
+        // The extra calculation is for the IPA proof length.
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + (1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2) + num_public_inputs -
+                                   (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
+        // split out the ipa proof
+        const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
+            HONK_PROOF_LENGTH + num_public_inputs - (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
+        output.ipa_proof = StdlibProof<Builder>(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
+        honk_proof = StdlibProof<Builder>(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+    } else {
+        honk_proof = proof;
+    }
+    transcript = std::make_shared<Transcript>(honk_proof);
     auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);
     OinkVerifier oink_verifier{ builder, verification_key, transcript };
     oink_verifier.verify();
@@ -127,7 +144,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
     agg_obj.aggregate(pairing_points, recursion_separator);
-    Output output;
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
