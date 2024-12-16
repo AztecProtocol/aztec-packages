@@ -234,12 +234,6 @@ export class Ec2Instance {
         Version: "$Latest",
         LaunchTemplateName: launchTemplateName,
       },
-      Overrides: this.config.ec2InstanceType.map((instanceType) => ({
-        InstanceType: instanceType,
-        // Not longer support attaching EBS
-        AvailabilityZone: undefined,
-        SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
-      })),
     };
     const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
     const createFleetRequest: CreateFleetRequest = {
