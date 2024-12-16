@@ -98,8 +98,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
 
-    info("print block ranges");
-    size_t total = 0;
     for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.size());
 
@@ -107,8 +105,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
             if (block.size() > 0) {
                 proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
-                info(offset, " ", offset + block.size());
-                total += block.size();
             }
         }
 
@@ -154,8 +150,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
-
-    info("total: ", total);
 
     return trace_data;
 }

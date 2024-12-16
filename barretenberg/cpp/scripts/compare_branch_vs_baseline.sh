@@ -2,6 +2,7 @@
 
 # Install requirements (numpy + scipy) for comparison script if necessary.
 # Note: By default, installation will occur in $HOME/.local/bin.
+# pip3 install --user -r $BUILD_DIR/_deps/benchmark-src/requirements.txt
 
 
 # This script is used to compare a suite of benchmarks between baseline (default: master) and
@@ -18,7 +19,6 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 BASELINE_BRANCH="master"
 BENCH_TOOLS_DIR="$BUILD_DIR/_deps/benchmark-src/tools"
 
-pip3 install --user -r $BUILD_DIR/_deps/benchmark-src/requirements.txt
 echo -e "\nComparing $BENCHMARK between $BASELINE_BRANCH and current branch:"
 
 # Move above script dir.

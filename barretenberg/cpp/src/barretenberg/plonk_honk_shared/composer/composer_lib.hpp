@@ -23,11 +23,12 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
+    ASSERT(tables_size <= MAX_LOOKUP_TABLES_SIZE); // if false, may need to increase constant
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
     size_t offset = circuit.blocks.lookup.trace_offset;
-    // if constexpr (IsPlonkFlavor<Flavor>) {
-    //     offset = dyadic_circuit_size - tables_size - additional_offset;
-    // }
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        offset = dyadic_circuit_size - tables_size - additional_offset;
+    }
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
@@ -53,14 +54,14 @@ template <typename Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit,
-                                  [[maybe_unused]] const size_t additional_offset = 0)
+                                  const size_t dyadic_circuit_size)
 {
-    // const size_t tables_size = circuit.get_tables_size();
+    const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t table_offset = circuit.blocks.lookup.trace_offset;
-    // if constexpr (IsPlonkFlavor<Flavor>) {
-    //     offset = dyadic_circuit_size - tables_size - additional_offset;
-    // }
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        table_offset = dyadic_circuit_size - tables_size;
+    }
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {
