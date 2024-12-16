@@ -103,15 +103,16 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
             // WORKTODO: I think no need for this?
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
                 for (uint32_t row_idx = start; row_idx < end; ++row_idx) {
-                    sigmas[col_idx].row_idx[row_idx] = row_idx;
-                    sigmas[col_idx].col_idx[row_idx] = col_idx;
-                    sigmas[col_idx].is_public_input[row_idx] = false;
-                    sigmas[col_idx].is_tag[row_idx] = false;
+                    auto idx = static_cast<ptrdiff_t>(row_idx);
+                    sigmas[col_idx].row_idx[idx] = row_idx;
+                    sigmas[col_idx].col_idx[idx] = col_idx;
+                    sigmas[col_idx].is_public_input[idx] = false;
+                    sigmas[col_idx].is_tag[idx] = false;
                     if constexpr (generalized) {
-                        ids[col_idx].row_idx[row_idx] = row_idx;
-                        ids[col_idx].col_idx[row_idx] = col_idx;
-                        ids[col_idx].is_public_input[row_idx] = false;
-                        ids[col_idx].is_tag[row_idx] = false;
+                        ids[col_idx].row_idx[idx] = row_idx;
+                        ids[col_idx].col_idx[idx] = col_idx;
+                        ids[col_idx].is_public_input[idx] = false;
+                        ids[col_idx].is_tag[idx] = false;
                     }
                 }
             }
@@ -200,10 +201,10 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
         uint32_t idx = static_cast<uint32_t>(i + pub_inputs_offset);
-        mapping.sigmas[0].row_idx[idx] = idx;
-        mapping.sigmas[0].col_idx[idx] = 0;
-        mapping.sigmas[0].is_public_input[idx] = true;
-        if (mapping.sigmas[0].is_tag[idx]) {
+        mapping.sigmas[0].row_idx[static_cast<ptrdiff_t>(idx)] = idx;
+        mapping.sigmas[0].col_idx[static_cast<ptrdiff_t>(idx)] = 0;
+        mapping.sigmas[0].is_public_input[static_cast<ptrdiff_t>(idx)] = true;
+        if (mapping.sigmas[0].is_tag[static_cast<ptrdiff_t>(idx)]) {
             std::cerr << "MAPPING IS BOTH A TAG AND A PUBLIC INPUT" << std::endl;
         }
     }
