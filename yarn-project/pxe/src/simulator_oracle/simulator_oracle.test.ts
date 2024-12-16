@@ -2,11 +2,13 @@ import {
   type AztecNode,
   EncryptedLogPayload,
   L1NotePayload,
+  L2Block,
   Note,
   type TxEffect,
   TxHash,
   TxScopedL2Log,
   randomInBlock,
+  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -654,40 +656,27 @@ describe('Simulator oracle', () => {
       }
     });
 
-    it('should not store nullified notes', async () => {
+    it('should remove nullified notes', async () => {
       const requests = [
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
-      const taggedLogs = mockTaggedLogs(requests, 2);
-
-      getIncomingNotesSpy.mockResolvedValueOnce(Promise.resolve(requests.map(request => request.snippetOfNoteDao)));
-
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      expect(addNotesSpy).toHaveBeenCalledTimes(1);
-      expect(addNotesSpy).toHaveBeenCalledWith(
-        // Incoming should contain notes from requests 0, 1, 2 because in those requests we set owner address point.
-        [
-          expect.objectContaining({
-            ...requests[0].snippetOfNoteDao,
-            index: requests[0].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[1].snippetOfNoteDao,
-            index: requests[1].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[2].snippetOfNoteDao,
-            index: requests[2].indexWithinNoteHashTree,
-          }),
-        ],
-        recipient.address,
+      getIncomingNotesSpy.mockResolvedValueOnce(
+        Promise.resolve(requests.map(request => ({ siloedNullifier: Fr.random(), ...request.snippetOfNoteDao }))),
       );
+      let requestedNullifier;
+      aztecNode.findNullifiersIndexesWithBlock.mockImplementationOnce((_blockNumber, nullifiers) => {
+        const block = L2Block.random(2);
+        requestedNullifier = wrapInBlock(nullifiers[0], block);
+        return Promise.resolve([wrapInBlock(1n, L2Block.random(2)), undefined, undefined]);
+      });
+
+      await simulatorOracle.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
+      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith([requestedNullifier], recipient.address.toAddressPoint());
     }, 30_000);
   });
 });
