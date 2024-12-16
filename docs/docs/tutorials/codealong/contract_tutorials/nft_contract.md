@@ -87,7 +87,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 - [`set_minter`](#set_minter) - adds a minter to the `minters` mapping
 - [`mint`](#mint) - mints an NFT with a specified `token_id` to the recipient
 - [`transfer_in_public`](#transfer_in_public) - publicly transfer the specified token
-- [`finalize_transfer_to_private`](#finalize_transfer_to_private) - finalized a transfer to from the public context to the private context (more on this below)
+- [`finalize_transfer_to_private`](#finalize_transfer_to_private) - finalize the transfer of the NFT from public to private context by completing the [partial note](../../../aztec/concepts/storage/partial_notes.md)(more on this below)
 
 #### Public `view` functions
 
