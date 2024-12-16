@@ -94,7 +94,7 @@ fn on_test_run_request_inner(
                 &CompileOptions::default(),
             );
             let result = match test_result {
-                TestStatus::Pass => NargoTestRunResult {
+                TestStatus::Pass(_) => NargoTestRunResult {
                     id: params.id.clone(),
                     result: "pass".to_string(),
                     message: None,
