@@ -24,13 +24,6 @@ import {
 import { encodeArgs } from './encoding.js';
 
 /**
- * Helper type to dynamically import contracts.
- */
-interface ArtifactsType {
-  [key: string]: ContractArtifact;
-}
-
-/**
  * Helper to get an ABI function or throw error if it doesn't exist.
  * @param artifact - Contract's build artifact in JSON format.
  * @param fnName - Function name to be found.
@@ -98,13 +91,13 @@ export async function setAssumeProvenThrough(
 
 /**
  * Gets all contracts available in \@aztec/noir-contracts.js.
- * @returns The contract ABIs.
+ * @returns The contract names.
  */
-export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+export async function getExampleContractNames(): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const imports = await import('@aztec/noir-contracts.js');
-  return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
+  const { ContractNames } = await import('@aztec/noir-contracts.js');
+  return ContractNames;
 }
 
 /**
@@ -114,11 +107,17 @@ export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
  */
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
-  const artifacts = await getExampleContractArtifacts();
-  for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
-    if (artifacts[key]) {
-      return artifacts[key] as ContractArtifact;
+  const allNames = await getExampleContractNames();
+  const contractName = fileDir.replace(/Contract(Artifact)?$/, '');
+  if (allNames.includes(contractName)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+    const imported = await import(`@aztec/noir-contracts.js/${contractName}`);
+    const artifact = imported[`${contractName}ContractArtifact`] as ContractArtifact;
+    if (!artifact) {
+      throw Error(`Could not import ${contractName}ContractArtifact from @aztec/noir-contracts.js/${contractName}`);
     }
+    return artifact;
   }
 
   let contents: string;

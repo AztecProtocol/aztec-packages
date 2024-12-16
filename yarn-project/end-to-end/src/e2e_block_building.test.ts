@@ -20,7 +20,8 @@ import {
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

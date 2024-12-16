@@ -20,7 +20,9 @@ import {
   Fq,
   type GasSettings,
 } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
