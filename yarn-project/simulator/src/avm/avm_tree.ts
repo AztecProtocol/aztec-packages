@@ -1,5 +1,5 @@
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations, getTreeHeight } from '@aztec/circuit-types';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foundation/trees';
@@ -549,6 +549,11 @@ export class AvmEphemeralForest {
   hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
     return poseidon2Hash(input);
+  }
+
+  getTreeSnapshot(id: MerkleTreeId): AppendOnlyTreeSnapshot {
+    const noteHashTree = this.treeMap.get(id)!;
+    return new AppendOnlyTreeSnapshot(noteHashTree.getRoot(), Number(noteHashTree.leafCount));
   }
 }
 
