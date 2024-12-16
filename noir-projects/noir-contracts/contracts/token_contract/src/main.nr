@@ -255,7 +255,9 @@ contract Token {
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_unconstrained(&mut context, from, from),
         );
-        Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+        Token::at(context.this_address())._increase_public_balance_unsafe(to, amount).enqueue(
+            &mut context,
+        );
     }
     // docs:end:transfer_to_public
 
@@ -616,30 +618,10 @@ contract Token {
         finalization_payload.emit();
     }
 
-    /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
-    /// were the same we could fingerprint the user by doing the following:
-    ///      1) randomness_influence = fee_recipient_point - G_npk * fee_recipient_npk =
-    ///                              = (G_npk * fee_recipient_npk + G_rnd * randomness + G_slot * fee_recipient_slot)
-    ///                                - G_npk * fee_recipient_npk - G_slot * fee_recipient_slot =
-    ///                              = G_rnd * randomness
-    ///      2) user_fingerprint = user_point - randomness_influence =
-    ///                          = (G_npk * user_npk + G_rnd * randomness + G_slot * user_slot) - G_rnd * randomness =
-    ///                          = G_npk * user_npk + G_slot * user_slot
-    ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
-    ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
-    ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
-    ///         by trying different fee payers is a feasible attack.
-    ///
-    /// Note 1: fee_recipient_npk is part of the fee_recipient address preimage derivation, and is assumed to be known.
-    ///         So if we have a known set of fee payer contract addresses getting fee_recipient_npk
-    ///         and fee_recipient_slot is trivial (slot is derived in a `Map<...>` as a hash of balances map slot
-    ///         and a fee payer address).
-    /// Note 2: fee_recipient_point and user_point above are public information because they are passed as args to
-    ///         the public `complete_refund(...)` function.
     // docs:start:setup_refund
+    /// Called by fee payer contract (FPC) to set up a refund for a user during the private fee payment flow.
     #[private]
     fn setup_refund(
-        fee_recipient: AztecAddress, // Receives the fee note (set by the fee payer contract (FPC))
         user: AztecAddress, // A user for which we are setting up the fee refund.
         max_fee: Field, // The maximum fee a user is willing to pay for the tx (denominated in FPC's accepted asset)
         nonce: Field, // A nonce to make authwitness unique.
@@ -657,23 +639,23 @@ contract Token {
             U128::from_integer(max_fee),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
+        // Emit the change note.
         storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             user,
             user,
         ));
 
-        // 3. We prepare the partial notes
-        let fee_recipient_point_slot =
-            _prepare_private_balance_increase(user, fee_recipient, &mut context, storage);
+        // 3. Prepare the partial note for the refund.
         let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
 
         // 4. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
+        let fee_recipient = context.msg_sender(); // FPC is the fee recipient.
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("complete_refund(Field,Field,Field)") },
-            [fee_recipient_point_slot, user_point_slot, max_fee],
+            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,Field)") },
+            [fee_recipient.to_field(), user_point_slot, max_fee],
         );
     }
     // docs:end:setup_refund
@@ -697,9 +679,11 @@ contract Token {
     // TODO(#7728): even though the max_fee should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
     // docs:start:complete_refund
+    /// Executed as a public teardown function and is responsible for completing the refund in a private fee payment
+    /// flow.
     #[public]
     #[internal]
-    fn complete_refund(fee_recipient_slot: Field, user_slot: Field, max_fee: Field) {
+    fn complete_refund(fee_recipient: AztecAddress, user_slot: Field, max_fee: Field) {
         // TODO(#7728): Remove the next line
         let max_fee = U128::from_integer(max_fee);
         let tx_fee = U128::from_integer(context.transaction_fee());
@@ -708,18 +692,17 @@ contract Token {
         // TODO(#7796): we should try to prevent reverts here
         assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
 
-        // 2. We compute the refund amount as the difference between funded amount and tx fee.
+        // 2. We compute the refund amount as the difference between funded amount and the tx fee.
         let refund_amount = max_fee - tx_fee;
 
-        // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
-        // hashes and unencrypted logs.
-        let fee_recipient_finalization_payload =
-            UintNote::finalization_payload().new(&mut context, fee_recipient_slot, tx_fee);
+        // 3. We send the tx fee to the fee recipient in public.
+        _increase_public_balance(fee_recipient, tx_fee.to_field(), storage);
+
+        // 4. We construct the user note finalization payload with the refund amount.
         let user_finalization_payload =
             UintNote::finalization_payload().new(&mut context, user_slot, refund_amount);
 
-        // 4. At last we emit the note hashes and the final note logs.
-        fee_recipient_finalization_payload.emit();
+        // 5. At last we emit the user finalization note hash and the corresponding note log.
         user_finalization_payload.emit();
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
@@ -729,11 +712,20 @@ contract Token {
     // docs:start:increase_public_balance
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {
+    fn _increase_public_balance_unsafe(to: AztecAddress, amount: Field) {
+        _increase_public_balance(to, amount, storage);
+    }
+    // docs:end:increase_public_balance
+
+    #[contract_library_method]
+    fn _increase_public_balance(
+        to: AztecAddress,
+        amount: Field,
+        storage: Storage<&mut PublicContext>,
+    ) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
     }
-    // docs:end:increase_public_balance
 
     // docs:start:reduce_total_supply
     #[public]

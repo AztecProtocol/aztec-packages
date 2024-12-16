@@ -34,7 +34,7 @@ unconstrained fn setup_refund_success() {
     let _ = OracleMock::mock("getRandomField").returns(fee_payer_randomness);
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
+        Token::at(token_contract_address).setup_refund(user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,
@@ -86,7 +86,7 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
     let nonce = random();
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
+        Token::at(token_contract_address).setup_refund(user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,
