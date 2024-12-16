@@ -82,6 +82,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
                                                libra_commitments,
                                                libra_evaluation);
 

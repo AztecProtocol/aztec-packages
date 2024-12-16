@@ -393,21 +393,22 @@ polynomials that are sent in clear.
      */
     void update_zk_sumcheck_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
     {
+        constexpr FF one_half = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed
         if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
             for (auto& univariate : zk_sumcheck_data.libra_univariates) {
-                univariate *= FF(1) / FF(2);
+                univariate *= one_half;
             };
             // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
             auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge);
             auto next_libra_univariate = zk_sumcheck_data.libra_univariates[round_idx + 1];
             // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
             zk_sumcheck_data.libra_running_sum +=
-                -next_libra_univariate.value_at(0) - next_libra_univariate.value_at(1);
-            zk_sumcheck_data.libra_running_sum *= FF(1) / FF(2);
+                -next_libra_univariate.evaluate(FF(0)) - next_libra_univariate.evaluate(FF(1));
+            zk_sumcheck_data.libra_running_sum *= one_half;
 
             zk_sumcheck_data.libra_running_sum += libra_evaluation;
-            zk_sumcheck_data.libra_scaling_factor *= FF(1) / FF(2);
+            zk_sumcheck_data.libra_scaling_factor *= one_half;
 
             zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data.libra_scaling_factor);
         } else {

@@ -178,16 +178,10 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    zk_sumcheck_data.setup_challenge_polynomial(sumcheck_output.challenge);
-    zk_sumcheck_data.setup_big_sum_polynomial();
-    transcript->template send_to_verifier("Libra:big_sum_commitment",
-                                          key->commitment_key->commit(zk_sumcheck_data.big_sum_polynomial));
-    zk_sumcheck_data.compute_batched_polynomial();
-    zk_sumcheck_data.compute_batched_quotient();
-    transcript->template send_to_verifier("Libra:quotient_commitment",
-                                          key->commitment_key->commit(zk_sumcheck_data.batched_quotient));
+    zk_sumcheck_data.compute_witnesses_and_commit(sumcheck_output.challenge, transcript, key->commitment_key);
 
-    std::array<Polynomial, 3> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+    std::array<Polynomial, 4> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
+                                                    zk_sumcheck_data.big_sum_polynomial,
                                                     zk_sumcheck_data.big_sum_polynomial,
                                                     zk_sumcheck_data.batched_quotient };
 

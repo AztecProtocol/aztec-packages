@@ -300,7 +300,8 @@ template <typename Flavor> class SumcheckProverRound {
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
         for (size_t idx = 0; idx < libra_round_univariate.size(); ++idx) {
-            libra_round_univariate.value_at(idx) = current_column.value_at(idx) + zk_sumcheck_data.libra_running_sum;
+            libra_round_univariate.value_at(idx) =
+                current_column.evaluate(FF(idx)) + zk_sumcheck_data.libra_running_sum;
         };
         return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
     }

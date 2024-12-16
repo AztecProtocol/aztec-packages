@@ -111,21 +111,14 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    std::vector<Commitment> libra_commitments;
-
-    Commitment libra_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-    libra_commitments.push_back(libra_commitment);
+    std::array<Commitment, 3> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    Commitment libra_big_sum_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-    libra_commitments.push_back(libra_big_sum_commitment);
-    Commitment libra_quotient_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-    libra_commitments.push_back(libra_quotient_commitment);
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
 
@@ -139,6 +132,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
                                                libra_commitments,
                                                libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),

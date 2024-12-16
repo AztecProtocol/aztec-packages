@@ -90,13 +90,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments = {};
+    std::array<Commitment, 3> libra_commitments = {};
     FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
-
-        Commitment libra_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-        libra_commitments.push_back(libra_commitment);
+        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
@@ -104,13 +101,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
         libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
-        Commitment libra_big_sum_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-        libra_commitments.push_back(libra_big_sum_commitment);
-        Commitment libra_quotient_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-        libra_commitments.push_back(libra_quotient_commitment);
-        // info("big sum received");
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     const BatchOpeningClaim<Curve> opening_claim =
@@ -123,6 +115,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
                                                libra_commitments,
                                                libra_evaluation);
 

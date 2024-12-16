@@ -54,5 +54,11 @@ class Grumpkin {
     // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
+
+    static constexpr size_t SUBGROUP_SIZE = 87;
+
+    static constexpr ScalarField SUBGROUP_GENERATOR =
+        ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+    ;
 };
 } // namespace bb::curve

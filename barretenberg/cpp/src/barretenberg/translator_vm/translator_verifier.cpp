@@ -103,11 +103,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments;
-
-    Commitment libra_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-    libra_commitments.push_back(libra_commitment);
+    std::array<Commitment, 3> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
@@ -117,12 +114,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    Commitment libra_big_sum_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-    libra_commitments.push_back(libra_big_sum_commitment);
-    Commitment libra_quotient_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-    libra_commitments.push_back(libra_quotient_commitment);
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
     // Execute Shplemini
 
     const BatchOpeningClaim<Curve> opening_claim =
@@ -135,6 +129,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                Commitment::one(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
                                                libra_commitments,
                                                libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),

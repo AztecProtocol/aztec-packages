@@ -3,7 +3,13 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+namespace bb::stdlib {
 
+template <typename BuilderType>
+const typename grumpkin<BuilderType>::ScalarField grumpkin<BuilderType>::SUBGROUP_GENERATOR =
+    typename grumpkin<BuilderType>::ScalarField(
+        uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+}
 namespace bb {
 
 template <typename Flavor>
@@ -76,24 +82,15 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments = {};
-    FF libra_evaluation{ 0 };
+    std::array<Commitment, 3> libra_commitments = {};
 
-    Commitment libra_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-
-    libra_commitments.push_back(libra_commitment);
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto [multivariate_challenge, claimed_evaluations, claimed_libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    libra_evaluation = std::move(claimed_libra_evaluation);
-    Commitment libra_big_sum_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-    libra_commitments.push_back(libra_big_sum_commitment);
-    Commitment libra_quotient_commitment =
-        transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-    libra_commitments.push_back(libra_quotient_commitment);
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
@@ -107,6 +104,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
                                                libra_commitments,
                                                claimed_libra_evaluation);
 
