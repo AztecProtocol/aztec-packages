@@ -902,6 +902,10 @@ impl FixtureBuilder {
         self.contract_address
     }
 
+    pub fn set_gas_used(&mut self, da_gas: u32, l2_gas: u32) {
+        self.gas_used = Gas { da_gas, l2_gas };
+    }
+
     pub fn set_public_teardown_call_request(&mut self) {
         self.public_teardown_call_request = self.mock_public_teardown_call_request();
     }

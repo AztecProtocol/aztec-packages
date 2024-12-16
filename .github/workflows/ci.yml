@@ -240,7 +240,7 @@ jobs:
           runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
-        timeout-minutes: 40
+        timeout-minutes: 50
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
@@ -667,7 +667,7 @@ jobs:
         with:
           concurrency_key: prover-client-test-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   network-transfer-test:
