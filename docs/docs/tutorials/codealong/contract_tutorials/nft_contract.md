@@ -107,7 +107,7 @@ These are functions that have private logic and will be executed on user devices
 - [`prepare_private_balance_increase`](#prepare_private_balance_increase) - creates a [partial note](../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
 - [`cancel_authwit`](#cancel_authwit) - emits a nullifier to cancel a private authwit
 - [`transfer_in_private`](#transfer_in_private) - transfers an NFT to another account, privately
-- [`transfer_to_public`](#transfer_to_public) - transfers and NFT from a private accounts' balance to a specified accounts' public balance
+- [`transfer_to_public`](#transfer_to_public) - transfers a NFT from private to public context
 
 #### Private `view` functions
 
