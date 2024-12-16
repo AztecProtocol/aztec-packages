@@ -4,7 +4,6 @@ telemetry:
 
 network:
   setupL2Contracts: false
-  disableEthNode: true
   public: false
 
 ethereum:
