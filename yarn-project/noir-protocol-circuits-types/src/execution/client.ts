@@ -8,9 +8,7 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 
-import TOML from '@iarna/toml';
 import { type CompiledCircuit, type InputMap, Noir, type WitnessMap } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
@@ -45,6 +43,14 @@ import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset
 
 /* eslint-disable camelcase */
 
+// Utility function with self-contained dynamic imports, so it can be stripped from browser bundles
+// This is only ever used in testing, so it's safe to do so
+async function updateProtocolCircuitSampleInputs(circuitName: string, inputs: any) {
+  const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
+  const TOML = await import('@iarna/toml');
+  updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(inputs));
+}
+
 /**
  * Executes the init private kernel.
  * @param privateKernelInitCircuitPrivateInputs - The private inputs to the initial private kernel.
@@ -63,11 +69,12 @@ export async function executeInit(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
   };
-  // Gated to avoid importing the testing files module in the browser
-  if (isGenerateTestDataEnabled()) {
-    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
-    updateProtocolCircuitSampleInputs('private-kernel-init', TOML.stringify(inputs));
-  }
+
+  // Allow bundlers to remove this code
+  /* testing-only:start */
+  await updateProtocolCircuitSampleInputs('private-kernel-init', inputs);
+  /* testing-only:end */
+
   const returnType = await executePrivateKernelInitWithACVM(
     inputs.tx_request,
     inputs.vk_tree_root,
@@ -100,11 +107,12 @@ export async function executeInner(
       privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs,
     ),
   };
-  // Gated to avoid importing the testing files module in the browser
-  if (isGenerateTestDataEnabled()) {
-    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
-    updateProtocolCircuitSampleInputs('private-kernel-inner', TOML.stringify(inputs));
-  }
+
+  // Allow bundlers to remove this code
+  /* testing-only:start */
+  await updateProtocolCircuitSampleInputs('private-kernel-inner', inputs);
+  /* testing-only:end */
+
   const returnType = await executePrivateKernelInnerWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -170,11 +178,12 @@ export async function executeTail(
     previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
   };
-  // Gated to avoid importing the testing files module in the browser
-  if (isGenerateTestDataEnabled()) {
-    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
-    updateProtocolCircuitSampleInputs('private-kernel-tail', TOML.stringify(inputs));
-  }
+
+  // Allow bundlers to remove this code
+  /* testing-only:start */
+  await updateProtocolCircuitSampleInputs('private-kernel-tail', inputs);
+  /* testing-only:end */
+
   const returnType = await executePrivateKernelTailWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -197,11 +206,12 @@ export async function executeTailForPublic(
     previous_kernel: mapPrivateKernelDataToNoir(privateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateInputs.previousKernel.publicInputs),
   };
-  // Gated to avoid importing the testing files module in the browser
-  if (isGenerateTestDataEnabled()) {
-    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
-    updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', TOML.stringify(inputs));
-  }
+
+  // Allow bundlers to remove this code
+  /* testing-only:start */
+  await updateProtocolCircuitSampleInputs('private-kernel-tail-to-public', inputs);
+  /* testing-only:end */
+
   const returnType = await executePrivateKernelTailToPublicWithACVM(
     inputs.previous_kernel,
     inputs.previous_kernel_public_inputs,
@@ -418,9 +428,9 @@ async function updateResetCircuitSampleInputs(
     ),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
-  // Gated to avoid importing the testing files module in the browser
-  if (isGenerateTestDataEnabled()) {
-    const { updateProtocolCircuitSampleInputs } = await import('@aztec/foundation/testing/files');
-    updateProtocolCircuitSampleInputs('private-kernel-reset', TOML.stringify(inputs));
-  }
+
+  // Allow bundlers to remove this code
+  /* testing-only:start */
+  await updateProtocolCircuitSampleInputs('private-kernel-reset', inputs);
+  /* testing-only:end */
 }

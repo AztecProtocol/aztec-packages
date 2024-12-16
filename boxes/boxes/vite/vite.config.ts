@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
 import topLevelAwait from "vite-plugin-top-level-await";
+import stripBlockPlugin from "vite-plugin-strip-block";
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -30,10 +31,9 @@ export default defineConfig({
     },
   },
   plugins: [
+    stripBlockPlugin({ start: "testing-only:start", end: "testing-only:end" }),
     react(),
-    nodePolyfillsFix({
-      exclude: ["fs"],
-    }),
+    nodePolyfillsFix(),
     topLevelAwait(),
   ],
   optimizeDeps: {

@@ -106,7 +106,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.data;
-      writeTestData('yarn-project/protocol-contracts/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
+      await writeTestData('yarn-project/protocol-contracts/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
       const fetchedFunction = fetchedClass!.privateFunctions[0]!;
@@ -120,7 +120,10 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.data;
-      writeTestData('yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
+      await writeTestData(
+        'yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex',
+        logData,
+      );
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
       const fetchedFunction = fetchedClass!.unconstrainedFunctions[0]!;
@@ -181,7 +184,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const block = await aztecNode.getBlockNumber();
           const logs = await aztecNode.getPrivateLogs(block, 1);
           expect(logs.length).toBe(1);
-          writeTestData(
+          await writeTestData(
             'yarn-project/protocol-contracts/fixtures/ContractInstanceDeployedEventData.hex',
             logs[0].toBuffer(),
           );

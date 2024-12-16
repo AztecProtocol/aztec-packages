@@ -3,9 +3,8 @@ import { dirname, join, resolve } from 'path';
 
 import { createConsoleLogger } from '../../log/console.js';
 import { fileURLToPath } from '../../url/index.js';
-import { isGenerateTestDataEnabled } from '../index.js';
+import { isGenerateTestDataEnabled } from '../test_data.js';
 
-const testData: { [key: string]: unknown[] } = {};
 let generateProtocolCircuitTestData = false;
 
 /**
@@ -14,36 +13,6 @@ let generateProtocolCircuitTestData = false;
  */
 export function switchGenerateProtocolCircuitTestData() {
   generateProtocolCircuitTestData = !generateProtocolCircuitTestData;
-}
-
-/** Pushes test data with the given name, only if test data generation is enabled. */
-export function pushTestData<T>(itemName: string, data: T) {
-  if (!isGenerateTestDataEnabled()) {
-    return;
-  }
-
-  if (typeof expect === 'undefined') {
-    return;
-  }
-
-  const testName = expect.getState().currentTestName;
-  const fullItemName = `${testName} ${itemName}`;
-
-  if (!testData[fullItemName]) {
-    testData[fullItemName] = [];
-  }
-  testData[fullItemName].push(data);
-}
-
-/** Returns all instances of pushed test data with the given name, or empty if test data generation is not enabled. */
-export function getTestData(itemName: string): unknown[] {
-  if (!isGenerateTestDataEnabled()) {
-    return [];
-  }
-
-  const testName = expect.getState().currentTestName;
-  const fullItemName = `${testName} ${itemName}`;
-  return testData[fullItemName];
 }
 
 /** Writes the contents specified to the target file if test data generation is enabled. */

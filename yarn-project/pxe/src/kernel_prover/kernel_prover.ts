@@ -30,7 +30,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import { pushTestData } from '@aztec/foundation/testing/files';
+import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client';
 import {
@@ -200,7 +200,12 @@ export class KernelProver {
           privateCallData,
           isPrivateOnlyTx,
         );
+
+        // Allow bundlers to remove this code
+        /* testing-only:start */
         pushTestData('private-kernel-inputs-init', proofInput);
+        /* testing-only:end */
+
         output = await this.proofCreator.simulateProofInit(proofInput);
 
         acirs.push(output.bytecode);
@@ -217,7 +222,12 @@ export class KernelProver {
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
+
+        // Allow bundlers to remove this code
+        /* testing-only:start */
         pushTestData('private-kernel-inputs-inner', proofInput);
+        /* testing-only:end */
+
         output = await this.proofCreator.simulateProofInner(proofInput);
 
         acirs.push(output.bytecode);
@@ -269,7 +279,11 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
+    // Allow bundlers to remove this code
+    /* testing-only:start */
     pushTestData('private-kernel-inputs-ordering', privateInputs);
+    /* testing-only:end */
+
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
