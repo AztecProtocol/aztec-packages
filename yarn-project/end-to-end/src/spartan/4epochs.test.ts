@@ -1,7 +1,7 @@
 import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
