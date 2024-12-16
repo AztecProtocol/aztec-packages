@@ -645,27 +645,30 @@ export class SimulatorOracle implements DBOracle {
         });
       });
     }
-    const nullifiedNotes: IncomingNoteDao[] = [];
-    const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
-    const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-    const currentBlockNumber = await this.getBlockNumber();
-    const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock(currentBlockNumber, nullifiersToCheck);
+  }
 
-    const foundNullifiers = nullifiersToCheck
-      .map((nullifier, i) => {
-        if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
-        }
-      })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+  public async removeNullifiedNotes(contractAddress: AztecAddress) {
+    for (const recipient of await this.keyStore.getAccounts()) {
+      const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
+      const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
+      const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
-    await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
-    nullifiedNotes.forEach(noteDao => {
-      this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-        contract: noteDao.contractAddress,
-        slot: noteDao.storageSlot,
-        nullifier: noteDao.siloedNullifier.toString(),
+      const foundNullifiers = nullifiersToCheck
+        .map((nullifier, i) => {
+          if (nullifierIndexes[i] !== undefined) {
+            return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+          }
+        })
+        .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+
+      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
+      nullifiedNotes.forEach(noteDao => {
+        this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+          contract: noteDao.contractAddress,
+          slot: noteDao.storageSlot,
+          nullifier: noteDao.siloedNullifier.toString(),
+        });
       });
-    });
+    }
   }
 }
