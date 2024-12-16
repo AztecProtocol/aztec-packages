@@ -67,9 +67,12 @@ resource "helm_release" "aztec-gke-cluster" {
     value = var.PROVER_PUBLISHER_PRIVATE_KEY
   }
 
-  set_list {
-    name  = "validator.validatorKeys"
-    value = var.VALIDATOR_KEYS
+  dynamic "set_list" {
+    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? toset(["iterate"]) : toset([])
+    content {
+      name  = "validator.validatorKeys"
+      value = var.VALIDATOR_KEYS
+    }
   }
 
   set {

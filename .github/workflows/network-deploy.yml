@@ -173,7 +173,7 @@ jobs:
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
               -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
             -lock=${{ inputs.respect_tf_lock }}
           else
@@ -199,7 +199,7 @@ jobs:
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
               -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_NODE_PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
               -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}

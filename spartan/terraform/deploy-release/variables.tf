@@ -35,6 +35,7 @@ variable "VALIDATOR_KEYS" {
   description = "List of private keys to use for the validators"
   type        = list(string)
   sensitive   = true
+  default     = []
 }
 
 variable "BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY" {
