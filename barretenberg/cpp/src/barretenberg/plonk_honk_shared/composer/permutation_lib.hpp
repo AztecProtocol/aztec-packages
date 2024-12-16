@@ -158,7 +158,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
         for (size_t node_idx = 0; node_idx < cycle.size(); ++node_idx) {
             // Get the indices (column, row) of the current node in the cycle
             const cycle_node& current_node = cycle[node_idx];
-            const auto current_row = current_node.gate_idx;
+            const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
             const auto current_column = current_node.wire_idx;
 
             // Get indices of next node; If the current node is last in the cycle, then the next is the first one
