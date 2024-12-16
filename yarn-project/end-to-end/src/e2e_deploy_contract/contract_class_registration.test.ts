@@ -23,8 +23,9 @@ import {
 import { type ContractClassIdPreimage, PublicKeys, computeContractClassId } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { StatefulTestContract, TokenContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';

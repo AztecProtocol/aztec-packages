@@ -23,8 +23,6 @@ tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"} \
   -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-} \
   -e LOG_JSON=${LOG_JSON:-}
 
-echo "DONE"
-
 shift 1
 commands=("$@")
 
@@ -34,7 +32,7 @@ tmux set-option -t "$session_name" pane-border-format "#{pane_title}"
 base_index=$(tmux show-options -g base-index 2>/dev/null | awk '{print $2}')
 base_index=${base_index:-0}
 
-echo "base_index=$base_index"
+echo "Using tmux base_index=$base_index"
 
 # Create the necessary number of panes and set titles
 num_commands=${#commands[@]}
