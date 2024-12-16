@@ -11,7 +11,6 @@ import {
   CheatCodes,
   type ContractMethod,
   type DeployL1Contracts,
-  EthCheatCodes,
   type Logger,
   NoFeePaymentMethod,
   type PXE,
@@ -395,7 +394,7 @@ export async function setup(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );

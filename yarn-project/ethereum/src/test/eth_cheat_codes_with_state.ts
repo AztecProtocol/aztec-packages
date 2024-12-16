@@ -9,19 +9,6 @@ import { EthCheatCodes } from '../eth_cheat_codes.js';
  * It is separated to avoid importing fs in the main EthCheatCodes class, which might be used in the browser.
  */
 export class EthCheatCodesWithState extends EthCheatCodes {
-  constructor(
-    /**
-     * The RPC URL to use for interacting with the chain
-     */
-    public override rpcUrl: string,
-    /**
-     * The logger to use for the eth cheatcodes
-     */
-    public override logger = createLogger('ethereum:cheat_codes'),
-  ) {
-    super(rpcUrl, logger);
-  }
-
   /**
    * Dumps the current chain state to a file.
    * @param fileName - The file name to dump state into
