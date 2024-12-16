@@ -47,7 +47,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     private proofStore: ProofStore = new InlineProofStore(),
     private waitTimeoutMs = MAX_WAIT_MS,
     private pollIntervalMs = 1000,
-    private log = createLogger('prover-client:caching-prover-broker'),
+    private log = createLogger('prover-client:broker-circuit-prover-facade'),
   ) {}
 
   private async enqueueAndWaitForJob<T extends ProvingRequestType>(
@@ -121,7 +121,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PUBLIC_VM, inputs),
+      this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,
       inputs,
       epochNumber,
@@ -135,7 +135,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BASE_PARITY, inputs),
+      this.generateId(ProvingRequestType.BASE_PARITY, inputs, epochNumber),
       ProvingRequestType.BASE_PARITY,
       inputs,
       epochNumber,
@@ -149,7 +149,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input),
+      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_MERGE_ROLLUP,
       input,
       epochNumber,
@@ -163,7 +163,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
@@ -177,7 +177,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
@@ -191,7 +191,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs),
+      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
       ProvingRequestType.PRIVATE_KERNEL_EMPTY,
       inputs,
       epochNumber,
@@ -205,7 +205,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.MERGE_ROLLUP, input),
+      this.generateId(ProvingRequestType.MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.MERGE_ROLLUP,
       input,
       epochNumber,
@@ -218,7 +218,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput),
+      this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput, epochNumber),
       ProvingRequestType.PRIVATE_BASE_ROLLUP,
       baseRollupInput,
       epochNumber,
@@ -232,7 +232,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs),
+      this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs, epochNumber),
       ProvingRequestType.PUBLIC_BASE_ROLLUP,
       inputs,
       epochNumber,
@@ -246,7 +246,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.ROOT_PARITY, inputs),
+      this.generateId(ProvingRequestType.ROOT_PARITY, inputs, epochNumber),
       ProvingRequestType.ROOT_PARITY,
       inputs,
       epochNumber,
@@ -260,7 +260,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.ROOT_ROLLUP, input),
+      this.generateId(ProvingRequestType.ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.ROOT_ROLLUP,
       input,
       epochNumber,
@@ -274,7 +274,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput),
+      this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput, epochNumber),
       ProvingRequestType.TUBE_PROOF,
       tubeInput,
       epochNumber,
@@ -282,8 +282,8 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }) {
+  private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }, epochNumber = 0) {
     const inputsHash = sha256(inputs.toBuffer());
-    return `${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
+    return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
   }
 }
