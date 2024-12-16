@@ -11,6 +11,7 @@ fi
 github_group "noir-projects build"
 
 # TODO: Move the build image, or better, just use devcontainer as our build container.
+# Or just normalize the protocol circuit keys to be added to the contract artifact, base64 encoded instead of hex.
 if ! command -v xxd &> /dev/null; then
   denoise "apt update && apt install -y xxd"
 fi

@@ -30,6 +30,8 @@ function test {
   local test_flag=l1-contracts-test-$hash
   if test_should_run $test_flag; then
     github_group "l1-contracts test"
+    solhint --config ./.solhint.json "src/**/*.sol"
+    forge fmt --check
     forge test --no-match-contract UniswapPortalTest
     cache_upload_flag $test_flag
     github_endgroup

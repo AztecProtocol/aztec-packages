@@ -50,7 +50,8 @@ function build {
 
 function test {
   if test_should_run yarn-project-unit-tests-$hash; then
-    github_group "yarn-project unit test"
+    github_group "yarn-project test"
+    denoise yarn formatting
     denoise yarn test
     cache_upload_flag yarn-project-unit-tests-$hash
     github_endgroup
@@ -233,7 +234,7 @@ case "$cmd" in
     TEST=1 TEST_FLAKES=1 test_e2e
     ;;
   "ci")
-    build
+    build full
     test
     ;;
   "hash")

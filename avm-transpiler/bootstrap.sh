@@ -16,6 +16,11 @@ function build {
   github_endgroup
 }
 
+function test {
+  cargo fmt --check
+  cargo clippy
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -24,9 +29,11 @@ case "$cmd" in
     build
     ;;
   "test")
+    test
     ;;
   "ci")
     build
+    test
     ;;
   "hash")
     echo $hash
