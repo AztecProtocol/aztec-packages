@@ -29,10 +29,10 @@ fn validate_initial_values_is_private_only_mismatch_fails() {
 }
 
 #[test(should_fail_with = "mismatch historical_header")]
-fn validate_initial_values_constants_mismatch_txs_effects_hash_fails() {
+fn validate_initial_values_constants_mismatch_out_hash_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.historical_header.content_commitment.txs_effects_hash += 1;
+    builder.output.historical_header.content_commitment.out_hash += 1;
 
     builder.validate_as_first_call(false);
 }
