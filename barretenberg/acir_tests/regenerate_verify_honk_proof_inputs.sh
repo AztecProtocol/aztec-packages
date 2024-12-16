@@ -21,7 +21,7 @@ PROGRAM=assert_statement
 # the program containing the recursive verifier
 RECURSIVE_PROGRAM=verify_honk_proof
 
-./reset_acir_tests.sh --rebuild-nargo --programs "$PROGRAM"
+./reset_acir_tests.sh --programs "$PROGRAM"
 cd "acir_tests/$PROGRAM"
 
 TOML_DIR=../../../../noir/noir-repo/test_programs/execution_success/"$RECURSIVE_PROGRAM"
