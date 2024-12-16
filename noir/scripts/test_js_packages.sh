@@ -25,18 +25,3 @@ yarn workspaces foreach \
   --exclude integration-tests \
   --exclude @noir-lang/noir_wasm \
   run test
-
-# TODO(#10713) reinstate noir integration tests
-# Circular dependency on bb.
-# yarn workspaces foreach \
-#   --parallel \
-#   --verbose \
-#   --include integration-tests \
-#   --include @noir-lang/noir_wasm \
-#   run test:node
-
-# yarn workspaces foreach \
-#   --verbose \
-#   --include integration-tests \
-#   --include @noir-lang/noir_wasm \
-#   run test:browser
