@@ -40,11 +40,10 @@ describe('e2e_fees failures', () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
-    const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
-      aliceAddress,
-      sequencerAddress,
-    );
+    const [initialAlicePrivateBananas] = await t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress);
     const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
+
+    const [initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(bananaFPC.address);
 
     await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
 
@@ -97,15 +96,18 @@ describe('e2e_fees failures', () => {
     // and thus we paid the fee
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, sequencerAddress],
+      [aliceAddress],
       [
         // Even with the revert public teardown function got successfully executed so Alice received the refund note
         // and hence paid the actual fee.
         initialAlicePrivateBananas + privateMintedAlicePrivateBananas - feeAmount,
-        // Sequencer is the FPC admin/fee recipient and hence he should have received the fee amount note
-        initialSequencerPrivateBananas + feeAmount,
       ],
     );
+
+    // FPC should have received the fee in public
+    await expect(t.getBananaPublicBalanceFn(t.bananaFPC.address)).resolves.toEqual([
+      initialFPCPublicBananas + feeAmount,
+    ]);
 
     // Gas balance of Alice should have stayed the same as the FPC paid the gas fee and not her (she paid bananas
     // to FPC admin).
