@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-"./bootstrap.sh ci || exec bash"}
 postfix=${2:-}
+CORES=${CORES:-128}
 NO_TERMINATE=${NO_TERMINATE:-0}
 # picked up by github_group and github_endgroup
 GITHUB_LOG=${GITHUB_LOG:-}
@@ -41,7 +42,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name 128 x86_64)
+ip_sir=$(aws_request_instance $instance_name $CORES x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
