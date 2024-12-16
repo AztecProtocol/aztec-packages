@@ -37,15 +37,11 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { truncate } from '@aztec/foundation/string';
 
 import { InlineProofStore, type ProofStore } from './proof_store.js';
-import { InMemoryProverCache } from './prover_cache/memory.js';
 
 // 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
 const MAX_WAIT_MS = 1_200_000;
 
-/**
- * A facade around a job broker that generates stable job ids and caches results
- */
-export class CachingBrokerFacade implements ServerCircuitProver {
+export class BrokerCircuitProverFacade implements ServerCircuitProver {
   constructor(
     private broker: ProvingJobProducer,
     private proofStore: ProofStore = new InlineProofStore(),
@@ -103,12 +99,6 @@ export class CachingBrokerFacade implements ServerCircuitProver {
         this.waitTimeoutMs / 1000,
         this.pollIntervalMs / 1000,
       );
-
-      try {
-        await this.cache.setProvingJobStatus(id, result);
-      } catch (err) {
-        this.log.warn(`Failed to cache proving job id=${id} resultStatus=${result.status}: ${err}`);
-      }
 
       if (result.status === 'fulfilled') {
         const output = await this.proofStore.getProofOutput(result.value);
