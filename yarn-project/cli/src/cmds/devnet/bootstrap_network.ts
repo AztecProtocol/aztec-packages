@@ -227,9 +227,7 @@ async function deployFPC(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js/FPC');
-  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin)
-    .send({ universalDeploy: true })
-    .deployed(waitOpts);
+  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin).send({ universalDeploy: true }).deployed(waitOpts);
   const info: ContractDeploymentInfo = {
     address: fpc.address,
     initHash: fpc.instance.initializationHash,
