@@ -27,7 +27,7 @@ spec:
             name: {{ include "aztec-network.fullname" . }}-scripts
       containers:
         - name: deploy-l1-verifier
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -74,6 +74,14 @@ spec:
               done || { echo "All L1 verifier deploy attempts failed." >&2; exit 1; }
               echo "L1 verifier deployed"
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: NODE_NO_WARNINGS
               value: "1"
             - name: LOG_LEVEL

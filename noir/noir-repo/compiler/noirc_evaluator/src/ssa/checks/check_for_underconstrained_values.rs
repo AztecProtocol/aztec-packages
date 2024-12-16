@@ -759,7 +759,7 @@ mod test {
                 v5 = add v4, Field 2
                 return
         }
-        
+
         brillig(inline) fn br f1 {
           b0(v0: Field, v1: Field):
             v2 = add v0, v1

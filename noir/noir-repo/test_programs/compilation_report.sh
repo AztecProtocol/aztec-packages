@@ -18,7 +18,7 @@ fi
 ITER="1"
 NUM_ARTIFACTS=${#tests_to_profile[@]}
 
-for dir in ${tests_to_profile[@]}; do 
+for dir in ${tests_to_profile[@]}; do
     if [[ " ${excluded_dirs[@]} " =~ " ${dir} " ]]; then
       continue
     fi
@@ -38,10 +38,10 @@ for dir in ${tests_to_profile[@]}; do
 
     COMPILE_TIME=$((time nargo compile --force --silence-warnings) 2>&1 | grep real | grep -oE '[0-9]+m[0-9]+.[0-9]+s')
     echo -e " {\n    \"artifact_name\":\"$PACKAGE_NAME\",\n    \"time\":\"$COMPILE_TIME\"" >> $current_dir/compilation_report.json
-    
+
     if (($ITER == $NUM_ARTIFACTS)); then
         echo "}" >> $current_dir/compilation_report.json
-    else 
+    else
         echo "}, " >> $current_dir/compilation_report.json
     fi
 

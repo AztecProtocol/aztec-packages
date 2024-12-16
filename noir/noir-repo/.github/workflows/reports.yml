@@ -73,7 +73,7 @@ jobs:
           ./rebuild.sh
           ./gates_report.sh
           mv gates_report.json ../gates_report.json
-      
+
       - name: Compare gates reports
         id: gates_diff
         uses: noir-lang/noir-gates-diff@1931aaaa848a1a009363d6115293f7b7fc72bb87
@@ -139,7 +139,7 @@ jobs:
           message: ${{ steps.brillig_bytecode_diff.outputs.markdown }}
 
   compare_brillig_execution_reports:
-    name: Brillig execution trace sizes  
+    name: Brillig execution trace sizes
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -188,7 +188,7 @@ jobs:
           message: ${{ steps.brillig_execution_diff.outputs.markdown }}
 
   generate_memory_report:
-    name: Peak memory usage  
+    name: Peak memory usage
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -335,10 +335,10 @@ jobs:
           overwrite: true
 
   upload_compilation_report:
-    name: Upload compilation report 
+    name: Upload compilation report
     needs: [generate_compilation_report, external_repo_compilation_report]
     # We want this job to run even if one variation of the matrix in `external_repo_compilation_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -448,10 +448,10 @@ jobs:
           overwrite: true
 
   upload_memory_report:
-    name: Upload memory report 
+    name: Upload memory report
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -490,3 +490,49 @@ jobs:
         with:
           header: memory
           message: ${{ steps.memory_report.outputs.markdown }}
+
+  generate_compilation_report:
+    name: Compilation time
+    needs: [build-nargo]
+    runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download nargo binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nargo
+          path: ./nargo
+
+      - name: Set nargo on PATH
+        run: |
+          nargo_binary="${{ github.workspace }}/nargo/nargo"
+          chmod +x $nargo_binary
+          echo "$(dirname $nargo_binary)" >> $GITHUB_PATH
+          export PATH="$PATH:$(dirname $nargo_binary)"
+          nargo -V
+
+      - name: Generate Compilation report
+        working-directory: ./test_programs
+        run: |
+          ./compilation_report.sh
+          mv compilation_report.json ../compilation_report.json
+
+      - name: Parse compilation report
+        id: compilation_report
+        uses: noir-lang/noir-bench-report@0d7464a8c39170523932d7846b6e6b458a294aea
+        with:
+          report: compilation_report.json
+          header: |
+            # Compilation Report
+          memory_report: false
+
+      - name: Add memory report to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: compilation
+          message: ${{ steps.compilation_report.outputs.markdown }}

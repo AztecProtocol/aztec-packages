@@ -1,3 +1,20 @@
+opentelemetry-collector:
+  config:
+    exporters:
+      # debug:
+      #   verbosity: detailed
+      otlphttp/logs:
+        endpoint: http://metrics-loki.metrics:3100/otlp
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+
 loki:
   deploymentMode: SingleBinary
   loki:
@@ -23,3 +40,20 @@ loki:
     replicas: 0
   write:
     replicas: 0
+
+grafana:
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://metrics-loki.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

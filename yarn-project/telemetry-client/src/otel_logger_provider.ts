@@ -30,5 +30,6 @@ export async function registerOtelLoggerProvider(resource?: IResource, otelLogsU
   );
 
   otelLogs.setGlobalLoggerProvider(loggerProvider);
+
   return loggerProvider;
 }

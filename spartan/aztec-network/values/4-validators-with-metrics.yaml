@@ -21,6 +21,8 @@ validator:
     - 0x90F79bf6EB2c4f870365E785982E1f101E93b906
   validator:
     disabled: false
+  sequencer:
+    enforceTimeTable: false
 
 bootNode:
   validator:

@@ -101,7 +101,12 @@ describe('ValidationService', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
-      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
     );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 
@@ -119,7 +124,12 @@ describe('ValidationService', () => {
 
     // Setup epoch cache mocks
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
-      Promise.resolve([proposal.getSender(), proposal.getSender()]),
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
     );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
 
@@ -132,7 +142,30 @@ describe('ValidationService', () => {
 
     // Setup epoch cache mocks
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
-      Promise.resolve([EthAddress.random(), EthAddress.random()]),
+      Promise.resolve({
+        currentProposer: EthAddress.random(),
+        nextProposer: EthAddress.random(),
+        currentSlot: proposal.slotNumber.toBigInt(),
+        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+      }),
+    );
+    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+
+    const attestation = await validatorClient.attestToProposal(proposal);
+    expect(attestation).toBeUndefined();
+  });
+
+  it('Should not return an attestation if the proposal is not for the current or next slot', async () => {
+    const proposal = makeBlockProposal();
+
+    // Setup epoch cache mocks
+    epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      Promise.resolve({
+        currentProposer: proposal.getSender(),
+        nextProposer: proposal.getSender(),
+        currentSlot: proposal.slotNumber.toBigInt() + 20n,
+        nextSlot: proposal.slotNumber.toBigInt() + 21n,
+      }),
     );
     epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
 

@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <tuple>
 
-namespace bb {
+namespace bb::avm {
 
 class perm_main_mem_ind_addr_d_permutation_settings {
   public:
@@ -60,4 +60,4 @@ class perm_main_mem_ind_addr_d_relation
 template <typename FF_>
 using perm_main_mem_ind_addr_d = GenericPermutation<perm_main_mem_ind_addr_d_permutation_settings, FF_>;
 
-} // namespace bb
+} // namespace bb::avm

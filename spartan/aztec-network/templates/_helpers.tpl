@@ -50,6 +50,14 @@ app.kubernetes.io/name: {{ include "aztec-network.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Aztec Image
+*/}}
+{{- define "aztec-network.image" -}}
+image: {{ .Values.images.aztec.image }}
+imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+{{- end -}}
+
 
 
 {{- define "aztec-network.pxeUrl" -}}
@@ -170,6 +178,8 @@ affinity:
               values:
                 - validator
                 - boot-node
-                - prover
+                - prover-node
+                - prover-broker
         topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
 {{- end -}}

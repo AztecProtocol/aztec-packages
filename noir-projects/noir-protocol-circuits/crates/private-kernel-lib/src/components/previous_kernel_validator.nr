@@ -1,11 +1,11 @@
 mod previous_kernel_validator_hints;
 
-use crate::components::previous_kernel_validator::previous_kernel_validator_hints::{
-    generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
-};
 use dep::types::{
     abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
     utils::arrays::array_length,
+};
+use previous_kernel_validator_hints::{
+    generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
 };
 
 pub struct PreviousKernelValidator {
@@ -27,11 +27,19 @@ impl PreviousKernelValidator {
     }
 
     pub fn validate_for_private_tail(self) {
+        assert(
+            self.previous_kernel.public_inputs.is_private_only,
+            "Must be private only to be processed in tail",
+        );
         self.validate_common();
         self.validate_empty_data();
     }
 
     pub fn validate_for_private_tail_to_public(self) {
+        assert(
+            !self.previous_kernel.public_inputs.is_private_only,
+            "Must not be private only to be processed in tail to public",
+        );
         self.validate_common();
         self.validate_non_empty_data();
     }

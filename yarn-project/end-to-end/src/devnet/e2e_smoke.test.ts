@@ -17,7 +17,7 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { PXESchema } from '@aztec/circuit-types';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
 
@@ -58,7 +58,7 @@ describe('End-to-end tests for devnet', () => {
   // eslint-disable-next-line
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
-  let logger: DebugLogger;
+  let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
   let teardown: () => void | Promise<void>;
@@ -179,8 +179,8 @@ describe('End-to-end tests for devnet', () => {
       .deploy({
         fee: {
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
-            claimAmount: Fr.fromString(claimAmount),
-            claimSecret: Fr.fromString(claimSecret.value),
+            claimAmount: Fr.fromHexString(claimAmount),
+            claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
           }),
         },

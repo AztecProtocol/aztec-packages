@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type L2Block } from '../l2_block.js';
@@ -9,12 +9,11 @@ import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_sou
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
 
-  private readonly log = createDebugLogger('aztec:l2_block_stream');
-
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
+    private readonly log = createLogger('types:block_stream'),
     private opts: {
       proven?: boolean;
       pollIntervalMS?: number;
@@ -22,7 +21,7 @@ export class L2BlockStream {
       startingBlock?: number;
     } = {},
   ) {
-    this.runningPromise = new RunningPromise(() => this.work(), this.opts.pollIntervalMS ?? 1000);
+    this.runningPromise = new RunningPromise(() => this.work(), log, this.opts.pollIntervalMS ?? 1000);
   }
 
   public start() {

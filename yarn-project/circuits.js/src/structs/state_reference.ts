@@ -69,6 +69,15 @@ export class StateReference {
     return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
   }
 
+  toInspect() {
+    return {
+      l1ToL2MessageTree: this.l1ToL2MessageTree.root.toString(),
+      noteHashTree: this.partial.noteHashTree.root.toString(),
+      nullifierTree: this.partial.nullifierTree.root.toString(),
+      publicDataTree: this.partial.publicDataTree.root.toString(),
+    };
+  }
+
   [inspect.custom]() {
     return `StateReference {
   l1ToL2MessageTree: ${inspect(this.l1ToL2MessageTree)},

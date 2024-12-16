@@ -11,8 +11,8 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX];
 
 pub struct RootRollupInputs {
-    previous_rollup_data: [PreviousRollupBlockData; 2],
-    prover_id: Field,
+    pub previous_rollup_data: [PreviousRollupBlockData; 2],
+    pub prover_id: Field,
 }
 
 impl Empty for RootRollupInputs {
@@ -51,6 +51,12 @@ impl RootRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
+        // For now, we do them individually
+        // How we accumulate is being worked on by @Mike
+        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
+        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
+
         RootRollupPublicInputs {
             previous_archive: left.previous_archive,
             end_archive: right.new_archive,
@@ -63,6 +69,7 @@ impl RootRollupInputs {
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id,
+            blob_public_inputs,
         }
     }
 }
