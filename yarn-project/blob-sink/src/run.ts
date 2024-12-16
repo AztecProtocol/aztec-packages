@@ -1,21 +1,19 @@
 // Run a standalone blob sink server
+import { createLogger } from '@aztec/foundation/log';
 
-import { createDebugLogger } from "@aztec/foundation/log";
-import { BlobSinkServer } from "./server.js";
-import { getBlobSinkConfigFromEnv } from "./config.js";
+import { getBlobSinkConfigFromEnv } from './config.js';
+import { BlobSinkServer } from './server.js';
 
-
-const logger = createDebugLogger('aztec:blob-sink');
+const logger = createLogger('aztec:blob-sink');
 
 async function main() {
-
   const config = getBlobSinkConfigFromEnv();
   const blobSinkServer = new BlobSinkServer(config);
 
   await blobSinkServer.start();
 
   const stop = async () => {
-    logger.debug('Stopping bootstrap node...');
+    logger.debug('Stopping Blob Sink...');
     await blobSinkServer.stop();
     logger.info('Node stopped');
     process.exit(0);
@@ -24,4 +22,4 @@ async function main() {
   process.on('SIGINT', stop);
 }
 
-main();
+void main();

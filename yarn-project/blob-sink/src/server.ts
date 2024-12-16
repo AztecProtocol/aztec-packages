@@ -35,7 +35,11 @@ export class BlobSinkServer {
   private metrics: BlobSinkMetrics;
   private log: Logger = createLogger('aztec:blob-sink');
 
-  constructor(config?: Partial<BlobSinkConfig>, store?: AztecKVStore, telemetry: TelemetryClient = new NoopTelemetryClient()) {
+  constructor(
+    config?: Partial<BlobSinkConfig>,
+    store?: AztecKVStore,
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
+  ) {
     this.port = config?.port ?? 5052; // 5052 is beacon chain default http port
     this.app = express();
 

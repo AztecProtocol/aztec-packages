@@ -20,7 +20,6 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   // },
 };
 
-
 /**
  * Returns the blob sink configuration from the environment variables.
  * Note: If an environment variable is not set, the default value is used.
