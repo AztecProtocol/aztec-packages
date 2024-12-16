@@ -1,5 +1,6 @@
 import { type AztecAddress, type Wallet } from '@aztec/aztec.js';
-import { StaticChildContract, StaticParentContract } from '@aztec/noir-contracts.js';
+import { StaticChildContract } from '@aztec/noir-contracts.js/StaticChild';
+import { StaticParentContract } from '@aztec/noir-contracts.js/StaticParent';
 
 import { STATIC_CALL_STATE_MODIFICATION_ERROR, STATIC_CONTEXT_ASSERTION_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';

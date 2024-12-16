@@ -89,11 +89,9 @@ export class L2Block {
   ): L2Block {
     const body = Body.random(txsPerBlock, numPublicCallsPerTx, numUnencryptedLogsPerCall);
 
-    const txsEffectsHash = body.getTxsEffectsHash();
-
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
+      makeHeader(0, txsPerBlock, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
       body,
     );
   }
@@ -121,6 +119,7 @@ export class L2Block {
   /**
    * Computes the public inputs hash for the L2 block.
    * The same output as the hash of RootRollupPublicInputs.
+   * TODO(Miranda): Check where/if this is used (v diff now with epochs and blobs)
    * @returns The public input hash for the L2 block as a field element.
    */
   // TODO(#4844)
@@ -137,7 +136,6 @@ export class L2Block {
       this.header.state.partial.publicDataTree,
       this.header.state.l1ToL2MessageTree,
       this.archive,
-      this.body.getTxsEffectsHash(),
     ];
 
     return sha256ToField(preimage);
