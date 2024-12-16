@@ -505,6 +505,9 @@ contract Token {
     // docs:end:finalize_transfer_to_private
 
     // docs:start:finalize_transfer_to_private_unsafe
+    /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
+    /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from` (this has to be
+    /// done in the calling function).
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
@@ -541,7 +544,7 @@ contract Token {
 
     // docs:start:mint_to_private
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
-    /// in the enqueud call).
+    /// in the enqueued call).
     #[private]
     fn mint_to_private(
         from: AztecAddress, // sender of the tag: TODO(#9887): this is not great?
