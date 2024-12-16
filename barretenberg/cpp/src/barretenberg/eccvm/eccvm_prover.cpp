@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
@@ -121,13 +122,10 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using SmallSubgroupIPA = SmallSubgroupIPA<Flavor>::SmallSubgroupIPAProver;
 
-    zk_sumcheck_data.compute_witnesses_and_commit(sumcheck_output.challenge, transcript, key->commitment_key);
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
 
-    std::array<Polynomial, 4> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
-                                                    zk_sumcheck_data.big_sum_polynomial,
-                                                    zk_sumcheck_data.big_sum_polynomial,
-                                                    zk_sumcheck_data.batched_quotient };
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -137,7 +135,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         libra_polynomials,
+                         small_subgroup_ipa_prover.get_witness_polynomials(),
                          sumcheck_output.claimed_libra_evaluation);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates

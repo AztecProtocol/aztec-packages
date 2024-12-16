@@ -1,4 +1,5 @@
 #include "decider_prover.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -58,6 +59,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using SmallSubgroupIPA = SmallSubgroupIPA<Flavor>::SmallSubgroupIPAProver;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
@@ -72,22 +74,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               ck,
                                                               transcript);
     } else {
-        using namespace std::chrono;
 
-        auto total_time = 0.0;
-        auto start = high_resolution_clock::now();
-
-        zk_sumcheck_data.compute_witnesses_and_commit(sumcheck_output.challenge, transcript, ck);
-
-        auto end = high_resolution_clock::now();
-        total_time += duration<double, std::milli>(end - start).count();
-
-        info("total time", total_time);
-
-        std::array<Polynomial, 4> libra_polynomials = { zk_sumcheck_data.libra_concatenated_monomial_form,
-                                                        zk_sumcheck_data.big_sum_polynomial,
-                                                        zk_sumcheck_data.big_sum_polynomial,
-                                                        zk_sumcheck_data.batched_quotient };
+        SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, ck);
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
@@ -95,7 +83,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,
-                                                              libra_polynomials,
+                                                              small_subgroup_ipa_prover.get_witness_polynomials(),
                                                               sumcheck_output.claimed_libra_evaluation);
     }
     vinfo("executed multivariate-to-univariate reduction");

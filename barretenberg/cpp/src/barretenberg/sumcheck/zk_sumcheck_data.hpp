@@ -18,17 +18,8 @@ template <typename Flavor> struct ZKSumcheckData {
     using FF = typename Flavor::FF;
 
     using Curve = Flavor::Curve;
-    /**
-     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
-     * \f$P_1,\ldots, P_N\f$.
-     */
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
-
-    static constexpr size_t BATCHED_POLYNOMIAL_LENGTH = 2 * SUBGROUP_SIZE + 2;
-
-    static constexpr size_t QUOTIENT_LENGTH = SUBGROUP_SIZE + 2;
 
     static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
     // static constexpr FF grumpkin_subgroup_generator =
@@ -56,22 +47,13 @@ template <typename Flavor> struct ZKSumcheckData {
     Polynomial<FF> libra_concatenated_lagrange_form;
     Polynomial<FF> libra_concatenated_monomial_form;
 
-    Polynomial<FF> challenge_polynomial;
-    Polynomial<FF> challenge_polynomial_lagrange;
-
-    Polynomial<FF> big_sum_polynomial;
-    Polynomial<FF> batched_polynomial;
-    Polynomial<FF> batched_quotient;
-
     LibraUnivariates libra_univariates;
     size_t log_circuit_size;
-    // LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
     FF libra_total_sum;
     FF libra_running_sum;
     ClaimedLibraEvaluations libra_evaluations;
-    std::array<FF, SUBGROUP_SIZE> big_sum_lagrange_coeffs;
 
     // Default constructor
     ZKSumcheckData() = default;
@@ -81,15 +63,13 @@ template <typename Flavor> struct ZKSumcheckData {
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : constant_term(FF::random_element())
-        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
-        , challenge_polynomial(SUBGROUP_SIZE)                 // public polynomial
-        , big_sum_polynomial(SUBGROUP_SIZE + 3)               // includes masking
-        , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)       // batched polynomial, input to shplonk prover
-        , batched_quotient(QUOTIENT_LENGTH)                   // quotient of the batched polynomial by Z_H(X) = X^87 - 1
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
         , log_circuit_size(multivariate_d)
 
     {
+        create_interpolation_domain();
+
         compute_concatenated_libra_polynomial();
 
         // If proving_key is provided, commit to the concatenated and masked libra polynomial
@@ -180,14 +160,16 @@ template <typename Flavor> struct ZKSumcheckData {
         libra_running_sum *= FF(1) / FF(2);
     }
 
+    void create_interpolation_domain()
+    {
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            interpolation_domain[idx] = subgroup_generator.pow(idx);
+        }
+    }
+
     // compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0 + m_1 X)
     void compute_concatenated_libra_polynomial()
     {
-        // info(bn_254_subgroup_generator.pow(29 * 3));
-        info("root of unity? ", subgroup_generator.pow(3 * 29));
-        info("root of unity? ", subgroup_generator.pow(29));
-        info("root of unity? ", subgroup_generator.pow(3));
-
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
         coeffs_lagrange_subgroup[0] = constant_term;
 
@@ -200,11 +182,6 @@ template <typename Flavor> struct ZKSumcheckData {
                 size_t idx_to_populate = 1 + poly_idx * LIBRA_UNIVARIATES_LENGTH + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] = libra_univariates[poly_idx].at(idx);
             }
-        }
-
-        // create evaluation domain using the generator
-        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-            interpolation_domain[idx] = subgroup_generator.pow(idx);
         }
 
         libra_concatenated_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
@@ -222,140 +199,6 @@ template <typename Flavor> struct ZKSumcheckData {
             libra_concatenated_monomial_form.at(idx) -= masking_scalars.value_at(idx);
             libra_concatenated_monomial_form.at(SUBGROUP_SIZE + idx) += masking_scalars.value_at(idx);
         }
-    }
-    void setup_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
-    {
-        std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
-        coeffs_lagrange_basis[0] = FF(1);
-
-        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
-            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-                size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly + idx;
-                coeffs_lagrange_basis[current_idx] = multivariate_challenge[idx_poly].pow(idx);
-            }
-        }
-        challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
-        challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
-    }
-
-    void setup_big_sum_polynomial()
-    {
-        // setup_challenge_polynomial(multivariate_challenge);
-
-        big_sum_lagrange_coeffs[0] = 0;
-
-        // Compute the big sum coefficients recursively
-        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
-            size_t prev_idx = idx - 1;
-            big_sum_lagrange_coeffs[idx] =
-                big_sum_lagrange_coeffs[prev_idx] +
-                challenge_polynomial_lagrange.at(prev_idx) * libra_concatenated_lagrange_form.at(prev_idx);
-        };
-
-        //  Get the coefficients in the monomial basis
-        auto big_sum_polynomial_unmasked = Polynomial<FF>(interpolation_domain, big_sum_lagrange_coeffs, SUBGROUP_SIZE);
-
-        //  Generate random masking_term of degree 2, add Z_H(X) * masking_term
-        bb::Univariate<FF, 3> masking_term = bb::Univariate<FF, 3>::get_random();
-        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-            big_sum_polynomial.at(idx) = big_sum_polynomial_unmasked.at(idx);
-        }
-
-        for (size_t idx = 0; idx < masking_term.size(); idx++) {
-            big_sum_polynomial.at(idx) -= masking_term.value_at(idx);
-            big_sum_polynomial.at(idx + SUBGROUP_SIZE) += masking_term.value_at(idx);
-        }
-    };
-
-    void compute_batched_polynomial()
-    {
-        // Compute shifted big sum polynomial A(gX)
-        Polynomial<FF> shifted_big_sum(SUBGROUP_SIZE + 3);
-
-        for (size_t idx = 0; idx < SUBGROUP_SIZE + 3; idx++) {
-            shifted_big_sum.at(idx) = big_sum_polynomial.at(idx) * interpolation_domain[idx % SUBGROUP_SIZE];
-        }
-        // Compute the monomial coefficients of L_1, the first Lagrange polynomial
-        std::array<FF, SUBGROUP_SIZE> lagrange_coeffs;
-        lagrange_coeffs[0] = FF(1);
-        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
-            lagrange_coeffs[idx] = FF(0);
-        }
-
-        Polynomial<FF> lagrange_first_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
-
-        // Compute the monomial coefficients of L_{|H|}, the last Lagrange polynomial
-        lagrange_coeffs[0] = 0;
-        lagrange_coeffs[SUBGROUP_SIZE - 1] = 1;
-
-        Polynomial<FF> lagrange_last_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
-
-        // Compute -F(X)*G(X), the negated product of challenge_polynomial and libra_concatenated_monomial_form
-        // Polynomial<FF> result(BATCHED_POLYNOMIAL_LENGTH);
-
-        for (size_t i = 0; i < libra_concatenated_monomial_form.size(); ++i) {
-            for (size_t j = 0; j < challenge_polynomial.size(); ++j) {
-                batched_polynomial.at(i + j) -= libra_concatenated_monomial_form.at(i) * challenge_polynomial.at(j);
-            }
-        }
-
-        // Compute - F(X) * G(X) + A(gX) - A(X)
-        for (size_t idx = 0; idx < shifted_big_sum.size(); idx++) {
-            batched_polynomial.at(idx) += shifted_big_sum.at(idx) - big_sum_polynomial.at(idx);
-        }
-
-        // Mutiply - F(X) * G(X) + A(gX) - A(X) by X-g:
-        // 1. Multiply by X
-        for (size_t idx = batched_polynomial.size() - 1; idx > 0; idx--) {
-            batched_polynomial.at(idx) = batched_polynomial.at(idx - 1);
-        }
-        batched_polynomial.at(0) = FF(0);
-        // 2. Subtract  1/g(A(gX) - A(X) - F(X) * G(X))
-        for (size_t idx = 0; idx < batched_polynomial.size() - 1; idx++) {
-            batched_polynomial.at(idx) -= batched_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
-        }
-
-        // Add (L_1 + L_{|H|}) * A(X) to the result
-        lagrange_first_monomial += lagrange_last_monomial;
-
-        for (size_t i = 0; i < big_sum_polynomial.size(); ++i) {
-            for (size_t j = 0; j < lagrange_first_monomial.size(); ++j) {
-                batched_polynomial.at(i + j) += big_sum_polynomial.at(i) * lagrange_first_monomial.at(j);
-            }
-        }
-        FF claimed_libra_evaluation = constant_term;
-        for (FF& libra_eval : libra_evaluations) {
-            claimed_libra_evaluation += libra_eval;
-        }
-        for (size_t idx = 0; idx < lagrange_last_monomial.size(); idx++) {
-            batched_polynomial.at(idx) -= lagrange_last_monomial.at(idx) * claimed_libra_evaluation;
-        }
-    }
-
-    // Compute the quotient of batched_polynomial by Z_H = X^{|H|} - 1
-    void compute_batched_quotient()
-    {
-
-        auto remainder = batched_polynomial;
-        for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx >= SUBGROUP_SIZE; idx--) {
-            batched_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
-            remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
-        }
-    }
-
-    void compute_witnesses_and_commit(const std::vector<FF> multivariate_challenge,
-                                      std::shared_ptr<typename Flavor::Transcript> transcript,
-                                      std::shared_ptr<typename Flavor::CommitmentKey> commitment_key)
-    {
-        setup_challenge_polynomial(multivariate_challenge);
-        setup_big_sum_polynomial();
-
-        transcript->template send_to_verifier("Libra:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
-
-        compute_batched_polynomial();
-        compute_batched_quotient();
-
-        transcript->template send_to_verifier("Libra:quotient_commitment", commitment_key->commit(batched_quotient));
     }
 };
 
