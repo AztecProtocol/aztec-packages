@@ -95,6 +95,8 @@ runs:
             git checkout FETCH_HEAD >/dev/null;
           )
           cd ~/run-$RUN_ID
+      env:
+        INPUT: ${{ inputs.run }}
       run:
         set +e;
         exit_code=254
@@ -102,7 +104,7 @@ runs:
           set -x;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
           $CLONE
-          .github/ensure-builder/init $DOCKERHUB_PASSWORD "${{ inputs.run }}";
+          .github/ensure-builder/init $DOCKERHUB_PASSWORD "$INPUT";
         "
         exit_code=$?;
         if [ $exit_code = 255 ]; then
