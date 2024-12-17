@@ -54,7 +54,7 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { createEpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -167,7 +167,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
 
-    const epochCache = await createEpochCache(config, config.l1Contracts.rollupAddress);
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
