@@ -1,6 +1,6 @@
 import { createAccounts } from '@aztec/accounts/testing';
 import { Fr, type Logger, type PXE } from '@aztec/aztec.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
 

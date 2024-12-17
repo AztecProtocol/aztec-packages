@@ -14,7 +14,7 @@ export async function setupCanonicalL2FeeJuice(
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { FeeJuiceContract } = await import('@aztec/noir-contracts.js');
+  const { FeeJuiceContract } = await import('@aztec/noir-contracts.js/FeeJuice');
 
   const feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, deployer);
 

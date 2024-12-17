@@ -161,7 +161,10 @@ async function deployToken(
 ): Promise<{ token: ContractDeploymentInfo; bridge: ContractDeploymentInfo }> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
+  const { TokenContract } = await import('@aztec/noir-contracts.js/Token');
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { TokenBridgeContract } = await import('@aztec/noir-contracts.js/TokenBridge');
   const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
     .send({ universalDeploy: true })
     .deployed(waitOpts);
@@ -223,7 +226,7 @@ async function deployFPC(
 ): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { FPCContract } = await import('@aztec/noir-contracts.js');
+  const { FPCContract } = await import('@aztec/noir-contracts.js/FPC');
   const fpc = await FPCContract.deploy(wallet, tokenAddress, feeRecipient)
     .send({ universalDeploy: true })
     .deployed(waitOpts);
@@ -238,7 +241,7 @@ async function deployFPC(
 async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { CounterContract } = await import('@aztec/noir-contracts.js');
+  const { CounterContract } = await import('@aztec/noir-contracts.js/Counter');
   const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress())
     .send({ universalDeploy: true })
     .deployed(waitOpts);
@@ -260,7 +263,10 @@ async function fundFPC(
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { FeeJuiceContract, CounterContract } = await import('@aztec/noir-contracts.js');
+  const { FeeJuiceContract } = await import('@aztec/noir-contracts.js/FeeJuice');
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { CounterContract } = await import('@aztec/noir-contracts.js/Counter');
   const {
     protocolContractAddresses: { feeJuice },
   } = await wallet.getPXEInfo();

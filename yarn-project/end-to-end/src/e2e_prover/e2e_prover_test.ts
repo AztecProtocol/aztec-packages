@@ -23,7 +23,7 @@ import {
 import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

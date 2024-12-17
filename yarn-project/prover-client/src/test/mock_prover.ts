@@ -58,8 +58,12 @@ export class TestBroker implements ProvingJobProducer {
     agentCount: number,
     prover: ServerCircuitProver,
     private proofStore: ProofStore = new InlineProofStore(),
+    agentPollInterval = 100,
   ) {
-    this.agents = times(agentCount, () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient()));
+    this.agents = times(
+      agentCount,
+      () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), undefined, agentPollInterval),
+    );
   }
 
   public async start() {
@@ -81,9 +85,6 @@ export class TestBroker implements ProvingJobProducer {
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     return this.broker.getProvingJobStatus(id);
-  }
-  cleanUpProvingJobState(id: ProvingJobId): Promise<void> {
-    return this.broker.cleanUpProvingJobState(id);
   }
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);

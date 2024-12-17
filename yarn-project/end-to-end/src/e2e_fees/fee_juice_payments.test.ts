@@ -5,7 +5,8 @@ import {
   FeeJuicePaymentMethodWithClaim,
 } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, type FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { type FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { FeesTest } from './fees_test.js';
 
