@@ -87,11 +87,12 @@ runs:
 
     - name: Run On Tester
       id: test
-      env:
-        RUN_SCRIPT: |
+      shell: bash
+      run:
+        set +e;
+        scripts/run_on_builder "
           set -eux
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
-          # Clone repo.
           [ -d ~/run-$RUN_ID ] || (
             mkdir -p ~/run-$RUN_ID
             cd ~/run-$RUN_ID
@@ -100,12 +101,9 @@ runs:
             git fetch --depth 1 origin $GIT_COMMIT
             git checkout FETCH_HEAD >/dev/null
           )
-          cd ~/run-${{ env.RUN_ID }}
-          .github/ensure-tester/init ${{ inputs.run }}
-      shell: bash
-      run:
-        set +e;
-        scripts/run_on_tester "$RUN_SCRIPT";
+          cd ~/run-$RUN_ID
+          .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }}
+        "
         exit_code=$?;
         if [ $exit_code = 255 ]; then
           echo "Treating ssh termination as spot eviction.";

@@ -83,11 +83,13 @@ runs:
     # Run the test
     - name: Run On Builder
       id: test
-      env:
-        RUN_SCRIPT: |
+      shell: bash
+      run:
+        set +e;
+        exit_code=254
+        scripts/run_on_builder "
           set -eux
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
-          # Clone repo.
           [ -d ~/run-$RUN_ID ] || (
             mkdir -p ~/run-$RUN_ID
             cd ~/run-$RUN_ID
@@ -97,12 +99,8 @@ runs:
             git checkout FETCH_HEAD >/dev/null
           )
           cd ~/run-$RUN_ID
-          .github/ensure-builder/init ${{ inputs.run }}
-      shell: bash
-      run:
-        set +e;
-        exit_code=254
-        scripts/run_on_builder "$RUN_SCRIPT";
+          .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }}
+        "
         exit_code=$?;
         if [ $exit_code = 255 ]; then
           echo "Treating ssh termination as spot eviction.";
