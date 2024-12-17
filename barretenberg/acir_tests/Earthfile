@@ -1,9 +1,9 @@
 VERSION 0.8
 
 test:
-    FROM ../../+bootstrap-noir-bb
-    WORKDIR /usr/src/barretenberg/acir_tests
-    RUN ./bootstrap.sh ci
+  FROM ../../+bootstrap-noir-bb
+  WORKDIR /usr/src/barretenberg/acir_tests
+  RUN ./bootstrap.sh ci
 
 benches-bb:
   FROM ../../+bootstrap-noir-bb
@@ -11,7 +11,7 @@ benches-bb:
 
 bench:
   # This target is used for debugging the benchmarking target.
-  # For precise benchmarks in CI use `bench-publish-acir-bb`
+  # For precise benchmarks in CI use `bench-publish`
   FROM +test
   RUN ./bench_acir_tests.sh
 
