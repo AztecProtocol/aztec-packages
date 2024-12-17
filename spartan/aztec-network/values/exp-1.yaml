@@ -131,7 +131,7 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 4
+  replicas: 8
 
 bot:
   replicas: 6
