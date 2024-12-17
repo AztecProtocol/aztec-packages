@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# One-time config.
+mkdir -p ~/.ssh
+echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
+chmod 600 ~/.ssh/build_instance_key
+set +x
+# Ensure docker is active.
+echo "Waiting for Docker service to become active..."
+i=0
+while ! systemctl is-active --quiet docker; do
+  sleep 2
+  if [ $(( i++ )) -gt 60 ]; then
+    echo "Docker service not found! Report this."
+    exit 1
+  fi
+done
+echo "Docker service is active!"
+echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+# Install yq and earthly.
+wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
+ci3/earthly_install
+chmod +x ./yq
+sudo mv ./yq /usr/bin/yq
+# Run command.
+ci3/aws_handle_evict "set -eu; ${{ inputs.run }}"
