@@ -51,7 +51,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
         const size_t HONK_PROOF_LENGTH = 473;
-        const size_t num_public_inputs = static_cast<size_t>(proof[1].get_value());
+        const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
         // The extra calculation is for the IPA proof length.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + (1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2) + num_public_inputs -
                                    (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
