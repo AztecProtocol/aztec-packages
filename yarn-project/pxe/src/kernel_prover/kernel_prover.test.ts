@@ -111,12 +111,6 @@ describe('Kernel Prover', () => {
     };
   };
 
-  const computeAppCircuitVerificationKeyOutput = () => {
-    return {
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    };
-  };
-
   const expectExecution = (fns: string[]) => {
     const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
@@ -157,7 +151,6 @@ describe('Kernel Prover', () => {
     proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofTail.mockResolvedValue(simulateProofOutputFinal([]));
-    proofCreator.computeAppCircuitVerificationKey.mockResolvedValue(computeAppCircuitVerificationKeyOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });

@@ -1,5 +1,6 @@
 import { type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type PeerId } from '@libp2p/interface';
@@ -21,7 +22,7 @@ type CachedPeer = {
   dialAttempts: number;
 };
 
-export class PeerManager {
+export class PeerManager implements Traceable {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private peerScoring: PeerScoring;
   private heartbeatCounter: number = 0;
@@ -30,6 +31,7 @@ export class PeerManager {
     private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
+    public readonly tracer: Tracer,
     private logger = createLogger('p2p:peer-manager'),
   ) {
     this.peerScoring = new PeerScoring(config);
@@ -59,6 +61,7 @@ export class PeerManager {
     });
   }
 
+  @trackSpan('PeerManager.heartbeat')
   public heartbeat() {
     this.heartbeatCounter++;
     this.discover();

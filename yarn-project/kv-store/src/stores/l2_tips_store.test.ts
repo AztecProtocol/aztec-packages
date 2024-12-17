@@ -17,6 +17,10 @@ describe('L2TipsStore', () => {
     tipsStore = new L2TipsStore(kvStore, 'test');
   });
 
+  afterEach(async () => {
+    await kvStore.delete();
+  });
+
   const makeBlock = (number: number): L2Block =>
     ({ number, header: { hash: () => new Fr(number) } as BlockHeader } as L2Block);
 

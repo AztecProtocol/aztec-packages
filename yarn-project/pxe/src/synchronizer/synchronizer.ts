@@ -12,14 +12,12 @@ import { type PXEConfig } from '../config/index.js';
 import { type PxeDatabase } from '../database/index.js';
 
 /**
- * The Synchronizer class manages the synchronization of note processors and interacts with the Aztec node
- * to obtain encrypted logs, blocks, and other necessary information for the accounts.
- * It provides methods to start or stop the synchronization process, add new accounts, retrieve account
- * details, and fetch transactions by hash. The Synchronizer ensures that it maintains the note processors
- * in sync with the blockchain while handling retries and errors gracefully.
+ * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
+ * latest block header and handle reorgs.
+ * It provides methods to trigger a sync and get the block number we are syncec to
+ * details, and fetch transactions by hash.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
-  private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
   protected readonly blockStream: L2BlockStream;
@@ -28,16 +26,15 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private db: PxeDatabase,
     private l2TipsStore: L2TipsStore,
-    config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>> = {},
+    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
     logSuffix?: string,
   ) {
     this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockPollingIntervalMS' | 'l2StartingBlock'>>) {
-    return new L2BlockStream(this.node, this.l2TipsStore, this, {
-      pollIntervalMS: config.l2BlockPollingIntervalMS,
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
+    return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       startingBlock: config.l2StartingBlock,
     });
   }
@@ -47,12 +44,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
     switch (event.type) {
-      case 'blocks-added':
-        this.log.verbose(`Processing blocks ${event.blocks[0].number} to ${event.blocks.at(-1)!.number}`);
-        await this.db.setHeader(event.blocks.at(-1)!.header);
+      case 'blocks-added': {
+        const lastBlock = event.blocks.at(-1)!;
+        this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
+          blockHash: lastBlock.hash(),
+          archive: lastBlock.archive.root.toString(),
+          header: lastBlock.header.toInspect(),
+        });
+        await this.db.setHeader(lastBlock.header);
         break;
-      case 'chain-pruned':
-        this.log.info(`Pruning data after block ${event.blockNumber} due to reorg`);
+      }
+      case 'chain-pruned': {
+        this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         await this.db.unnullifyNotesAfter(event.blockNumber);
         await this.db.removeNotesAfter(event.blockNumber);
@@ -62,23 +65,15 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // Update the header to the last block.
         await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
         break;
+      }
     }
   }
 
   /**
-   * Starts the synchronization process by fetching encrypted logs and blocks from a specified position.
-   * Continuously processes the fetched data for all note processors until stopped. If there is no data
-   * available, it retries after a specified interval.
-   *
-   * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
-   * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
+   * Syncs PXE and the node by dowloading the metadata of the latest blocks, allowing simulations to use
+   * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
-  public async start() {
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-
+  public async sync() {
     let currentHeader;
 
     try {
@@ -90,54 +85,10 @@ export class Synchronizer implements L2BlockStreamEventHandler {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.db.setHeader(await this.node.getBlockHeader(0));
     }
-
-    await this.trigger();
-    this.log.info('Initial sync complete');
-    this.blockStream.start();
-    this.log.debug('Started loop');
-  }
-
-  /**
-   * Stops the synchronizer gracefully, interrupting any ongoing sleep and waiting for the current
-   * iteration to complete before setting the running state to false. Once stopped, the synchronizer
-   * will no longer process blocks or encrypted logs and must be restarted using the start method.
-   *
-   * @returns A promise that resolves when the synchronizer has successfully stopped.
-   */
-  public async stop() {
-    this.running = false;
-    await this.blockStream.stop();
-    this.log.info('Stopped');
-  }
-
-  /** Triggers a single run. */
-  public async trigger() {
     await this.blockStream.sync();
   }
 
-  private async getSynchedBlockNumber() {
+  public async getSynchedBlockNumber() {
     return (await this.db.getBlockNumber()) ?? this.initialSyncBlockNumber;
-  }
-
-  /**
-   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
-   * @returns True if there are no outstanding blocks to be synched.
-   * @remarks This indicates that blocks and transactions are synched even if notes are not.
-   * @remarks Compares local block number with the block number from aztec node.
-   */
-  public async isGlobalStateSynchronized() {
-    const latest = await this.node.getBlockNumber();
-    return latest <= (await this.getSynchedBlockNumber());
-  }
-
-  /**
-   * Returns the latest block that has been synchronized by the synchronizer and each account.
-   * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
-   */
-  public async getSyncStatus() {
-    const lastBlockNumber = await this.getSynchedBlockNumber();
-    return {
-      blocks: lastBlockNumber,
-    };
   }
 }

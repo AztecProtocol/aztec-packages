@@ -35,6 +35,7 @@ aztec:
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  l1Salt: "" # leave empty for random salt
 
 bootNode:
   peerIdPrivateKey: ""
@@ -240,3 +241,13 @@ proverBroker:
 jobs:
   deployL1Verifier:
     enable: false
+
+faucet:
+  replicas: 1
+  service:
+    nodePort: 8085
+  apiServerPort: 8086
+  accountIndex: 0
+  l1Assets: ""
+  logLevel: ""
+  resources: {}

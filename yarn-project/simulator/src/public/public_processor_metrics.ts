@@ -1,5 +1,5 @@
 import { type TxExecutionPhase } from '@aztec/circuit-types';
-import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts';
+import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,
   type Histogram,

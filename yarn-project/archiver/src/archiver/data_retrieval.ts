@@ -1,6 +1,7 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { Blob } from '@aztec/foundation/blob';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -135,7 +136,8 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [decodedArgs, , bodyHex] = args! as readonly [
+  // TODO(#9101): 'bodyHex' will be removed from below
+  const [decodedArgs, , bodyHex, blobInputs] = args! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -148,10 +150,37 @@ async function getBlockFromRollupTx(
     },
     ViemSignature[],
     Hex,
+    Hex,
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
+  // either a beacon chain client or link to some blob store. Web2 is ok because we will
+  // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+
+  const blockFields = blockBody.toBlobFields();
+  // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
+  // The blob source will give us blockFields, and we must construct the body from them:
+  // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
+  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.unencryptedLogs, blockBody.contractClassLogs);
+
+  if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
+    // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
+    throw new Error(`Block reconstructed from blob fields does not match`);
+  }
+
+  // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
+  const blobCheck = Blob.getBlobs(blockFields);
+  if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
+    // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
+    // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
+    throw new Error(
+      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${Blob.getEthBlobEvaluationInputs(
+        blobCheck,
+      )} \nGot: ${blobInputs}`,
+    );
+  }
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
@@ -203,7 +232,7 @@ export async function retrieveL1ToL2Messages(
 
     for (const log of messageSentLogs) {
       const { index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromString(hash!)));
+      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromHexString(hash!)));
     }
 
     // handles the case when there are no new messages:
@@ -230,7 +259,7 @@ export async function retrieveL2ProofVerifiedEvents(
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
-    proverId: Fr.fromString(log.args.proverId),
+    proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
 }
@@ -297,8 +326,8 @@ export async function getProofFromSubmitProofTx(
     ];
 
     aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
-    proverId = Fr.fromString(decodedArgs.args[6]);
-    archiveRoot = Fr.fromString(decodedArgs.args[1]);
+    proverId = Fr.fromHexString(decodedArgs.args[6]);
+    archiveRoot = Fr.fromHexString(decodedArgs.args[1]);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);

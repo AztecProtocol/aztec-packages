@@ -7,6 +7,7 @@ import {
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { Blob } from '@aztec/foundation/blob';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -145,6 +146,12 @@ describe('L1Publisher', () => {
 
     expect(result).toEqual(true);
 
+    const kzg = Blob.getViemKzgInstance();
+
+    const blobs = Blob.getBlobs(l2Block.body.toBlobFields());
+
+    const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
+
     const args = [
       {
         header: `0x${header.toString('hex')}`,
@@ -158,6 +165,7 @@ describe('L1Publisher', () => {
       },
       [],
       `0x${body.toString('hex')}`,
+      blobInput,
     ] as const;
     expect(l1TxUtils.sendAndMonitorTransaction).toHaveBeenCalledWith(
       {
@@ -165,6 +173,7 @@ describe('L1Publisher', () => {
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
+      { blobs: blobs.map(b => b.data), kzg, maxFeePerBlobGas: 10000000000n },
     );
   });
 

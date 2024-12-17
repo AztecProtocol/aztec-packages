@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.66.0",
+  "version": "0.67.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -30,6 +30,7 @@
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
+    "@aztec/aztec-faucet": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",

@@ -213,8 +213,14 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
     throw std::runtime_error("Bytecode not found");
 }
 
+uint32_t AvmTraceBuilder::get_inserted_note_hashes_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().note_hash_tree.size -
+           public_inputs.start_tree_snapshots.note_hash_tree.size;
+}
+
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
-                                           [[maybe_unused]] const std::vector<FF>& siloed_note_hashes)
+                                           const std::vector<FF>& unique_note_hashes)
 {
     for (const auto& siloed_nullifier : siloed_nullifiers) {
         auto hint = execution_hints.nullifier_write_hints[nullifier_write_counter++];
@@ -225,6 +231,28 @@ void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifi
                                                            siloed_nullifier,
                                                            hint.insertion_path);
     }
+
+    for (const auto& unique_note_hash : unique_note_hashes) {
+        auto hint = execution_hints.note_hash_write_hints[note_hash_write_counter++];
+        merkle_tree_trace_builder.perform_note_hash_append(0, unique_note_hash, hint.sibling_path);
+    }
+}
+
+void AvmTraceBuilder::insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
+                                                      const std::vector<FF>& siloed_note_hashes)
+{
+    // Revertibles come only siloed from private, so we need to make them unique here
+    std::vector<FF> unique_note_hashes;
+    unique_note_hashes.reserve(siloed_note_hashes.size());
+
+    for (size_t i = 0; i < siloed_note_hashes.size(); i++) {
+        size_t note_index_in_tx = i + get_inserted_note_hashes_count();
+        FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), note_index_in_tx);
+        unique_note_hashes.push_back(
+            AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hashes.at(i)));
+    }
+
+    insert_private_state(siloed_nullifiers, unique_note_hashes);
 }
 
 void AvmTraceBuilder::pay_fee()
@@ -2702,19 +2730,25 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 
     // Retrieve the public data read hint for this sload
     PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
-
-    // Compute the tree slot
-    FF computed_tree_slot =
-        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
-    // Sanity check that the computed slot using the value read from slot_offset should match the read hint
-    ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
-
-    // Check that the leaf is a member of the public data tree
+    // Check that the hinted leaf is a member of the public data tree
     bool is_member = merkle_tree_trace_builder.perform_storage_read(
         clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
     ASSERT(is_member);
 
-    FF value = read_hint.leaf_preimage.value;
+    // Compute the tree slot
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
+    // Check if the computed_tree_slot matches the read hint
+    bool exists = computed_tree_slot == read_hint.leaf_preimage.slot;
+
+    // If it doesnt exist, we should check the low nullifier conditions
+    if (!exists) {
+        bool non_member = AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(read_hint.leaf_preimage,
+                                                                                             computed_tree_slot);
+        ASSERT(non_member);
+    }
+
+    FF value = exists ? read_hint.leaf_preimage.value : FF::zero();
     auto write_a = constrained_write_to_memory(
         call_ptr, clk, resolved_dest, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
@@ -2945,8 +2979,8 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    if (note_hash_write_counter >= MAX_NOTE_HASHES_PER_TX) {
+    uint32_t inserted_note_hashes_count = get_inserted_note_hashes_count();
+    if (inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX) {
         AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
@@ -2965,16 +2999,20 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
-    auto siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
+    FF siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
         current_public_call_request.contract_address, row.main_ia);
-    ASSERT(row.main_ia == note_hash_write_hint.leaf_value);
+    FF nonce =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), inserted_note_hashes_count);
+    FF unique_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hash);
+
+    ASSERT(unique_note_hash == note_hash_write_hint.leaf_value);
     // We first check that the index is currently empty
     bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
         clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
     ASSERT(insert_index_is_empty);
 
     // Update the root with the new leaf that is appended
-    merkle_tree_trace_builder.perform_note_hash_append(clk, siloed_note_hash, note_hash_write_hint.sibling_path);
+    merkle_tree_trace_builder.perform_note_hash_append(clk, unique_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
     bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
@@ -3013,7 +3051,6 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     Row row;
 
     // Exists is written to b
-    bool exists = false;
     if (is_ok(error)) {
         NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter++);
         FF nullifier_value = unconstrained_read_from_memory(resolved_nullifier_offset);
@@ -3024,17 +3061,11 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
                                                                           nullifier_read_hint.low_leaf_index,
                                                                           nullifier_read_hint.low_leaf_sibling_path);
         ASSERT(is_member);
-
-        if (siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier) {
-            // This is a direct membership check
-            exists = true;
-        } else {
-            exists = false;
-            // This is a non-membership proof
-            // Show that the target nullifier meets the non membership conditions (sandwich or max)
-            ASSERT(siloed_nullifier < nullifier_read_hint.low_leaf_preimage.nullifier &&
-                   (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
-                    siloed_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
+        bool exists = siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier;
+        if (!exists) {
+            bool is_non_member = AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(
+                nullifier_read_hint.low_leaf_preimage, siloed_nullifier);
+            ASSERT(is_non_member);
         }
 
         auto read_a = constrained_read_from_memory(
@@ -5076,8 +5107,15 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
 
     if (apply_end_gas_assertions) {
         // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+        auto const l2_gas_left_after_private =
+            public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto const allocated_l2_gas =
+            std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
+        // Since end_gas_used also contains start_gas_used, we need to subtract it out to see what is consumed by the
+        // public computation only
+        auto expected_public_gas_consumed = public_inputs.end_gas_used.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto expected_end_gas_l2 = allocated_l2_gas - expected_public_gas_consumed;
         auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
-        auto expected_end_gas_l2 = public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.end_gas_used.l2_gas;
         vinfo("Last L2 gas remaining: ", last_l2_gas_remaining);
         vinfo("Expected end gas L2: ", expected_end_gas_l2);
         ASSERT(last_l2_gas_remaining == expected_end_gas_l2);

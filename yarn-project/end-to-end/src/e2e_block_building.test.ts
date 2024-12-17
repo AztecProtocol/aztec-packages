@@ -20,7 +20,7 @@ import {
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -394,8 +394,10 @@ describe('e2e_block_building', () => {
         .send()
         .deployed();
 
-      logger.info('Updating min txs per block to 4');
-      await aztecNode.setConfig({ minTxsPerBlock: 4 });
+      // We set the maximum number of txs per block to 12 to ensure that the sequencer will start building a block before it receives all the txs
+      // and also to avoid it building
+      logger.info('Updating min txs per block to 4, and max txs per block to 12');
+      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 12 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
@@ -482,14 +484,6 @@ describe('e2e_block_building', () => {
 
       // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
-
-      // PXE should be synced to the block number on the new chain
-      await retryUntil(
-        async () => (await pxe.getSyncStatus()).blocks === newTx1Receipt.blockNumber,
-        'wait for pxe block header sync',
-        15,
-        1,
-      );
 
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');

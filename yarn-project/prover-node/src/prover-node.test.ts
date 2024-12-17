@@ -7,7 +7,7 @@ import {
   type L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
-  type ProverCache,
+  P2PClientType,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
@@ -15,15 +15,10 @@ import {
 import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import {
-  type BootstrapNode,
-  InMemoryAttestationPool,
-  InMemoryTxPool,
-  MemoryEpochProofQuotePool,
-  P2PClient,
-} from '@aztec/p2p';
+import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory } from '@aztec/simulator';
@@ -36,7 +31,6 @@ import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
@@ -103,7 +97,6 @@ describe('prover-node', () => {
       epochMonitor,
       bondManager,
       telemetryClient,
-      new ProverCacheManager(),
       config,
     );
 
@@ -249,8 +242,9 @@ describe('prover-node', () => {
     let lastEpochComplete: bigint = 0n;
 
     beforeEach(() => {
-      claimsMonitor = new ClaimsMonitor(publisher, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, config);
+      const telemetry = new NoopTelemetryClient();
+      claimsMonitor = new ClaimsMonitor(publisher, telemetry, config);
+      epochMonitor = new EpochMonitor(l2BlockSource, telemetry, config);
 
       l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
         Promise.resolve(epochNumber <= lastEpochComplete),
@@ -297,16 +291,16 @@ describe('prover-node', () => {
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
   describe('Using a p2p coordination', () => {
     let bootnode: BootstrapNode;
-    let p2pClient: P2PClient;
-    let otherP2PClient: P2PClient;
+    let p2pClient: P2PClient<P2PClientType.Prover>;
+    let otherP2PClient: P2PClient<P2PClientType.Prover>;
 
     const createP2PClient = async (bootnodeAddr: string, port: number) => {
       const mempools = {
         txPool: new InMemoryTxPool(telemetryClient),
-        attestationPool: new InMemoryAttestationPool(telemetryClient),
         epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
       };
       const libp2pService = await createTestLibP2PService(
+        P2PClientType.Prover,
         [bootnodeAddr],
         l2BlockSource,
         worldState,
@@ -315,7 +309,7 @@ describe('prover-node', () => {
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0);
+      return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService, 0);
     };
 
     beforeEach(async () => {
@@ -367,10 +361,15 @@ describe('prover-node', () => {
         await proverNode.handleEpochCompleted(10n);
 
         // Wait for message to be propagated
-        await sleep(1000);
-
-        // Check the other node received a quote via p2p
-        expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+        await retry(
+          // eslint-disable-next-line require-await
+          async () => {
+            // Check the other node received a quote via p2p
+            expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+          },
+          'Waiting for quote to be received',
+          makeBackoff(times(20, () => 1)),
+        );
 
         // We should be able to retreive the quote from the other node
         const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(10n);
@@ -383,7 +382,6 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      _cache: ProverCache,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

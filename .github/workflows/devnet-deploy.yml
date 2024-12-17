@@ -13,6 +13,11 @@ on:
         description: The name of the secret which holds the boot node's contract deployment mnemonic
         required: true
         default: testnet-deployment-mnemonic
+      deployment_salt:
+        description: The salt to use for this deployment. Defaults to random
+        required: false
+        type: string
+        default: ""
       respect_tf_lock:
         description: Whether to respect the Terraform lock
         required: false
@@ -39,6 +44,7 @@ jobs:
       values_file: release-devnet.yaml
       aztec_docker_image: ${{ github.event.inputs.aztec_docker_image }}
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}
+      deployment_salt: ${{ github.event.inputs.deployment_salt }}
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

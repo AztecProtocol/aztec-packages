@@ -290,23 +290,22 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    const formattedStr = applyStringFormatting(message, fields);
-    this.log.verbose(`debug_log ${formattedStr}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
    * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivpsk_m of the sender must be known.
+   * For this to work, the ivsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecretAsSender(
+  public override async getIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
+    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {
@@ -315,8 +314,11 @@ export class ViewDataOracle extends TypedOracle {
       await this.aztecNode.getBlockNumber(),
       this.scopes,
     );
+
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
+
+    await this.db.removeNullifiedNotes(this.contractAddress);
   }
 }

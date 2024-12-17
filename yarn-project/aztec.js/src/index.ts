@@ -149,7 +149,6 @@ export {
   type PXE,
   type PartialAddress,
   type PublicKey,
-  type SyncStatus,
 } from '@aztec/circuit-types';
 
 // TODO: These kinds of things have no place on our public api.

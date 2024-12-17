@@ -114,7 +114,7 @@ fn empty_hash_is_zero() {
     let header = BlockHeader::empty();
     let hash = header.hash();
 
-    // Value from new_contract_data.test.ts "computes empty hash" test
+    // Value from header.test.ts "computes empty hash" test
     let test_data_empty_hash = 0x28e48e620bc00817609b5fc765bc74864561f25a3c941b33e5ee05266b752839;
     assert_eq(hash, test_data_empty_hash);
 }

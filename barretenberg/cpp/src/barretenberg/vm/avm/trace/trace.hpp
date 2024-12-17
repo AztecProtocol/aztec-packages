@@ -234,7 +234,9 @@ class AvmTraceBuilder {
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
     std::unordered_set<FF> bytecode_membership_cache;
-    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& siloed_note_hashes);
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
+    void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
+                                         const std::vector<FF>& siloed_note_hashes);
     void pay_fee();
     void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
     void handle_exceptional_halt();
@@ -363,6 +365,8 @@ class AvmTraceBuilder {
                                       AvmMemoryTag write_tag,
                                       IntermRegister reg,
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
+    uint32_t get_inserted_note_hashes_count();
+    FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);

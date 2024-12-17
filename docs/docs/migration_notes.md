@@ -6,7 +6,17 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.68.0
+
+### Noir contracts package no longer exposes artifacts as default export
+
+To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
+
+## 0.67.0
+
+### L2 Gas limit of 6M enforced for public portion of TX
+
+A 12M limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 6,000,000 L2 gas.
 
 ### [aztec.nr] Renamed `Header` and associated helpers
 
@@ -20,10 +30,11 @@ The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` fa
 ### Outgoing Events removed
 
 Previously, every event which was emitted included:
+
 - Incoming Header (to convey the app contract address to the recipient)
 - Incoming Ciphertext (to convey the note contents to the recipient)
 - Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
-- Outgoing Ciphertext (served as a backup, encrypting the summetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
+- Outgoing Ciphertext (served as a backup, encrypting the symmetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
 
 The latter two have been removed from the `.emit()` functions, so now only an Incoming Header and Incoming Ciphertext will be emitted.
 
@@ -39,14 +50,11 @@ The `getOutgoingNotes` function is removed from the PXE interface.
 Some aztec.nr library methods' arguments are simplified to remove an `outgoing_viewer` parameter. E.g. `ValueNote::increment`, `ValueNote::decrement`, `ValueNote::decrement_by_at_most`, `EasyPrivateUint::add`, `EasyPrivateUint::sub`.
 
 Further changes are planned, so that:
+
 - Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
 - Headers will be removed, due to the new tagging scheme.
 
 ## 0.66
-
-### L2 Gas limit of 12M enforced for public portion of TX
-
-This limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 12,000,000 L2 gas. 
 
 ### DEBUG env var is removed
 

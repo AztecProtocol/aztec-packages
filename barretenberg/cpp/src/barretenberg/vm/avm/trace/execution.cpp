@@ -9,6 +9,7 @@
 #include "barretenberg/vm/avm/generated/verifier.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/instructions.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
@@ -336,23 +337,33 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
         if (phase == TxExecutionPhase::SETUP) {
             vinfo("Inserting non-revertible side effects from private before SETUP phase. Checkpointing trees.");
             // Temporary spot for private non-revertible insertion
-            std::vector<FF> siloed_nullifiers;
-            siloed_nullifiers.insert(
-                siloed_nullifiers.end(),
-                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin(),
-                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin() +
-                    public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
-            trace_builder.insert_private_state(siloed_nullifiers, {});
+            auto siloed_nullifiers =
+                std::vector<FF>(public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin(),
+                                public_inputs.previous_non_revertible_accumulated_data.nullifiers.begin() +
+                                    public_inputs.previous_non_revertible_accumulated_data_array_lengths.nullifiers);
+
+            auto unique_note_hashes =
+                std::vector<FF>(public_inputs.previous_non_revertible_accumulated_data.note_hashes.begin(),
+                                public_inputs.previous_non_revertible_accumulated_data.note_hashes.begin() +
+                                    public_inputs.previous_non_revertible_accumulated_data_array_lengths.note_hashes);
+
+            trace_builder.insert_private_state(siloed_nullifiers, unique_note_hashes);
+
             trace_builder.checkpoint_non_revertible_state();
         } else if (phase == TxExecutionPhase::APP_LOGIC) {
             vinfo("Inserting revertible side effects from private before APP_LOGIC phase");
             // Temporary spot for private revertible insertion
-            std::vector<FF> siloed_nullifiers;
-            siloed_nullifiers.insert(siloed_nullifiers.end(),
-                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
-                                     public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
-                                         public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
-            trace_builder.insert_private_state(siloed_nullifiers, {});
+            auto siloed_nullifiers =
+                std::vector<FF>(public_inputs.previous_revertible_accumulated_data.nullifiers.begin(),
+                                public_inputs.previous_revertible_accumulated_data.nullifiers.begin() +
+                                    public_inputs.previous_revertible_accumulated_data_array_lengths.nullifiers);
+
+            auto siloed_note_hashes =
+                std::vector<FF>(public_inputs.previous_revertible_accumulated_data.note_hashes.begin(),
+                                public_inputs.previous_revertible_accumulated_data.note_hashes.begin() +
+                                    public_inputs.previous_revertible_accumulated_data_array_lengths.note_hashes);
+
+            trace_builder.insert_private_revertible_state(siloed_nullifiers, siloed_note_hashes);
         }
 
         vinfo("Beginning execution of phase ", to_name(phase), " (", public_call_requests.size(), " enqueued calls).");

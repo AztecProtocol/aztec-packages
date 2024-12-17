@@ -36,7 +36,10 @@ export function createLogger(module: string): Logger {
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
+    /** Whether the given level is enabled for this logger. */
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
+    /** Module name for the logger. */
+    module,
   };
 }
 
@@ -64,6 +67,15 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
+// Define custom logging levels for pino.
+const customLevels = { verbose: 25 };
+const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
+
+export const levels = {
+  labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },
+  values: { ...pino.levels.values, ...customLevels },
+};
+
 // Transport options for pretty logging to stderr via pino-pretty.
 const useColor = true;
 const { bold, reset } = createColors({ useColor });
@@ -79,24 +91,17 @@ export const pinoPrettyOpts = {
   singleLine: !['1', 'true'].includes(process.env.LOG_MULTILINE ?? ''),
 };
 
-const prettyTransport: pino.TransportSingleOptions = {
+const prettyTransport: pino.TransportTargetOptions = {
   target: 'pino-pretty',
   options: pinoPrettyOpts,
+  level: 'trace',
 };
 
 // Transport for vanilla stdio logging as JSON.
-const stdioTransport: pino.TransportSingleOptions = {
+const stdioTransport: pino.TransportTargetOptions = {
   target: 'pino/file',
   options: { destination: 2 },
-};
-
-// Define custom logging levels for pino.
-const customLevels = { verbose: 25 };
-const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
-
-export const levels = {
-  labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },
-  values: { ...pino.levels.values, ...customLevels },
+  level: 'trace',
 };
 
 // Transport for OpenTelemetry logging. While defining this here is an abstraction leakage since this
@@ -107,9 +112,10 @@ export const levels = {
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
 const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
 const otelOpts = { levels };
-const otelTransport: pino.TransportSingleOptions = {
+const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
   options: otelOpts,
+  level: 'trace',
 };
 
 function makeLogger() {
@@ -128,7 +134,7 @@ function makeLogger() {
       ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
       otlpEndpoint ? otelTransport : undefined,
     ]);
-    return pino(pinoOpts, pino.transport({ targets }));
+    return pino(pinoOpts, pino.transport({ targets, levels: levels.values }));
   }
 }
 
@@ -183,6 +189,7 @@ type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
 export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & {
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
+  module: string;
 };
 
 /**

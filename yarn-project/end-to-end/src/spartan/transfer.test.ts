@@ -1,6 +1,6 @@
 import { readFieldCompressedString } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 

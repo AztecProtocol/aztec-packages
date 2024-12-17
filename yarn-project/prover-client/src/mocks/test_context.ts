@@ -2,7 +2,6 @@ import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type L2Block,
   type ProcessedTx,
-  type ProcessedTxHandler,
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
@@ -114,7 +113,7 @@ export class TestContext {
 
     const queue = new MemoryProvingQueue(telemetry);
     const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount);
+    const agent = new ProverAgent(localProver, proverCount, undefined, telemetry);
 
     queue.start();
     agent.start(queue);
@@ -187,12 +186,7 @@ export class TestContext {
     return { block, txs, msgs };
   }
 
-  public async processPublicFunctions(
-    txs: Tx[],
-    maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
-    txValidator?: TxValidator<ProcessedTx>,
-  ) {
+  public async processPublicFunctions(txs: Tx[], maxTransactions: number, txValidator?: TxValidator<ProcessedTx>) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -217,7 +211,6 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      txHandler,
       txValidator,
       defaultExecutorImplementation,
     );
@@ -226,7 +219,6 @@ export class TestContext {
   private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
@@ -254,7 +246,7 @@ export class TestContext {
     if (executorMock) {
       simulateInternal.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
+    return await this.publicProcessor.process(txs, maxTransactions, txValidator);
   }
 }
 

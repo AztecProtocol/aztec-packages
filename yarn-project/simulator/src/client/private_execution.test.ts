@@ -55,14 +55,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  ChildContractArtifact,
-  ImportTestContractArtifact,
-  ParentContractArtifact,
-  PendingNoteHashesContractArtifact,
-  StatefulTestContractArtifact,
-  TestContractArtifact,
-} from '@aztec/noir-contracts.js';
+import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
+import { ImportTestContractArtifact } from '@aztec/noir-contracts.js/ImportTest';
+import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
+import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -85,8 +83,8 @@ describe('Private Execution test suite', () => {
   let logger: Logger;
 
   const defaultContractAddress = AztecAddress.random();
-  const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-  const recipientSk = Fr.fromString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
+  const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+  const recipientSk = Fr.fromHexString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
   let owner: AztecAddress;
   let recipient: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -233,7 +231,7 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    oracle.getAppTaggingSecretAsSender.mockImplementation(
+    oracle.getIndexedTaggingSecretAsSender.mockImplementation(
       (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
         const secret = Fr.random();
         return Promise.resolve(new IndexedTaggingSecret(secret, 0));
@@ -378,7 +376,7 @@ describe('Private Execution test suite', () => {
           note,
         ),
       );
-      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
+      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
       const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, artifact, msgSender: owner });
@@ -436,7 +434,7 @@ describe('Private Execution test suite', () => {
           note,
         ),
       );
-      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
+      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
       const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, artifact, msgSender: owner });

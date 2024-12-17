@@ -10,7 +10,8 @@ import {
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
-import { type TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';

@@ -15,7 +15,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -70,6 +71,9 @@ export class TXEService {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
+
+    await (this.typedOracle as TXE).commitState();
+
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
       const header = BlockHeader.empty();
@@ -571,8 +575,18 @@ export class TXEService {
     return toForeignCallResult([toArray(witness)]);
   }
 
-  async getAppTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
-    const secret = await this.typedOracle.getAppTaggingSecretAsSender(
+  async getLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+
+    const witness = await this.typedOracle.getLowNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));
+    if (!witness) {
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
+    }
+    return toForeignCallResult([toArray(witness.toFields())]);
+  }
+
+  async getIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
+    const secret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromField(fromSingle(sender)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
