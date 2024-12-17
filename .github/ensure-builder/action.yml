@@ -84,7 +84,7 @@ runs:
     - name: Run On Builder
       id: test
       shell: bash
-      clone: |
+      CLONE: |
         [ -d ~/run-$RUN_ID ] || (
           mkdir -p ~/run-$RUN_ID;
           cd ~/run-$RUN_ID;
@@ -99,7 +99,7 @@ runs:
         scripts/run_on_builder "
           set -x;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
-          $clone;
+          $CLONE;
           cd ~/run-$RUN_ID;
           .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }};
         "
