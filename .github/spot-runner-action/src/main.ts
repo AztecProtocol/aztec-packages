@@ -19,6 +19,10 @@ async function pollSpotStatus(
     // we need to start an instance
     return "none";
   }
+  const ip = await ec2Client.getPublicIpFromInstanceId(instances[0].InstanceId!);
+  if (!(await establishSshContact(ip, config.ec2Key))) {
+    return "unusable";
+  }
   core.info("Found ec2 instance, returning it.");
   return instances[0].InstanceId!;
 }
@@ -129,15 +133,26 @@ async function startBuilder(config: ActionConfig) {
   let spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
   let instanceId = "";
   let ip = "";
+
+
+  if (spotStatus == "unusable") {
+    core.warning(
+      "Taking down spot as it has no SSH! If we were mistaken, this could impact existing jobs."
+    );
+    if (config.subaction === "restart") {
+      throw new Error(
+        "Taking down spot we just started. This seems wrong, erroring out."
+      );
+    }
+    await terminate();
+    spotStatus = "none";
+  }
   if (spotStatus !== "none") {
     core.info(
       `Runner already running. Continuing as we can target it with jobs.`
     );
     instanceId = spotStatus;
     ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
-    if (!(await establishSshContact(ip, config.ec2Key))) {
-      return false;
-    }
   } else {
     core.info(
       `Starting runner.`

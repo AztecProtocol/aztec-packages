@@ -9,7 +9,7 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+hash=$(cache_content_hash ../noir/.rebuild_patterns \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
@@ -31,7 +31,7 @@ function test {
     parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
     cache_upload_flag boxes-test-$hash
   fi
-  github_endgroup "boxes"
+  github_endgroup
 }
 
 case "$cmd" in
