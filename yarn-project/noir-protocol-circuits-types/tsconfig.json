@@ -23,5 +23,6 @@
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"],
+  "exclude": ["src/scripts"]
 }

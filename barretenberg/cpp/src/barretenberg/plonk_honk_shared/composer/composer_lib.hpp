@@ -55,7 +55,7 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 {
     const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = dyadic_circuit_size - tables_size;
+    size_t table_offset = dyadic_circuit_size - tables_size - MASKING_OFFSET;
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {
