@@ -97,26 +97,6 @@ function generateNames(names: string[]) {
   `;
 }
 
-function generateArtifacts(names: string[]) {
-  const imports = names
-    .map(name => {
-      return `
-      import ${name}Json from '../artifacts/${name}.json' assert { type: 'json' };
-    `;
-    })
-    .join('\n');
-
-  const exports = names.map(name => `${name}: loadContractArtifact(${name}Json as NoirCompiledContract)`).join(',\n');
-
-  return `
-    ${imports}
-
-    export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
-      ${exports}
-    };
-  `;
-}
-
 function generateSalts(names: string[]) {
   return `
     export const ProtocolContractSalt: Record<ProtocolContractName, Fr> = {
@@ -165,13 +145,8 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { AztecAddress, Fr } from '@aztec/circuits.js';
-    import { type ContractArtifact } from '@aztec/foundation/abi';
-    import { loadContractArtifact } from '@aztec/types/abi';
-    import { type NoirCompiledContract } from '@aztec/types/noir';
 
     ${generateNames(names)}
-
-    ${generateArtifacts(names)}
 
     ${generateSalts(names)}
 

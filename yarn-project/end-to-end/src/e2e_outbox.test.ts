@@ -11,7 +11,7 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';

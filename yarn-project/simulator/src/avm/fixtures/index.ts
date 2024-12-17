@@ -4,7 +4,7 @@ import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
