@@ -41,5 +41,14 @@ template <typename CircuitBuilder> struct bn254 {
     using bigfr_ct = bigfield<CircuitBuilder, bb::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
 
+    static constexpr size_t SUBGROUP_SIZE = 87;
+
+    static const ScalarField SUBGROUP_GENERATOR;
+
 }; // namespace bn254
+template <typename CircuitBuilder>
+const typename bn254<CircuitBuilder>::ScalarField bn254<CircuitBuilder>::SUBGROUP_GENERATOR =
+    typename bn254<CircuitBuilder>::ScalarField(
+        uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+
 } // namespace bb::stdlib

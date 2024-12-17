@@ -36,7 +36,7 @@ template <typename Flavor> struct SumcheckOutput<Flavor, std::enable_if_t<Flavor
     // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
     ClaimedEvaluations claimed_evaluations;
     // Include ClaimedLibraEvaluations conditioned on FlavorHasZK concept
-    std::vector<FF> claimed_libra_evaluations;
+    FF claimed_libra_evaluation;
     // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
     // have been confirmed
     std::optional<bool> verified = false; // Optional b/c this struct is shared by the Prover/Verifier

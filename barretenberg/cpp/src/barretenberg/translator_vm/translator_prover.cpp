@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -180,6 +181,10 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->circuit_size,
                                        key->polynomials.get_unshifted_without_concatenated(),
@@ -187,8 +192,8 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->commitment_key,
                                        transcript,
-                                       zk_sumcheck_data.libra_univariates_monomial,
-                                       sumcheck_output.claimed_libra_evaluations,
+                                       small_subgroup_ipa_prover.get_witness_polynomials(),
+                                       sumcheck_output.claimed_libra_evaluation,
                                        key->polynomials.get_concatenated(),
                                        key->polynomials.get_groups_to_be_concatenated());
 

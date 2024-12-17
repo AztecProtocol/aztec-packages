@@ -1,4 +1,5 @@
 #include "decider_prover.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -58,6 +59,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
@@ -71,14 +73,17 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               ck,
                                                               transcript);
     } else {
+
+        SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, ck);
+
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
                                                               proving_key->proving_key.polynomials.get_to_be_shifted(),
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,
-                                                              zk_sumcheck_data.libra_univariates_monomial,
-                                                              sumcheck_output.claimed_libra_evaluations);
+                                                              small_subgroup_ipa_prover.get_witness_polynomials(),
+                                                              sumcheck_output.claimed_libra_evaluation);
     }
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

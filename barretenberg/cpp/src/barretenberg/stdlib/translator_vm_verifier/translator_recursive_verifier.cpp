@@ -111,17 +111,16 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    std::vector<Commitment> libra_commitments;
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        Commitment libra_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-        libra_commitments.push_back(libra_commitment);
-    }
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+    std::array<Commitment, 3> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
-    // complete description of the unrolled protocol.
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // Execute Shplemini
 
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -133,8 +132,9 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               RefVector(libra_commitments),
-                                               libra_evaluations,
+                                               Flavor::HasZK,
+                                               libra_commitments,
+                                               libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
 

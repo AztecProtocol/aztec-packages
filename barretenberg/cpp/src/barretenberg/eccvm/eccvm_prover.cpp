@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
@@ -120,6 +121,9 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
@@ -130,8 +134,8 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         zk_sumcheck_data.libra_univariates_monomial,
-                         sumcheck_output.claimed_libra_evaluations);
+                         small_subgroup_ipa_prover.get_witness_polynomials(),
+                         sumcheck_output.claimed_libra_evaluation);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");

@@ -44,10 +44,11 @@ template <typename Curve> class ShplonkProver_ {
                                                std::span<const ProverOpeningClaim<Curve>> libra_opening_claims)
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
-        size_t max_poly_size{ 0 };
+        size_t max_poly_size{ 87 * 2 + 2 };
         for (const auto& claim : opening_claims) {
             max_poly_size = std::max(max_poly_size, claim.polynomial.size());
         }
+
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);
@@ -146,7 +147,10 @@ template <typename Curve> class ShplonkProver_ {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
+            // info("prover denom", inverse_vanishing_evals[idx]);
+
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+            info("current nu ", current_nu);
 
             // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(tmp, -scaling_factor);
@@ -173,6 +177,7 @@ template <typename Curve> class ShplonkProver_ {
                                            std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {})
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
+        info("prover nu ", nu);
         auto batched_quotient = compute_batched_quotient(opening_claims, nu, libra_opening_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);

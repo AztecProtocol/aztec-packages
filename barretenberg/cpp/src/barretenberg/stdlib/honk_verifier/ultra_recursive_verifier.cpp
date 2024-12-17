@@ -90,23 +90,20 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments = {};
+    std::array<Commitment, 3> libra_commitments = {};
+    FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < log_circuit_size; idx++) {
-            Commitment libra_commitment =
-                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-            libra_commitments.push_back(libra_commitment);
-        };
+        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
-    std::vector<FF> libra_evaluations = {};
     if constexpr (Flavor::HasZK) {
-        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
+        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
-
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(key->circuit_size,
@@ -118,8 +115,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               Flavor::HasZK,
+                                               libra_commitments,
+                                               libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

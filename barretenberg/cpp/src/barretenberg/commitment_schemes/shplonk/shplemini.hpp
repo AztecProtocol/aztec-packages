@@ -3,8 +3,10 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
+#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -28,13 +30,13 @@ template <typename Curve> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
-                              const std::vector<bb::Univariate<FF, LENGTH>>& libra_univariates = {},
-                              const std::vector<FF>& libra_evaluations = {},
+                              const std::array<Polynomial, 4>& libra_polynomials = {},
+                              const FF& libra_evaluation = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool has_zk = !libra_evaluations.empty();
+        const bool has_zk = !(libra_evaluation == FF{ 0 });
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -46,15 +48,27 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        size_t idx = 0;
-        for (auto [libra_univariate, libra_evaluation] : zip_view(libra_univariates, libra_evaluations)) {
-            OpeningClaim new_claim;
-            new_claim.polynomial = Polynomial(libra_univariate);
-            new_claim.opening_pair.challenge = multilinear_challenge[idx];
-            new_claim.opening_pair.evaluation = libra_evaluation;
-            libra_opening_claims.push_back(new_claim);
-            idx++;
+        // static constexpr FF bn_254_subgroup_generator =
+        //     FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
+        OpeningClaim new_claim;
+
+        if (has_zk) {
+            const auto gemini_r = opening_claims[0].opening_pair.challenge;
+
+            std::array<std::string, 4> libra_eval_labels = {
+                "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
+            };
+            const std::array<FF, 4> evaluation_points = { gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r };
+            for (size_t idx = 0; idx < 4; idx++) {
+                new_claim.polynomial = std::move(libra_polynomials[idx]);
+                new_claim.opening_pair.challenge = evaluation_points[idx];
+                new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
+                transcript->send_to_verifier(libra_eval_labels[idx], new_claim.opening_pair.evaluation);
+                libra_opening_claims.push_back(new_claim);
+            }
         }
+
         const OpeningClaim batched_claim =
             ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
         return batched_claim;
@@ -134,15 +148,16 @@ template <typename Curve> class ShpleminiVerifier_ {
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
-        RefSpan<Commitment> libra_univariate_commitments = {},
-        const std::vector<Fr>& libra_univariate_evaluations = {},
+        const bool has_zk = false,
+        const std::array<Commitment, 3>& libra_commitments = {},
+        const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
-
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
+        // info(libra_univariate_evaluation);
         if constexpr (Curve::is_stdlib_type) {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
@@ -152,7 +167,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batched_evaluation = Fr{ 0 };
 
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool has_zk = !libra_univariate_evaluations.empty();
         Commitment hiding_polynomial_commitment;
         if (has_zk) {
             hiding_polynomial_commitment =
@@ -176,14 +190,22 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
 
+        std::vector<Fr> libra_evaluations(4);
+        if (has_zk) {
+            libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
+            libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_big_sum_eval");
+            libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:big_sum_eval");
+            libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
+        }
+
         // Process Shplonk transcript data:
         // - Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
-        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁) where fᵢ are
-        // the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
+        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁) where fᵢ
+        // are the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
         std::vector<Commitment> commitments{ Q_commitment };
 
         // Get Shplonk opening point z
@@ -294,17 +316,22 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
+        bool consistency_checked = true;
+        info("has zk ", has_zk, " cons checked ", consistency_checked);
         if (has_zk) {
             add_zk_data(commitments,
                         scalars,
-                        libra_univariate_commitments,
-                        libra_univariate_evaluations,
-                        multivariate_challenge,
+                        libra_commitments,
+                        libra_evaluations,
+                        gemini_evaluation_challenge,
                         shplonk_batching_challenge,
                         shplonk_evaluation_challenge);
+
+            consistency_checked = SmallSubgroupIPAVerifier<Curve>::evaluations_consistency_check(
+                libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        return { commitments, scalars, shplonk_evaluation_challenge };
+        return { commitments, scalars, shplonk_evaluation_challenge, consistency_checked };
     };
     /**
      * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched
@@ -352,8 +379,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param commitments The vector of commitments to be populated.
      * @param scalars The vector of scalars to be populated.
      * @param batched_evaluation The evaluation of the batched multilinear polynomial.
-     * @param concatenated_scalars Scaling factors for the commitments to polynomials in concatenation groups, one for
-     * each group.
+     * @param concatenated_scalars Scaling factors for the commitments to polynomials in concatenation groups, one
+     * for each group.
      * @param concatenation_group_commitments Commitments to polynomials to be concatenated.
      * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
@@ -402,8 +429,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
-        // If we are performing an opening verification for the translator, add the contributions from the concatenation
-        // commitments and evaluations to the result
+        // If we are performing an opening verification for the translator, add the contributions from the
+        // concatenation commitments and evaluations to the result
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
@@ -499,21 +526,21 @@ template <typename Curve> class ShpleminiVerifier_ {
     }
 
     /**
-     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by the
-     * verifier.
+     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by
+     * the verifier.
      *
-     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are duplicated
-     * because they correspond to polynomials whose shifts also evaluated or used in concatenation groups in
-     * Translator. This method combines the scalars associated with these repeating commitments, reducing the total
-     * number of scalar multiplications required during the verification.
+     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are
+     * duplicated because they correspond to polynomials whose shifts also evaluated or used in concatenation groups
+     * in Translator. This method combines the scalars associated with these repeating commitments, reducing the
+     * total number of scalar multiplications required during the verification.
      *
      * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
      * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_concatenated(),
-     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments are
-     * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
-     * of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over these ranges
-     * and sums the scalar multipliers corresponding to the same group element. After combining the scalars, we erase
-     * corresponding entries in both vectors.
+     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments
+     * are then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a
+     * vector of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over
+     * these ranges and sums the scalar multipliers corresponding to the same group element. After combining the
+     * scalars, we erase corresponding entries in both vectors.
      *
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
@@ -522,9 +549,9 @@ template <typename Curve> class ShpleminiVerifier_ {
                                             const RepeatedCommitmentsData& repeated_commitments,
                                             bool has_zk)
     {
-        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
-        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
-        // commitments to prover polynomials
+        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding
+        // scalar factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector
+        // with commitments to prover polynomials
         const size_t offset = has_zk ? 2 : 1;
 
         // Extract the indices from the container, which is normally created in a given Flavor
@@ -588,7 +615,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *
      * @param commitments
      * @param scalars
-     * @param libra_univariate_commitments
+     * @param libra_commitments
      * @param libra_univariate_evaluations
      * @param multivariate_challenge
      * @param shplonk_batching_challenge
@@ -596,13 +623,15 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void add_zk_data(std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
-                            RefSpan<Commitment> libra_univariate_commitments,
-                            const std::vector<Fr>& libra_univariate_evaluations,
-                            const std::vector<Fr>& multivariate_challenge,
+                            const std::array<Commitment, 3>& libra_commitments,
+                            const std::vector<Fr>& libra_evaluations,
+                            const Fr& gemini_evaluation_challenge,
                             const Fr& shplonk_batching_challenge,
                             const Fr& shplonk_evaluation_challenge)
 
     {
+        const Fr subgroup_generator = Curve::SUBGROUP_GENERATOR;
+
         // compute current power of Shplonk batching challenge taking into account the const proof size
         Fr shplonk_challenge_power = Fr{ 1 };
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2; ++j) {
@@ -611,32 +640,35 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // need to keep track of the contribution to the constant term
         Fr& constant_term = scalars.back();
-        // compute shplonk denominators and batch invert them
-        std::vector<Fr> denominators;
-        size_t num_libra_univariates = libra_univariate_commitments.size();
 
-        // compute Shplonk denominators and invert them
-        for (size_t idx = 0; idx < num_libra_univariates; idx++) {
-            if constexpr (Curve::is_stdlib_type) {
-                denominators.push_back(Fr(1) / (shplonk_evaluation_challenge - multivariate_challenge[idx]));
-            } else {
-                denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
-            }
-        };
-        if constexpr (!Curve::is_stdlib_type) {
-            Fr::batch_invert(denominators);
-        }
         // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to
         // the constant term
-        for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :
-             zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
-            commitments.push_back(std::move(libra_univariate_commitment));
-            Fr scaling_factor = denominator * shplonk_challenge_power;
-            scalars.push_back((-scaling_factor));
-            shplonk_challenge_power *= shplonk_batching_challenge;
-            // update the constant term of the Shplonk batched claim
-            constant_term += scaling_factor * libra_univariate_evaluation;
+        for (size_t idx = 0; idx < libra_commitments.size(); idx++) {
+            commitments.push_back(libra_commitments[idx]);
         }
+
+        std::vector<Fr> denominators;
+        std::vector<Fr> tmp_scalars;
+        // compute Shplonk denominators and invert them
+        denominators.push_back(Fr(1) / (shplonk_evaluation_challenge - gemini_evaluation_challenge));
+        denominators.push_back(Fr(1) /
+                               (shplonk_evaluation_challenge - subgroup_generator * gemini_evaluation_challenge));
+        denominators.push_back(denominators[0]);
+        denominators.push_back(denominators[0]);
+
+        // compute the scalars to be multiplied against the commitments [libra_concatenated], [big_sum], [big_sum], and
+        // [libra_quotient]
+        for (const auto& [denominator, evaluation] : zip_view(denominators, libra_evaluations)) {
+            Fr scaling_factor = denominator * shplonk_challenge_power;
+            tmp_scalars.push_back(-scaling_factor);
+            shplonk_challenge_power *= shplonk_batching_challenge;
+            constant_term += scaling_factor * evaluation;
+        }
+
+        // to save a scalar mul, add the sum of the scalars corresponding to the big sum evaluations
+        scalars.push_back(tmp_scalars[0]);
+        scalars.push_back(tmp_scalars[1] + tmp_scalars[2]);
+        scalars.push_back(tmp_scalars[3]);
     }
 };
 } // namespace bb

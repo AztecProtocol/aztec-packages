@@ -23,5 +23,9 @@ class BN254 {
     // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
+
+    static constexpr size_t SUBGROUP_SIZE = 87;
+    static constexpr ScalarField SUBGROUP_GENERATOR =
+        ScalarField(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
 };
 } // namespace bb::curve

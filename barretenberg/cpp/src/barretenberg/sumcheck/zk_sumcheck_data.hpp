@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
@@ -14,30 +15,31 @@ namespace bb {
  */
 template <typename Flavor> struct ZKSumcheckData {
     using FF = typename Flavor::FF;
-    /**
-     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
-     * \f$P_1,\ldots, P_N\f$.
-     */
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
 
-    /**
-     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
-     * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
-     * "MAX_PARTIAL_RELATION_LENGTH + 1".
-     */
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using Curve = Flavor::Curve;
+
+    static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
+
+    static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
+
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? 3 : 0;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.
-    using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
+    using LibraUnivariates = std::vector<bb::Polynomial<FF>>;
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
 
+    FF constant_term;
+    std::array<FF, SUBGROUP_SIZE> interpolation_domain;
+    // to compute product in lagrange basis
+    Polynomial<FF> libra_concatenated_lagrange_form;
+    Polynomial<FF> libra_concatenated_monomial_form;
+
     LibraUnivariates libra_univariates;
-    LibraUnivariates libra_univariates_monomial;
+    size_t log_circuit_size;
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
+    FF libra_total_sum;
     FF libra_running_sum;
     ClaimedLibraEvaluations libra_evaluations;
 
@@ -48,23 +50,24 @@ template <typename Flavor> struct ZKSumcheckData {
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
-        , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
+        : constant_term(FF::random_element())
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
+        , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
+        , log_circuit_size(multivariate_d)
 
     {
+        create_interpolation_domain();
 
-        // If proving_key is provided, commit to libra_univariates
+        compute_concatenated_libra_polynomial();
+
+        // If proving_key is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key != nullptr) {
-            size_t idx = 0;
-            for (auto& libra_univariate_monomial : libra_univariates_monomial) {
-                auto libra_commitment = commitment_key->commit(Polynomial<FF>(libra_univariate_monomial));
-                transcript->template send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
-                idx++;
-            }
+            auto libra_commitment = commitment_key->commit(libra_concatenated_monomial_form);
+            transcript->template send_to_verifier("Libra:concatenation_commitment", libra_commitment);
         }
         // Compute the total sum of the Libra polynomials
         libra_scaling_factor = FF(1);
-        FF libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor);
+        libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor, constant_term);
 
         // Send the Libra total sum to the transcript
         transcript->send_to_verifier("Libra:Sum", libra_total_sum);
@@ -90,43 +93,9 @@ template <typename Flavor> struct ZKSumcheckData {
         LibraUnivariates libra_full_polynomials(number_of_polynomials);
 
         for (auto& libra_polynomial : libra_full_polynomials) {
-            libra_polynomial = bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>::get_random();
+            libra_polynomial = Polynomial<FF>::random(LIBRA_UNIVARIATES_LENGTH);
         };
         return libra_full_polynomials;
-    };
-
-    /**
-     * @brief Transform Libra univariates from Lagrange to monomial form
-     *
-     * @param libra_full_polynomials
-     * @return LibraUnivariates
-     */
-    static LibraUnivariates transform_to_monomial(LibraUnivariates& libra_full_polynomials)
-    {
-        std::array<FF, LIBRA_UNIVARIATES_LENGTH> interpolation_domain;
-        LibraUnivariates libra_univariates_monomial;
-        libra_univariates_monomial.reserve(libra_full_polynomials.size());
-
-        for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-            interpolation_domain[idx] = FF(idx);
-        }
-
-        for (auto& libra_polynomial : libra_full_polynomials) {
-
-            // Use the efficient Lagrange interpolation
-            Polynomial<FF> libra_polynomial_monomial(std::span<FF>(interpolation_domain),
-                                                     std::span<FF>(libra_polynomial.evaluations),
-                                                     LIBRA_UNIVARIATES_LENGTH);
-
-            // To avoid storing Polynomials (coefficients are vectors), we define a univariate with the coefficients
-            // interpolated above
-            bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH> libra_univariate;
-            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-                libra_univariate.value_at(idx) = libra_polynomial_monomial[idx];
-            }
-            libra_univariates_monomial.push_back(libra_univariate);
-        };
-        return libra_univariates_monomial;
     };
 
     /**
@@ -137,18 +106,20 @@ template <typename Flavor> struct ZKSumcheckData {
      * @param scaling_factor
      * @return FF
      */
-    static FF compute_libra_total_sum(const LibraUnivariates& libra_univariates, FF& scaling_factor)
+    static FF compute_libra_total_sum(const LibraUnivariates& libra_univariates,
+                                      FF& scaling_factor,
+                                      const FF& free_term)
     {
         FF total_sum = 0;
         scaling_factor = scaling_factor / 2;
 
         for (auto& univariate : libra_univariates) {
-            total_sum += univariate.value_at(0) + univariate.value_at(1);
+            total_sum += univariate.evaluate(FF(0)) + univariate.evaluate(FF(1));
             scaling_factor *= 2;
         }
         total_sum *= scaling_factor;
 
-        return total_sum;
+        return total_sum + free_term * (1 << libra_univariates.size());
     }
 
     /**
@@ -173,8 +144,50 @@ template <typename Flavor> struct ZKSumcheckData {
             univariate *= libra_scaling_factor;
         };
         // subtract the contribution of the first libra univariate from libra total sum
-        libra_running_sum += -libra_univariates[0].value_at(0) - libra_univariates[0].value_at(1);
+        libra_running_sum += -libra_univariates[0].evaluate(FF(0)) - libra_univariates[0].evaluate(FF(1));
         libra_running_sum *= FF(1) / FF(2);
     }
+
+    void create_interpolation_domain()
+    {
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            interpolation_domain[idx] = subgroup_generator.pow(idx);
+        }
+    }
+
+    // compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0 + m_1 X)
+    void compute_concatenated_libra_polynomial()
+    {
+        std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
+        coeffs_lagrange_subgroup[0] = constant_term;
+
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            coeffs_lagrange_subgroup[idx] = FF{ 0 };
+        }
+
+        for (size_t poly_idx = 0; poly_idx < log_circuit_size; poly_idx++) {
+            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                size_t idx_to_populate = 1 + poly_idx * LIBRA_UNIVARIATES_LENGTH + idx;
+                coeffs_lagrange_subgroup[idx_to_populate] = libra_univariates[poly_idx].at(idx);
+            }
+        }
+
+        libra_concatenated_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
+
+        bb::Univariate<FF, 2> masking_scalars = bb::Univariate<FF, 2>::get_random();
+
+        auto libra_concatenated_monomial_form_unmasked =
+            Polynomial<FF>(interpolation_domain, coeffs_lagrange_subgroup, SUBGROUP_SIZE);
+
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            libra_concatenated_monomial_form.at(idx) = libra_concatenated_monomial_form_unmasked.at(idx);
+        }
+
+        for (size_t idx = 0; idx < masking_scalars.size(); idx++) {
+            libra_concatenated_monomial_form.at(idx) -= masking_scalars.value_at(idx);
+            libra_concatenated_monomial_form.at(SUBGROUP_SIZE + idx) += masking_scalars.value_at(idx);
+        }
+    }
 };
+
 } // namespace bb

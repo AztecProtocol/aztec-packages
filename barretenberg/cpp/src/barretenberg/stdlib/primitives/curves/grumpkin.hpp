@@ -32,5 +32,13 @@ template <typename CircuitBuilder> struct grumpkin {
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
     using uint32_ct = stdlib::uint32<CircuitBuilder>;
+    static constexpr size_t SUBGROUP_SIZE = 87;
+    static const ScalarField SUBGROUP_GENERATOR;
 };
+
+template <typename BuilderType>
+const typename grumpkin<BuilderType>::ScalarField grumpkin<BuilderType>::SUBGROUP_GENERATOR =
+    typename grumpkin<BuilderType>::ScalarField(
+        uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+
 } // namespace bb::stdlib
