@@ -4429,34 +4429,49 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb
  * < radix.
- * @param num_limbs The number of limbs to the value into.
- * @param output_bits Should the output be U1s instead of U8s?
+ * @param num_limbs_offset Offset pointing to the number of limbs to the value into.
+ * @param output_bits_offset Offset pointing to a boolean telling whether bits (U1) or bytes (U8) are in the output
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  */
-AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
+AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
                                          uint32_t src_offset,
-                                         uint32_t dst_offset,
                                          uint32_t radix_offset,
-                                         uint32_t num_limbs,
-                                         uint8_t output_bits)
+                                         uint32_t num_limbs_offset,
+                                         uint32_t output_bits_offset,
+                                         uint32_t dst_offset)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    // write output as bits or bytes
-    AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
-                                            : AvmMemoryTag::U8;
-
-    auto [resolved_addrs, res_error] = Addressing<3>::fromWire(indirect, call_ptr)
-                                           .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
-    auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] = resolved_addrs;
+    auto [resolved_addrs, res_error] =
+        Addressing<5>::fromWire(indirect, call_ptr)
+            .resolve({ src_offset, radix_offset, num_limbs_offset, output_bits_offset, dst_offset }, mem_trace_builder);
+    auto [resolved_src_offset,
+          resolved_radix_offset,
+          resolved_num_limbs_offset,
+          resolved_output_bits_offset,
+          resolved_dst_offset] = resolved_addrs;
     error = res_error;
+
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset) &&
+        !check_tag(AvmMemoryTag::U32, resolved_num_limbs_offset) &&
+        !check_tag(AvmMemoryTag::U1, resolved_output_bits_offset)) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    const auto num_limbs = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_num_limbs_offset));
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
+
+    const auto output_bits = static_cast<uint8_t>(unconstrained_read_from_memory(resolved_output_bits_offset));
+
+    // write output as bits or bytes
+    AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
+                                            : AvmMemoryTag::U8;
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
@@ -4464,10 +4479,6 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
-
-    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
-        error = AvmError::CHECK_TAG_ERROR;
-    }
 
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 

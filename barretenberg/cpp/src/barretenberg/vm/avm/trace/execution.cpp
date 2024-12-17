@@ -974,12 +974,12 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
 
             // Conversions
         case OpCode::TORADIXBE:
-            error = trace_builder.op_to_radix_be(std::get<uint8_t>(inst.operands.at(0)),
+            error = trace_builder.op_to_radix_be(std::get<uint16_t>(inst.operands.at(0)),
                                                  std::get<uint16_t>(inst.operands.at(1)),
                                                  std::get<uint16_t>(inst.operands.at(2)),
                                                  std::get<uint16_t>(inst.operands.at(3)),
                                                  std::get<uint16_t>(inst.operands.at(4)),
-                                                 std::get<uint8_t>(inst.operands.at(5)));
+                                                 std::get<uint16_t>(inst.operands.at(5)));
             break;
 
         default:
