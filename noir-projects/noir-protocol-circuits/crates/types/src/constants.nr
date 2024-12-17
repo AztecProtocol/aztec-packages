@@ -209,7 +209,10 @@ pub global DEFAULT_TPK_M_Y: Field =
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
 pub global GAS_FEES_LENGTH: u32 = 2;
 pub global GAS_LENGTH: u32 = 2;
-pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH;
+pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
+    + GAS_LENGTH /* teardown_gas_limits */
+    + GAS_FEES_LENGTH /* max_fees_per_gas */
+    + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
 pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
