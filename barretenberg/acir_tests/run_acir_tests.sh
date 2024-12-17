@@ -1,29 +1,42 @@
 #!/usr/bin/env bash
 # DEPRECATED: USE bootstrap.sh test
+#!/usr/bin/env bash
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 #   RECURSIVE: to enable --recursive for each test.
-source $(git rev-parse --show-toplevel)/ci3/source
+set -eu
 
-BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
+# Catch when running in parallel
+error_file="/tmp/error.$$"
+pids=()
+source ./bash_helpers/catch.sh
+trap handle_sigchild SIGCHLD
+
+BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
 CLIENT_IVC_SKIPS=${CLIENT_IVC_SKIPS:-false}
 CRS_PATH=~/.bb-crs
+BRANCH=master
 VERBOSE=${VERBOSE:-}
 TEST_NAMES=("$@")
 # We get little performance benefit over 16 cores (in fact it can be worse).
-HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
+HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 RECURSIVE=${RECURSIVE:-false}
 
-export BIN CRS_PATH VERBOSE RECURSIVE HARDWARE_CONCURRENCY
+FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
-if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
-  TEST_NAMES=$(cd ./acir_tests; find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||')
+if [ -f $BIN ]; then
+    BIN=$(realpath $BIN)
+else
+    BIN=$(realpath $(which $BIN))
 fi
 
 export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
+
+# copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
+./clone_test_vectors.sh
 
 cd acir_tests
 
