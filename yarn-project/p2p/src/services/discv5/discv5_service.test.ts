@@ -7,10 +7,10 @@ import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
-import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { BootstrapNode } from '../../bootstrap/bootstrap.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
-import { PeerDiscoveryState } from './service.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;

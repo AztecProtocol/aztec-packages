@@ -1,6 +1,6 @@
 import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
 import { schemas } from '../schemas/schemas.js';
-import { updateInlineTestData } from '../testing/test_data.js';
+import { updateInlineTestData } from '../testing/files/index.js';
 import { Fr } from './fields.js';
 import { Point } from './point.js';
 

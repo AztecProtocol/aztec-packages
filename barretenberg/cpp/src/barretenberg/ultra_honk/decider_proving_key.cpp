@@ -24,7 +24,8 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
-    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+    size_t total_num_gates =
+        MASKING_OFFSET + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -97,8 +98,9 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
 {
     PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
 
-    const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
-    size_t table_offset = dyadic_circuit_size - max_tables_size;
+    const size_t max_tables_size =
+        std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1 - MASKING_OFFSET);
+    size_t table_offset = dyadic_circuit_size - max_tables_size - MASKING_OFFSET;
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
@@ -115,7 +117,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
 
     // Allocate the log derivative lookup argument inverse polynomial
     const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
-    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
+    const size_t masking_offset = (std::min(lookup_offset, table_offset) > MASKING_OFFSET) ? MASKING_OFFSET : 0;
+    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset) - masking_offset;
     const size_t lookup_inverses_end =
         std::min(dyadic_circuit_size,
                  std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
@@ -324,6 +327,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 }
 
 template class DeciderProvingKey_<UltraFlavor>;
+template class DeciderProvingKey_<UltraFlavorWithZK>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;
