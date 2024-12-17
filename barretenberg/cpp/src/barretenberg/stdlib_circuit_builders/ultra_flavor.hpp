@@ -129,11 +129,11 @@ class UltraFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
+                              q_lookup,             // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
                               q_poseidon2_external, // column 11
                               q_poseidon2_internal, // column 12
                               sigma_1,              // column 13
@@ -156,8 +156,9 @@ class UltraFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
-                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_lookup, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -481,11 +482,11 @@ class UltraFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
                         const Commitment& sigma_1,
@@ -515,11 +516,11 @@ class UltraFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
             this->sigma_1 = sigma_1;
@@ -551,11 +552,11 @@ class UltraFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -641,11 +642,11 @@ class UltraFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_lookup = "Q_LOOKUP";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
@@ -682,11 +683,11 @@ class UltraFlavor {
             this->q_r = verification_key->q_r;
             this->q_o = verification_key->q_o;
             this->q_4 = verification_key->q_4;
+            this->q_lookup = verification_key->q_lookup;
             this->q_arith = verification_key->q_arith;
             this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
             this->q_poseidon2_external = verification_key->q_poseidon2_external;
             this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;

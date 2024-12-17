@@ -15,25 +15,25 @@ namespace bb {
  * @tparam T
  */
 template <typename T> struct UltraTraceBlockData {
+    T lookup;
     T pub_inputs;
     T arithmetic;
     T delta_range;
     T elliptic;
     T aux;
-    T lookup;
     T poseidon2_external;
     T poseidon2_internal;
     T overflow;
 
     auto get()
     {
-        return RefArray{ pub_inputs, arithmetic,         delta_range,        elliptic, aux,
-                         lookup,     poseidon2_external, poseidon2_internal, overflow };
+        return RefArray{ lookup, pub_inputs,         arithmetic,         delta_range, elliptic,
+                         aux,    poseidon2_external, poseidon2_internal, overflow };
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray{ arithmetic, delta_range, elliptic, aux, lookup, poseidon2_external, poseidon2_internal };
+        return RefArray{ lookup, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal };
     }
 
     bool operator==(const UltraTraceBlockData& other) const = default;
@@ -66,18 +66,20 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     auto& q_2() { return this->selectors[3]; };
     auto& q_3() { return this->selectors[4]; };
     auto& q_4() { return this->selectors[5]; };
-    auto& q_arith() { return this->selectors[6]; };
-    auto& q_delta_range() { return this->selectors[7]; };
-    auto& q_elliptic() { return this->selectors[8]; };
-    auto& q_aux() { return this->selectors[9]; };
-    auto& q_lookup_type() { return this->selectors[10]; };
+    auto& q_lookup_type() { return this->selectors[6]; };
+    auto& q_arith() { return this->selectors[7]; };
+    auto& q_delta_range() { return this->selectors[8]; };
+    auto& q_elliptic() { return this->selectors[9]; };
+    auto& q_aux() { return this->selectors[10]; };
     auto& q_poseidon2_external() { return this->selectors[11]; };
     auto& q_poseidon2_internal() { return this->selectors[12]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
-        return { q_arith(),      q_delta_range(), q_elliptic(), q_aux(), q_poseidon2_external(), q_poseidon2_internal(),
-                 q_lookup_type() };
+        return {
+            q_lookup_type(),        q_arith(), q_delta_range(), q_elliptic(), q_aux(), q_poseidon2_external(),
+            q_poseidon2_internal(),
+        };
     }
 };
 
@@ -112,12 +114,12 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
     void summarize() const
     {
         info("Gate blocks summary:");
+        info("lookups    :\t", this->lookup.size());
         info("pub inputs :\t", this->pub_inputs.size());
         info("arithmetic :\t", this->arithmetic.size());
         info("delta range:\t", this->delta_range.size());
         info("elliptic   :\t", this->elliptic.size());
         info("auxiliary  :\t", this->aux.size());
-        info("lookups    :\t", this->lookup.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
         info("poseidon int  :\t", this->poseidon2_internal.size());
         info("overflow :\t", this->overflow.size());
@@ -146,11 +148,11 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
                                                                     "q_2",
                                                                     "q_3",
                                                                     "q_4",
+                                                                    "table_type",
                                                                     "q_arith",
                                                                     "q_sort",
                                                                     "q_elliptic",
                                                                     "q_aux",
-                                                                    "table_type",
                                                                     "q_poseidon2_external",
                                                                     "q_poseidon2_internal" };
 };
