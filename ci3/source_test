@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # Script base for testing the cache with minio.
 # The cache is essentially ephemeral this way.

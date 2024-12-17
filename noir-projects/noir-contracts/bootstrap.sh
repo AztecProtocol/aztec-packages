@@ -6,6 +6,7 @@
 # - You can disable further parallelism by putting -j1 on the parallel calls.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
+# - The exported functions need to have external variables they require, to have been exported first.
 # - If you want to echo something, send it to stderr e.g. echo "My debug" >&2
 # - If you call another script, be sure it also doesn't output something you don't want.
 # - Note calls to cache scripts swallow everything with &> /dev/null.

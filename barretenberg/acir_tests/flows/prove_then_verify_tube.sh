@@ -3,7 +3,7 @@ set -eux
 
 mkdir -p ./proofs
 
-CRS_PATH=${CRS_PATH:-$PWD/crs}
+CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 
 [ -n "${1:-}" ] && cd ./acir_tests/$1

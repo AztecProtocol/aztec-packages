@@ -6,7 +6,6 @@ set -eu
 # 2^25 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
 # We make the file read only to ensure no test can attempt to grow it any larger. 2^25 is already huge...
 # TODO: Make bb just download and append/overwrite required range, then it becomes idempotent.
-# TODO: Predownload this into AMI and mount into container.
 # TODO: Grumpkin.
 crs_path=$HOME/.bb-crs
 crs_size=$((2**25+1))
