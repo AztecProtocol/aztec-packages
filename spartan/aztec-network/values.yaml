@@ -57,7 +57,7 @@ bootNode:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "3.8"
+      cpu: "3.5"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -108,7 +108,7 @@ validator:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "3.8"
+      cpu: "3.5"
   storageSize: "1Gi"
   dataDir: "/data"
 
@@ -134,7 +134,7 @@ proverNode:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "3.8"
+      cpu: "3.5"
   storage: "8Gi"
 
 pxe:
@@ -204,7 +204,7 @@ ethereum:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "3.8"
+      cpu: "3.5"
   storage: "80Gi"
 
 proverAgent:
@@ -236,7 +236,7 @@ proverBroker:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "3.8"
+      cpu: "3.5"
 
 jobs:
   deployL1Verifier:
