@@ -132,7 +132,7 @@ runs:
       env:
         RUN_SCRIPT: |
           cd ~/run-${{ env.RUN_ID }};
-          ci3/aws_handle_evict "${{ inputs.run }}"
+          ci3/aws_handle_evict "set -eu; ${{ inputs.run }}"
       shell: bash
       run:
         set +e;
