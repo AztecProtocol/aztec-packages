@@ -594,9 +594,12 @@ export function injectCommands(
       value => parseGasFees(value),
       new GasFees(1, 1),
     )
+    .option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.', value =>
+      parseGasFees(value),
+    )
     .action(async (txHash, options) => {
       const { cancelTx } = await import('./cancel_tx.js');
-      const { from: parsedFromAddress, rpcUrl, secretKey, payment, increasedFees } = options;
+      const { from: parsedFromAddress, rpcUrl, secretKey, payment, increasedFees, maxFeesPerGas } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
@@ -608,7 +611,7 @@ export function injectCommands(
 
       const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
 
-      await cancelTx(wallet, txData, paymentMethod, increasedFees, log);
+      await cancelTx(wallet, txData, paymentMethod, increasedFees, maxFeesPerGas, log);
     });
 
   program

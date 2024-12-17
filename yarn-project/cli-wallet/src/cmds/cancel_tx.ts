@@ -7,12 +7,13 @@ export async function cancelTx(
   wallet: AccountWalletWithSecretKey,
   {
     txHash,
-    gasSettings,
+    gasSettings: prevTxGasSettings,
     nonce,
     cancellable,
   }: { txHash: TxHash; gasSettings: GasSettings; nonce: Fr; cancellable: boolean },
   paymentMethod: FeePaymentMethod,
   increasedFees: GasFees,
+  maxFeesPerGas: GasFees | undefined,
   log: LogFn,
 ) {
   const receipt = await wallet.getTxReceipt(txHash);
@@ -21,18 +22,18 @@ export async function cancelTx(
     return;
   }
 
-  const maxFeesPerGas = new GasFees(
-    gasSettings.maxFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
-    gasSettings.maxFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
-  );
   const maxPriorityFeesPerGas = new GasFees(
-    gasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
-    gasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
   );
 
   const fee: FeeOptions = {
     paymentMethod,
-    gasSettings: GasSettings.from({ ...gasSettings, maxFeesPerGas, maxPriorityFeesPerGas }),
+    gasSettings: GasSettings.from({
+      ...prevTxGasSettings,
+      maxPriorityFeesPerGas,
+      maxFeesPerGas: maxFeesPerGas ?? prevTxGasSettings.maxFeesPerGas,
+    }),
   };
 
   const txRequest = await wallet.createTxExecutionRequest({
