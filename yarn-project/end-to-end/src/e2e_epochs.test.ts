@@ -91,6 +91,7 @@ describe('e2e_epochs', () => {
       slotDuration: L1_BLOCK_TIME * L2_SLOT_DURATION_IN_L1_BLOCKS,
       l1GenesisBlock: await rollup.getL1StartBlock(),
       l1GenesisTime: await rollup.getL1GenesisTime(),
+      ethereumSlotDuration: L1_BLOCK_TIME,
     };
 
     logger.info(`L2 genesis at L1 block ${constants.l1GenesisBlock} (timestamp ${constants.l1GenesisTime})`);
