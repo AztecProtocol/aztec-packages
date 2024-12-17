@@ -10,7 +10,6 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   type AztecAddress,
@@ -19,6 +18,8 @@ import {
   type GasSettings,
   type GlobalVariables,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
@@ -311,16 +312,29 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
 
-    const getAppendSnaphot = (id: MerkleTreeId) => {
-      const tree = ephemeralTrees.get(id)!;
-      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
-    };
+    const noteHashTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    // Pad the note hash and nullifier trees
+    const paddedNoteHashTreeSize =
+      this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
+    if (noteHashTree.nextAvailableLeafIndex > paddedNoteHashTreeSize) {
+      throw new Error(
+        `Inserted too many leaves in note hash tree: ${noteHashTree.nextAvailableLeafIndex} > ${paddedNoteHashTreeSize}`,
+      );
+    }
+    noteHashTree.nextAvailableLeafIndex = paddedNoteHashTreeSize;
 
-    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const paddedNullifierTreeSize =
+      this.startStateReference.partial.nullifierTree.nextAvailableLeafIndex + MAX_NULLIFIERS_PER_TX;
+    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTreeSize) {
+      throw new Error(
+        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTreeSize}`,
+      );
+    }
+    nullifierTree.nextAvailableLeafIndex = paddedNullifierTreeSize;
 
     const endTreeSnapshots = new TreeSnapshots(
       endStateReference.l1ToL2MessageTree,

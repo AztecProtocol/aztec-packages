@@ -312,6 +312,23 @@ void AvmTraceBuilder::pay_fee()
     side_effect_counter++;
 }
 
+void AvmTraceBuilder::pad_trees()
+{
+    auto current_tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+
+    auto initial_note_hash_snapshot = public_inputs.start_tree_snapshots.note_hash_tree;
+    // sanity check
+    uint32_t padded_note_hash_size = initial_note_hash_snapshot.size + MAX_NOTE_HASHES_PER_TX;
+    ASSERT(current_tree_snapshots.note_hash_tree.size <= padded_note_hash_size);
+    merkle_tree_trace_builder.set_note_hash_tree_size(padded_note_hash_size);
+
+    auto initial_nullifier_snapshot = public_inputs.start_tree_snapshots.nullifier_tree;
+    // sanity check
+    uint32_t padded_nullifier_size = initial_nullifier_snapshot.size + MAX_NULLIFIERS_PER_TX;
+    ASSERT(current_tree_snapshots.nullifier_tree.size <= padded_nullifier_size);
+    merkle_tree_trace_builder.set_nullifier_tree_size(padded_nullifier_size);
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
