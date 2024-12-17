@@ -54,7 +54,7 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       }
     }
 
-    await store.registerContractFunctionNames(contract.address, functionNames);
+    await store.registerContractFunctionName(contract.address, functionNames);
     const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
