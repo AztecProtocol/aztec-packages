@@ -1,7 +1,8 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
-import { ProtocolContractAddress, ProtocolContractArtifact } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
 import { type L2AmountClaim } from '../utils/portal_manager.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
@@ -23,7 +24,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    */
   override getFunctionCalls(): Promise<FunctionCall[]> {
     const selector = FunctionSelector.fromNameAndParameters(
-      ProtocolContractArtifact.FeeJuice.functions.find(f => f.name === 'claim')!,
+      getCanonicalFeeJuice().artifact.functions.find(f => f.name === 'claim')!,
     );
 
     return Promise.resolve([
