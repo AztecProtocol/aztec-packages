@@ -218,13 +218,6 @@ jobs:
     steps:
       - run: "echo Full bench tests enabled."
 
-  network-test-gate:
-    needs: [ci-rest, configure]
-    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
-    runs-on: ubuntu-20.04
-    steps:
-      - run: "echo Full network tests enabled."
-
   docs:
     needs: [ci-rest, configure]
     runs-on: ubuntu-latest
@@ -400,8 +393,10 @@ jobs:
             ci3/bootstrap_ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
           fi
 
+
   network-4epochs-test:
-    needs: [images-e2e, network-test-gate, configure]
+    needs: [images-e2e, configure]
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -437,7 +432,8 @@ jobs:
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-full-test:
-    needs: [images-e2e, network-test-gate, configure]
+    needs: [images-e2e, ci-rest, configure]
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
