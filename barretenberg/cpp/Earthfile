@@ -230,6 +230,7 @@ bench-client-ivc:
   COPY --dir +bench-binaries/* .
   # install SRS needed for proving
   COPY --dir ./srs_db/+build/. srs_db
+  RUN cd release && ./bin/client_ivc_bench --benchmark_out=../client_ivc_17_in_20_release.json --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
   RUN cd release && ./bin/client_ivc_bench --benchmark_out=../client_ivc_release.json --benchmark_filter="ClientIVCBench/Full/6$"
   RUN cd op-count && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count.json --benchmark_filter="ClientIVCBench/Full/6$"
   RUN cd op-count-time && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count_time.json --benchmark_filter="ClientIVCBench/Full/6$"
@@ -248,6 +249,7 @@ bench:
   END
   COPY ./scripts/ci/combine_benchmarks.py ./scripts/ci/combine_benchmarks.py
   RUN ./scripts/ci/combine_benchmarks.py \
+    native client_ivc_17_in_20_release.json \
     native client_ivc_release.json \
     native ultra_honk_release.json \
     wasm client_ivc_wasm.json \

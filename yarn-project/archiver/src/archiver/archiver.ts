@@ -47,10 +47,10 @@ import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
-  ContractInstanceDeployedEvent,
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts';
+} from '@aztec/protocol-contracts/class-registerer';
+import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';

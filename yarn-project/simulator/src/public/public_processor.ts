@@ -24,7 +24,8 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';

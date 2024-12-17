@@ -55,14 +55,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  ChildContractArtifact,
-  ImportTestContractArtifact,
-  ParentContractArtifact,
-  PendingNoteHashesContractArtifact,
-  StatefulTestContractArtifact,
-  TestContractArtifact,
-} from '@aztec/noir-contracts.js';
+import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
+import { ImportTestContractArtifact } from '@aztec/noir-contracts.js/ImportTest';
+import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
+import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
