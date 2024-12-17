@@ -156,6 +156,7 @@ describe('e2e_card_game', () => {
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
     const expected = getPackedCards(0, seed);
     expect(boundedVecToArray(collection)).toMatchObject(expected);
+    throw new Error();
   });
 
   describe('game join', () => {
