@@ -353,59 +353,56 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<void> {
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [oldIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    const INDEX_OFFSET = 10;
+    // This algorithm works such that:
+    // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
+    // we found and quit.
+    // 2. If we don't find minimum consecutive empty logs in a window of logs we slide the window to latest log index
+    // and repeat the process.
+    const WINDOW_SIZE = 20;
+    const MIN_CONSECUTIVE_EMPTY_LOGS = WINDOW_SIZE / 2;
 
-    let previousEmptyBack = 0;
-    let currentEmptyBack = 0;
-    let currentEmptyFront: number;
-
-    // The below code is trying to find the index of the start of the first window in which for all elements of window, we do not see logs.
-    // We take our window size, and fetch the node for these logs. We store both the amount of empty consecutive slots from the front and the back.
-    // We use our current empty consecutive slots from the front, as well as the previous consecutive empty slots from the back to see if we ever hit a time where there
-    // is a window in which we see the combination of them to be greater than the window's size. If true, we rewind current index to the start of said window and use it.
-    // Assuming two windows of 5:
-    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 0]
-    // We can see that when processing the second window, the previous amount of empty slots from the back of the window (1), added with the empty elements from the front of the window (5)
-    // is greater than 5 (6) and therefore we have found a window to use.
-    // We simply need to take the number of elements (10) - the size of the window (5) - the number of consecutive empty elements from the back of the last window (1) = 4;
-    // This is the first index of our desired window.
-    // Note that if we ever see a situation like so:
-    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 1]
-    // This also returns the correct index (4), but this is indicative of a problem / desync. i.e. we should never have a window that has a log that exists after the window.
-
+    let [numConsecutiveEmptyLogs, currentIndex] = [0, oldIndex];
     do {
-      const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
+      // We compute the tags for the current window of indexes
+      const currentTags = [...new Array(WINDOW_SIZE)].map((_, i) => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
         return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
-      previousEmptyBack = currentEmptyBack;
 
+      // We fetch the logs for the tags
       const possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
 
-      const indexOfFirstLog = possibleLogs.findIndex(possibleLog => possibleLog.length !== 0);
-      currentEmptyFront = indexOfFirstLog === -1 ? INDEX_OFFSET : indexOfFirstLog;
-
+      // We find the index of the last log in the window that is not empty
       const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
-      currentEmptyBack = indexOfLastLog === -1 ? INDEX_OFFSET : INDEX_OFFSET - 1 - indexOfLastLog;
 
-      currentIndex += INDEX_OFFSET;
-    } while (currentEmptyFront + previousEmptyBack < INDEX_OFFSET);
+      if (indexOfLastLog !== -1) {
+        // We didn't find any logs in the current window so we stop looking
+        break;
+      }
 
-    // We unwind the entire current window and the amount of consecutive empty slots from the previous window
-    const newIndex = currentIndex - (INDEX_OFFSET + previousEmptyBack);
+      // We move the current index to that of the last log we found
+      currentIndex += indexOfLastLog + 1;
 
-    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
+      // We compute the number of consecutive empty logs we found and repeat the process if we haven't found enough.
+      numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLog - 1;
+    } while (numConsecutiveEmptyLogs >= MIN_CONSECUTIVE_EMPTY_LOGS);
 
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
-      sender,
-      secret: appTaggingSecret,
-      index: currentIndex,
-      contractName,
-      contractAddress,
-    });
+    if (currentIndex !== oldIndex) {
+      await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
+
+      this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
+        sender,
+        secret: appTaggingSecret,
+        index: currentIndex,
+        contractName,
+        contractAddress,
+      });
+    } else {
+      this.log.debug(`No new logs found for sender ${sender} at contract ${contractName}(${contractAddress})`);
+    }
   }
 
   /**
