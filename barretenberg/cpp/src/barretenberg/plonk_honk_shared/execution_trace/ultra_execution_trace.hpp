@@ -15,8 +15,8 @@ namespace bb {
  * @tparam T
  */
 template <typename T> struct UltraTraceBlockData {
+    T pub_inputs; // Has to be the first block otherwise Plonk breaks
     T lookup;
-    T pub_inputs;
     T arithmetic;
     T delta_range;
     T elliptic;
@@ -27,8 +27,8 @@ template <typename T> struct UltraTraceBlockData {
 
     auto get()
     {
-        return RefArray{ lookup, pub_inputs,         arithmetic,         delta_range, elliptic,
-                         aux,    poseidon2_external, poseidon2_internal, overflow };
+        return RefArray{ pub_inputs,         lookup,  arithmetic, delta_range, elliptic, aux, poseidon2_external,
+                         poseidon2_internal, overflow };
     }
 
     auto get_gate_blocks() const
@@ -114,8 +114,8 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
     void summarize() const
     {
         info("Gate blocks summary:");
-        info("lookups    :\t", this->lookup.size());
         info("pub inputs :\t", this->pub_inputs.size());
+        info("lookups    :\t", this->lookup.size());
         info("arithmetic :\t", this->arithmetic.size());
         info("delta range:\t", this->delta_range.size());
         info("elliptic   :\t", this->elliptic.size());
