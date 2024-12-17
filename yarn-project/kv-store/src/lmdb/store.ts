@@ -1,9 +1,10 @@
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';
 import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
 import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
 import { type Key } from '../interfaces/common.js';
@@ -29,7 +30,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #multiMapData: Database<unknown, Key>;
   #log = createLogger('kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
+  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path: string) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -64,13 +65,12 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     ephemeral: boolean = false,
     log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
-    if (path) {
-      mkdirSync(path, { recursive: true });
-    }
+    const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
+    mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
     log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
-    const rootDb = open({ path, noSync: ephemeral, mapSize });
-    return new AztecLmdbStore(rootDb, ephemeral, path);
+    const rootDb = open({ path: dbPath, noSync: ephemeral, mapSize });
+    return new AztecLmdbStore(rootDb, ephemeral, dbPath);
   }
 
   /**
@@ -78,10 +78,9 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @returns A new AztecLmdbStore.
    */
   async fork() {
-    const baseDir = this.path ? dirname(this.path) : tmpdir();
+    const baseDir = this.path;
     this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath =
-      (await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+    const forkPath = await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'));
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
