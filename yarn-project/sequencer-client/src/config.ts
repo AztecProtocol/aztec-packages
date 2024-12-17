@@ -1,4 +1,4 @@
-import { type AllowedElement } from '@aztec/circuit-types';
+import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
@@ -21,10 +21,9 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigMappings,
 } from './publisher/config.js';
-import { type SequencerConfig } from './sequencer/config.js';
 
 export * from './publisher/config.js';
-export * from './sequencer/config.js';
+export { SequencerConfig };
 
 /** Chain configuration. */
 type ChainConfig = {
