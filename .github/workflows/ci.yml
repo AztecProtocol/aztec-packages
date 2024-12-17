@@ -302,7 +302,6 @@ jobs:
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-            # TODO(#9692): not working after e2e_test_config.yml refactoring
             export COMMIT_HASH=${{ env.GIT_COMMIT }}
             export PULL_REQUEST=${{ github.event.pull_request.number }}
             export BRANCH=${{ github.ref_name }}
