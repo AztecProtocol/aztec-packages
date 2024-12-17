@@ -84,7 +84,7 @@ struct ExecutionTraceUsageTracker {
         for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
             size_t start_idx = fixed_block.trace_offset;
             size_t end_idx = start_idx + max_size;
-            active_ranges.emplace_back(start_idx, end_idx);
+            active_ranges.push_back(Range{ start_idx, end_idx });
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
@@ -96,10 +96,10 @@ struct ExecutionTraceUsageTracker {
         // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
-        active_ranges.emplace_back(0, databus_end);
+        active_ranges.push_back(Range{ 0, databus_end });
         size_t lookups_start = fixed_sizes.lookup.trace_offset;
         size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
-        active_ranges.emplace_back(lookups_start, lookups_end);
+        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
