@@ -101,7 +101,7 @@ runs:
             git checkout FETCH_HEAD >/dev/null
           )
           cd ~/run-${{ env.RUN_ID }}
-          .github/ensure-tester/init
+          .github/ensure-tester/init ${{ inputs.run }}
       shell: bash
       run:
         set +e;
