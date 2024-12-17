@@ -261,7 +261,7 @@ impl Formatter for TerseFormatter {
         let mut writer = writer.lock();
 
         match &test_result.status {
-            TestStatus::Pass { .. }=> {
+            TestStatus::Pass => {
                 writer.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
                 write!(writer, ".")?;
                 writer.reset()?;
@@ -314,7 +314,7 @@ impl Formatter for TerseFormatter {
                 }
 
                 match &test_result.status {
-                    TestStatus::Pass { .. } | TestStatus::Skipped => (),
+                    TestStatus::Pass | TestStatus::Skipped => (),
                     TestStatus::Fail { message, error_diagnostic } => {
                         writer.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
                         writeln!(writer, "{message}")?;
@@ -425,7 +425,7 @@ impl Formatter for JsonFormatter {
         }
 
         match &test_result.status {
-            TestStatus::Pass { .. } => {
+            TestStatus::Pass => {
                 json.insert("event".to_string(), json!("ok"));
             }
             TestStatus::Fail { message, error_diagnostic } => {
@@ -495,7 +495,7 @@ impl Formatter for JsonFormatter {
         let mut ignored = 0;
         for test_result in test_results {
             match &test_result.status {
-                TestStatus::Pass { .. } => passed += 1,
+                TestStatus::Pass => passed += 1,
                 TestStatus::Fail { .. } | TestStatus::CompileError(..) => failed += 1,
                 TestStatus::Skipped => ignored += 1,
             }
