@@ -225,7 +225,7 @@ docs-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  LET artifact=docs-ci-deploy-$(./boxes/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD --pass-args ./docs/+deploy-preview
@@ -236,7 +236,7 @@ avm-transpiler-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=avm-transpiler-ci-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  LET artifact=avm-transpiler-ci-$(./avm-transpiler/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./avm-transpiler/+format
@@ -325,6 +325,7 @@ protocol-verification-keys:
 
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
+# TODO(ci3): we either don't need this or should be in bootstrap
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
