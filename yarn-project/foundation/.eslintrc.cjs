@@ -78,5 +78,5 @@ module.exports = {
     // this unfortunately doesn't block `fit` and `fdescribe`
     'no-only-tests/no-only-tests': ['error'],
   },
-  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs', '.eslintrc.*.cjs'],
+  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', 'scripts*', '.eslintrc.cjs', '.eslintrc.*.cjs'],
 };

@@ -94,7 +94,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "engines": {
     "node": ">=18"

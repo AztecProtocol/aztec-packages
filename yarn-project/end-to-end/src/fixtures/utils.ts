@@ -11,7 +11,6 @@ import {
   CheatCodes,
   type ContractMethod,
   type DeployL1Contracts,
-  EthCheatCodes,
   type Logger,
   NoFeePaymentMethod,
   type PXE,
@@ -36,7 +35,7 @@ import {
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -349,7 +348,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -416,7 +415,7 @@ export async function setup(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );

@@ -40,7 +40,10 @@ done
 node --no-warnings ../builder/dest/bin/cli.js codegen -o $OUT_DIR artifacts
 
 # Append exports for each generated TypeScript file to index.ts
+echo "/** List of contract names exported by this package. */" >>"$INDEX"
+echo "export const ContractNames = [" >>"$INDEX"
 find "$OUT_DIR" -maxdepth 1 -type f -name '*.ts' ! -name 'index.ts' | while read -r TS_FILE; do
   CONTRACT_NAME=$(basename "$TS_FILE" .ts) # Remove the .ts extension to get the contract name
-  echo "export * from './${CONTRACT_NAME}.js';" >>"$INDEX"
+  echo "  '$CONTRACT_NAME'," >>"$INDEX"
 done
+echo "];" >>"$INDEX"
