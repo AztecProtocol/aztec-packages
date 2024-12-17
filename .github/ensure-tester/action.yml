@@ -101,6 +101,7 @@ runs:
       run:
         set +e;
         scripts/run_on_builder "
+          set -x
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
           $clone;
           cd ~/run-$RUN_ID;
