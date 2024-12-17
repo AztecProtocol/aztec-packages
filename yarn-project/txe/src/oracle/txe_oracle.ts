@@ -26,7 +26,6 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  Nullifier,
   type NullifierLeafPreimage,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   type PUBLIC_DATA_TREE_HEIGHT,
@@ -502,14 +501,16 @@ export class TXE implements TypedOracle {
     sortOrder: number[],
     limit: number,
     offset: number,
-    _status: NoteStatus,
+    status: NoteStatus,
   ) {
-    const syncedNotes = await this.simulatorOracle.getNotes(this.contractAddress, storageSlot, _status);
+    // Nullified pending notes are already removed from the list.
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
-    const notesToFilter = [...pendingNotes, ...syncedNotes];
+    const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
+    const dbNotes = await this.simulatorOracle.getNotes(this.contractAddress, storageSlot, status);
+    const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
-    const notes = pickNotes<NoteData>(notesToFilter, {
+    const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
         value: selectValues[i],
