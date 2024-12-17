@@ -1,5 +1,3 @@
-import { createLogger } from '@aztec/foundation/log';
-
 import fs from 'fs';
 
 import { EthCheatCodes } from '../eth_cheat_codes.js';
