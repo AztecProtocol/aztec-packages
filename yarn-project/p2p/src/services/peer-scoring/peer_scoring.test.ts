@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-import { getP2PDefaultConfig } from '../config.js';
+import { getP2PDefaultConfig } from '../../config.js';
 import { PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {

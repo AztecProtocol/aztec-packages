@@ -14,8 +14,8 @@ import {
   startNodes,
   stopNodes,
 } from '../../mocks/index.js';
+import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../peer_manager.js';
-import { PeerErrorSeverity } from '../peer_scoring.js';
 import { PING_PROTOCOL, RequestableBuffer, TX_REQ_PROTOCOL } from './interface.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));

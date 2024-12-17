@@ -238,6 +238,7 @@ class AvmTraceBuilder {
     void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
                                          const std::vector<FF>& siloed_note_hashes);
     void pay_fee();
+    void pad_trees();
     void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
     void handle_exceptional_halt();
 
