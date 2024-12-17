@@ -122,7 +122,7 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using SmallSubgroupIPA = SmallSubgroupIPA<Flavor>::SmallSubgroupIPAProver;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
 

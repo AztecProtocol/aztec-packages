@@ -138,7 +138,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    return verified;
+    return verified && opening_claim.consistency_checked;
 }
 
 bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)

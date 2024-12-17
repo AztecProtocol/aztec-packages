@@ -581,7 +581,6 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:final_evaluation");
             full_libra_purported_value += libra_evaluation;
-            info("sumcheck verifier ", full_libra_purported_value);
             full_libra_purported_value *= libra_challenge;
         };
         // Final round

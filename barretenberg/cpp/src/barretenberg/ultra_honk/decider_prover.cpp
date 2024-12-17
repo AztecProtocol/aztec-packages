@@ -59,7 +59,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using SmallSubgroupIPA = SmallSubgroupIPA<Flavor>::SmallSubgroupIPAProver;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);

@@ -179,7 +179,7 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    using SmallSubgroupIPA = SmallSubgroupIPA<Flavor>::SmallSubgroupIPAProver;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
 

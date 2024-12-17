@@ -110,5 +110,6 @@ template <typename Curve> struct BatchOpeningClaim {
     std::vector<typename Curve::AffineElement> commitments;
     std::vector<typename Curve::ScalarField> scalars;
     typename Curve::ScalarField evaluation_point;
+    bool consistency_checked = true;
 };
 } // namespace bb
