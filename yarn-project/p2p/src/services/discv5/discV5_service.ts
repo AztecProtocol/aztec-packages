@@ -8,9 +8,9 @@ import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
-import type { P2PConfig } from '../config.js';
-import { convertToMultiaddr } from '../util.js';
-import { type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
+import type { P2PConfig } from '../../config.js';
+import { convertToMultiaddr } from '../../util.js';
+import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
 
 export const AZTEC_ENR_KEY = 'aztec_network';
 

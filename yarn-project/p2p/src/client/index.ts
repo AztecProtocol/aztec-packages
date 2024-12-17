@@ -19,9 +19,9 @@ import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/ep
 import { MemoryEpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/memory_epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
-import { DiscV5Service } from '../service/discV5_service.js';
-import { DummyP2PService } from '../service/dummy_service.js';
-import { LibP2PService } from '../service/index.js';
+import { DiscV5Service } from '../services/discv5/discV5_service.js';
+import { DummyP2PService } from '../services/dummy_service.js';
+import { LibP2PService } from '../services/index.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export * from './p2p_client.js';
