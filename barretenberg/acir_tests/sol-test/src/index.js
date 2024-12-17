@@ -4,8 +4,9 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 
+// Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 447;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -147,6 +148,8 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
+  console.log("number of public inputs");
+  console.log(numPublicInputs);
   let publicInputsOffset = 0;
 
   // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not

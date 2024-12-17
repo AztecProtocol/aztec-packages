@@ -243,6 +243,7 @@ void prove_tube(const std::string& output_path)
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+    info("tube proof length: ", tube_proof.size());
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
