@@ -4,7 +4,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
-#include <chrono>
 #include <optional>
 #include <vector>
 
@@ -22,18 +21,7 @@ template <typename Flavor> struct ZKSumcheckData {
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
     static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
-    // static constexpr FF grumpkin_subgroup_generator =
-    //     FF(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
 
-    // static constexpr FF bn_254_subgroup_generator =
-    //     FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
-    /**
-     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
-     * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
-     * "MAX_PARTIAL_RELATION_LENGTH + 1".
-     */
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? 3 : 0;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.

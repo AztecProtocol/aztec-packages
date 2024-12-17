@@ -294,7 +294,6 @@ template <typename Flavor> class SumcheckProverRound {
                                                                   size_t round_idx)
     {
         bb::Univariate<FF, 3> libra_round_univariate;
-        info("inside sumcheck round: ", libra_round_univariate.size());
         // select the i'th column of Libra book-keeping table
         const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$

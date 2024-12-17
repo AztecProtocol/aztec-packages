@@ -566,7 +566,6 @@ template <typename Flavor> class SumcheckVerifier {
                 if (round_idx < multivariate_d) {
                     bool checked = round.check_sum(round_univariate);
                     verified = verified && checked;
-                    info("verified round ", round_idx, "  ", verified);
                     multivariate_challenge.emplace_back(round_challenge);
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     gate_separators.partially_evaluate(round_challenge);
@@ -602,7 +601,6 @@ template <typename Flavor> class SumcheckVerifier {
             final_check = (full_honk_purported_value == round.target_total_sum);
         }
         verified = final_check && verified;
-        info("last verification ", verified);
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         if constexpr (!Flavor::HasZK) {
             return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };

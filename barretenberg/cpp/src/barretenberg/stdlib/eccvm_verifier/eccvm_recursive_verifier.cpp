@@ -3,13 +3,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-namespace bb::stdlib {
 
-template <typename BuilderType>
-const typename grumpkin<BuilderType>::ScalarField grumpkin<BuilderType>::SUBGROUP_GENERATOR =
-    typename grumpkin<BuilderType>::ScalarField(
-        uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
-}
 namespace bb {
 
 template <typename Flavor>

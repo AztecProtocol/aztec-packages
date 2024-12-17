@@ -123,7 +123,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
-    info("gemini r! ", r_challenge);
 
     std::vector<Claim> claims =
         compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge, std::move(batched_group));

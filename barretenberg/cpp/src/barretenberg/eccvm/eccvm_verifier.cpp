@@ -62,7 +62,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     // If Sumcheck did not verify, return false

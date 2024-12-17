@@ -53,52 +53,6 @@ TYPED_TEST(KZGTest, SingleInLagrangeBasis)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
 
-    std::array<uint64_t, 8> factors_of_p_minus_1 = { 1 << 28, 3, 13, 983, 237073, 11003, 405928799, 1670836401704629 };
-
-    Fr num_random = Fr::random_element();
-    Fr prod{ 1 };
-    info(num_random);
-    for (size_t idx = 0; idx < 8; idx++) {
-        num_random = num_random.pow(factors_of_p_minus_1[idx]);
-        prod *= Fr{ factors_of_p_minus_1[idx] };
-    }
-    auto gen = Fr{ 1 };
-    uint32_t first_limb = 749095036;
-    uint32_t second_limb = 4241987048;
-    uint32_t fourth_limb = 1922377697;
-
-    uint64_t two_to_16 = 1 << 16;
-
-    if (num_random != Fr{ 1 }) {
-        info("generator", num_random);
-        Fr first_chunk = num_random.pow(fourth_limb);
-        Fr second_chunk = num_random.pow(two_to_16);
-        second_chunk = second_chunk.pow(two_to_16);
-        second_chunk = second_chunk.pow(second_limb);
-
-        Fr third_chunk = num_random.pow(two_to_16);
-        third_chunk = third_chunk.pow(two_to_16);
-        third_chunk = third_chunk.pow(two_to_16);
-        third_chunk = third_chunk.pow(two_to_16);
-        third_chunk = third_chunk.pow(first_limb);
-        prod *= Fr(1 << 64) * Fr(first_limb) + Fr(1 << 32) * Fr(second_limb) + Fr(fourth_limb);
-        gen = first_chunk * second_chunk * third_chunk;
-    }
-    info("minus 1 ", Fr(-1));
-
-    // info(Fr{ 1 } + prod * Fr{ 29 * 13 });
-
-    if ((gen.pow(29 * 3) == Fr{ 1 }) && (gen.pow(29) != Fr{ 1 }) && (gen.pow(3) != Fr{ 1 })) {
-        info("gen?", gen);
-    }
-
-    // for (size_t idx = 0; idx < 7; idx++) {
-    //     info("gen pow ", factors_of_p_minus_1[idx], "  ", gen.pow(factors_of_p_minus_1[idx]));
-    // }
-
-    // for (size_t idx = 0; idx < 1000; idx++) {
-    //     info(idx, "  ", gen.pow(idx));
-    // }
     // create a random univariate (coefficients are in Lagrange basis)
     auto witness = bb::Univariate<Fr, n>::get_random();
     // define the interpolation domain

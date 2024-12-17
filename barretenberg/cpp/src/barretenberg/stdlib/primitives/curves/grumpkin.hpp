@@ -35,4 +35,10 @@ template <typename CircuitBuilder> struct grumpkin {
     static constexpr size_t SUBGROUP_SIZE = 87;
     static const ScalarField SUBGROUP_GENERATOR;
 };
+
+template <typename BuilderType>
+const typename grumpkin<BuilderType>::ScalarField grumpkin<BuilderType>::SUBGROUP_GENERATOR =
+    typename grumpkin<BuilderType>::ScalarField(
+        uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+
 } // namespace bb::stdlib

@@ -66,7 +66,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
-
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
                                                               proving_key->proving_key.polynomials.get_to_be_shifted(),
