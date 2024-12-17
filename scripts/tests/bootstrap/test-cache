@@ -1,22 +1,17 @@
 #!/bin/bash
 # Use the minio script base. We ensure minio is running and wipe it.
-source $(git rev-parse --show-toplevel)/ci3/source_test
-
+root=$(git rev-parse --show-toplevel)
+source $root/ci3/source_test
 set -o pipefail
 
 export DENOISE=${DENOISE:-1}
 # Tests the various modes of bootstrap test usage.
-# We wrap and mock ci3/test_should_run to detect when a test tries to run.
-# We never return true, as we don't actually want to run tests here.
-# - First, with CI=0, we assert that should_run returns true to each test.
-# - Then, with CI=1, we assert that should_run returns true to each test, as it is a first pass.
-# - Next, with CI=1, we assert that should_run returns false to each test, as it is a second pass.
-# We mock ci3/test_should_run for this purpose.
+# We mock ci3/test_should_run and ci3/cache_download for this purpose.
 function run_cleanup() {
-  rm -f cache_download.bkup
-  rm -f test_should_run.bkup
-  git checkout -- test_should_run
-  git checkout -- cache_download
+  rm -f $ci3/cache_download.bkup
+  rm -f $ci3/test_should_run.bkup
+  git checkout -- $ci3/test_should_run
+  git checkout -- $ci3/cache_download
 }
 function exit_cleanup() {
   run_cleanup
@@ -27,11 +22,11 @@ trap exit_cleanup EXIT
 function run_bootstrap() {
   set +e
   project=$1
-  cp test_should_run test_should_run.bkup
-  cp cache_download cache_download.bkup
+  cp $ci3/test_should_run $ci3/test_should_run.bkup
+  cp $ci3/cache_download $ci3/cache_download.bkup
   # Install our mocks
-  cp $2 test_should_run
-  cp $3 cache_download
+  cp $2 $ci3/test_should_run
+  cp $3 $ci3/cache_download
   rm -f $ci3/.test_failures
 
   cd $root/$project

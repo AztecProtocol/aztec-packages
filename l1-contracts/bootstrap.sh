@@ -53,6 +53,9 @@ case "$cmd" in
     build
     denoise test
     ;;
+  "hash")
+    echo $hash
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

@@ -2,7 +2,7 @@
 
 # Usage: ./e2e_compose_test.sh <test>
 # Optional environment variables:
-#   COMPOSE_FILE (default: ./scripts/docker-compose.yml)
+#   COMPOSE_FILE (default: ./scripts/docker-compose-images.yml)
 #   LOG_LEVEL (default: "verbose")
 #   HARDWARE_CONCURRENCY (default: "")
 #   ENABLE_GAS (default: "")
@@ -15,7 +15,7 @@ set -eu
 # Main positional parameter
 export TEST="$1"
 # Variables with defaults
-COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose-images.yml}"
 export LOG_LEVEL="${LOG_LEVEL:-verbose}"
 export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 export AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"

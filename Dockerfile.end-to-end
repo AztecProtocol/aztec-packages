@@ -1,19 +1,4 @@
-FROM ubuntu:noble
-# add repository for chromium
-RUN apt-get update && apt-get install -y software-properties-common \
-  && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
-  && apt-get install -y wget gnupg \
-  && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-  && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-  && apt update && apt install curl chromium nodejs netcat-openbsd -y \
-  && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /usr/local/bin \
-  && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-  && chmod +x /usr/local/bin/kubectl \
-  && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-  && chmod +x get_helm.sh \
-  && ./get_helm.sh \
-  && rm get_helm.sh
+FROM aztecprotocol/end-to-end-base
 
 ENV CHROME_BIN="/usr/bin/chromium"
 ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
@@ -25,9 +10,9 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 ENV PROVER_AGENT_CONCURRENCY=8
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-RUN npm install --global yarn@4.5.2
 
 COPY /usr/src /usr/src
 COPY /anvil /opt/foundry/bin/anvil
+
 WORKDIR /usr/src/yarn-project/end-to-end
-ENTRYPOINT ["yarn", "test"]
+ENTRYPOINT ["yarn", "test:e2e-no-docker"]

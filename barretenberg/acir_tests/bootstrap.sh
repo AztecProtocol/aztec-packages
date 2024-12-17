@@ -5,11 +5,13 @@ cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
 function build {
-  # Clone the execution success tests from noir repo.
-  rm -rf acir_tests
-  cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-  # Running these requires extra gluecode so they're skipped.
-  rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+  if [ ! -d acir_tests ]; then
+    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+    # Running these requires extra gluecode so they're skipped.
+    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
+    rm -rf acir_tests/regression_5045
+  fi
 
   # COMPILE=2 only compiles the test.
   github_group "acir_tests compiling"
@@ -38,9 +40,14 @@ function build {
   github_endgroup
 }
 
+function hash {
+  cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
+}
 function test {
-  local hash=$(cache_content_hash ../../noir/.rebuild_patterns_native ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns)
+  github_group "acir_tests testing"
+  local hash=$(hash)
   if ! test_should_run barretenberg-acir-tests-$hash; then
+    github_endgroup
     return
   fi
 
@@ -139,6 +146,9 @@ case "$cmd" in
   "ci")
     denoise build
     denoise test
+    ;;
+  "hash")
+    hash
     ;;
   "test")
     denoise test

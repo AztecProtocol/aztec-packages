@@ -4,6 +4,8 @@ test:
   WORKDIR /usr/src/noir
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
   RUN ./scripts/test_native.sh
 
 examples:
@@ -14,15 +16,16 @@ examples:
   WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
   RUN ./test.sh
 
-  WORKDIR /usr/src/noir/noir-repo/prove_and_verify
+  WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
   RUN ./test.sh
 
-  WORKDIR /usr/src/noir/noir-repo/recursion
+  WORKDIR /usr/src/noir/noir-repo/examples/recursion
   RUN ./test.sh
 
 format:
   FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
   WORKDIR /usr/src/noir/noir-repo/test_programs
   RUN ./format.sh check
 
@@ -34,18 +37,13 @@ packages-deps:
   COPY noir-repo/.github/scripts/wasm-bindgen-install.sh /usr/src/noir/noir-repo/.github/scripts/wasm-bindgen-install.sh
   WORKDIR /usr/src/noir/noir-repo
   RUN .github/scripts/wasm-bindgen-install.sh
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
   RUN yarn install --immutable
-
-packages:
-  FROM +packages-deps
-  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
-  SAVE ARTIFACT packages
 
 packages-test-build:
   FROM +packages-deps
   ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
   ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
-  ENV GIT_COMMIT=$(/usr/src/ci3/cache_content_hash /usr/src/noir/.rebuild_patterns_native | sed 's/_//')
   WORKDIR /usr/src/barretenberg/ts
   RUN yarn --immutable
 
@@ -92,47 +90,3 @@ packages-test-browser:
 packages-test:
   BUILD +packages-test-node
   BUILD +packages-test-browser
-
-build-acir-tests:
-  FROM ../+bootstrap-noir-bb
-  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-  WORKDIR /usr/src/noir/noir-repo/test_programs
-  RUN /usr/src/noir/noir-repo/target/release/nargo --version
-  RUN ./rebuild.sh
-  SAVE ARTIFACT /usr/src/noir/noir-repo/test_programs/acir_artifacts/*
-
-barretenberg-acir-benches-bb:
-  FROM ../+bootstrap-noir-bb
-  ENV TEST_SRC=/usr/src/acir_artifacts
-  WORKDIR /usr/src/barretenberg/acir_tests
-
-bench-acir-bb:
-  # This target is used for debugging the benchmarking target.
-  # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +barretenberg-acir-benches-bb
-  RUN ./bench_acir_tests.sh
-
-export-bench-acir-bb:
-  ARG EARTHLY_GIT_HASH
-  FROM +barretenberg-acir-benches-bb
-  SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
-
-bench-publish-acir-bb:
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG EARTHLY_GIT_HASH
-  LOCALLY
-
-  # Let docker compose know about the pushed tags above
-  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
-  # Optimize to not cause serial behavior if image already exists
-  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
-    WAIT
-      BUILD +export-bench-acir-bb
-    END
-  END
-
-  RUN mkdir -p ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
-
-  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$EARTHLY_GIT_HASH

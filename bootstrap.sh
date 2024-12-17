@@ -120,50 +120,78 @@ case "$cmd" in
     exit 0
   ;;
   "test-e2e")
-    ./bootstrap.sh image-aztec
     ./bootstrap.sh image-e2e
+    shift 1
     yarn-project/end-to-end/scripts/e2e_test.sh $@
     exit
   ;;
   "test-cache")
-    # Spin up ec2 instance and bootstrap.
+    # Test cache by running minio with full and fast bootstraps
     scripts/tests/bootstrap/test-cache
     exit
     ;;
+  "test-boxes")
+    github_group "test-boxes"
+    bootstrap_local "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
+    exit
+  ;;
   "image-aztec")
+    image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
+    if docker_has_image $image; then
+      exit
+    fi
     github_group "image-aztec"
     source $ci3/source_tmp
-    mkdir -p $TMP/usr/src
-    # TODO(ci3) eventually this will just be a normal mounted docker build
-    denoise earthly --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    local git_hash=$(git rev-parse --short HEAD)
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec -t aztecprotocol/aztec:$git_hash $TMP $@
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    echo "docker image build:"
+    docker pull aztecprotocol/aztec-base:v1.0-$(arch)
+    docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
+    docker build -f Dockerfile.aztec -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     github_endgroup
     exit
   ;;
   "image-e2e")
-    github_group "image-aztec"
+    ./bootstrap.sh image-aztec
+    image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
+    fi
+    github_group "image-e2e"
     source $ci3/source_tmp
-    mkdir -p $TMP/usr
-    # TODO(ci3) eventually this will just be a normal mounted docker build
-    denoise earthly --artifact +bootstrap-end-to-end/usr/src $TMP/usr
-    denoise earthly --artifact +bootstrap-aztec/anvil $TMP/anvil
-    local git_hash=$(git rev-parse --short HEAD)
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.end-to-end -t aztecprotocol/end-to-end:$git_hash $TMP $@
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
+    scripts/earthly-ci --artifact +bootstrap-end-to-end/anvil $TMP/anvil
+    echo "docker image build:"
+    docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
+    docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
+    docker build -f Dockerfile.end-to-end -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     github_endgroup
     exit
   ;;
   "image-faucet")
+    image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
+    fi
     github_group "image-faucet"
     source $ci3/source_tmp
     mkdir -p $TMP/usr
-    # TODO(ci3) eventually this will just be a normal mounted docker build
-    earthly --artifact +bootstrap-faucet/usr/src $TMP/usr
-    local git_hash=$(git rev-parse --short HEAD)
-    shift 1 # remove command parameter
-    docker build -f Dockerfile.aztec-faucet -t aztecprotocol/aztec-faucet:$git_hash $TMP $@
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-faucet/usr/src $TMP/usr/src
+    echo "docker image build:"
+    docker build -f Dockerfile.aztec-faucet -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
     github_endgroup
     exit
   ;;
@@ -171,7 +199,7 @@ case "$cmd" in
     # Drop through. source_bootstrap on script entry has set flags.
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
@@ -200,7 +228,5 @@ projects=(
 
 # Build projects.
 for project in "${projects[@]}"; do
-  echo
-  echo
   $project/bootstrap.sh $cmd
 done

@@ -3,6 +3,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+if [ "$cmd" = hash ]; then
+  cache_content_hash .rebuild_patterns
+  exit
+fi
+
 github_group "noir-projects build"
 
 # TODO: Move the build image, or better, just use devcontainer as our build container.

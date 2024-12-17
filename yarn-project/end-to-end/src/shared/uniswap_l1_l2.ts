@@ -36,7 +36,7 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // To generate a new dump, use the `dumpChainState` cheatcode.
 // To start an actual fork, use the command:
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
-// For CI, this is configured in `run_tests.sh` and `docker-compose.yml`
+// For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
 // docs:start:uniswap_l1_l2_test_setup_const
 const TIMEOUT = 360_000;

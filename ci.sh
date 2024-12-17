@@ -183,8 +183,32 @@ case "$cmd" in
     fi
     exit 0
     ;;
+  "test-kind-network")
+    test=${1:-transfer.test.ts}
+    values=${2:-3-validators}
+    ./bootstrap.sh image-e2e
+    cd yarn-project/end-to-end
+    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
+    exit 0
+    ;;
+  "test-network")
+    shift 1
+    scripts/run_native_testnet.sh -i $@
+    exit 0
+    ;;
+  "gha-url")
+    # TODO(ci3) change over to CI3 once fully enabled.
+    workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
+    run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
+    if [ -z "$run_url" ]; then
+      echo "No workflow runs found for branch '$BRANCH'."
+      exit 1
+    fi
+    echo "$run_url"
+    exit 0
+    ;;
   *)
-    echo "Unknown command: $cmd"
+    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|test-kind-network|test-network|gha-url"
     exit 1
     ;;
 esac

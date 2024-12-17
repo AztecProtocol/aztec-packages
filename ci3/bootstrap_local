@@ -6,18 +6,23 @@
 # We mount in aws credentials to leverage the s3 cache.
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
 # If anything goes wrong during the run, the container will drop into a shell.
-source $(git rev-parse --show-toplevel)/ci3/source
 
+root=$(git rev-parse --show-toplevel)
+source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
+cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 
 if ! git diff --quiet; then
   echo "There are local changes to tracked files."
   exit 1
 fi
 
-docker run --name aztec_build -ti --rm \
+interactive_args=""
+# Only add -ti and a name if we are not in CI.
+[ "${CI:-0}" = "0" ] && interactive_args="--name aztec_build -ti"
+docker run $interactive_args --rm \
   --privileged \
-  -v boostrap_ci_local_docker:/var/lib/docker \
+  -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/root/.aws \
   aztecprotocol/ci:2.0 bash -c "
@@ -27,7 +32,7 @@ docker run --name aztec_build -ti --rm \
   # Ensure we get a clean clone of the repo.
   git init &>/dev/null
   git remote add origin https://github.com/aztecprotocol/aztec-packages
-  git fetch --depth 1 origin $current_commit
+  git fetch --depth 1 origin $current_commit 2>/dev/null || (echo 'The commit was not pushed, run aborted.' && exit 1)
   git checkout FETCH_HEAD &>/dev/null
-  CI=1 ./bootstrap.sh fast || exec /bin/bash
+  $cmd
 "

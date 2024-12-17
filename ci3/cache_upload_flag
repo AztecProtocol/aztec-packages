@@ -9,7 +9,7 @@ fi
 
 if [ "${CI:-0}" -lt 1 ]; then
   # Don't upload if CI isn't set. No need to muddle with dev runs.A
-  echo "Not uploading remote test flag $1 because CI=0."
+  echo "Not uploading test flag $1 because CI=0."
   exit 0
 fi
 
@@ -23,9 +23,9 @@ NAME="$1"
 
 shift 1
 if [ -n "${GITHUB_RUN_URL:-}" ]; then
-  CONTENT="Flag $NAME success cached: See $GITHUB_RUN_URL."
+  CONTENT="Flag $NAME success cached: See $GITHUB_RUN_URL"
 else
-  CONTENT="Flag $NAME success cached: Ran outside of Github Actions."
+  CONTENT="Flag $NAME success cached: Ran outside of Github Actions"
 fi
 
 echo "$CONTENT" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$NAME.flag" --quiet --no-progress

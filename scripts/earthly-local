@@ -5,42 +5,15 @@ export EARTHLY_ALLOW_PRIVILEGED=true
 
 set -eu
 
-function start_minio() {
-  if nc -z 127.0.0.1 12000 >/dev/null 2>&1; then
-    # MinIO is already running.
-    return
-  fi
-  echo "Starting MinIO..."
-  docker run -d --name minio \
-    -p 12000:9000 -p 12001:9001 \
-    -v minio-data:/data \
-    quay.io/minio/minio server /data --console-address ":12001"
-
-  # Wait for MinIO to be ready
-  while ! nc -z 127.0.0.1 12000 >/dev/null 2>&1; do
-    sleep 1
-  done
-
-  # Create the cache bucket
-  echo "Creating MinIO bucket for cache..."
-  AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" \
-    aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts 2>/dev/null || true
-}
-
-# Local file server for a quicker cache layer
-start_minio
-
 # Initialize variables
 S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
 S3_BUILD_CACHE_DOWNLOAD=${S3_BUILD_CACHE_DOWNLOAD:-false}
-S3_BUILD_CACHE_MINIO_URL="http://$(hostname -I | awk '{print $1}'):12000"
 
 # Check for unstaged changes to avoid polluting the cache
 if ! git diff-index --quiet HEAD --; then
   echo "Warning: You have unstaged changes. The build will run in the context of the last commit." >&2
   S3_BUILD_CACHE_UPLOAD=false
   S3_BUILD_CACHE_DOWNLOAD=false
-  S3_BUILD_CACHE_MINIO_URL=""
 elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ]; then
   S3_BUILD_CACHE_DOWNLOAD=true
 elif [ -f ~/.aws/credentials ]; then
@@ -56,7 +29,6 @@ fi
 # Run Earthly with all secrets
 earthly --secret AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
         --secret AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" \
-        --secret S3_BUILD_CACHE_MINIO_URL="$S3_BUILD_CACHE_MINIO_URL" \
         --secret S3_BUILD_CACHE_UPLOAD="$S3_BUILD_CACHE_UPLOAD" \
         --secret S3_BUILD_CACHE_DOWNLOAD="$S3_BUILD_CACHE_DOWNLOAD" \
         --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN="${AZTEC_BOT_GITHUB_TOKEN:-}" "$@"

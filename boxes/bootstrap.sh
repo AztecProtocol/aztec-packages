@@ -9,6 +9,10 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
+hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
+
 function build {
   # Moved to test for now as there was no cache here.
   return
@@ -20,16 +24,14 @@ function test {
   }
   export -f test_box
 
-  hash=$(cache_content_hash ../noir/.rebuild_patterns* \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns)
-
+  github_group "boxes"
   if test_should_run "boxes-test-$hash"; then
     # TODO: Move back to build and use cache.
     denoise 'yarn && echo "Building... " && yarn build'
     parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
     cache_upload_flag boxes-test-$hash
   fi
+  github_endgroup "boxes"
 }
 
 case "$cmd" in
@@ -41,6 +43,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "hash")
+    echo $hash
     ;;
   "ci")
     build

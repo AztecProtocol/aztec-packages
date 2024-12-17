@@ -126,6 +126,7 @@ build:
           parallel \
           xz-utils \
           lsof \
+          xxd \
           # C++ (clang=18, which we will move to. 16 is for current build.)
           build-essential \
           cmake \
@@ -235,7 +236,6 @@ ci:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
   SAVE IMAGE --push aztecprotocol/ci:2.0
-
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
@@ -466,3 +466,45 @@ sysbox:
   ARG TARGETARCH
   SAVE IMAGE aztecprotocol/sysbox:2.1-$TARGETARCH
   SAVE IMAGE aztecprotocol/sysbox:2.1
+
+########################################################################################################################
+# Bases for images we run in e.g. docker or kubernetes
+
+aztec-base:
+  FROM ubuntu:noble
+  RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
+
+# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
+end-to-end-base:
+  FROM ubuntu:noble
+  # Add our dev testing dependencies.
+  RUN apt-get update && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+    && apt update && apt install curl chromium nodejs npm netcat-openbsd -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /usr/local/bin \
+    && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x /usr/local/bin/kubectl \
+    && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+    && chmod +x get_helm.sh \
+    && ./get_helm.sh \
+    && rm get_helm.sh \
+    && npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
+
+all-ci:
+  # Build all images needed by ci, pushing them to the registry.
+  BUILD +base-build
+  BUILD +wasi-sdk
+  BUILD +foundry
+  BUILD +build
+  # TODO(#10677): this needs to be pushed while also updating our CI AMI
+  # BUILD +ci
+  BUILD +aztec-base
+  BUILD +end-to-end-base

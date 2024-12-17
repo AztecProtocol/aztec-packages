@@ -3,11 +3,10 @@ name: Setup Workflow
 description: "Reusable setup steps"
 
 inputs:
-  runner_action:
-    default: start
-    required: false
   runner_type:
     required: true
+  username:
+    required: false
   run:
     # command to run once builder/tester available
     required: false
@@ -17,6 +16,8 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
+    - name: CI Setup
+      uses: ./.github/ci-setup-action
     - name: Select Instance Type and AMI
       id: select_instance
       shell: bash
@@ -24,12 +25,15 @@ runs:
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
         echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
+        if [ -n "${{ inputs.username }}" ]; then
+          USERNAME="${{ inputs.username }}"
+        fi
+        # Otherwise expect in env
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types, aws chooses for us based on capacity
           echo "instance_type=m6a.32xlarge m6i.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6in.32xlarge" >> $GITHUB_OUTPUT
-          echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=300" >> $GITHUB_OUTPUT
+          echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
           echo "runner_concurrency=20" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
@@ -37,10 +41,12 @@ runs:
           # 64-core ARM instance type
           echo "instance_type=r6g.16xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-0d8a9b0419ddb331a" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
           echo "runner_concurrency=8" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-arm" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
+        fi
+        if [ -n "$RUNNER_CONCURRENCY" ]; then
+          echo "runner_concurrency=$RUNNER_CONCURRENCY" >> $GITHUB_OUTPUT
         fi
 
     - name: Start Builder
@@ -48,7 +54,7 @@ runs:
       with:
         # inputs:
         runner_label: ${{ steps.select_instance.outputs.runner_label }}
-        subaction: ${{ inputs.runner_action }}
+        subaction: start
         github_token: ${{ env.GH_SELF_HOSTED_RUNNER_TOKEN }}
         aws_access_key_id: ${{ env.AWS_ACCESS_KEY_ID }}
         aws_secret_access_key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -66,64 +72,39 @@ runs:
         ec2_subnet_id: subnet-4cfabd25
         ec2_security_group_id: sg-0ccd4e5df0dcca0c9
         ec2_key_name: "build-instance"
-        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
-
-    # Set up a context for this run
-    - name: Copy Repo to Builder
+        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"},{"Key": "Builder", "Value": "true"}]'
+    # This disambiguates from 'tester'
+    - name: Set BUILDER_SPOT_IP and BUILDER_SPOT_KEY
       shell: bash
+      run: |
+        echo "BUILDER_SPOT_IP=${SPOT_IP}" >> $GITHUB_ENV
+        echo "BUILDER_SPOT_KEY=${SPOT_KEY}" >> $GITHUB_ENV
+    # Set up a context for this run
+    - name: Initialize Builder
       env:
         UNPACK: |
           [ -d ~/run-$RUN_ID ] || (
-            mkdir -p ~/run-$RUN_ID-git &&
-            cd ~/run-$RUN_ID-git && tar xzf - &&
-            git config --global advice.detachedHead false &&
-            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID &&
-            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key &&
-            chmod 600 ~/.ssh/build_instance_key
+            mkdir -p ~/run-$RUN_ID
+            cd ~/run-$RUN_ID
+            git init &>/dev/null
+            git remote add origin https://github.com/aztecprotocol/aztec-packages
+            git fetch --depth 1 origin $GIT_COMMIT
+            git checkout FETCH_HEAD >/dev/null
           )
+      shell: bash
       run: |
-        sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
-        set -x
-        # detect run folder
-        if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
-          echo "Copying local repo to spot"
-          (tar czf - .git || true) | scripts/run_on_builder \
-            "flock /var/lock/git.lock bash -c '$UNPACK'"
-        fi
-
-    - name: Attach EBS Cache Disk
-      uses: ./.github/run-on-builder
-      with:
-        run: |
-          # give time in case another instance started the clone first
-          for i in {1..30} ; do
-            [ -f ./scripts/ci/attach_ebs_cache.sh ] && break
-            sleep 1
-          done
-          # attach {ebs_cache_size}-gb cache disk
-          export AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
-          export AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
-          sudo -E ./scripts/ci/attach_ebs_cache.sh ${{ steps.select_instance.outputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
+        # need to call run_on_builder as the action version assumes git is set up
+        run_on_builder "sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}; flock /var/lock/git.lock bash -c '$UNPACK'"
 
     - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
       with:
         run: |
+          [ -x /usr/local/bin/earthly ] || ci3/earthly_install
           # One-time config
           if ! [ -f ~/maybe_exit_spot.sh ] ; then
             cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
             cp scripts/ci/spot_runner_graceful_exit.sh ~/spot_runner_graceful_exit.sh
-            # Get the used space on /dev/nvme1n1 in bytes
-            used_space=$(df /var/lib/docker | awk 'NR==2 {print $3}')
-            # Compare and conditionally prune
-            if [[ "$used_space" -gt 192000000 ]] ; then
-              echo "Used space is greater than 192GB. Running 'docker system prune'."
-              docker system prune -f -a || true
-              echo "Pruned docker images."
-            else
-              # prune only dangling images
-              docker system prune || true
-            fi
             # Run maybe_exit_spot.sh every minute
             chmod +x ~/spot_runner_graceful_exit.sh
             chmod +x ~/maybe_exit_spot.sh
@@ -132,8 +113,52 @@ runs:
           else
             echo "Chron jobs already configured."
           fi
-
-    - name: Run On Builder
+    - name: Docker Login
       uses: ./.github/run-on-builder
       with:
+        run: |
+          i=0
+          while ! systemctl is-active --quiet docker; do
+            sleep 2
+            if [ $(( i++ )) -gt 60 ]; then
+              echo "Docker service not found! Report this."
+              exit 1
+            fi
+          done
+          echo "Docker service is active!"
+          echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+    - name: Run On Builder
+      id: test
+      env:
+        RUN_SCRIPT: |
+          cd ~/run-${{ env.RUN_ID }};
+          ci3/aws_handle_evict "${{ inputs.run }}"
+      shell: bash
+      run:
+        set +e;
+        exit_code=254
+        scripts/run_on_builder "$RUN_SCRIPT";
+        exit_code=$?;
+        if [ $exit_code = 255 ]; then
+          echo "Treating ssh termination as spot eviction.";
+          exit_code=155;
+        fi;
+        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
+        if [ $exit_code = 155 ]; then
+          echo "Spot eviction detected - retrying with on-demand.";
+        fi;
+
+    - name: Re-run with On-Demand
+      uses: ./.github/ensure-builder
+      if: steps.test.outputs.exit_code == '155' && inputs.spot_strategy != 'None'
+      with:
+        username: ${{ inputs.username }}
+        runner_type: ${{ inputs.runner_type}}
+        spot_strategy: None
         run: ${{ inputs.run }}
+
+    # If we aren't rerunning, report exit code
+    - name: Report Exit Code
+      shell: bash
+      if: steps.test.outputs.exit_code != '155' || inputs.spot_strategy == 'None'
+      run: exit ${{ steps.test.outputs.exit_code }}

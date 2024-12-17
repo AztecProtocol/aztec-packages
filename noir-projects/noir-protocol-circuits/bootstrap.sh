@@ -12,7 +12,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
 export BB_HASH=$(cache_content_hash)
-export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns_native
+export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns
 export NARGO_HASH=$(cache_content_hash)
 
 tmp_dir=./target/tmp
@@ -111,10 +111,10 @@ function build {
 
 function test {
   set -eu
-  # Wether we run the tests or not is corse grained.
+  # Whether we run the tests or not is corse grained.
   name=$(basename "$PWD")
   export REBUILD_PATTERNS="^noir-projects/$name"
-  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns_native)
+  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns)
   CIRCUITS_HASH=$(cache_content_hash)
   if ! test_should_run $name-tests-$CIRCUITS_HASH; then
     return

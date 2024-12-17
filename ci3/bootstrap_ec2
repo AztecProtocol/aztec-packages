@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-"./bootstrap.sh ci || exec bash"}
 postfix=${2:-}
+cores=${CORES:-128}
 NO_TERMINATE=${NO_TERMINATE:-0}
 # picked up by github_group and github_endgroup
 GITHUB_LOG=${GITHUB_LOG:-}
@@ -41,7 +42,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name 128 x86_64)
+ip_sir=$(aws_request_instance $instance_name $cores x86_64)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
@@ -77,8 +78,8 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       cd /root/aztec-packages
       git init &>/dev/null
       git remote add origin https://github.com/aztecprotocol/aztec-packages
-      git fetch --depth 1 origin $current_commit
-      git checkout FETCH_HEAD >/dev/null
+      git fetch --depth 1 origin $current_commit &>/dev/null
+      git checkout FETCH_HEAD &>/dev/null
       [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
       $cmd
     '

@@ -14,3 +14,14 @@
 ^noir/noir-repo/tooling/nargo_fmt
 ^noir/noir-repo/tooling/noirc_abi
 ^noir/noir-repo/tooling/acvm_cli
+^noir/Dockerfile.packages
+^noir/scripts/bootstrap_packages.sh
+^noir/scripts/test_js_packages.sh
+^noir/noir-repo/.yarn
+^noir/noir-repo/.yarnrc.yml
+^noir/noir-repo/package.json
+^noir/noir-repo/yarn.lock
+^noir/noir-repo/tooling/noir_codegen
+^noir/noir-repo/tooling/noir_js
+^noir/noir-repo/tooling/noir_js_types
+^noir/noir-repo/tooling/noirc_abi_wasm

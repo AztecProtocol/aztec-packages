@@ -1,138 +1,11 @@
 VERSION 0.8
 
-deps:
-    LOCALLY
-    LET packages = $(git ls-files "**/package*.json" package*.json)
-    LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    FROM ../build-images+from-registry
-
-    RUN npx playwright install && npx playwright install-deps
-
-    # copy bb, bb-js and noir-packages
-    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/bin
-    COPY ../barretenberg/cpp/+preset-release-world-state/bin /usr/src/barretenberg/cpp/build/bin
-    COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
-    COPY ../noir/+packages/packages /usr/src/noir/packages
+bootstrap:
+    FROM ../+bootstrap
     WORKDIR /usr/src/yarn-project
-    COPY --dir .yarn .yarnrc.yml yarn.lock .
-    FOR file IN $packages
-        COPY $file $file
-    END
-    RUN yarn install --immutable
-    FOR file IN $tsconfigs
-        COPY $file $file
-    END
-    COPY scripts/update_package_jsons.mjs scripts/update_package_jsons.mjs
-    RUN yarn prepare:check
-
-    # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
-    # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
-    # correctly for portalled packages, is to use --preserve-symlinks when running node.
-    # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
-    # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
-    # by initialising the module more than once. So at present I don't see a viable alternative.
-    RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
-
-build:
-    # Prefetch targets to not wait for +deps.
-    BUILD ../barretenberg/cpp/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+nargo
-    BUILD --pass-args ../noir-projects/+build
-    BUILD ../l1-contracts/+build
-    BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+packages
-    FROM +deps
-
-    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
-    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
-    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
-    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
-
-    WORKDIR /usr/src/yarn-project
-    COPY . .
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN ./bootstrap.sh
-
-
-build-dev:
-    FROM +build
-    SAVE ARTIFACT /usr/src /usr/src
-
-cli-base:
-    FROM +build
-    # Remove a bunch of stuff that we don't need that takes up space.
-    RUN rm -rf \
-        ../noir-projects \
-        ../l1-contracts \
-        ../barretenberg/ts/src \
-        ../barretenberg/ts/dest/node-cjs \
-        ../barretenberg/ts/dest/browser
-
-bb-cli:
-    FROM +cli-base
-
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
-
-    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
-    RUN rm -rf \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src
-
-    # yarn symlinks the binary to node_modules/.bin
-    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
-
-# helper target to generate vks in parallel
-verification-key:
-    ARG circuit="RootRollupArtifact"
-    FROM +bb-cli
-
-    # this needs to be exported as an env var for RUN to pick it up
-    ENV CIRCUIT=$circuit
-    RUN --entrypoint write-vk -c $CIRCUIT
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-protocol-verification-keys:
-    LOCALLY
-    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
-
-    FOR circuit IN $circuits
-        BUILD +verification-key --circuit=$circuit
-    END
-
-    # this could be FROM scratch
-    # but FOR doesn't work without /bin/sh
-    FROM ubuntu:noble
-    WORKDIR /usr/src/bb
-
-    FOR circuit IN $circuits
-        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
-    END
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-rollup-verifier-contract:
-    FROM +bb-cli
-    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-txe:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/txe && yarn cache clean
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/txe/dest/bin/index.js"]
-    SAVE ARTIFACT /usr/src /usr/src
 
 cli-wallet-build:
-    FROM +cli-base
+    FROM +bootstrap
     RUN yarn workspaces focus @aztec/cli-wallet --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -142,191 +15,46 @@ cli-wallet:
     COPY +cli-wallet-build/usr/src /usr/src
     ENTRYPOINT ["/usr/src/yarn-project/cli-wallet/wallet-entrypoint.sh"]
 
+# TODO(ci3) move to bootstrap.sh
 export-cli-wallet:
     FROM +cli-wallet
     ARG DIST_TAG="latest"
     ARG ARCH
     SAVE IMAGE --push aztecprotocol/cli-wallet:${DIST_TAG}${ARCH:+-$ARCH}
 
-aztec-prod:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    SAVE ARTIFACT /usr/src /usr/src
-
-aztec:
-    FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    COPY +aztec-prod/usr/src /usr/src
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    LET port=8080
-    ENV PORT=$port
-    HEALTHCHECK --interval=10s --timeout=10s --retries=6 --start-period=120s \
-        CMD curl -fsS http://127.0.0.1:$port/status
-    EXPOSE $port
-
-aztec-faucet-build:
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
-    RUN rm -rf \
-        aztec.js/dest/main.js \
-        end-to-end \
-        **/src
-    SAVE ARTIFACT /usr/src /usr/src
-
-# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
-end-to-end-prod:
-    BUILD ../spartan/+charts
-    FROM +cli-base
-    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
-    COPY --dir ../spartan/+charts/usr/src/spartan /usr/src/spartan
-
-    SAVE ARTIFACT /usr/src /usr/src
-
 anvil:
     FROM ../build-images+from-registry
     SAVE ARTIFACT /opt/foundry/bin/anvil
 
-end-to-end-base:
-    FROM ubuntu:noble
-    # add repository for chromium
-    RUN apt-get update && apt-get install -y software-properties-common \
-        && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
-        && apt-get install -y wget gnupg \
-        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd git -y \
-        && rm -rf /var/lib/apt/lists/* \
-        && mkdir -p /usr/local/bin \
-        && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-        && chmod +x /usr/local/bin/kubectl \
-        && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz \
-        && tar xf google-cloud-cli-linux-x86_64.tar.gz \
-        && mv google-cloud-sdk /usr/lib/google-cloud-sdk \
-        && /usr/lib/google-cloud-sdk/install.sh --additional-components gke-gcloud-auth-plugin --path-update false --quiet \
-        && ln -s /usr/lib/google-cloud-sdk/bin/gcloud /usr/bin/gcloud \
-        && rm google-cloud-cli-linux-x86_64.tar.gz \
-        && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
-        && chmod +x get_helm.sh \
-        && ./get_helm.sh \
-        && rm get_helm.sh
-
-    ENV CHROME_BIN="/usr/bin/chromium"
-    ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
-    ENV HARDWARE_CONCURRENCY=""
-    ENV FAKE_PROOFS=""
-    ENV BB_WORKING_DIRECTORY=/usr/src/bb
-    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-    ENV PROVER_AGENT_CONCURRENCY=8
-    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
-
-end-to-end:
-    FROM +end-to-end-base
-
-    COPY +anvil/anvil /opt/foundry/bin/anvil
-    COPY +end-to-end-prod/usr/src /usr/src
-    WORKDIR /usr/src/yarn-project/end-to-end
-    ENTRYPOINT ["yarn", "test"]
-
 scripts-prod:
-    FROM +build
+    FROM +bootstrap
     RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
-all:
-    BUILD +aztec
-    BUILD +end-to-end
-
-export-aztec:
-    ARG EARTHLY_GIT_HASH
-    FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
-
-export-aztec-arch:
-    FROM +aztec
-    ARG DIST_TAG="latest"
-    ARG ARCH
-    SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH:+-$ARCH}
-
-export-end-to-end:
-    ARG EARTHLY_GIT_HASH
-    FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
-
-export-end-to-end-arch:
-    FROM +end-to-end
-    ARG DIST_TAG="latest"
-    ARG ARCH
-    SAVE IMAGE --push aztecprotocol/end-to-end:${DIST_TAG}${ARCH:+-$ARCH}
-
-export-e2e-test-images:
-    BUILD +export-aztec
-    BUILD +export-end-to-end
-
-export-images-arch:
-    ARG DIST_TAG="latest"
-    ARG ARCH
-    BUILD +export-aztec-arch
-    BUILD +export-end-to-end-arch
-
 format-check:
-    FROM +build
+    FROM +bootstrap
     RUN yarn formatting
 
 test:
-    FROM +build
+    FROM +bootstrap
     RUN yarn test
 
 run-e2e:
     ARG test
     ARG log_level=""
     ARG debug=""
-    FROM +end-to-end
-    RUN DEBUG=$debug LOG_LEVEL=$log_level yarn test $test
+    FROM +bootstrap
+    RUN DEBUG=$debug yarn test $test
 
 prover-client-test:
-    FROM +build
+    FROM +bootstrap
     ARG test
     ARG log_level=""
     RUN cd prover-client && LOG_LEVEL=$log_level yarn test $test
 
-# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
-# Running this inside the main builder as the point is not to run this through dockerization.
-network-test:
-    ARG test=./test-transfer.sh
-    ARG validators=3
-    FROM +build
-    WORKDIR /usr/src/
-    # Bare minimum git setup to run 'git rev-parse --show-toplevel'
-    RUN git init -b master
-    COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
-    WORKDIR /usr/src/yarn-project
-    # All script arguments are in the end-to-end/scripts/native-network folder
-    ENV LOG_LEVEL=verbose
-    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        "$test" \
-        "./deploy-l1-contracts.sh $validators" \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        ./ethereum.sh \
-        "./prover-node.sh 8078 false" \
-        ./pxe.sh \
-        "./validators.sh $validators"
-
 publish-npm:
-    FROM +build
+    FROM +bootstrap
     ARG DIST_TAG="latest"
     ARG VERSION
     ARG DRY_RUN=0
-    WORKDIR /usr/src/yarn-project
     RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN

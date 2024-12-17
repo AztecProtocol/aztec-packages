@@ -2,15 +2,15 @@ name: CI3
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
+  # push:
+  #   branches:
+  #     - master
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - reopened
+  #     - labeled
 
 concurrency:
   # force parallelism in master
@@ -43,30 +43,3 @@ jobs:
           GITHUB_LOG: 1
         run: |
           BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
-
-  # TODO temporary while we churn CI
-  test-cache:
-    runs-on: ubuntu-latest
-    if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          # Ensure it is not an artificial merge commit
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-      - name: Run
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_LOG: 1
-        run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}-test-cache ./ci.sh ec2 "./bootstrap.sh test-cache"

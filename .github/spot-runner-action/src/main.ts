@@ -14,29 +14,13 @@ async function pollSpotStatus(
   ec2Client: Ec2Instance,
   ghClient: GithubClient
 ): Promise<string | "unusable" | "none"> {
-  // 6 iters x 10000 ms = 1 minute
-  for (let iter = 0; iter < 6; iter++) {
-    const instances = await ec2Client.getInstancesForTags("running");
-    if (instances.length <= 0) {
-      // we need to start an instance
-      return "none";
-    }
-    try {
-      core.info("Found ec2 instance, looking for runners.");
-      // TODO find out whatever happened here but we seem to not be able to wait for runners
-      //if (process.env.WAIT_FOR_RUNNERS === "false" || await ghClient.hasRunner([config.githubJobId])) {
-        // we have runners
-        return instances[0].InstanceId!;
-      //}
-    } catch (err) {}
-    // wait 10 seconds
-    await new Promise((r) => setTimeout(r, 10000));
+  const instances = await ec2Client.getInstancesForTags("running");
+  if (instances.length <= 0) {
+    // we need to start an instance
+    return "none";
   }
-  // we have a bad state for a while, error
-  core.warning(
-    "Looped for 1 minutes and could only find spot with no runners!"
-  );
-  return "unusable";
+  core.info("Found ec2 instance, returning it.");
+  return instances[0].InstanceId!;
 }
 
 async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
@@ -89,7 +73,8 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       // wait 10 seconds
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
-      if (config.githubActionRunnerConcurrency > 0) {
+      // TODO hacky check but this module is likely going away soon
+      if (config.ec2InstanceTags.includes("Builder")) {
         core.info("Polling to see if we somehow have an instance up");
         instanceId = await ec2Client.getInstancesForTags("running")[0]?.instanceId;
       }
@@ -128,7 +113,7 @@ async function startBareSpot(config: ActionConfig) {
   await establishSshContact(ip, config.ec2Key);
 }
 
-async function startWithGithubRunners(config: ActionConfig) {
+async function startBuilder(config: ActionConfig) {
   if (config.subaction === "stop") {
     await terminate();
     return "";
@@ -142,18 +127,6 @@ async function startWithGithubRunners(config: ActionConfig) {
   const ec2Client = new Ec2Instance(config);
   const ghClient = new GithubClient(config);
   let spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
-  if (spotStatus === "unusable") {
-    core.warning(
-      "Taking down spot as it has no runners! If we were mistaken, this could impact existing jobs."
-    );
-    if (config.subaction === "restart") {
-      throw new Error(
-        "Taking down spot we just started. This seems wrong, erroring out."
-      );
-    }
-    await terminate();
-    spotStatus = "none";
-  }
   let instanceId = "";
   let ip = "";
   if (spotStatus !== "none") {
@@ -174,21 +147,18 @@ async function startWithGithubRunners(config: ActionConfig) {
     if (!(await establishSshContact(ip, config.ec2Key))) {
       return false;
     }
-    await setupGithubRunners(ip, config);
-    // if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
-    // else {
-    //  core.error("Instance failed to register with Github Actions");
-    //  throw Error("Instance failed to register with Github Actions");
-    // }
+    if (config.githubActionRunnerConcurrency > 0) {
+      await setupGithubRunners(ip, config);
+    }
     core.info("Done setting up runner.")
   }
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
-  core.info("Logging BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use.");
-  await standardSpawn("bash", ["-c", `echo BUILDER_SPOT_IP=${ip} >> $GITHUB_ENV`]);
+  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+  await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
     "-c",
-    `echo BUILDER_SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
+    `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
   ]);
   return true;
 }
@@ -327,10 +297,10 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
 (async function () {
   try {
     const config = new ActionConfig();
-    if (config.githubActionRunnerConcurrency !== 0) {
+    if (config.ec2InstanceTags.includes("Builder")) {
       for (let i = 0; i < 3; i++) {
         // retry in a loop in case we can't ssh connect after a minute
-        if (await startWithGithubRunners(config)) {
+        if (await startBuilder(config)) {
           break;
         }
       }

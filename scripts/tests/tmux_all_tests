@@ -4,4 +4,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 export USE_CACHE=1
 export TEST=1
-tmux_split ci3-test-all ./avm-transpiler/bootstrap.sh ./barretenberg/bootstrap.sh ./boxes/bootstrap.sh ./l1-contracts/bootstrap.sh ./noir/bootstrap.sh ./noir-projects/bootstrap.sh ./yarn-packages/bootstrap.sh
+tmux_split aztec-test-all \
+   "./barretenberg/bootstrap.sh test" \
+   "./l1-contracts/bootstrap.sh test" \
+   "./noir/bootstrap.sh test" \
+   "./noir-projects/bootstrap.sh test" \
+   "./yarn-packages/bootstrap.sh test" \
+   "./boxes/bootstrap.sh test"

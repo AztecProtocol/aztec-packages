@@ -236,6 +236,9 @@ case "$cmd" in
     build full
     test
     ;;
+  "hash")
+    echo $hash
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

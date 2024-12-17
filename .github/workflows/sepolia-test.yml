@@ -46,7 +46,7 @@ jobs:
       - name: "Build E2E Image"
         timeout-minutes: 40
         run: |
-          earthly-ci ./yarn-project+export-e2e-test-images
+          ./bootstrap.sh image-e2e
 
       - name: Run Testnet Test
         timeout-minutes: 40

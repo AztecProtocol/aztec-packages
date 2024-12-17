@@ -1,132 +1,33 @@
 #!/usr/bin/env bash
 # A wrapper for Earthly that is meant to catch signs of known intermittent failures and continue.
 # The silver lining is if Earthly does crash, the cache can pick up the build.
+if [ "${CI:-0}" = 0 ]; then
+  # only use earthly-ci if local not set.
+  echo "Running earthly-local because CI is not 1."
+  exec "$(dirname $0)/earthly-local" $@
+fi
 set -eu -o pipefail
-
-MAX_WAIT_TIME=300 # Maximum wait time in seconds
-WAIT_INTERVAL=10  # Interval between checks in seconds
-elapsed_time=0
-
-OUTPUT_FILE=$(mktemp)
-INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' errors
-
-# Maximum attempts
-MAX_ATTEMPTS=6
-ATTEMPT_COUNT=0
 
 # earthly settings
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
-# make sure earthly gives annotations that github picks up
-export GITHUB_ACTIONS=true
+# we make our own groupings, ignore earthly's
+export GITHUB_ACTIONS=false
 export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/scripts/earthly-ci-config.yml
 
-function wipe_non_cache_docker_state {
-  flock -n "/var/lock/wipe_docker_state.lock" bash -c '
-    echo "Detected corrupted docker images. Wiping and trying again."
-    # Based on https://stackoverflow.com/a/75849307
-    # wipe everything but volumes where we have earthly cache
-    sudo service docker stop
-    sudo bash -c '"'"'rm -rf /var/lib/docker/{buildkit,containers,image,network,overlay2,plugins,runtimes,swarm,tmp,trust}/*'"'"' || true
-    # restart docker - might take down builds, but we need to recover anyway
-    sudo service docker restart
-  '
-}
-
-EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
 # Run earthly with our necesary secrets initialized
 # AWS credentials can be blank, however we will not use the S3 cache at all if so.
-
 EARTHLY_ARGS=""
 
-function run_earthly() {
-  # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
-  # we do not run with minio in CI
-  earthly --logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON \
-          --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-          --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
-          --secret S3_BUILD_CACHE_MINIO_URL="" \
-          --secret S3_BUILD_CACHE_UPLOAD="true" \
-          --secret S3_BUILD_CACHE_DOWNLOAD="true" \
-          --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
-          $EARTHLY_ARGS \
-          $@
-}
-
-function print_earthly_command_timings() {
-  jq --version >/dev/null || return
-  # Use jq to extract target names, start times, and end times
-  echo "TARGET TIMES"
-  jq -r '
-    .targets[] |
-    .name as $name |
-    (.startedAtUnixNanos | tonumber) as $start |
-    (.endedAtUnixNanos | tonumber) as $end |
-    "\($name) \($start) \($end)"
-  ' $EARTHLY_RUN_STATS_JSON | while read name start end; do
-    # Calculate duration in seconds using pure bash
-    duration_ns=$((end - start))
-    duration_s=$((duration_ns / 1000000000))
-    duration_ms=$(( (duration_ns % 1000000000) / 1000000 ))
-    # Print target name and duration in seconds and milliseconds
-    printf "%d.%03ds - %s\n" "$duration_s" "$duration_ms" "$name"
-  done | sort -n
-}
-
-# Handle earthly commands and retries
-while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
-  if run_earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
-    print_earthly_command_timings || true
-    exit 0  # Success, exit the script
-  else
-    print_earthly_command_timings || true
-    # Increment attempt counter
-    ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
-    echo "Attempt #$ATTEMPT_COUNT failed."
-
-    # Check the output for specific errors
-    if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
-      INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
-      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ]; then
-        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Starting again with no cache."
-        EARTHLY_ARGS="--no-cache $EARTHLY_ARGS"
-      else
-        echo "Got 'inconsistent graph state' or 'failed to get state for index'. Retrying once."
-        sleep 20
-      fi
-    elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null; then
-      echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. If this persists, try 'systemctl restart docker' on the spot instance."
-    elif grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null || grep 'Error response from daemon: removal of container earthly-buildkitd is already in progress: exit status 1' $OUTPUT_FILE >/dev/null ; then
-      echo "Detected an Earthly daemon restart, possibly due to it (mis)detecting a cache setting change, trying again..."
-    elif grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null; then
-      echo "Detected earthly unable to find buildkit, waiting and trying again..."
-      sleep 20
-    elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; then
-      if [ $ATTEMPT_COUNT -lt 3 ] ; then
-        echo "Detected earthly bootstrap happening in parallel and failing, waiting and trying again."
-      else
-        wipe_non_cache_docker_state
-      fi
-      sleep 20
-    elif grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null \
-         || grep 'could not start container "earthly-buildkitd"' $OUTPUT_FILE >/dev/null \
-         || grep 'could not determine buildkit address - is Docker or Podman running?' $OUTPUT_FILE >/dev/null \
-         || grep 'please make sure the URL is valid, and Docker 18.09 or later is installed on the remote host' $OUTPUT_FILE >/dev/null \
-         || grep 'docker: failed to register layer' $OUTPUT_FILE >/dev/null \
-         || grep 'docker: error during connect:' $OUTPUT_FILE >/dev/null \
-         || grep 'docker: failed to write digest data' >/dev/null \
-         || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null ; then
-      wipe_non_cache_docker_state
-      # wait for other docker restarts
-      sleep 20
-    else
-      # If other errors, exit the script
-      echo "Errors may exist in other jobs. Please see the run summary page and check for Build Summary. If there are no errors, it may be because runs were interrupted due to runner going down (please report this)."
-      exit 1
-    fi
-  fi
-done
-
-echo "Maximum attempts reached, exiting with failure."
-exit 1
+# We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
+# we do not run with minio in CI
+earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+        --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+        --secret S3_BUILD_CACHE_MINIO_URL="" \
+        --secret S3_BUILD_CACHE_UPLOAD="true" \
+        --secret S3_BUILD_CACHE_DOWNLOAD="true" \
+        --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
+        $EARTHLY_ARGS \
+        $@ \
+        --GITHUB_RUN_URL="${GITHUB_RUN_URL:-}"

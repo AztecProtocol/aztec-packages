@@ -1,9 +1,8 @@
-
 #!/bin/bash
 # Script base for testing the cache with minio.
 # The cache is essentially ephemeral this way.
-# Any calls to cache folder functions work with hitting local minio instead of S3.
-source "$(git rev-parse --show-toplevel)/ci3/base/source"
+# Any calls to cache_* functions work with hitting local minio instead of S3.
+source "$(git rev-parse --show-toplevel)/ci3/source"
 
 TEST_PORT=9338
 

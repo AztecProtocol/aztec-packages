@@ -15,7 +15,7 @@ export ci3="$(git rev-parse --show-toplevel)/ci3"
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
 
 function hash_str {
-  echo $1 | git hash-object --stdin | tr -d '\n'
+  echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
 }
 export -f hash_str
 

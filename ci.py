@@ -4,11 +4,9 @@ from blessed import Terminal
 import os, json, subprocess, sys, time
 
 term = Terminal()
-if 'GITHUB_ACTOR' not in os.environ:
-    print("Make sure you have GITHUB_ACTOR in your environment variables e.g. .zshrc")
-    sys.exit(1)
-GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
 BRANCH = subprocess.run("git rev-parse --abbrev-ref HEAD", shell=True, text=True, capture_output=True).stdout.strip()
+# Github actor is now just branch-derived
+GITHUB_ACTOR = BRANCH.replace("/", "_")
 
 def main():
     selection = -1
