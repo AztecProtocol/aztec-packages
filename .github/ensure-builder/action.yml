@@ -98,7 +98,8 @@ runs:
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
           flock /var/lock/git.lock bash -c '$UNPACK'
           [ -x /usr/local/bin/earthly ] || ci3/earthly_install
-          # One-time config
+          cd ~/run-${{ env.RUN_ID }};
+          # One-time config.
           if ! [ -f ~/maybe_exit_spot.sh ] ; then
             cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
             # Run maybe_exit_spot.sh every minute
@@ -108,7 +109,7 @@ runs:
           else
             echo "Chron jobs already configured."
           fi
-          cd ~/run-${{ env.RUN_ID }};
+          # Make sure docker is up.
           i=0
           while ! systemctl is-active --quiet docker; do
             sleep 2
@@ -119,6 +120,7 @@ runs:
           done
           echo "Docker service is active!"
           echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+          # Run the test.
           ci3/aws_handle_evict "${{ inputs.run }}"
       shell: bash
       run:
