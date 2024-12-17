@@ -370,7 +370,7 @@ class AvmTraceBuilder {
     bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
-    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
     template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
 };
 

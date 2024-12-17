@@ -1017,6 +1017,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                                   /*check_membership=*/false);
             counter = debug_counter_stack.top();
             debug_counter_stack.pop();
+
             // reset error as we've now returned to caller
             error = AvmError::NO_ERROR;
         }

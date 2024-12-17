@@ -293,22 +293,22 @@ void AvmTraceBuilder::handle_exceptional_halt()
 {
     const bool is_top_level = current_ext_call_ctx.context_id == 0;
     if (is_top_level) {
-        debug("Handling exceptional halt in top-level call. Consuming all allocated gas:");
+        vinfo("Handling exceptional halt in top-level call. Consuming all allocated gas:");
         // Consume all remaining gas.
         gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(
             OpCode::RETURN, current_ext_call_ctx.start_l2_gas_left, current_ext_call_ctx.start_da_gas_left);
+
+        // max out the pc to signify "done"
+        pc = UINT32_MAX;
     } else {
-        debug("Handling exceptional halt in nested call");
+        vinfo("Handling exceptional halt in nested call");
         // before the nested call was made, how much gas does the parent have?
         const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
         const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
 
+        // Pop the caller/parent's context from the stack to proceed with execution there
         current_ext_call_ctx = external_call_ctx_stack.top();
         external_call_ctx_stack.pop();
-
-        // Update the call_ptr before we write the success flag
-        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
-        write_to_memory(current_ext_call_ctx.success_offset, /*succes=*/FF::zero(), AvmMemoryTag::U1);
 
         // Grab the saved-off gas remaining in the parent from before the nested call
         // now that we have popped its context from the stack.
@@ -323,9 +323,15 @@ void AvmTraceBuilder::handle_exceptional_halt()
                                                  parent_da_gas_left,
                                                  l2_gas_allocated_to_nested_call,
                                                  da_gas_allocated_to_nested_call);
+
+        // Update the call_ptr before we write the success flag
+        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+        write_to_memory(
+            current_ext_call_ctx.success_offset, /*success=*/FF::zero(), AvmMemoryTag::U1, /*fix_pc=*/false);
+
+        // Jump back to the parent's last pc
+        pc = current_ext_call_ctx.last_pc;
     }
-    // Update the next pc, if we are at the top level we do what we used to do (i.e. maxing the pc)
-    pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
 }
 
 /**
@@ -443,13 +449,15 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
     return mem_trace_builder.unconstrained_read(call_ptr, offset);
 }
 
-void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
+void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legally reset the pc.
     auto current_pc = pc;
     op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
-    op_jump(current_pc, true);
+    if (fix_pc) {
+        op_jump(current_pc, true);
+    }
 }
 
 template <typename T>
@@ -2276,13 +2284,14 @@ AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_jump = FF(1),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
@@ -2381,13 +2390,14 @@ AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_ia = FF(jmp_dest),
         .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_internal_call = FF(1),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
@@ -2421,12 +2431,13 @@ AvmError AvmTraceBuilder::op_internal_return()
         .main_call_ptr = call_ptr,
         .main_ia = next_pc,
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_sel_op_internal_return = FF(1),
     });
 
     pc = next_pc;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**************************************************************************************************
@@ -3716,6 +3727,8 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .da_gas_left = da_gas_allocated_to_nested_call,
         .internal_return_ptr_stack = {},
     };
+
+    allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
     set_pc(0);
 
     return error;
@@ -3850,16 +3863,10 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             // We are returning from a nested call
             std::vector<FF> returndata{};
             read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
-            // Pop the stack
+            // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
             current_ext_call_ctx.nested_returndata = returndata;
-
-            // Update the call_ptr before we write the success flag
-            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
-
-            // set success bool in parent
-            write_to_memory(current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1);
 
             // Grab the saved-off gas remaining in the parent from before the nested call
             // now that we have popped its context from the stack.
@@ -3874,6 +3881,11 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
                                                      parent_da_gas_left,
                                                      l2_gas_allocated_to_nested_call,
                                                      da_gas_allocated_to_nested_call);
+
+            // Update the call_ptr before we write the success flag
+            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
         }
     }
 
@@ -3991,16 +4003,10 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             // We are returning from a nested call
             std::vector<FF> returndata{};
             read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
-            // Pop the stack
+            // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
             current_ext_call_ctx.nested_returndata = returndata;
-
-            // Update the call_ptr before we write the success flag
-            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
-
-            // set success bool in parent
-            write_to_memory(current_ext_call_ctx.success_offset, /*success=*/FF::zero(), AvmMemoryTag::U1);
 
             // Grab the saved-off gas remaining in the parent from before the nested call
             // now that we have popped its context from the stack.
@@ -4015,6 +4021,11 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
                                                      parent_da_gas_left,
                                                      l2_gas_allocated_to_nested_call,
                                                      da_gas_allocated_to_nested_call);
+
+            // Update the call_ptr before we write the success flag
+            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
         }
     }
 
