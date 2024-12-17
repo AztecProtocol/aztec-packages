@@ -35,10 +35,6 @@ function build_native {
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $pic_preset --target world_state_napi
-    # TODO: How about no? Barretenberg knows nothing of yarn-project. Copy this from yarn-project.
-    # copy the world_state_napi build artifact over to the world state in yarn-project
-    # mkdir -p ../../yarn-project/world-state/build/
-    # cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
     cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib
   fi
 }

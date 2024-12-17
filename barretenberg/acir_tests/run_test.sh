@@ -7,7 +7,7 @@ cd $(dirname $0)
 
 COMPILE=${COMPILE:-0}
 BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
-CRS_PATH=${CRS_PATH:-$PWD/crs}
+CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 FLOW=${FLOW:-prove_and_verify}
 RECURSIVE=${RECURSIVE:-false}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
