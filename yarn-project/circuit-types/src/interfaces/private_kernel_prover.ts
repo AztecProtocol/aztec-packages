@@ -99,15 +99,6 @@ export interface PrivateKernelProver {
   createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
 
   /**
-   * Creates a proof for an app circuit.
-   *
-   * @param bytecode - The circuit bytecode in gzipped bincode format
-   * @param appCircuitName - Optionally specify the name of the app circuit
-   * @returns A Promise resolving to a Proof object
-   */
-  computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
-
-  /**
    * Compute the gate count for a given circuit.
    * @param bytecode - The circuit bytecode in gzipped bincode format
    * @param circuitName - The name of the circuit

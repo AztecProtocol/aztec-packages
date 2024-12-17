@@ -19,7 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 

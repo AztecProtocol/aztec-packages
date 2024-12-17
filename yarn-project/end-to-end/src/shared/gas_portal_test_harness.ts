@@ -9,7 +9,7 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';

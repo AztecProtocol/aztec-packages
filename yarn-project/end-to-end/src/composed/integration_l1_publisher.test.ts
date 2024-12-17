@@ -1,6 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type L2Tips,
@@ -20,6 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
@@ -99,7 +100,7 @@ describe('L1Publisher integration', () => {
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
 
-  let ethCheatCodes: EthCheatCodes;
+  let ethCheatCodes: EthCheatCodesWithState;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
@@ -125,7 +126,7 @@ describe('L1Publisher integration', () => {
       { assumeProvenThrough: undefined },
     ));
 
-    ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());

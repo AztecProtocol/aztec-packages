@@ -8,7 +8,7 @@ import {
   type Wallet,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
