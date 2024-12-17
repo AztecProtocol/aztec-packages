@@ -135,7 +135,7 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.noir == 'true' && needs.configure.outputs.bb == 'true'
+    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
