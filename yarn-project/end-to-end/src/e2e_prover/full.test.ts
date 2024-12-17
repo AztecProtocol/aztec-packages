@@ -1,5 +1,6 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { isGenerateTestDataEnabled, switchGenerateProtocolCircuitTestData } from '@aztec/foundation/testing';
+import { isGenerateTestDataEnabled } from '@aztec/foundation/testing';
+import { switchGenerateProtocolCircuitTestData } from '@aztec/foundation/testing/files';
 import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';

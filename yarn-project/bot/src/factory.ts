@@ -9,7 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
