@@ -15,10 +15,10 @@ source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
 cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 
-# if ! git diff --quiet; then
-#   echo "There are local changes to tracked files."
-#   exit 1
-# fi
+if ! git diff --quiet; then
+  echo "There are local changes to tracked files."
+  exit 1
+fi
 
 interactive_args=""
 # Only add -ti and a name if we are not in CI.
