@@ -169,16 +169,29 @@ export class Sequencer {
   }
 
   private setTimeTable() {
+    /**
+     * This config has us publishing as late as 17.2 seconds into the L2 slot
+     */
+    const maxSyncSeconds = 2;
+    const maxTimeToWaitForTxs = 2;
+    // time to simulate a tx in seconds
+    const simSecondsPerTx = 0.1;
+    const networkLatencySeconds = 3;
+
     const newTimeTable: Record<SequencerState, number> = {
       [SequencerState.STOPPED]: this.aztecSlotDuration,
       [SequencerState.IDLE]: this.aztecSlotDuration,
       [SequencerState.SYNCHRONIZING]: this.aztecSlotDuration,
       [SequencerState.PROPOSER_CHECK]: this.aztecSlotDuration, // We always want to allow the full slot to check if we are the proposer
-      [SequencerState.WAITING_FOR_TXS]: 5,
-      [SequencerState.CREATING_BLOCK]: 7,
-      [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 7 + this.maxTxsPerBlock * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
-      [SequencerState.WAITING_FOR_ATTESTATIONS]: 7 + this.maxTxsPerBlock * 2 + 3, // it shouldn't take 3 seconds to publish to peers
-      [SequencerState.PUBLISHING_BLOCK]: 7 + this.maxTxsPerBlock * 2 + 3 + 5, // wait 5 seconds for attestations
+      [SequencerState.WAITING_FOR_TXS]: maxSyncSeconds,
+      [SequencerState.CREATING_BLOCK]: maxSyncSeconds + maxTimeToWaitForTxs,
+      [SequencerState.PUBLISHING_BLOCK_TO_PEERS]:
+        maxSyncSeconds + maxTimeToWaitForTxs + this.maxTxsPerBlock * simSecondsPerTx,
+      [SequencerState.WAITING_FOR_ATTESTATIONS]:
+        maxSyncSeconds + maxTimeToWaitForTxs + this.maxTxsPerBlock * simSecondsPerTx + networkLatencySeconds,
+      // 2x maxTxsPerBlock because we need to simulate the txs twice (once for the block and once for the attestor to re-ex)
+      [SequencerState.PUBLISHING_BLOCK]:
+        maxSyncSeconds + maxTimeToWaitForTxs + 2 * this.maxTxsPerBlock * simSecondsPerTx + 2 * networkLatencySeconds,
     };
     if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > this.aztecSlotDuration) {
       throw new Error('Sequencer cannot publish block in less than a slot');
