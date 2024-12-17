@@ -311,8 +311,6 @@ jobs:
           fetch-depth: 100 # Downloading base benchmark from master requires access to history
           ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: bench-summary-x86
       - name: "Build and upload bench aggregate file"
         uses: ./.github/ensure-builder
         with:
