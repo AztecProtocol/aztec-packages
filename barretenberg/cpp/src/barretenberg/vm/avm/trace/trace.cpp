@@ -259,8 +259,16 @@ void AvmTraceBuilder::pay_fee()
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto tx_fee = (public_inputs.global_variables.gas_fees.fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
-                  (public_inputs.global_variables.gas_fees.fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
+    auto gas_settings = public_inputs.gas_settings;
+    auto gas_fees = public_inputs.global_variables.gas_fees;
+    auto priority_fee_per_da_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_da_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_da_gas - gas_fees.fee_per_da_gas);
+    auto priority_fee_per_l2_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_l2_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_l2_gas - gas_fees.fee_per_l2_gas);
+    auto total_fee_per_da_gas = gas_fees.fee_per_da_gas + priority_fee_per_da_gas;
+    auto total_fee_per_l2_gas = gas_fees.fee_per_l2_gas + priority_fee_per_l2_gas;
+    auto tx_fee = (total_fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
+                  (total_fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
 
     if (public_inputs.fee_payer == 0) {
         vinfo("No one is paying the fee of ", tx_fee);
