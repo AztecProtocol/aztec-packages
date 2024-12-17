@@ -35,20 +35,20 @@ import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type P2PConfig } from '../config.js';
-import { type MemPools } from '../mem_pools/interface.js';
+import { type P2PConfig } from '../../config.js';
+import { type MemPools } from '../../mem_pools/interface.js';
 import {
   DataTxValidator,
   DoubleSpendTxValidator,
   MetadataTxValidator,
   TxProofValidator,
-} from '../tx_validator/index.js';
-import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
-import { AztecDatastore } from './data_store.js';
-import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from './encoding.js';
-import { PeerManager } from './peer_manager.js';
-import { PeerErrorSeverity } from './peer_scoring.js';
-import { pingHandler, statusHandler } from './reqresp/handlers.js';
+} from '../../tx_validator/index.js';
+import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
+import { AztecDatastore } from '../data_store.js';
+import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
+import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
+import { PeerManager } from '../peer_manager.js';
+import { pingHandler, statusHandler } from '../reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
@@ -58,9 +58,9 @@ import {
   STATUS_PROTOCOL,
   type SubProtocolMap,
   TX_REQ_PROTOCOL,
-} from './reqresp/interface.js';
-import { ReqResp } from './reqresp/reqresp.js';
-import type { P2PService, PeerDiscoveryService } from './service.js';
+} from '../reqresp/interface.js';
+import { ReqResp } from '../reqresp/reqresp.js';
+import type { P2PService, PeerDiscoveryService } from '../service.js';
 
 /**
  * Lib P2P implementation of the P2PService interface.
@@ -500,6 +500,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param peerId - The peer ID of the peer that sent the tx.
    * @returns True if the tx is valid, false otherwise.
    */
+  @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
+    [Attributes.TX_HASH]: requestedTxHash.toString(),
+  }))
   private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
     const proofValidator = new TxProofValidator(this.proofVerifier);
     const validProof = await proofValidator.validateTx(responseTx);
@@ -520,6 +523,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return true;
   }
 
+  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
