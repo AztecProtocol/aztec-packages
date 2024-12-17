@@ -18,16 +18,117 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
+  "id": 3,
   "links": [],
   "panels": [
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "spartan-metrics-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 92,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "aztec_archiver_block_height{k8s_namespace_name=\"$namespace\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "L2 Block Height",
+      "type": "timeseries"
+    },
     {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 12
       },
       "id": 2,
       "panels": [],
@@ -51,6 +152,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -100,7 +202,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 1
+        "y": 13
       },
       "id": 1,
       "options": {
@@ -123,11 +225,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "1 - avg by(exported_job, exported_instance) (system_cpu_utilization{system_cpu_state=\"idle\", exported_instance=~\"$instance\"})",
+          "expr": "1 - avg by(exported_job, k8s_namespace_name) (system_cpu_utilization{system_cpu_state=\"idle\", k8s_namespace_name=~\"$namespace\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{exported_job}}-{{exported_instance}}",
+          "legendFormat": "{{exported_job}}-{{k8s_namespace_name}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -153,6 +255,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -202,7 +305,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 1
+        "y": 13
       },
       "id": 3,
       "options": {
@@ -225,11 +328,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg by(exported_job, exported_instance) (system_memory_utilization{exported_instance=~\"$instance\", system_memory_state=\"used\"})",
+          "expr": "avg by(exported_job, k8s_namespace_name) (system_memory_utilization{k8s_namespace_name=~\"$namespace\", system_memory_state=\"used\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{exported_job}}-{{exported_instance}}",
+          "legendFormat": "{{exported_job}}-{{k8s_namespace_name}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -244,7 +347,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 23
       },
       "id": 4,
       "panels": [],
@@ -279,7 +382,7 @@
         "h": 8,
         "w": 5,
         "x": 0,
-        "y": 12
+        "y": 24
       },
       "id": 5,
       "options": {
@@ -297,7 +400,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -306,7 +409,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "max(aztec_archiver_block_height{exported_instance=~\"$instance\"})",
+          "expr": "max(aztec_archiver_block_height{k8s_namespace_name=~\"$namespace\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -350,7 +453,7 @@
         "h": 8,
         "w": 6,
         "x": 5,
-        "y": 12
+        "y": 24
       },
       "id": 7,
       "options": {
@@ -368,7 +471,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -377,7 +480,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "last_over_time(aztec_archiver_block_size{exported_instance=~\"$instance\"}[$__interval])",
+          "expr": "last_over_time(aztec_archiver_block_size{k8s_namespace_name=~\"$namespace\"}[$__interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -424,6 +527,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -471,7 +575,7 @@
         "h": 8,
         "w": 13,
         "x": 11,
-        "y": 12
+        "y": 24
       },
       "id": 23,
       "options": {
@@ -494,11 +598,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg (rate(aztec_archiver_sync_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$interval]) / rate(aztec_archiver_sync_duration_milliseconds_count{exported_instance=~\"$instance\"}[$interval])) by (exported_job, exported_instance)",
+          "expr": "avg (rate(aztec_archiver_sync_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$interval]) / rate(aztec_archiver_sync_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$interval])) by (exported_job, k8s_namespace_name)",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "AVG - {{exported_job}}-{{exported_instance}}",
+          "legendFormat": "AVG - {{exported_job}}-{{k8s_namespace_name}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -525,6 +629,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -584,7 +689,7 @@
         "h": 8,
         "w": 7,
         "x": 0,
-        "y": 20
+        "y": 32
       },
       "id": 21,
       "options": {
@@ -607,7 +712,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "increase(aztec_node_receive_tx_count{exported_instance=~\"$instance\"}[$__rate_interval])",
+          "expr": "increase(aztec_node_receive_tx_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -647,7 +752,7 @@
         "h": 8,
         "w": 5,
         "x": 7,
-        "y": 20
+        "y": 32
       },
       "id": 6,
       "options": {
@@ -677,7 +782,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg by(aztec_status) (aztec_mempool_tx_count{exported_instance=~\"$instance\"})",
+          "expr": "avg by(aztec_status) (aztec_mempool_tx_count{k8s_namespace_name=~\"$namespace\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -708,6 +813,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -755,7 +861,7 @@
         "h": 8,
         "w": 7,
         "x": 12,
-        "y": 20
+        "y": 32
       },
       "id": 22,
       "interval": "5m",
@@ -779,7 +885,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg (rate(aztec_node_receive_tx_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$__rate_interval]) / rate(aztec_node_receive_tx_duration_milliseconds_count{exported_instance=~\"$instance\"}[$__rate_interval]))",
+          "expr": "avg (rate(aztec_node_receive_tx_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]) / rate(aztec_node_receive_tx_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -820,7 +926,7 @@
         "h": 8,
         "w": 5,
         "x": 19,
-        "y": 20
+        "y": 32
       },
       "id": 8,
       "options": {
@@ -838,7 +944,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -847,7 +953,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_mempool_tx_size_bytes_sum{exported_instance=~\"$instance\"}[$interval]) / rate(aztec_mempool_tx_size_bytes_count{exported_instance=~\"$instance\"}[$interval]))",
+          "expr": "avg(rate(aztec_mempool_tx_size_bytes_sum{k8s_namespace_name=~\"$namespace\"}[$interval]) / rate(aztec_mempool_tx_size_bytes_count{k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -867,7 +973,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 40
       },
       "id": 9,
       "panels": [],
@@ -933,7 +1039,7 @@
         "h": 6,
         "w": 7,
         "x": 0,
-        "y": 29
+        "y": 41
       },
       "id": 12,
       "options": {
@@ -951,7 +1057,7 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -961,7 +1067,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "aztec_sequencer_current_state{exported_instance=~\"$instance\"}",
+          "expr": "aztec_sequencer_current_state{k8s_namespace_name=~\"$namespace\"}",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1006,7 +1112,7 @@
         "h": 6,
         "w": 9,
         "x": 7,
-        "y": 29
+        "y": 41
       },
       "id": 13,
       "options": {
@@ -1024,7 +1130,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -1034,7 +1140,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "aztec_sequencer_current_block_number{exported_instance=~\"$instance\"}",
+          "expr": "aztec_sequencer_current_block_number{k8s_namespace_name=~\"$namespace\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": true,
@@ -1051,7 +1157,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "aztec_sequencer_current_block_size{exported_instance=~\"$instance\"}",
+          "expr": "aztec_sequencer_current_block_size{k8s_namespace_name=~\"$namespace\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1092,7 +1198,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 29
+        "y": 41
       },
       "hideTimeOverride": true,
       "id": 26,
@@ -1111,7 +1217,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -1121,7 +1227,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "changes(aztec_sequencer_current_block_number{exported_instance=~\"$instance\"}[1h])",
+          "expr": "changes(aztec_sequencer_current_block_number{k8s_namespace_name=~\"$namespace\"}[1h])",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1147,7 +1253,7 @@
                     "value": 0
                   }
                 },
-                "fieldName": "{exported_instance=\"22828b91-92ae-4b04-a5e0-56ebf866edef\", exported_job=\"alphanet-aztec-node-1\", instance=\"aztec-otel.local:8889\", job=\"aztec\"}"
+                "fieldName": "{k8s_namespace_name=\"22828b91-92ae-4b04-a5e0-56ebf866edef\", exported_job=\"alphanet-aztec-node-1\", instance=\"aztec-otel.local:8889\", job=\"aztec\"}"
               }
             ],
             "match": "any",
@@ -1189,7 +1295,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 29
+        "y": 41
       },
       "id": 25,
       "options": {
@@ -1207,7 +1313,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -1216,7 +1322,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_public_processor_deploy_bytecode_size_bytes_sum{exported_instance=~\"$instance\"}[$interval]) / rate(aztec_public_processor_deploy_bytecode_size_bytes_count{exported_instance=~\"$instance\"}[$interval]))",
+          "expr": "avg(rate(aztec_public_processor_deploy_bytecode_size_bytes_sum{k8s_namespace_name=~\"$namespace\"}[$interval]) / rate(aztec_public_processor_deploy_bytecode_size_bytes_count{k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1243,6 +1349,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -1291,7 +1398,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 35
+        "y": 47
       },
       "id": 14,
       "options": {
@@ -1314,7 +1421,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "increase(aztec_l1_publisher_tx_count{exported_instance=~\"$instance\"}[$__rate_interval])",
+          "expr": "increase(aztec_l1_publisher_tx_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -1344,6 +1451,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1391,7 +1499,7 @@
         "h": 8,
         "w": 13,
         "x": 8,
-        "y": 35
+        "y": 47
       },
       "id": 11,
       "options": {
@@ -1414,7 +1522,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{exported_instance=~\"$instance\"}[$interval])))",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{k8s_namespace_name=~\"$namespace\"}[$interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -1432,7 +1540,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{exported_instance=~\"$instance\"}[$interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{k8s_namespace_name=~\"$namespace\"}[$interval])))",
           "fullMetaSearch": false,
           "hide": true,
           "includeNullMetadata": false,
@@ -1449,7 +1557,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "histogram_quantile(1, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{exported_instance=~\"$instance\"}[$interval])))",
+          "expr": "histogram_quantile(1, sum by(le) (rate(aztec_sequencer_block_build_duration_milliseconds_bucket{k8s_namespace_name=~\"$namespace\"}[$interval])))",
           "fullMetaSearch": false,
           "hide": true,
           "includeNullMetadata": false,
@@ -1481,6 +1589,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1523,7 +1632,7 @@
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 43
+        "y": 55
       },
       "id": 24,
       "options": {
@@ -1546,7 +1655,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_public_processor_tx_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$__rate_interval]) / rate(aztec_public_processor_tx_duration_milliseconds_count{exported_instance=~\"$instance\"}[$__rate_interval]))",
+          "expr": "avg(rate(aztec_public_processor_tx_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]) / rate(aztec_public_processor_tx_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1563,7 +1672,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg by (aztec_tx_phase_name) (rate(aztec_public_processor_phase_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$__rate_interval]) / rate(aztec_public_processor_phase_duration_milliseconds_count{exported_instance=~\"$instance\"}[$__rate_interval]))",
+          "expr": "avg by (aztec_tx_phase_name) (rate(aztec_public_processor_phase_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]) / rate(aztec_public_processor_phase_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1581,7 +1690,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_public_executor_simulation_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$__rate_interval]) / rate(aztec_public_executor_simulation_duration_milliseconds_count{exported_instance=~\"$instance\"}[$__rate_interval]))",
+          "expr": "avg(rate(aztec_public_executor_simulation_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]) / rate(aztec_public_executor_simulation_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1602,7 +1711,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 63
       },
       "id": 16,
       "panels": [],
@@ -1626,6 +1735,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1672,7 +1782,7 @@
         "h": 9,
         "w": 9,
         "x": 0,
-        "y": 52
+        "y": 64
       },
       "id": 19,
       "options": {
@@ -1696,7 +1806,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "aztec_proving_queue_size{exported_instance=~\"$instance\"}",
+          "expr": "aztec_proving_queue_size{k8s_namespace_name=~\"$namespace\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1736,7 +1846,7 @@
         "h": 9,
         "w": 15,
         "x": 9,
-        "y": 52
+        "y": 64
       },
       "id": 20,
       "options": {
@@ -1754,7 +1864,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -1763,7 +1873,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg by (aztec_proving_job_type) (rate(aztec_proving_queue_job_size_by_sum{exported_instance=~\"$instance\"}[$interval]) / rate(aztec_proving_queue_job_size_by_count{exported_instance=~\"$instance\"}[$interval]))",
+          "expr": "avg by (aztec_proving_job_type) (rate(aztec_proving_queue_job_size_by_sum{k8s_namespace_name=~\"$namespace\"}[$interval]) / rate(aztec_proving_queue_job_size_by_count{k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -1794,6 +1904,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1840,7 +1951,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 61
+        "y": 73
       },
       "id": 15,
       "options": {
@@ -1863,7 +1974,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(aztec_proving_orchestrator_base_rollup_inputs_duration_milliseconds_sum{exported_instance=~\"$instance\"}[$interval]) / rate(aztec_proving_orchestrator_base_rollup_inputs_duration_milliseconds_count{exported_instance=~\"$instance\"}[$interval])",
+          "expr": "rate(aztec_proving_orchestrator_base_rollup_inputs_duration_milliseconds_sum{k8s_namespace_name=~\"$namespace\"}[$interval]) / rate(aztec_proving_orchestrator_base_rollup_inputs_duration_milliseconds_count{k8s_namespace_name=~\"$namespace\"}[$interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -1882,7 +1993,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 69
+        "y": 81
       },
       "id": 17,
       "panels": [],
@@ -1947,7 +2058,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 70
+        "y": 82
       },
       "id": 47,
       "options": {
@@ -1965,7 +2076,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.1.1",
+      "pluginVersion": "11.2.1",
       "targets": [
         {
           "datasource": {
@@ -1974,7 +2085,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "aztec_circuit_proving_proof_size_bytes{exported_instance=~\"$instance\", aztec_circuit_protocol_circuit_name=\"$protocol_circuit\"}",
+          "expr": "aztec_circuit_proving_proof_size_bytes{k8s_namespace_name=~\"$namespace\", aztec_circuit_protocol_circuit_name=\"$protocol_circuit\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1990,7 +2101,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "aztec_circuit_public_inputs_count{exported_instance=~\"$instance\", aztec_circuit_protocol_circuit_name=\"$protocol_circuit\"}",
+          "expr": "aztec_circuit_public_inputs_count{k8s_namespace_name=~\"$namespace\", aztec_circuit_protocol_circuit_name=\"$protocol_circuit\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2021,6 +2132,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2067,7 +2179,7 @@
         "h": 7,
         "w": 8,
         "x": 6,
-        "y": 70
+        "y": 82
       },
       "id": 27,
       "options": {
@@ -2090,7 +2202,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_circuit_witness_generation_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", exported_instance=~\"$instance\"}[$interval])/rate(aztec_circuit_witness_generation_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", exported_instance=~\"$instance\"}[$interval]))",
+          "expr": "avg(rate(aztec_circuit_witness_generation_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval])/rate(aztec_circuit_witness_generation_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2122,6 +2234,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2168,7 +2281,7 @@
         "h": 7,
         "w": 10,
         "x": 14,
-        "y": 70
+        "y": 82
       },
       "id": 46,
       "options": {
@@ -2191,7 +2304,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_circuit_proving_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", exported_instance=~\"$instance\"}[$interval])/rate(aztec_circuit_proving_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", exported_instance=~\"$instance\"}[$interval]))",
+          "expr": "avg(rate(aztec_circuit_proving_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval])/rate(aztec_circuit_proving_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2215,23 +2328,22 @@
       {
         "current": {
           "selected": false,
-          "text": "alphanet",
-          "value": "alphanet"
+          "text": "rc1",
+          "value": "rc1"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "spartan-metrics-prometheus"
         },
-        "definition": "label_values(target_info,aztec_network_name)",
+        "definition": "label_values(k8s_namespace_name)",
         "hide": 0,
-        "includeAll": false,
-        "label": "Network",
+        "includeAll": true,
         "multi": false,
-        "name": "network",
+        "name": "namespace",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(target_info,aztec_network_name)",
+          "query": "label_values(k8s_namespace_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -2243,33 +2355,6 @@
       {
         "current": {
           "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
-        },
-        "definition": "label_values(target_info{aztec_network_name=\"$network\"},exported_instance)",
-        "hide": 0,
-        "includeAll": true,
-        "multi": false,
-        "name": "instance",
-        "options": [],
-        "query": {
-          "qryType": 1,
-          "query": "label_values(target_info{aztec_network_name=\"$network\"},exported_instance)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "type": "query"
-      },
-      {
-        "current": {
-          "selected": true,
           "text": "4h",
           "value": "4h"
         },
@@ -2301,7 +2386,7 @@
       },
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "All",
           "value": "$__all"
         },
@@ -2337,6 +2422,6 @@
   "timezone": "browser",
   "title": "Aztec Network Dashboard",
   "uid": "cdtxao66xa1ogc",
-  "version": 31,
+  "version": 7,
   "weekStart": ""
 }

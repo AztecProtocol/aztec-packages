@@ -11,7 +11,6 @@ import {
   CheatCodes,
   type ContractMethod,
   type DeployL1Contracts,
-  EthCheatCodes,
   type Logger,
   NoFeePaymentMethod,
   type PXE,
@@ -36,7 +35,8 @@ import {
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -49,6 +49,8 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil } from '@viem/anvil';
+import fs from 'fs/promises';
+import { tmpdir } from 'os';
 import * as path from 'path';
 import {
   type Account,
@@ -145,9 +147,20 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
+
+  // If no data directory provided, create a temp directory and clean up afterwards
+  const configuredDataDirectory = pxeServiceConfig.dataDirectory;
+  if (!configuredDataDirectory) {
+    pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  }
+
   const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
-  const teardown = async () => {};
+  const teardown = async () => {
+    if (!configuredDataDirectory) {
+      await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true });
+    }
+  };
 
   return {
     pxe,
@@ -304,6 +317,13 @@ export async function setup(
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
 
+  // Create a temp directory for any services that need it and cleanup later
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
+  if (!config.dataDirectory) {
+    config.dataDirectory = directoryToCleanup;
+  }
+
   let anvil: Anvil | undefined;
 
   if (!config.l1RpcUrl) {
@@ -328,7 +348,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -395,7 +415,7 @@ export async function setup(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );
@@ -428,11 +448,16 @@ export async function setup(
     logger.verbose('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, config, aztecNode);
+    proverNode = await createAndSyncProverNode(
+      proverNodePrivateKeyHex,
+      config,
+      aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+    );
   }
 
   logger.verbose('Creating a pxe...');
-  const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
+  const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
   if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
@@ -445,6 +470,8 @@ export async function setup(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
+    await pxeTeardown();
+
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
     }
@@ -455,8 +482,19 @@ export async function setup(
       await acvmConfig.cleanup();
     }
 
+    if (bbConfig?.cleanup) {
+      // remove the temp directory created for the acvm
+      logger.verbose(`Cleaning up BB state`);
+      await bbConfig.cleanup();
+    }
+
     await anvil?.stop();
     await watcher.stop();
+
+    if (directoryToCleanup) {
+      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+    }
   };
 
   return {
@@ -660,6 +698,7 @@ export async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
+  dataDirectory: string,
 ) {
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
@@ -670,7 +709,7 @@ export async function createAndSyncProverNode(
   };
 
   // Creating temp store and archiver for simulated prover node
-  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
 
   // Prover node config is for simulated proofs
