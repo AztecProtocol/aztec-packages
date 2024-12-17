@@ -222,7 +222,7 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('addFunctionName', async () => {
+  it('registerContractFunctionNames', async () => {
     await context.client.registerContractFunctionNames(AztecAddress.random(), {
       [FunctionSelector.random().toString()]: 'test_fn',
     });
