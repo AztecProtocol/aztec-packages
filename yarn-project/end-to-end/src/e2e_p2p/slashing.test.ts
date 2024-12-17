@@ -7,43 +7,35 @@ import { getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
-
-const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/gossip';
-
-const qosAlerts: AlertConfig[] = [
-  {
-    alert: 'SequencerTimeToCollectAttestations',
-    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
-    labels: { severity: 'error' },
-    for: '10m',
-    annotations: {},
-  },
-];
+const DATA_DIR = './data/slashing';
 
 // This test is showcasing that slashing can happen, abusing that our nodes are honest but stupid
 // making them slash themselves.
-describe('e2e_p2p_network', () => {
+describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
+  const slashingQuorum = 6;
+  const slashingRoundSize = 10;
+
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_network',
+      testName: 'e2e_p2p_slashing',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
         aztecEpochProofClaimWindowInL2Slots: 1,
+        slashingQuorum,
+        slashingRoundSize,
       },
       assumeProvenThrough: 1,
     });
@@ -58,13 +50,6 @@ describe('e2e_p2p_network', () => {
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
-    }
-  });
-
-  afterAll(async () => {
-    if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
-      await checker.runAlertCheck(qosAlerts);
     }
   });
 
@@ -108,15 +93,15 @@ describe('e2e_p2p_network', () => {
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
-    const waitForL1Block = async () => {
-      // Send and wait an l1 block
-      await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
-          to: t.ctx.deployL1ContractsValues.walletClient.account.address,
-          value: 1n,
-          account: t.ctx.deployL1ContractsValues.walletClient.account,
-        }),
-      });
+    const jumpToNextRound = async () => {
+      t.logger.info(`Jumping to next round`);
+      const roundSize = await slashingProposer.read.M();
+      const nextRoundTimestamp = await rollup.read.getTimestampForSlot([
+        ((await rollup.read.getCurrentSlot()) / roundSize) * roundSize + roundSize,
+      ]);
+      await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
+
+      await t.syncMockSystemTime();
     };
 
     t.ctx.aztecNodeConfig.validatorReexecute = false;
@@ -154,13 +139,9 @@ describe('e2e_p2p_network', () => {
     let sInfo = await slashingInfo();
 
     const votesNeeded = await slashingProposer.read.N();
-    const roundSize = await slashingProposer.read.M();
 
     // We should push us to land exactly at the next round
-    const nextRoundTimestamp1 = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / roundSize) * roundSize + roundSize,
-    ]);
-    await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp1));
+    await jumpToNextRound();
 
     // Produce blocks until we hit an issue with pruning.
     // Then we should jump in time to the next round so we are sure that we have the votes
@@ -175,7 +156,9 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info(`Producing blocks until we hit a pruning event`);
 
-    for (let i = 0; i < 15; i++) {
+    // Run for up to the slashing round size, or as long as needed to get a slash event
+    // Variable because sometimes hit race-condition issues with attestations.
+    for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info('Submitting transactions');
       const bn = await nodes[0].getBlockNumber();
       await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1);
@@ -186,12 +169,20 @@ describe('e2e_p2p_network', () => {
       }
 
       if (slasher.slashEvents.length > 0) {
-        t.logger.info(`We have a slash event`);
+        t.logger.info(`We have a slash event ${i}`);
         break;
       }
     }
 
-    for (let i = 0; i < 15; i++) {
+    expect(slasher.slashEvents.length).toBeGreaterThan(0);
+
+    // We should push us to land exactly at the next round
+    await jumpToNextRound();
+
+    // For the next round we will try to cast votes.
+    // Stop early if we have enough votes.
+    t.logger.info(`Waiting for votes to be cast`);
+    for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info('Waiting for slot number to change and votes to be cast');
       const slotNumber = await rollup.read.getCurrentSlot();
       t.logger.info(`Waiting for block number to change`);
@@ -215,12 +206,7 @@ describe('e2e_p2p_network', () => {
     });
 
     t.logger.info(`We jump in time to the next round to execute`);
-    const nextRoundTimestamp2 = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / roundSize) * roundSize + roundSize,
-    ]);
-    await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
-    await waitForL1Block();
-
+    await jumpToNextRound();
     const attestersPre = await rollup.read.getAttesters();
 
     for (const attester of attestersPre) {
@@ -230,7 +216,7 @@ describe('e2e_p2p_network', () => {
     }
 
     t.logger.info(`Push the proposal, SLASHING!`);
-    const tx = await slashingProposer.write.pushProposal([sInfo.roundNumber], {
+    const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
       account: t.ctx.deployL1ContractsValues.walletClient.account,
     });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({

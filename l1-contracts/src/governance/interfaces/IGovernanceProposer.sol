@@ -7,10 +7,10 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface IGovernanceProposer {
   event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
-  event ProposalPushed(IPayload indexed proposal, uint256 indexed round);
+  event ProposalExecuted(IPayload indexed proposal, uint256 indexed round);
 
   function vote(IPayload _proposal) external returns (bool);
-  function pushProposal(uint256 _roundNumber) external returns (bool);
+  function executeProposal(uint256 _roundNumber) external returns (bool);
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view

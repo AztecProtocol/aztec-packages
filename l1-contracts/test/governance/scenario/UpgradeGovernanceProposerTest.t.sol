@@ -92,7 +92,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    governanceProposer.pushProposal(0);
+    governanceProposer.executeProposal(0);
     proposal = governance.getProposal(0);
     assertEq(address(proposal.payload), address(payload));
 

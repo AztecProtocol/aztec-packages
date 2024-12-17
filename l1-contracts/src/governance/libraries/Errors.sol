@@ -45,7 +45,7 @@ library Errors {
   error Governance__ProposalLib__ZeroYeaVotesNeeded();
   error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error GovernanceProposer__CanOnlyPushProposalInPast(); // 0x84a5b5ae
+  error GovernanceProposer__CanOnlyExecuteProposalInPast(); // 0x8bf1d3b8
   error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x8d94fbfc
   error GovernanceProposer__InstanceHaveNoCode(address instance); // 0x5fa92625
   error GovernanceProposer__InsufficientVotes(uint256 votesCast, uint256 votesNeeded); // 0xd4ad89c2
