@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734453264730,
+  "lastUpdate": 1734459332439,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba335bdff645398d20241ce7baab02f63b20f55c",
-          "message": "chore: Parallelise construction of perturbator coefficients at each level (#10304)\n\nWhen constructing the perturbator via the tree technique we can\r\nparallelise the construction of the coefficients at each level which is\r\none of the culprits of performance degrading when using an ambient trace\r\nof size 2^20. We see a ~1s improvement in performance doing this.\r\n\r\n2^20 trace (`EXAMPLE_20`) in master for `ClientIVCBench/Full/6` was\r\n`38114 ms` and is now `37310 ms`. For the defacto\r\n`CLIENT_IVC_BENCH_STRUCTURE` which gives 2^19 finalised circuits we go\r\nfrom `29496ms` to `29188 ms` so not as impactful but also the\r\nperformance doesn't degrade.\r\n\r\nI have also benchmarked the actual computation of coefficients and it is\r\nneglegible regardless of the ambient trace size (2^20 vs 2^19) .",
-          "timestamp": "2024-11-29T13:31:09Z",
-          "tree_id": "1610bbe9ced2c2d5867cb228187bec0aefc3960f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ba335bdff645398d20241ce7baab02f63b20f55c"
-        },
-        "date": 1732889932004,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28024.471804,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26021.440359 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4687.344296999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4385.659062000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 95384.399199,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 95384400000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16740.872949,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16740873000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3091390860,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3091390860 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136304615,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136304615 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3010,6 +2950,72 @@ window.BENCHMARK_DATA = {
             "value": 133026956,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133026956 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1516d7f7bd6a2adbb650bd7cdd572b33db98dbfc",
+          "message": "feat: better initialization for permutation mapping components (#10750)\n\nConstructing the permutation argument polynomials (sigmas/ids) involves\nconstructing an intermediate object of type `PermutationMapping` which\ncontains information about the copy constraints in the circuit. The\ninitialization of this object was inefficient in two ways: (1) the\ncomponents were zero initialized only to be immediately initialized to\nnon-zero values, and (2) the initialization was not multithreaded. This\nPR introduces a minor refactor of the underlying structures in\n`PermutationMapping` so that the zero initialization can be avoided\naltogether and the initialization to non-zero values can be done in\nparallel. (In particular instead of vectors of a struct with components\n{uint32_t, uint8_t, bool, bool}, we now have shared pointers to arrays\nof the corresponding type {*uint32_t[], *uint8_t[], *bool[], *bool[]}.\nThis structure allows for efficient use of the slab allocator and\nremoves the need to default zero initialize).\n\nBenchmark highlights for the case of 2^17 circuits in a 2^20 trace:\n\nMaster:\n```\nClientIVCBench/Full/6      24684 ms        20203 ms\nDeciderProvingKey(Circuit&)(t)          2365\ncompute_permutation_argument_polynomials(t)=912.772M\n```\n\nBranch:\n```\nClientIVCBench/Full/6      23955 ms        19680 ms\nDeciderProvingKey(Circuit&)(t)          1834     8.02%\ncompute_permutation_argument_polynomials(t)=437.54M\n```",
+          "timestamp": "2024-12-17T10:21:30-07:00",
+          "tree_id": "94da91aa41fe393a61a6d77a4507307076601ec5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1516d7f7bd6a2adbb650bd7cdd572b33db98dbfc"
+        },
+        "date": 1734459325266,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 25351.831096000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19706.370672999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24453.681662999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22160.444612 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4465.00308200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4184.896727000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89150.73771,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89150738000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16538.883102,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16538884000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2779700237,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2779700237 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133622421,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133622421 ns\nthreads: 1"
           }
         ]
       }
