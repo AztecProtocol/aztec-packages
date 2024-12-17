@@ -25,8 +25,8 @@ function build_native {
   if ! cache_download barretenberg-release-$hash.tar.gz; then
     rm -f build/CMakeCache.txt
     echo "Building with preset: $preset"
-    cmake --preset $preset -B build
-    cmake --build --preset $preset --target bb
+    cmake --preset $preset -Bbuild
+    cmake --build build --target bb
     cache_upload barretenberg-release-$hash.tar.gz build/bin
   fi
 
@@ -77,7 +77,7 @@ function test {
     ./format.sh check
 
     echo "Building tests..."
-    denoise cmake --preset $preset -DCMAKE_BUILD_TYPE=RelWithAssert "&&" cmake --build --preset $preset
+    denoise cmake --preset $preset -Bbuild "&&" cmake --build build
 
     # Download ignition transcripts.
     # TODO: Use the flattened crs. These old transcripts are a pain.
