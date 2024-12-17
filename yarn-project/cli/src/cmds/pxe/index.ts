@@ -144,6 +144,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-node-info')
     .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
     .option('--node-url <string>', 'URL of the node.')
+    .option('--json', 'Emit output as json')
     .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
@@ -153,7 +154,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       } else {
         url = options.rpcUrl;
       }
-      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, options.json, log, logJson(log));
     });
 
   program

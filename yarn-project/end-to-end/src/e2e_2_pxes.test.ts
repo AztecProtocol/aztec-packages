@@ -10,7 +10,9 @@ import {
   type Wallet,
   sleep,
 } from '@aztec/aztec.js';
-import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';
 

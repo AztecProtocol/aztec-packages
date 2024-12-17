@@ -1,4 +1,5 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { BBWasmPrivateKernelProver } from '@aztec/bb-prover/wasm';
 import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -59,9 +60,11 @@ function createProver(config: PXEServiceConfig, logSuffix?: string) {
 
   // (@PhilWindle) Temporary validation until WASM is implemented
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    throw new Error(`Prover must be configured with binary path and working directory`);
+    return new BBWasmPrivateKernelProver(16);
+  } else {
+    const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
+      PXEServiceConfig;
+    const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
+    return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
   }
-  const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> & PXEServiceConfig;
-  const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
-  return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
 }
