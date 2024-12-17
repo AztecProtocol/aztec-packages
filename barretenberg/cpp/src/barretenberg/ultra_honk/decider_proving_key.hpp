@@ -91,7 +91,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                 final_active_wire_idx = block.trace_offset + block.size() - 1;
             }
         }
-        info("Final active wire idx: ", final_active_wire_idx);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to

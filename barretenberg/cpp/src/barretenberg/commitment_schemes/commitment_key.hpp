@@ -235,16 +235,13 @@ template <class Curve> class CommitmentKey {
         std::vector<G1> points;
         points.reserve(total_num_scalars * 2);
         for (const auto& [first, second] : active_ranges) {
-            {
-                auto start = &polynomial[first];
-                auto end = &polynomial[second];
-                scalars.insert(scalars.end(), start, end);
-            }
-            {
-                auto start = &point_table[2 * first];
-                auto end = &point_table[2 * second];
-                points.insert(points.end(), start, end);
-            }
+            auto poly_start = &polynomial[first];
+            auto poly_end = &polynomial[second];
+            scalars.insert(scalars.end(), poly_start, poly_end);
+
+            auto pts_start = &point_table[2 * first];
+            auto pts_end = &point_table[2 * second];
+            points.insert(points.end(), pts_start, pts_end);
         }
 
         // Call pippenger

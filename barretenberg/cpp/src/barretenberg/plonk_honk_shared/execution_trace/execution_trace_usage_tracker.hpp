@@ -98,8 +98,7 @@ struct ExecutionTraceUsageTracker {
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.emplace_back(0, databus_end);
         size_t lookups_start = fixed_sizes.lookup.trace_offset;
-        size_t lookups_end =
-            std::max(lookups_start + max_tables_size, static_cast<size_t>(lookups_start + max_sizes.lookup));
+        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
         active_ranges.emplace_back(lookups_start, lookups_end);
     }
 
