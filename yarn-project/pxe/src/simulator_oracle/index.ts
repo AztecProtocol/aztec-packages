@@ -377,8 +377,8 @@ export class SimulatorOracle implements DBOracle {
       // We find the index of the last log in the window that is not empty
       const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
 
-      if (indexOfLastLog !== -1) {
-        // We didn't find any logs in the current window so we stop looking
+      if (indexOfLastLog === -1) {
+        // We haven't found any logs in the current window so we stop looking
         break;
       }
 
