@@ -387,7 +387,7 @@ export class SimulatorOracle implements DBOracle {
 
       // We compute the number of consecutive empty logs we found and repeat the process if we haven't found enough.
       numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLog - 1;
-    } while (numConsecutiveEmptyLogs >= MIN_CONSECUTIVE_EMPTY_LOGS);
+    } while (numConsecutiveEmptyLogs < MIN_CONSECUTIVE_EMPTY_LOGS);
 
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     if (currentIndex !== oldIndex) {
