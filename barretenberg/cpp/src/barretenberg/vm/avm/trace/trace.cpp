@@ -286,7 +286,7 @@ void AvmTraceBuilder::pay_fee()
 
 void AvmTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
 {
-    gas_trace_builder.set_remaining_gas(l2_gas, da_gas);
+    gas_trace_builder.allocate_gas_for_call(l2_gas, da_gas);
 }
 
 void AvmTraceBuilder::handle_exceptional_halt()
@@ -295,8 +295,8 @@ void AvmTraceBuilder::handle_exceptional_halt()
     if (is_top_level) {
         vinfo("Handling exceptional halt in top-level call. Consuming all allocated gas:");
         // Consume all remaining gas.
-        gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(
-            OpCode::RETURN, current_ext_call_ctx.start_l2_gas_left, current_ext_call_ctx.start_da_gas_left);
+        gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(current_ext_call_ctx.start_l2_gas_left,
+                                                                       current_ext_call_ctx.start_da_gas_left);
 
         // max out the pc to signify "done"
         pc = UINT32_MAX;
@@ -317,8 +317,7 @@ void AvmTraceBuilder::handle_exceptional_halt()
 
         // now modify the last row of the gas trace to return to the parent's latest gas
         // with the nested call's entire allocation consumed
-        gas_trace_builder.constrain_gas_for_halt(OpCode::RETURN,
-                                                 /*exceptional_halt=*/true,
+        gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true,
                                                  parent_l2_gas_left,
                                                  parent_da_gas_left,
                                                  l2_gas_allocated_to_nested_call,
@@ -3875,8 +3874,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
             // modify this instruction's gas row (from constrain_gas) to go back to
             // parent's gas minus gas consumed by nested call.
-            gas_trace_builder.constrain_gas_for_halt(OpCode::RETURN,
-                                                     /*exceptional_halt=*/false,
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
                                                      parent_l2_gas_left,
                                                      parent_da_gas_left,
                                                      l2_gas_allocated_to_nested_call,
@@ -4015,8 +4013,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
             // modify this instruction's gas row (from constrain_gas) to go back to
             // parent's gas minus gas consumed by nested call.
-            gas_trace_builder.constrain_gas_for_halt(OpCode::REVERT_8,
-                                                     /*exceptional_halt=*/false,
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
                                                      parent_l2_gas_left,
                                                      parent_da_gas_left,
                                                      l2_gas_allocated_to_nested_call,

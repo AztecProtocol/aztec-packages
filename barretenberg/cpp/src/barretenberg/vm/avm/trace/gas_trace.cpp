@@ -24,11 +24,13 @@ void AvmGasTraceBuilder::set_initial_gas(uint32_t l2_gas, uint32_t da_gas)
     remaining_da_gas = da_gas;
 }
 
-void AvmGasTraceBuilder::set_remaining_gas(uint32_t l2_gas, uint32_t da_gas)
+void AvmGasTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
 {
     // Remaining gas will be mutated on each opcode
     remaining_l2_gas = l2_gas;
     remaining_da_gas = da_gas;
+    // set flag so that the next row will be properly tagged as the first in a nested call
+    next_row_is_first_in_nested_call = true;
 }
 
 uint32_t AvmGasTraceBuilder::get_l2_gas_left() const
@@ -72,8 +74,6 @@ bool AvmGasTraceBuilder::constrain_gas(
         effective_nested_da_gas_cost = nested_da_gas_cost;
     }
 
-    gas_opcode_lookup_counter[opcode]++;
-
     // Get the gas prices for this opcode
     const auto& GAS_COST_TABLE = FixedGasTable::get();
     const auto& gas_info = GAS_COST_TABLE.at(opcode);
@@ -106,12 +106,19 @@ bool AvmGasTraceBuilder::constrain_gas(
         .dyn_gas_multiplier = dyn_gas_multiplier,
         .remaining_l2_gas = remaining_l2_gas,
         .remaining_da_gas = remaining_da_gas,
+        .is_halt_or_first_row_in_nested_call = next_row_is_first_in_nested_call,
     });
+
+    if (next_row_is_first_in_nested_call) {
+        next_row_is_first_in_nested_call = false;
+    } else {
+        gas_opcode_lookup_counter[opcode]++;
+    }
+
     return out_of_gas;
 }
 
-void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
-                                                bool exceptional_halt,
+void AvmGasTraceBuilder::constrain_gas_for_halt(bool exceptional_halt,
                                                 uint32_t parent_l2_gas_left,
                                                 uint32_t parent_da_gas_left,
                                                 uint32_t l2_gas_allocated_to_nested_call,
@@ -144,13 +151,12 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(OpCode opcode,
     auto& halting_entry = gas_trace.back();
     halting_entry.remaining_l2_gas = remaining_l2_gas;
     halting_entry.remaining_da_gas = remaining_da_gas;
-    halting_entry.is_halt = true;
+    halting_entry.is_halt_or_first_row_in_nested_call = true;
 
     gas_opcode_lookup_counter[halting_entry.opcode]--;
 }
 
-void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opcode,
-                                                                      uint32_t l2_gas_allocated,
+void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(uint32_t l2_gas_allocated,
                                                                       uint32_t da_gas_allocated)
 {
     debug("Consuming all L2 gas allocated to top-level call: ", l2_gas_allocated);
@@ -163,7 +169,7 @@ void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(OpCode opc
     auto& halting_entry = gas_trace.back();
     halting_entry.remaining_l2_gas = remaining_l2_gas;
     halting_entry.remaining_da_gas = remaining_da_gas;
-    halting_entry.is_halt = true;
+    halting_entry.is_halt_or_first_row_in_nested_call = true;
 
     gas_opcode_lookup_counter[halting_entry.opcode]--;
 }
@@ -210,7 +216,7 @@ void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             auto& dest = main_trace.at(gas_entry.clk - 1);
             auto& next = main_trace.at(gas_entry.clk);
 
-            if (gas_entry.is_halt) {
+            if (gas_entry.is_halt_or_first_row_in_nested_call) {
                 dest.main_is_fake_row = 1;
                 next.main_l2_gas_remaining = gas_entry.remaining_l2_gas;
                 next.main_da_gas_remaining = gas_entry.remaining_da_gas;

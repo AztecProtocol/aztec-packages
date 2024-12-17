@@ -21,7 +21,7 @@ class AvmGasTraceBuilder {
         uint32_t dyn_gas_multiplier = 0;
         uint32_t remaining_l2_gas = 0;
         uint32_t remaining_da_gas = 0;
-        bool is_halt = false;
+        bool is_halt_or_first_row_in_nested_call = false;
     };
 
     AvmGasTraceBuilder() = default;
@@ -39,17 +39,14 @@ class AvmGasTraceBuilder {
                        uint32_t dyn_gas_multiplier = 0,
                        uint32_t nested_l2_gas_cost = 0,
                        uint32_t nested_da_gas_cost = 0);
-    void constrain_gas_for_halt(OpCode opcode,
-                                bool exceptional_halt,
+    void constrain_gas_for_halt(bool exceptional_halt,
                                 uint32_t parent_l2_gas_left,
                                 uint32_t parent_da_gas_left,
                                 uint32_t l2_gas_allocated_to_nested_call,
                                 uint32_t da_gas_allocated_to_nested_call);
-    void constrain_gas_for_top_level_exceptional_halt(OpCode opcode,
-                                                      uint32_t l2_gas_allocated,
-                                                      uint32_t da_gas_allocated);
+    void constrain_gas_for_top_level_exceptional_halt(uint32_t l2_gas_allocated, uint32_t da_gas_allocated);
     void set_initial_gas(uint32_t l2_gas, uint32_t da_gas);
-    void set_remaining_gas(uint32_t l2_gas, uint32_t da_gas);
+    void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
 
     uint32_t get_l2_gas_left() const;
     uint32_t get_da_gas_left() const;
@@ -66,6 +63,7 @@ class AvmGasTraceBuilder {
     uint32_t initial_da_gas = 0;
     uint32_t remaining_l2_gas = 0;
     uint32_t remaining_da_gas = 0;
+    bool next_row_is_first_in_nested_call = false;
 };
 
 } // namespace bb::avm_trace
