@@ -37,7 +37,7 @@ import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
 import { ProvingQueueMetrics } from './queue_metrics.js';
@@ -67,6 +67,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   private runningPromise: RunningPromise;
   private metrics: ProvingQueueMetrics;
 
+  public readonly tracer: Tracer;
+
   constructor(
     client: TelemetryClient,
     /** Timeout the job if an agent doesn't report back in this time */
@@ -77,8 +79,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     private timeSource = defaultTimeSource,
     private proofStore: ProofStore = new InlineProofStore(),
   ) {
+    this.tracer = client.getTracer('MemoryProvingQueue');
     this.metrics = new ProvingQueueMetrics(client, 'MemoryProvingQueue');
-    this.runningPromise = new RunningPromise(this.poll, pollingIntervalMs);
+    this.runningPromise = new RunningPromise(this.poll.bind(this), this.log, pollingIntervalMs);
   }
 
   public start() {
@@ -204,7 +207,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.jobsInProgress.has(jobId);
   }
 
-  private poll = () => {
+  @trackSpan('MemoryProvingQueue.poll')
+  private poll() {
     const now = this.timeSource();
     this.metrics.recordQueueSize(this.queue.length());
 
@@ -222,7 +226,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         this.queue.put(job);
       }
     }
-  };
+  }
 
   private async enqueue<T extends ProvingRequestType>(
     type: T,

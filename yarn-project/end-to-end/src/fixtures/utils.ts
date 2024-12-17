@@ -38,6 +38,7 @@ import {
 } from '@aztec/ethereum';
 import { startAnvil } from '@aztec/ethereum/test';
 import { retryUntil } from '@aztec/foundation/retry';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -225,6 +226,7 @@ async function setupWithRemoteEnvironment(
     logger,
     cheatCodes,
     watcher: undefined,
+    dateProvider: undefined,
     teardown,
   };
 }
@@ -277,8 +279,10 @@ export type EndToEndContext = {
   logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** The anvil test watcher (undefined if connected to remove environment) */
+  /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
+  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
+  dateProvider: TestDateProvider | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -415,7 +419,8 @@ export async function setup(
 
   const telemetry = await telemetryPromise;
   const publisher = new TestL1Publisher(config, telemetry);
-  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
   const sequencer = aztecNode.getSequencer();
 
   let proverNode: ProverNode | undefined = undefined;
@@ -466,6 +471,7 @@ export async function setup(
     cheatCodes,
     sequencer,
     watcher,
+    dateProvider,
     teardown,
   };
 }

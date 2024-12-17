@@ -585,7 +585,9 @@ export class KVPxeDatabase implements PxeDatabase {
 
   async #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecAsyncMap<string, number>) {
     await Promise.all(
-      indexedSecrets.map(indexedSecret => storageMap.set(indexedSecret.secret.toString(), indexedSecret.index)),
+      indexedSecrets.map(indexedSecret =>
+        storageMap.set(indexedSecret.appTaggingSecret.toString(), indexedSecret.index),
+      ),
     );
   }
 
