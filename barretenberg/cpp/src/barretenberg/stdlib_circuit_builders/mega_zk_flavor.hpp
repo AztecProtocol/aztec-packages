@@ -47,11 +47,18 @@ class MegaZKFlavor : public bb::MegaFlavor {
         Commitment lookup_inverses_comm;
         Commitment lookup_read_counts_comm;
         Commitment lookup_read_tags_comm;
-        std::vector<Commitment> libra_commitments;
+        Commitment libra_concatenation_commitment;
         FF libra_sum;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::vector<FF> libra_evaluations;
+        FF libra_claimed_evaluation;
+
+        Commitment libra_big_sum_commitment;
+        Commitment libra_quotient_commitment;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        FF libra_concatenation_eval;
+        FF libra_shifted_big_sum_eval;
+        FF libra_big_sum_eval;
+        FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
         std::vector<Commitment> gemini_fold_comms;
@@ -85,7 +92,6 @@ class MegaZKFlavor : public bb::MegaFlavor {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
 
             public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
@@ -116,10 +122,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_circuit_size; i++) {
-                libra_commitments.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-            };
+            libra_concatenation_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_sum =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
@@ -128,11 +131,13 @@ class MegaZKFlavor : public bb::MegaFlavor {
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                  num_frs_read));
             }
-            for (size_t i = 0; i < log_circuit_size; i++) {
-                libra_evaluations.emplace_back(
-                    NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
-            }
+            libra_claimed_evaluation = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
+
+            libra_big_sum_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+
+            libra_quotient_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+
             hiding_polynomial_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
@@ -141,6 +146,10 @@ class MegaZKFlavor : public bb::MegaFlavor {
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
+            libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_shifted_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
             kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -149,7 +158,6 @@ class MegaZKFlavor : public bb::MegaFlavor {
         void serialize_full_transcript()
         {
             size_t old_proof_length = proof_data.size();
-            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
             proof_data.clear();
             serialize_to_buffer(circuit_size, proof_data);
             serialize_to_buffer(public_input_size, proof_data);
@@ -182,19 +190,19 @@ class MegaZKFlavor : public bb::MegaFlavor {
             serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
 
-            for (size_t i = 0; i < log_circuit_size; ++i) {
-                NativeTranscript::template serialize_to_buffer(libra_commitments[i], NativeTranscript::proof_data);
-            }
+            serialize_to_buffer(libra_concatenation_commitment, proof_data);
+
             NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
-            for (size_t i = 0; i < log_circuit_size; ++i) {
-                NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
-            }
+            serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
             serialize_to_buffer(sumcheck_evaluations, proof_data);
+            serialize_to_buffer(libra_big_sum_commitment, proof_data);
+            serialize_to_buffer(libra_quotient_commitment, proof_data);
+
             serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
             serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
@@ -203,6 +211,11 @@ class MegaZKFlavor : public bb::MegaFlavor {
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
+            serialize_to_buffer(libra_concatenation_eval, proof_data);
+            serialize_to_buffer(libra_shifted_big_sum_eval, proof_data);
+            serialize_to_buffer(libra_big_sum_eval, proof_data);
+            serialize_to_buffer(libra_quotient_eval, proof_data);
+
             serialize_to_buffer(shplonk_q_comm, proof_data);
             serialize_to_buffer(kzg_w_comm, proof_data);
 

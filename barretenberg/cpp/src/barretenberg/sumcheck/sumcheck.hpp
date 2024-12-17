@@ -265,7 +265,7 @@ template <typename Flavor> class SumcheckProver {
                 libra_evaluation += libra_eval;
             }
             libra_evaluation += zk_sumcheck_data.constant_term;
-            std::string libra_evaluation_label = "Libra:final_evaluation";
+            std::string libra_evaluation_label = "Libra:claimed_evaluation";
             transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
         };
 
@@ -578,7 +578,7 @@ template <typename Flavor> class SumcheckVerifier {
         FF libra_evaluation{ 0 };
         FF full_libra_purported_value = FF(0);
         if constexpr (Flavor::HasZK) {
-            libra_evaluation = transcript->template receive_from_prover<FF>("Libra:final_evaluation");
+            libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
             full_libra_purported_value += libra_evaluation;
             full_libra_purported_value *= libra_challenge;
         };
