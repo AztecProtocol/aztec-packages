@@ -233,7 +233,10 @@ class MegaFlavor {
                 this->return_data_inverses,
             };
         }
-        auto get_to_be_shifted() { return DerivedEntities<DataType>::get_to_be_shifted(); }
+        auto get_to_be_shifted()
+        {
+            return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
+        }
 
         MSGPACK_FIELDS(this->w_l,
                        this->w_r,
@@ -262,7 +265,7 @@ class MegaFlavor {
     };
 
     /**
-     * @brief Class for ShiftedEntities, containing only shifted witness polynomials.
+     * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
      */
     template <typename DataType> class ShiftedEntities {
       public:
@@ -306,10 +309,7 @@ class MegaFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(WitnessEntities<DataType>::get_wires(), WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
         auto get_all_witnesses()

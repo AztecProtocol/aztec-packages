@@ -148,8 +148,6 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
-  console.log("number of public inputs");
-  console.log(numPublicInputs);
   let publicInputsOffset = 0;
 
   // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
