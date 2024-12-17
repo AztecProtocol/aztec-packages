@@ -1,6 +1,8 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { TxHash, createCompatibleClient } from '@aztec/aztec.js';
-import { GasFees, PublicKeys } from '@aztec/circuits.js';
+import { createCompatibleClient } from '@aztec/aztec.js/rpc';
+import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { GasFees } from '@aztec/circuits.js';
+import { PublicKeys } from '@aztec/circuits.js/types';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
