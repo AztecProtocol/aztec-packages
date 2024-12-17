@@ -34,8 +34,6 @@ export interface SequencerConfig {
   acvmBinaryPath?: string;
   /** The list of functions calls allowed to run in setup */
   allowedInSetup?: AllowedElement[];
-  /** The list of functions calls allowed to run teardown */
-  allowedInTeardown?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
   /** Whether to require every tx to have a fee payer */
@@ -63,8 +61,7 @@ export const SequencerConfigSchema = z.object({
   feeRecipient: schemas.AztecAddress.optional(),
   acvmWorkingDirectory: z.string().optional(),
   acvmBinaryPath: z.string().optional(),
-  allowedInSetup: z.array(AllowedElementSchema),
-  allowedInTeardown: z.array(AllowedElementSchema),
+  allowedInSetup: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
   enforceFees: z.boolean().optional(),
   gerousiaPayload: schemas.EthAddress.optional(),

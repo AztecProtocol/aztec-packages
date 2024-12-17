@@ -1,10 +1,10 @@
-import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type PXE } from '@aztec/circuit-types/interfaces';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 
-import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
 import { type WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
@@ -38,6 +38,7 @@ export async function createOrRetrieveAccount(
 
   switch (type) {
     case 'schnorr': {
+      const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
       account = getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
       break;
     }
@@ -58,6 +59,7 @@ export async function createOrRetrieveAccount(
         throw new Error('Public key must be provided for ECDSA SSH account');
       }
 
+      const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa');
       account = getEcdsaRSSHAccount(pxe, secretKey, publicSigningKey, salt);
       break;
     }
