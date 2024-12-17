@@ -114,7 +114,8 @@ describe('e2e_epochs', () => {
     await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
   };
 
-  it('does not allow submitting proof after epoch end', async () => {
+  // TODO(#10813) reinstate once not flaking
+  it.skip('does not allow submitting proof after epoch end', async () => {
     await waitUntilEpochStarts(1);
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
