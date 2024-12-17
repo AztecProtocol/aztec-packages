@@ -46,7 +46,12 @@ export class TxValidatorFactory {
       new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
       new DoubleSpendTxValidator(this.nullifierSource),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(this.publicStateSource, ProtocolContractAddress.FeeJuice, this.enforceFees),
+      new GasTxValidator(
+        this.publicStateSource,
+        ProtocolContractAddress.FeeJuice,
+        this.enforceFees,
+        globalVariables.gasFees,
+      ),
     );
   }
 

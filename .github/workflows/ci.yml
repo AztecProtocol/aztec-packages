@@ -46,18 +46,18 @@ jobs:
     # Set username to a value derived from our github username.
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
-      avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
       base-images: ${{ steps.filter.outputs.base-images }}
-      barretenberg: ${{ steps.filter.outputs.barretenberg }}
-      barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
-      noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      bb: ${{ steps.filter.outputs.bb }}
       yarn-project: ${{ steps.filter.outputs.yarn-project }}
-      txe: ${{ steps.filter.outputs.txe }}
-      l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
-      non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
-      non-barretenberg-cpp: ${{ steps.filter.outputs.non-barretenberg-cpp }}
+      non-bb: ${{ steps.filter.outputs.non-bb }}
+      # Test flags:
+      e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
+      bench-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') || github.event_name == 'merge_group' }}
+      network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
+      e2e-list: ${{ steps.e2e_list.outputs.e2e-list }}
+      bench-list: ${{ steps.e2e_list.outputs.bench-list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -80,27 +80,29 @@ jobs:
             echo "username=master-${GIT_HASH_MODULO_8}"
             echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
           fi
+      - name: Create Job Lists
+        id: e2e_list
+        run: |
+          set -eu
+          LABELS=""
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "${{ github.event_path }}")
+          fi
+          echo Labels: $LABELS
+          set -x
+          echo "e2e-list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "bench-list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         with:
           filters: |
-            barretenberg:
-              - 'barretenberg/**'
-            barretenberg-cpp:
-              - 'barretenberg/cpp/**'
             noir:
-              - 'noir/**'
-            avm-transpiler:
-              - 'avm-transpiler/**'
-            l1-contracts:
-              - 'l1-contracts/**'
-            noir-projects:
-              - 'noir-projects/**'
+              - 'noir/noir-repo/**'
+            bb:
+              - 'barretenberg/cpp/**'
             yarn-project:
               - 'yarn-project/**'
-            txe:
-              - 'yarn-project/txe/**'
-            non-barretenberg-cpp:
+            non-bb:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
               - barretenberg/cpp/pil/**
@@ -110,10 +112,6 @@ jobs:
               - barretenberg/cpp/src/barretenberg/bb/main.cpp
             non-docs:
               - '!(docs/**)'
-            non-misc-ci:
-              - '!(.github/**)'
-              # Always rebuild when this file changes
-              - .github/workflows/ci.yml
 
   # Used by CI build as a base image.
   base-images:
@@ -137,7 +135,7 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.noir == 'true' && needs.configure.outputs.bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -152,7 +150,7 @@ jobs:
   bootstrap:
     needs: [ci-noir-bb, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -167,7 +165,7 @@ jobs:
   ci-rest:
     needs: [bootstrap, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -181,11 +179,8 @@ jobs:
 
   images-e2e:
     needs: [bootstrap, configure]
-    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
+    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
     runs-on: ubuntu-latest
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.e2e_list }}
-      bench_list: ${{ steps.e2e_list.outputs.bench_list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -196,39 +191,11 @@ jobs:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
           run: ./bootstrap.sh image-e2e
-      - name: Create Job Lists
-        id: e2e_list
-        env:
-          REF: contains(github.ref_name, 'gh-readonly-queue') && 'master' || github.ref_name
-        run: |
-          set -eu
-          LABELS=""
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "${{ github.event_path }}")
-          fi
-          echo Labels: $LABELS
-          set -x
-          echo "e2e_list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-          echo "bench_list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-
-  bench-test-gate:
-    needs: [images-e2e, configure]
-    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all')
-    runs-on: ubuntu-20.04
-    steps:
-      - run: "echo Full bench tests enabled."
-
-  network-test-gate:
-    needs: [ci-rest, configure]
-    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
-    runs-on: ubuntu-20.04
-    steps:
-      - run: "echo Full network tests enabled."
 
   docs:
     needs: [ci-rest, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -245,12 +212,12 @@ jobs:
 
   e2e:
     needs: [images-e2e, configure]
-    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
+    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.images-e2e.outputs.e2e_list )}}
+        test: ${{ fromJson( needs.configure.outputs.e2e-list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -273,13 +240,13 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [images-e2e, bench-test-gate, configure]
-    if: needs.images-e2e.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
+    needs: [images-e2e, configure]
+    if: needs.configure.outputs.bench-all == 'true' || needs.configure.outputs.bench-list != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.images-e2e.outputs.bench_list )}}
+        test: ${{ fromJson( needs.configure.outputs.bench-list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -309,8 +276,8 @@ jobs:
 
   acir-bench:
     runs-on: ubuntu-latest
-    needs: [bench-test-gate, ci-noir-bb, configure]
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true'
+    needs: [ci-noir-bb, configure]
+    if: needs.configure.outputs.bench-all == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -332,6 +299,7 @@ jobs:
             fi
 
   bench-summary:
+    if: needs.configure.outputs.bench-all == 'true'
     needs:
       - acir-bench
       - bench-e2e
@@ -401,7 +369,8 @@ jobs:
           fi
 
   network-4epochs-test:
-    needs: [images-e2e, network-test-gate, configure]
+    needs: [images-e2e, configure]
+    if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -413,11 +382,13 @@ jobs:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
           run: |
-            scripts/earthly-ci +network-test --test=./test-4epochs.sh
+            if ci3/test_should_run barretenberg-test-$(./barretenberg/cpp/bootstrap.sh hash); then
+              scripts/earthly-ci +network-test --test=./test-4epochs.sh
+            fi
 
   kind-smoke-test:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -437,7 +408,8 @@ jobs:
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-full-test:
-    needs: [images-e2e, network-test-gate, configure]
+    needs: [images-e2e, ci-rest, configure]
+    if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -487,7 +459,7 @@ jobs:
   bb-bench:
     runs-on: ubuntu-latest
     needs: [ci-noir-bb, configure]
-    if: needs.configure.outputs.barretenberg-cpp == 'true'
+    if: needs.configure.outputs.bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -573,7 +545,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -611,7 +583,7 @@ jobs:
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
+    if: needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -657,6 +629,7 @@ jobs:
     needs:
       - configure
       - base-images
+      - bootstrap
       - ci-noir-bb
       - ci-rest
       - images-e2e
@@ -667,6 +640,7 @@ jobs:
       - kind-smoke-test
       - kind-network-full-test
       - boxes-test
+      - rough-rhino-installer
     if: always()
     outputs:
       failure: ${{ steps.set_failed_jobs.outputs.failure }}

@@ -565,5 +565,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
+
+    await this.db.removeNullifiedNotes(this.contractAddress);
   }
 }

@@ -4,7 +4,7 @@ import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { SpamContract } from '@aztec/noir-contracts.js';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
