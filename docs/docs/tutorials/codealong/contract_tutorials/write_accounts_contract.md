@@ -119,4 +119,3 @@ Follow the token contract tutorial on the [next page](./token_contract.md) and l
 - [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
 - [Account abstraction](../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
 - [Authentication witness](../../../aztec/concepts/accounts/authwit.md)
-- [Fee abstraction](../../../protocol-specs/gas-and-fees/tx-setup-and-teardown.md).
