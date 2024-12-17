@@ -273,11 +273,10 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_by_index)
                                        BlockAndIndex{ .blockNumber = 5, .index = 130 } };
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
-        // write all of the blocks. we will write them in reverse order
+        // write all of the blocks.
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (int i = int(blocks.size()) - 1; i >= 0; i--) {
+        for (auto block : blocks) {
             // the arg is block size so add 1
-            const BlockAndIndex& block = blocks[size_t(i)];
             store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
         }
         transaction->commit();
@@ -409,12 +408,22 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
     {
         // write all of the blocks. we will write them in reverse order
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (int i = int(blocks.size()) - 1; i >= 0; i--) {
+        for (auto block : blocks) {
             // the arg is block size so add 1
-            const BlockAndIndex& block = blocks[size_t(i)];
             store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
         }
         transaction->commit();
+    }
+
+    {
+        // we can't add a duplicate block at an index if it is not the next block number
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        EXPECT_THROW(store.write_block_index_data(3, 60 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(6, 60 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(1, 25 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(3, 25 + 1, *transaction), std::runtime_error);
+        transaction->abort();
     }
 
     {
@@ -435,11 +444,12 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
     }
 
     {
-        // delete block 2 at index 60
+        // attempting to delete block 2 at index 60 should fail as it is not the last block in the series at index 60
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         // the arg is block size so add 1
-        store.delete_block_index(blocks[1].index + 1, blocks[1].blockNumber, *transaction);
-        transaction->commit();
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, blocks[1].blockNumber, *transaction),
+                     std::runtime_error);
+        transaction->abort();
     }
 
     {
@@ -449,9 +459,9 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
         EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
         EXPECT_EQ(readBack, 1);
 
-        // should be the new lowest block at this index
+        // should still be the lowest block at this index
         EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
-        EXPECT_EQ(readBack, 3);
+        EXPECT_EQ(readBack, 2);
 
         EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
         EXPECT_EQ(readBack, 5);
@@ -463,9 +473,9 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
         // try and delete blocks that don't exist at index 60
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         // the arg is block size so add 1
-        store.delete_block_index(blocks[1].index + 1, 2, *transaction);
-        store.delete_block_index(blocks[1].index + 1, 5, *transaction);
-        transaction->commit();
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, 2, *transaction), std::runtime_error);
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, 5, *transaction), std::runtime_error);
+        transaction->abort();
     }
 
     {
@@ -475,9 +485,8 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
         EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
         EXPECT_EQ(readBack, 1);
 
-        // should be the new lowest block at this index
         EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
-        EXPECT_EQ(readBack, 3);
+        EXPECT_EQ(readBack, 2);
 
         EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
         EXPECT_EQ(readBack, 5);
@@ -486,11 +495,37 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
     }
 
     {
-        // delete 2 more blocks
+        // delete the last 2 blocks at index 60
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         // the arg is block size so add 1
         store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
         store.delete_block_index(blocks[2].index + 1, blocks[2].blockNumber, *transaction);
+        transaction->commit();
+    }
+
+    {
+        // check the blocks again
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+    }
+
+    {
+        // delete the last final block at index 60
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        // Only one block remains at index 60, try and delete one that doesn't exist, it should do nothing
+        store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
+
+        // Now delete the last block
+        store.delete_block_index(blocks[1].index + 1, blocks[1].blockNumber, *transaction);
         transaction->commit();
     }
 
