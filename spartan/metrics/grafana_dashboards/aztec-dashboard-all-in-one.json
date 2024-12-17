@@ -83,8 +83,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 11,
+        "w": 12,
         "x": 0,
         "y": 0
       },
@@ -123,12 +123,113 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "spartan-metrics-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 137,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(rate(aztec_node_receive_tx_count{k8s_namespace_name=\"$namespace\"}[5m]))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "TX Received Rate",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 11
       },
       "id": 2,
       "panels": [],
@@ -202,7 +303,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 12
       },
       "id": 1,
       "options": {
@@ -305,7 +406,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 12
       },
       "id": 3,
       "options": {
@@ -347,7 +448,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 22
       },
       "id": 4,
       "panels": [],
@@ -382,7 +483,7 @@
         "h": 8,
         "w": 5,
         "x": 0,
-        "y": 24
+        "y": 23
       },
       "id": 5,
       "options": {
@@ -453,7 +554,7 @@
         "h": 8,
         "w": 6,
         "x": 5,
-        "y": 24
+        "y": 23
       },
       "id": 7,
       "options": {
@@ -575,7 +676,7 @@
         "h": 8,
         "w": 13,
         "x": 11,
-        "y": 24
+        "y": 23
       },
       "id": 23,
       "options": {
@@ -689,7 +790,7 @@
         "h": 8,
         "w": 7,
         "x": 0,
-        "y": 32
+        "y": 31
       },
       "id": 21,
       "options": {
@@ -752,7 +853,7 @@
         "h": 8,
         "w": 5,
         "x": 7,
-        "y": 32
+        "y": 31
       },
       "id": 6,
       "options": {
@@ -861,7 +962,7 @@
         "h": 8,
         "w": 7,
         "x": 12,
-        "y": 32
+        "y": 31
       },
       "id": 22,
       "interval": "5m",
@@ -926,7 +1027,7 @@
         "h": 8,
         "w": 5,
         "x": 19,
-        "y": 32
+        "y": 31
       },
       "id": 8,
       "options": {
@@ -973,7 +1074,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 39
       },
       "id": 9,
       "panels": [],
@@ -1039,7 +1140,7 @@
         "h": 6,
         "w": 7,
         "x": 0,
-        "y": 41
+        "y": 40
       },
       "id": 12,
       "options": {
@@ -1112,7 +1213,7 @@
         "h": 6,
         "w": 9,
         "x": 7,
-        "y": 41
+        "y": 40
       },
       "id": 13,
       "options": {
@@ -1198,7 +1299,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 41
+        "y": 40
       },
       "hideTimeOverride": true,
       "id": 26,
@@ -1295,7 +1396,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 41
+        "y": 40
       },
       "id": 25,
       "options": {
@@ -1398,7 +1499,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 47
+        "y": 46
       },
       "id": 14,
       "options": {
@@ -1499,7 +1600,7 @@
         "h": 8,
         "w": 13,
         "x": 8,
-        "y": 47
+        "y": 46
       },
       "id": 11,
       "options": {
@@ -1620,7 +1721,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1632,7 +1734,7 @@
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 55
+        "y": 54
       },
       "id": 24,
       "options": {
@@ -1711,7 +1813,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 63
+        "y": 62
       },
       "id": 16,
       "panels": [],
@@ -1766,7 +1868,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1782,7 +1885,7 @@
         "h": 9,
         "w": 9,
         "x": 0,
-        "y": 64
+        "y": 63
       },
       "id": 19,
       "options": {
@@ -1834,7 +1937,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1846,7 +1950,7 @@
         "h": 9,
         "w": 15,
         "x": 9,
-        "y": 64
+        "y": 63
       },
       "id": 20,
       "options": {
@@ -1935,7 +2039,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1951,7 +2056,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 73
+        "y": 72
       },
       "id": 15,
       "options": {
@@ -1993,7 +2098,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 81
+        "y": 80
       },
       "id": 17,
       "panels": [],
@@ -2017,7 +2122,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2058,7 +2164,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 82
+        "y": 81
       },
       "id": 47,
       "options": {
@@ -2117,6 +2223,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "spartan-metrics-prometheus"
       },
@@ -2163,7 +2270,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2179,7 +2287,7 @@
         "h": 7,
         "w": 8,
         "x": 6,
-        "y": 82
+        "y": 81
       },
       "id": 27,
       "options": {
@@ -2202,7 +2310,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_circuit_witness_generation_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval])/rate(aztec_circuit_witness_generation_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))",
+          "expr": "sum(rate(aztec_circuit_witness_generation_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))\n/(sum(rate(aztec_circuit_witness_generation_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2219,6 +2327,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "spartan-metrics-prometheus"
       },
@@ -2265,7 +2374,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2281,7 +2391,7 @@
         "h": 7,
         "w": 10,
         "x": 14,
-        "y": 82
+        "y": 81
       },
       "id": 46,
       "options": {
@@ -2304,7 +2414,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(aztec_circuit_proving_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval])/rate(aztec_circuit_proving_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))",
+          "expr": "sum(rate(aztec_circuit_proving_duration_milliseconds_sum{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))\n/\nsum(rate(aztec_circuit_proving_duration_milliseconds_count{aztec_circuit_protocol_circuit_name=\"$protocol_circuit\", k8s_namespace_name=~\"$namespace\"}[$interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2320,14 +2430,14 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "",
+  "refresh": "10s",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "rc1",
           "value": "rc1"
         },
@@ -2415,13 +2525,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Aztec Network Dashboard",
   "uid": "cdtxao66xa1ogc",
-  "version": 7,
+  "version": 11,
   "weekStart": ""
 }
