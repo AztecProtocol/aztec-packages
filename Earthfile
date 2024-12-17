@@ -40,22 +40,14 @@ bootstrap-noir-bb:
   ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
 bootstrap:
-  # Skips boxes.
-  FROM +bootstrap-base
-  ARG EARTHLY_GIT_HASH
+  # NOTE: Skips boxes.
+  FROM +bootstrap-noir-bb
+  WORKDIR /build-volume
   # Use a mounted volume for performance.
-  # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   # TODO don't retry noir projects. It seems to have been flakey.
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
-    git init >/dev/null 2>&1 && \
-    git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 && \
-    # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-    ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
-    (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
-    git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
-    DENOISE=1 CI=1 ./noir/bootstrap.sh fast && \
-    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast && \
+    mv $(ls -A /usr/src) . \
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
     (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) && \
@@ -63,11 +55,6 @@ bootstrap:
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
-  ENV CI=1
-  ENV TEST=1
-  ENV USE_CACHE=1
-  ARG GITHUB_RUN_URL=""
-  ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
 bootstrap-with-verifier:
   # TODO(ci3) roll this into normal bootstrap
