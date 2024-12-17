@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734431828315,
+  "lastUpdate": 1734453264730,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0311bf333acb2def3be1373b36514b99b132623a",
-          "message": "chore: Public inputs in unit tests with proving were incorrectly set (#10300)",
-          "timestamp": "2024-11-29T13:19:48Z",
-          "tree_id": "819212f2a4a91c49009daf55447970a26ad28fb5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0311bf333acb2def3be1373b36514b99b132623a"
-        },
-        "date": 1732888868492,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27269.089281000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 25231.633902999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4584.776615999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4298.010478 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87862.19409100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87862194000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16499.810913,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16499812000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3040071696,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3040071696 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134229535,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134229535 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3004,6 +2944,72 @@ window.BENCHMARK_DATA = {
             "value": 132657232,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132657232 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "923826a9d1bbed6739527a82b34d5610600eca1b",
+          "message": "feat: Add tree equality assertions (#10756)\n\nAsserts in the public base that the end tree roots of the AVM equal the\r\ncalculated tree roots in the public base, to check correctness of the\r\nAVM insertions.",
+          "timestamp": "2024-12-17T17:05:14+01:00",
+          "tree_id": "8ed9a58664e9d107f47e19b8b7558943865043f8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/923826a9d1bbed6739527a82b34d5610600eca1b"
+        },
+        "date": 1734453257717,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 25364.301028,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19743.115241000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24507.166215000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22465.644397999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4533.45861599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4258.466504 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89489.743332,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89489744000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16500.062938,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16500064000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2795012783,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2795012783 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133026956,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133026956 ns\nthreads: 1"
           }
         ]
       }
