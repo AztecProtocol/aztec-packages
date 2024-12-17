@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734459332439,
+  "lastUpdate": 1734464944207,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a04ca880ae2a0f285b6a5a110286ba10bc4a6c3",
-          "message": "feat: Avoid inserting an empty leaf in indexed trees on update (#10281)\n\nPreviously, we were always appending an empty leaf when we encountered\r\nan update in the public data tree. After this PR public data tree\r\ninsertions don't add an empty leaf when the write is an update.",
-          "timestamp": "2024-11-29T17:45:39+01:00",
-          "tree_id": "2f47d10fb913d917be8d1325613d967cc661325a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a04ca880ae2a0f285b6a5a110286ba10bc4a6c3"
-        },
-        "date": 1732900908817,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27109.017248000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 25232.662169 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4595.447338,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4294.366223999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91516.73673100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91516736000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16542.535683000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16542537000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3038863907,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3038863907 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133489523,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133489523 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3016,6 +2956,72 @@ window.BENCHMARK_DATA = {
             "value": 133622421,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133622421 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a3fba8442fdd62f429054c3367984fd4206bbbeb",
+          "message": "feat: Don't store every block number in block indices DB (#10658)\n\nThe block indices DB is what enables clients to query the block number\r\nfor a given index. Where there were blocks of zero size (so multiple\r\nblock numbers against an index) it was storing every block number\r\nagainst that index. This could result in an unbounded values size in the\r\nDB. We now just store the block range in this scenario.",
+          "timestamp": "2024-12-17T19:20:05Z",
+          "tree_id": "789f2831838abeece429cb22541568eaed2ef8d6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a3fba8442fdd62f429054c3367984fd4206bbbeb"
+        },
+        "date": 1734464936521,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 25059.891827,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19444.546301000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24237.424376000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22342.148587 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4443.4232689999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4172.05496 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89737.686278,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89737686000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16466.044313000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16466045000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2772927441,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2772927441 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132240337,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132240337 ns\nthreads: 1"
           }
         ]
       }
