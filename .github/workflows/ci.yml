@@ -313,7 +313,7 @@ jobs:
             export COMMIT_HASH=${{ env.GIT_COMMIT }}
             export PULL_REQUEST=${{ github.event.pull_request.number }}
             export BRANCH=${{ github.ref_name }}
-            /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
+            scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
   acir-bench:
     runs-on: ubuntu-latest

@@ -6,6 +6,13 @@
     "test:unit": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest src/fixtures"
   },
   "jest": {
-    "reporters": []
+    "reporters": [
+      [
+        "summary",
+        {
+          "summaryThreshold": 0
+        }
+      ]
+    ]
   }
 }

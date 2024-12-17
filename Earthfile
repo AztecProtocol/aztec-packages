@@ -188,6 +188,7 @@ ci-rest:
     WAIT
       BUILD ./yarn-project/+prover-client-test
     END
+    RUN ci3/cache_upload_flag $artifact
   END
   SET artifact=network-test-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
