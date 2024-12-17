@@ -25,7 +25,6 @@ bootstrap-noir-bb:
     git init >/dev/null 2>&1 && \
     git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 && \
     # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-    # Skip CRS download until full bootstrap.
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
