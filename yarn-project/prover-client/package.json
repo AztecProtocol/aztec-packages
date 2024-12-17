@@ -8,7 +8,8 @@
     "./broker": "./dest/proving_broker/index.js",
     "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
-    "./helpers": "./dest/orchestrator/block-building-helpers.js"
+    "./helpers": "./dest/orchestrator/block-building-helpers.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [

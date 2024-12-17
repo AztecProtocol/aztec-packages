@@ -224,13 +224,13 @@ contract Counter {
         assert(notes.len() == 4);
         assert(get_counter(owner) == 7);
 
-        // Checking from the note cache, note that we MUST advance the block to get a correct and updated value.
+        // Checking from the note cache
         Counter::at(contract_address).decrement(owner, sender).call(&mut env.private());
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-        assert(get_counter(owner) == 11);
-        assert(notes.len() == 5);
+        assert(get_counter(owner) == 6);
+        assert(notes.len() == 4);
 
-        // We advance the block here to have the nullification of the prior note be applied. Should we try nullifiying notes in our DB on notifyNullifiedNote ?
+        // Checking that the note was discovered from private logs
         env.advance_block_by(1);
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
         assert(get_counter(owner) == 6);

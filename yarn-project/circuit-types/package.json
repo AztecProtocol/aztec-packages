@@ -9,7 +9,8 @@
     "./interfaces": "./dest/interfaces/index.js",
     "./log_id": "./dest/logs/log_id.js",
     "./test": "./dest/test/index.js",
-    "./tx_hash": "./dest/tx/tx_hash.js"
+    "./tx_hash": "./dest/tx/tx_hash.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [

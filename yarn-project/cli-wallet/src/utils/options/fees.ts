@@ -1,14 +1,4 @@
-import {
-  type AccountWallet,
-  FeeJuicePaymentMethod,
-  FeeJuicePaymentMethodWithClaim,
-  type FeePaymentMethod,
-  NoFeePaymentMethod,
-  type PXE,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type FeePaymentMethod, type PXE, type SendMethodOptions } from '@aztec/aztec.js';
 import { AztecAddress, Fr, Gas, GasFees, GasSettings } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
 
@@ -99,10 +89,15 @@ export class FeeOpts implements IFeeOpts {
       return new NoFeeOpts(estimateOnly, gasSettings);
     }
 
+    const defaultPaymentMethod = async () => {
+      const { NoFeePaymentMethod } = await import('@aztec/aztec.js/fee');
+      return new NoFeePaymentMethod();
+    };
+
     return new FeeOpts(
       estimateOnly,
       gasSettings,
-      args.payment ? parsePaymentMethod(args.payment, log, db) : () => Promise.resolve(new NoFeePaymentMethod()),
+      args.payment ? parsePaymentMethod(args.payment, log, db) : defaultPaymentMethod,
       !!args.estimateGas,
     );
   }
@@ -147,10 +142,12 @@ export function parsePaymentMethod(
 
   return async (sender: AccountWallet) => {
     switch (parsed.method) {
-      case 'none':
+      case 'none': {
         log('Using no fee payment');
+        const { NoFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new NoFeePaymentMethod();
-      case 'native':
+      }
+      case 'native': {
         if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
           let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {
@@ -163,6 +160,7 @@ export function parsePaymentMethod(
             ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
+          const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
             claimAmount: typeof claimAmount === 'string' ? Fr.fromHexString(claimAmount) : new Fr(claimAmount),
             claimSecret: Fr.fromHexString(claimSecret),
@@ -170,18 +168,20 @@ export function parsePaymentMethod(
           });
         } else {
           log(`Using Fee Juice for fee payment`);
+          const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethod(sender.getAddress());
         }
+      }
       case 'fpc-public': {
         const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
+        const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(asset, fpc, sender);
       }
       case 'fpc-private': {
         const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
-        log(
-          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient.toString()}`,
-        );
+        log(`Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient}`);
+        const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
       }
       case undefined:
