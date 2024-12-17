@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734464944207,
+  "lastUpdate": 1734475809577,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "887c01103255ea4cbbb6cb33c8771d47123b3bff",
-          "message": "fix: Revert \"feat: Avoid inserting an empty leaf in indexed trees on update\" (#10319)\n\nBroke kind tests. Reverts AztecProtocol/aztec-packages#10281",
-          "timestamp": "2024-11-29T14:49:44-05:00",
-          "tree_id": "78051fac3fcc61be957804da1d2efd108f6cc97a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/887c01103255ea4cbbb6cb33c8771d47123b3bff"
-        },
-        "date": 1732912388360,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 27083.93215999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 25000.168543999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4583.430852999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4313.663856 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92685.02027400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92685021000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16496.052567,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16496053000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3032242338,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3032242338 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133738848,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133738848 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3022,6 +2962,72 @@ window.BENCHMARK_DATA = {
             "value": 132240337,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132240337 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ac13e642c958392ce5606684c044ea014325e26",
+          "message": "chore(avm): radix opcode - remove immediates (#10696)\n\nResolves #10371",
+          "timestamp": "2024-12-17T16:45:48-05:00",
+          "tree_id": "cddaab5cb2ad0941b9e2335627f82703c7efc1ac",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4ac13e642c958392ce5606684c044ea014325e26"
+        },
+        "date": 1734475802836,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 25660.944038999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19994.639785 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25013.04731799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22815.900613 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4523.916942000028,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4222.090227999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 90880.85256,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 90880852000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16681.662177,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16681663000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2856760256,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2856760256 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135708293,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135708293 ns\nthreads: 1"
           }
         ]
       }
