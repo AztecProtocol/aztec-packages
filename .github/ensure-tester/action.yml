@@ -91,18 +91,17 @@ runs:
       run:
         set +e;
         scripts/run_on_builder "
-          set -eux
-          sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
+          sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
           [ -d ~/run-$RUN_ID ] || (
-            mkdir -p ~/run-$RUN_ID
-            cd ~/run-$RUN_ID
-            git init &>/dev/null
-            git remote add origin https://github.com/aztecprotocol/aztec-packages
-            git fetch --depth 1 origin $GIT_COMMIT
-            git checkout FETCH_HEAD >/dev/null
-          )
-          cd ~/run-$RUN_ID
-          .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }}
+            mkdir -p ~/run-$RUN_ID;
+            cd ~/run-$RUN_ID;
+            git init &>/dev/null;
+            git remote add origin https://github.com/aztecprotocol/aztec-packages;
+            git fetch --depth 1 origin $GIT_COMMIT;
+            git checkout FETCH_HEAD >/dev/null;
+          );
+          cd ~/run-$RUN_ID;
+          .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }};
         "
         exit_code=$?;
         if [ $exit_code = 255 ]; then

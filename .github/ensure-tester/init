@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eu
 # One-time config.
 mkdir -p ~/.ssh
 echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
