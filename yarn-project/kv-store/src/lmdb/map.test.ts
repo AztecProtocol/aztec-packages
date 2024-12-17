@@ -12,22 +12,30 @@ describe('LMDBMap', () => {
 
 describe('AztecMultiMapWithSize', () => {
   let map: AztecMultiMapWithSize<string, string>;
+  let map2: AztecMultiMapWithSize<string, string>;
 
   beforeEach(() => {
     const store = openTmpStore(true);
     map = store.openMultiMapWithSize('test');
+    map2 = store.openMultiMapWithSize('test2');
   });
 
   it('should be able to delete values', async () => {
     await map.set('foo', 'bar');
     await map.set('foo', 'baz');
 
+    await map2.set('foo', 'bar');
+    await map2.set('foo', 'baz');
+
     expect(map.size()).to.equal(2);
+    expect(map2.size()).to.equal(2);
 
     await map.deleteValue('foo', 'bar');
 
     expect(map.size()).to.equal(1);
     expect(map.get('foo')).to.equal('baz');
+
+    expect(map2.size()).to.equal(2);
   });
 });
 

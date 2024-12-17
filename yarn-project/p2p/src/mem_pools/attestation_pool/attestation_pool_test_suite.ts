@@ -34,7 +34,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised
   // using array containing as the kv store does not respect insertion order
-  // TODO(md): should i make a version which respects insertion order?
   const compareAttestations = (a1: BlockAttestation[], a2: BlockAttestation[]) => {
     const a1Buffer = a1.map(attestation => attestation.toBuffer());
     const a2Buffer = a2.map(attestation => attestation.toBuffer());
@@ -106,7 +105,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   });
 
   it('Should store attestations by differing slot and archive', async () => {
-    const slotNumbers = [1, 2, 3, 4];
+    const slotNumbers = [1, 1, 2, 3];
     const archives = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
     const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], archives[i]));
 
@@ -169,9 +168,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
     const proposalId = attestations[0].archive.toString();
 
+    // Add another set of attestations with a different proposalId, yet the same slot
+    const archive2 = Fr.random();
+    const attestations2 = signers.map(signer => mockAttestation(signer, slotNumber, archive2));
+    const proposalId2 = attestations2[0].archive.toString();
+
     await ap.addAttestations(attestations);
+    await ap.addAttestations(attestations2);
 
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations2.length);
 
     const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
@@ -183,6 +189,25 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
+
+    const retreivedAttestationsAfterDeleteForOtherProposal = await ap.getAttestationsForSlot(
+      BigInt(slotNumber),
+      proposalId2,
+    );
+    expect(retreivedAttestationsAfterDeleteForOtherProposal.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
+    compareAttestations(retreivedAttestationsAfterDeleteForOtherProposal, attestations2);
+  });
+
+  it('Should blanket delete attestations per slot and proposal (does not perform db ops if there are no attestations)', async () => {
+    const slotNumber = 420;
+    const proposalId = 'proposalId';
+
+    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    expect(retreivedAttestations.length).toBe(0);
+
+    await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
+
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledTimes(0);
   });
 
   it('Should delete attestations older than a given slot', async () => {

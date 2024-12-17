@@ -74,8 +74,6 @@ export class KvAttestationPool implements AttestationPool {
     for (const slot of slots) {
       if (BigInt(slot) < oldestSlot) {
         olderThan.push(slot);
-      } else {
-        break;
       }
     }
 
@@ -109,9 +107,9 @@ export class KvAttestationPool implements AttestationPool {
     const deletionPromises = [];
 
     const slotString = new Fr(slot).toString();
-    const slotAttestationMap = this.attestations.get(slotString);
+    const exists = this.attestations.get(slotString);
 
-    if (slotAttestationMap) {
+    if (exists) {
       // Remove the proposalId from the slot index
       deletionPromises.push(this.attestations.deleteValue(slotString, proposalId));
 

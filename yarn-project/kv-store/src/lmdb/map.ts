@@ -13,8 +13,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   protected db: Database<[K, V], MapValueSlot<K>>;
   protected name: string;
 
-  #startSentinel: MapValueSlot<Buffer>;
-  #endSentinel: MapValueSlot<Buffer>;
+  protected startSentinel: MapValueSlot<Buffer>;
+  protected endSentinel: MapValueSlot<Buffer>;
 
   constructor(rootDb: Database, mapName: string) {
     this.name = mapName;
@@ -23,8 +23,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     // sentinels are used to define the start and end of the map
     // with LMDB's key encoding, no _primitive value_ can be "less than" an empty buffer or greater than Byte 255
     // these will be used later to answer range queries
-    this.#startSentinel = ['map', this.name, 'slot', Buffer.from([])];
-    this.#endSentinel = ['map', this.name, 'slot', Buffer.from([255])];
+    this.startSentinel = ['map', this.name, 'slot', Buffer.from([])];
+    this.endSentinel = ['map', this.name, 'slot', Buffer.from([255])];
   }
 
   close(): Promise<void> {
@@ -94,18 +94,18 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
     const start = reverse
       ? range.end
         ? this.slot(range.end)
-        : this.#endSentinel
+        : this.endSentinel
       : range.start
       ? this.slot(range.start)
-      : this.#startSentinel;
+      : this.startSentinel;
 
     const end = reverse
       ? range.start
         ? this.slot(range.start)
-        : this.#startSentinel
+        : this.startSentinel
       : range.end
       ? this.slot(range.end)
-      : this.#endSentinel;
+      : this.endSentinel;
 
     const lmdbRange: RangeOptions = {
       start,
@@ -159,8 +159,8 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
 
   async clear(): Promise<void> {
     const lmdbRange: RangeOptions = {
-      start: this.#startSentinel,
-      end: this.#endSentinel,
+      start: this.startSentinel,
+      end: this.endSentinel,
     };
 
     const iterator = this.db.getRange(lmdbRange);
@@ -219,7 +219,10 @@ export class LmdbAztecMapWithSize<K extends Key, V>
    */
   size(): number {
     if (this.#sizeCache === undefined) {
-      this.#sizeCache = this.db.getCount();
+      this.#sizeCache = this.db.getCount({
+        start: this.startSentinel,
+        end: this.endSentinel,
+      });
     }
     return this.#sizeCache;
   }
