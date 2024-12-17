@@ -87,11 +87,8 @@ runs:
 
     - name: Run On Tester
       id: test
-      shell: bash
-      run:
-        set +e;
-        scripts/run_on_builder "
-          sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
+      env:
+        clone: |
           [ -d ~/run-$RUN_ID ] || (
             mkdir -p ~/run-$RUN_ID;
             cd ~/run-$RUN_ID;
@@ -99,7 +96,13 @@ runs:
             git remote add origin https://github.com/aztecprotocol/aztec-packages;
             git fetch --depth 1 origin $GIT_COMMIT;
             git checkout FETCH_HEAD >/dev/null;
-          );
+          )
+      shell: bash
+      run:
+        set +e;
+        scripts/run_on_builder "
+          sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
+          $clone;
           cd ~/run-$RUN_ID;
           .github/ensure-builder/init $DOCKERHUB_PASSWORD ${{ inputs.run }};
         "
