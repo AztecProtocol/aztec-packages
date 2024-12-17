@@ -12,7 +12,7 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
-if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
+if [ -z ${S3_FORCE_UPLOAD:-} ] && aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
   echo "Skipping upload, already exists: $name" >&2
   exit 0
 fi
