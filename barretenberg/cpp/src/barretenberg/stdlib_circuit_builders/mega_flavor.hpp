@@ -266,9 +266,9 @@ class MegaFlavor {
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShiftedEntities, containing only shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -277,33 +277,7 @@ class MegaFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
   public:
@@ -344,9 +318,8 @@ class MegaFlavor {
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
+        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
+
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
         auto get_all_witnesses()
         {
@@ -354,11 +327,7 @@ class MegaFlavor {
                                ShiftedEntities<DataType>::get_shifted_witnesses());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
