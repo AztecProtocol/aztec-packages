@@ -22,7 +22,8 @@ import {
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent, ContractInstanceDeployedEvent } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import {
   type CommitmentsDB,
   MessageLoadOracleInputs,

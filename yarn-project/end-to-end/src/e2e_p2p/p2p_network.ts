@@ -1,7 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
@@ -184,7 +185,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.EPOCH_DURATION();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {

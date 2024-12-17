@@ -1,4 +1,5 @@
-import { EthCheatCodes, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
@@ -84,7 +85,7 @@ describe('a test that passively observes the network in the presence of network 
     });
 
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),
