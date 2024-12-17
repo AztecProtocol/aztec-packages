@@ -1,0 +1,1 @@
+barretenberg_module(ultra_vanilla_client_ivc stdlib_protogalaxy_verifier stdlib_goblin_verifier)
