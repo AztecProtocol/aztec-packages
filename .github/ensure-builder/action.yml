@@ -86,16 +86,16 @@ runs:
       shell: bash
       env:
         CLONE: |
-          [ -d ~/run-$RUN_ID ] || (
+          if [ ! -d ~/run-$RUN_ID ]; then
             mkdir -p ~/run-$RUN_ID;
             cd ~/run-$RUN_ID;
             git init &>/dev/null;
             git remote add origin https://github.com/aztecprotocol/aztec-packages;
             git fetch --depth 1 origin $GIT_COMMIT;
             git checkout FETCH_HEAD >/dev/null;
-          )
+          fi
           cd ~/run-$RUN_ID
-        INPUT: ${{ inputs.run }}
+        INPUT: "${{ inputs.run }}"
       run:
         set +e;
         exit_code=254
