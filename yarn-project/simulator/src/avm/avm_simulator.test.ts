@@ -49,6 +49,7 @@ import { type AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
+  Div,
   EmitNoteHash,
   EmitNullifier,
   EmitUnencryptedLog,
@@ -58,7 +59,6 @@ import {
   SStore,
   SendL2ToL1Message,
   Set,
-  Div,
 } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';

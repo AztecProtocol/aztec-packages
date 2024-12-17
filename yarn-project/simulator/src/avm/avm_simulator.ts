@@ -196,7 +196,7 @@ export class AvmSimulator {
 
       const revertReason = await revertReasonFromExceptionalHalt(err, this.context);
       // Exceptional halts consume all allocated gas
-      const noGasLeft = { l2Gas: 0, daGas: 0, };
+      const noGasLeft = { l2Gas: 0, daGas: 0 };
       // Note: "exceptional halts" cannot return data, hence [].
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], noGasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
