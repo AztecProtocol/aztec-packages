@@ -621,7 +621,7 @@ contract Token {
     #[private]
     fn setup_refund(
         user: AztecAddress, // A user for which we are setting up the fee refund.
-        max_fee: Field, // The maximum fee a user is willing to pay for the tx (denominated in FPC's accepted asset)
+        max_fee: Field, // The maximum fee a user is willing to pay for the tx.
         nonce: Field, // A nonce to make authwitness unique.
     ) {
         // 1. This function is called by FPC when setting up a refund so we need to support the authwit flow here
