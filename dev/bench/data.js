@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734475809577,
+  "lastUpdate": 1734476728713,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf05a7a346ea11853e940d5e9ac105ef0d629d35",
-          "message": "feat: Allow querying block number for tree indices (#10332)\n\nThis PR make the following changes.\r\n\r\n1. Captures and propagates more of the errors generated in the merkle\r\ntrees out to the TS interface.\r\n2. Introduces the `block_number_t` typedef within the native world\r\nstate.\r\n3. Introduces a new DB in the native world state. This DB maps block\r\nnumbers to the size of the tree at that block. It then uses this DB to\r\nfulfill queries looking to identify which block given notes were\r\nincluded within.",
-          "timestamp": "2024-12-02T14:27:20Z",
-          "tree_id": "c8522bb2cc4539932198c8940c2fa75549ec551e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cf05a7a346ea11853e940d5e9ac105ef0d629d35"
-        },
-        "date": 1733151370444,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28045.361946000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26377.061908 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5038.110503999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4704.827921 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85570.86460399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85570865000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15154.101198999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15154102000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3062933694,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3062933694 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140911800,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140911800 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3028,6 +2968,72 @@ window.BENCHMARK_DATA = {
             "value": 135708293,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135708293 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b8bdb529719c1f72244e904ea667462458a43317",
+          "message": "fix: AVM witgen track gas for nested calls and external halts (#10731)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10033\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10374\n\nThis PR does the following:\n- Witgen handles out-of-gas errors for all opcodes \n- all halts (return/revert/exceptional) work as follows:\n- charge gas for the problematic instruction as always, adding a row to\nthe gas trace\n    - pop the parent/caller's latest gas from the stack\n- call a helper function on the gas trace to mutate that most recent gas\nrow, returning to the parent's latest gas minus any consumed gas (all\ngas consumed on exceptional halt)\n- `GasTraceEntry` includes a field `is_halt_or_first_row_in_nested_call`\nwhich lets us break gas rules on a halt or when starting a nested call\nbecause in both cases gas will jump.\n- `constrain_gas` returns a bool `out_of_gas` so that opcode\nimplementations can handle out of gas\n- `write_to_memory` now has an option to skip the \"jump back to correct\npc\" which was problematic when halting because the `jump` wouldn't\nresult in a next row with the right pc\n\nExplanation on how gas works for calls:\n- Parent snapshots its gas right before a nested call in\n`ctx.*_gas_left`\n- Nested call is given a `ctx.start_*_gas_left` and the gas trace is\nforced to that same value\n- throughout the nested call, the gas trace operates normally, charging\nper instruction\n- when any halt is encountered, the instruction that halted must have\nits gas charged normally, but then we call a helper function on the gas\ntrace to mutate the most recent row, flagging it to eventually become a\nsort of \"fake\" row that skips some constraints\n- the mutation of the halting row resets the gas to the parents last gas\nbefore the call (minus however much gas was consumed by the nested\ncall... if exceptional halt, that is _all_ allocated gas)\n\n\nFollow-up work\n- properly constrain gas for nested calls, returns, reverts and\nexceptional halts\n- if `jump` exceptionally halts (i.e. out of gas), it should be okay\nthat the next row doesn't have the target pc\n- Handle the edge case when an error is encountered on\nreturn/revert/call, but after the stack has already been modified",
+          "timestamp": "2024-12-17T17:14:42-05:00",
+          "tree_id": "bd71c7a2e1cb3fc04df137e14dbf7807caa7e2e6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b8bdb529719c1f72244e904ea667462458a43317"
+        },
+        "date": 1734476721724,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 25644.359549,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19862.703634999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24815.773396999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 22861.514854999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4514.9682639999755,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4231.020416999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91875.45447,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91875455000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16689.201242,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16689202000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2841293749,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2841293749 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135609740,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135609740 ns\nthreads: 1"
           }
         ]
       }
