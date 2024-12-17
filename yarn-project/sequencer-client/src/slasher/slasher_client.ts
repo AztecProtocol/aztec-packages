@@ -72,7 +72,7 @@ type SlashEvent = {
  *
  * The implementation is VERY brute in the sense that it only looks for pruned blocks and then tries to slash
  * the full committee of that.
- * If it sees a prune, it will mark the full epoch as "to be slashed" and the
+ * If it sees a prune, it will mark the full epoch as "to be slashed".
  *
  * Also, it is not particularly smart around what it should if there were to be multiple slashing events.
  *
@@ -93,7 +93,6 @@ export class SlasherClient extends WithTracer {
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
 
-  private synchedBlockSlots: AztecMap<number, bigint>;
   private synchedBlockHashes: AztecMap<number, string>;
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
@@ -125,7 +124,6 @@ export class SlasherClient extends WithTracer {
     });
 
     this.synchedBlockHashes = store.openMap('slasher_block_hashes');
-    this.synchedBlockSlots = store.openMap('slasher_block_slots');
     this.synchedLatestBlockNumber = store.openSingleton('slasher_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('slasher_last_proven_l2_block');
 
@@ -142,6 +140,8 @@ export class SlasherClient extends WithTracer {
         abi: SlashFactoryAbi,
         client: publicClient,
       });
+    } else {
+      this.log.warn('No slash factory address found, slashing will not be enabled');
     }
 
     this.log.info(`Slasher client initialized`);
@@ -324,8 +324,8 @@ export class SlasherClient extends WithTracer {
   }
 
   /**
-   * Handles new mined blocks by marking the txs in them as mined.
-   * @param blocks - A list of existing blocks with txs that the slasher client needs to ensure the tx pool is reconciled with.
+   * Handles new blocks
+   * @param blocks - A list of blocks that the slasher client needs to store block hashes for
    * @returns Empty promise.
    */
   private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
@@ -335,16 +335,13 @@ export class SlasherClient extends WithTracer {
 
     const lastBlockNum = blocks[blocks.length - 1].number;
     await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
-    await Promise.all(
-      blocks.map(block => this.synchedBlockSlots.set(block.number, block.header.globalVariables.slotNumber.toBigInt())),
-    );
     await this.synchedLatestBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     this.startServiceIfSynched();
   }
 
   /**
-   * Handles new proven blocks by deleting the txs in them, or by deleting the txs in blocks `keepProvenTxsFor` ago.
+   * Handles new proven blocks by updating the proven block number
    * @param blocks - A list of proven L2 blocks.
    * @returns Empty promise.
    */
@@ -359,12 +356,9 @@ export class SlasherClient extends WithTracer {
     this.startServiceIfSynched();
   }
 
-  /**
-   * Updates the tx pool after a chain prune.
-   * @param latestBlock - The block number the chain was pruned to.
-   */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    const slotNumber = this.synchedBlockSlots.get(latestBlock) ?? BigInt(0);
+    const blockHeader = await this.l2BlockSource.getBlockHeader(latestBlock);
+    const slotNumber = blockHeader ? blockHeader.globalVariables.slotNumber.toBigInt() : BigInt(0);
     const epochNumber = slotNumber / BigInt(this.config.aztecEpochDuration);
     this.log.info(`Detected chain prune. Punishing the validators at epoch ${epochNumber}`);
 

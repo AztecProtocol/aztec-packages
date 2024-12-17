@@ -107,7 +107,7 @@ contract SlashingScenario is TestBase {
       assertTrue(info.status == Status.VALIDATING, "Invalid status");
     }
 
-    slashingProposer.pushProposal(0);
+    slashingProposer.executeProposal(0);
 
     // Make sure that the slash was successful,
     // Meaning that validators are now LIVING and have lost the slash amount

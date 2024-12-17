@@ -91,13 +91,17 @@ abstract contract EmpireBase is IGovernanceProposer {
   }
 
   /**
-   * @notice  Push the proposal to the appela
+   * @notice  Executes the proposal using the `_execute` function
    *
    * @param _roundNumber - The round number to execute
    *
    * @return True if executed successfully, false otherwise
    */
-  function pushProposal(uint256 _roundNumber) external override(IGovernanceProposer) returns (bool) {
+  function executeProposal(uint256 _roundNumber)
+    external
+    override(IGovernanceProposer)
+    returns (bool)
+  {
     // Need to ensure that the round is not active.
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
@@ -106,7 +110,7 @@ abstract contract EmpireBase is IGovernanceProposer {
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
-    require(_roundNumber < currentRound, Errors.GovernanceProposer__CanOnlyPushProposalInPast());
+    require(_roundNumber < currentRound, Errors.GovernanceProposer__CanOnlyExecuteProposalInPast());
     require(
       _roundNumber + LIFETIME_IN_ROUNDS >= currentRound,
       Errors.GovernanceProposer__ProposalTooOld(_roundNumber, currentRound)
@@ -122,7 +126,7 @@ abstract contract EmpireBase is IGovernanceProposer {
 
     round.executed = true;
 
-    emit ProposalPushed(round.leader, _roundNumber);
+    emit ProposalExecuted(round.leader, _roundNumber);
 
     require(_execute(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
     return true;

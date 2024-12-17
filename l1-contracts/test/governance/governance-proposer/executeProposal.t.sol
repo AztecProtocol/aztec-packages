@@ -11,7 +11,7 @@ import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
 
-contract PushProposalTest is GovernanceProposerBase {
+contract ExecuteProposalTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
   Leonidas internal leonidas;
@@ -26,7 +26,7 @@ contract PushProposalTest is GovernanceProposerBase {
         Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
       )
     );
-    governanceProposer.pushProposal(_roundNumber);
+    governanceProposer.executeProposal(_roundNumber);
   }
 
   modifier givenCanonicalInstanceHoldCode() {
@@ -42,9 +42,9 @@ contract PushProposalTest is GovernanceProposerBase {
   function test_WhenRoundNotInPast() external givenCanonicalInstanceHoldCode {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyPushProposalInPast.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyExecuteProposalInPast.selector)
     );
-    governanceProposer.pushProposal(0);
+    governanceProposer.executeProposal(0);
   }
 
   modifier whenRoundInPast() {
@@ -74,7 +74,7 @@ contract PushProposalTest is GovernanceProposerBase {
         governanceProposer.computeRound(leonidas.getCurrentSlot())
       )
     );
-    governanceProposer.pushProposal(0);
+    governanceProposer.executeProposal(0);
   }
 
   modifier whenRoundInRecentPast() {
@@ -105,13 +105,13 @@ contract PushProposalTest is GovernanceProposerBase {
           )
         )
       );
-      governanceProposer.pushProposal(1);
+      governanceProposer.executeProposal(1);
     }
 
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalAlreadyExecuted.selector, 1)
     );
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
   }
 
   modifier givenRoundNotExecutedBefore() {
@@ -144,7 +144,7 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector)
     );
-    governanceProposer.pushProposal(0);
+    governanceProposer.executeProposal(0);
   }
 
   modifier givenLeaderIsNotAddress0() {
@@ -174,7 +174,7 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientVotes.selector, 1, votesNeeded)
     );
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
   }
 
   modifier givenSufficientYea(uint256 _yeas) {
@@ -219,9 +219,9 @@ contract PushProposalTest is GovernanceProposerBase {
 
     // As time is perceived differently, round 1 is currently in the future
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyPushProposalInPast.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyExecuteProposalInPast.selector)
     );
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
 
     // Jump 2 rounds, since we are currently in round 0
     vm.warp(
@@ -234,7 +234,7 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector)
     );
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
   }
 
   function test_GivenGovernanceCallReturnFalse(uint256 _yeas)
@@ -253,7 +253,7 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__FailedToPropose.selector, proposal)
     );
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
   }
 
   function test_GivenGovernanceCallFails(uint256 _yeas)
@@ -270,7 +270,7 @@ contract PushProposalTest is GovernanceProposerBase {
     vm.etch(address(governance), address(faulty).code);
 
     vm.expectRevert(abi.encodeWithSelector(FaultyGovernance.Faulty.selector));
-    governanceProposer.pushProposal(1);
+    governanceProposer.executeProposal(1);
   }
 
   function test_GivenGovernanceCallSucceeds(uint256 _yeas)
@@ -283,11 +283,11 @@ contract PushProposalTest is GovernanceProposerBase {
     givenSufficientYea(_yeas)
   {
     // it update executed to true
-    // it emits {ProposalPushed} event
+    // it emits {ProposalExecuted} event
     // it return true
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.ProposalPushed(proposal, 1);
-    assertTrue(governanceProposer.pushProposal(1));
+    emit IGovernanceProposer.ProposalExecuted(proposal, 1);
+    assertTrue(governanceProposer.executeProposal(1));
     (, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), 1);
     assertTrue(executed);
     assertEq(address(leader), address(proposal));
