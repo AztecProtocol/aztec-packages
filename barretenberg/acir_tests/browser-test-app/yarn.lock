@@ -7,17 +7,17 @@ __metadata:
 
 "@aztec/bb.js@file:../../ts::locator=browser-test-app%40workspace%3A.":
   version: 0.67.0
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=a26f6d&locator=browser-test-app%40workspace%3A."
+  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=01a0d6&locator=browser-test-app%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
-    commander: "npm:^10.0.1"
+    commander: "npm:^12.1.0"
     debug: "npm:^4.3.4"
     fflate: "npm:^0.8.0"
     pako: "npm:^2.1.0"
     tslib: "npm:^2.4.0"
   bin:
     bb.js: ./dest/node/main.js
-  checksum: 10c0/d26bae3aeb03e0054c0ebe0559e3eb254317ddef7deb19518457cbbcfb2ce6728a4359f86e37f011de68accca63f52956c2bfb34ba0b01ea3c0df2a404d99122
+  checksum: 10c0/28e6b6ddbc9d1fa50e3d64e399461b971638989dff762df5015ed6aa2971f3c71a9c33b542599c1ab72ffe21a055513773f1f8fb2b78ee5b44fda9fff02e80d1
   languageName: node
   linkType: hard
 
@@ -1219,6 +1219,13 @@ __metadata:
   version: 10.0.1
   resolution: "commander@npm:10.0.1"
   checksum: 10c0/53f33d8927758a911094adadda4b2cbac111a5b377d8706700587650fd8f45b0bbe336de4b5c3fe47fd61f420a3d9bd452b6e0e6e5600a7e74d7bf0174f6efe3
+  languageName: node
+  linkType: hard
+
+"commander@npm:^12.1.0":
+  version: 12.1.0
+  resolution: "commander@npm:12.1.0"
+  checksum: 10c0/6e1996680c083b3b897bfc1cfe1c58dfbcd9842fd43e1aaf8a795fbc237f65efcc860a3ef457b318e73f29a4f4a28f6403c3d653d021d960e4632dd45bde54a9
   languageName: node
   linkType: hard
 

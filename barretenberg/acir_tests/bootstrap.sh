@@ -5,15 +5,11 @@ cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
 function build {
-  if [ ! -d acir_tests ]; then
-    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-    rm -rf acir_tests/regression_5045
-    # These just started failing.
-    rm -rf acir_tests/{reference_counts,schnorr,regression}
-  fi
+  # Clone the execution success tests from noir repo.
+  rm -rf acir_tests
+  cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+  # Running these requires extra gluecode so they're skipped.
+  rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
 
   # COMPILE=2 only compiles the test.
   github_group "acir_tests compiling"
@@ -48,6 +44,7 @@ function test {
     return
   fi
 
+  # TODO: These are some magic numbers that fit our dev/ci environments. They ultimately need to work on lower hardware.
   export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
   # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
   local jobs=64
@@ -92,13 +89,8 @@ function test {
   run BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_test.sh 1_mul
 
   # barretenberg-acir-tests-bb:
-  # Fold and verify an ACIR program stack using ClientIvc
-  # run INPUT_TYPE=compiletime_stack FLOW=prove_and_verify_client_ivc ./run_test.sh fold_basic
-  # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
-  run INPUT_TYPE=compiletime_stack FLOW=prove_then_verify_client_ivc ./run_test.sh fold_basic
   # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  # TODO: Requires 2GB CRS. Discuss...
-  # run FLOW=prove_then_verify_tube ./run_test.sh fold_basic
+  run FLOW=prove_then_verify_tube ./run_test.sh 6_array
   # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
   run FLOW=all_cmds ./run_test.sh 1_mul
 
@@ -120,21 +112,9 @@ function test {
   run SYS=ultra_honk FLOW=prove_and_verify_program ./run_test.sh merkle_insert
 
   # barretenberg-acir-tests-bb-client-ivc:
-  # At least for now, skip folding tests that fail when run against ClientIVC.
-  # This is not a regression--folding was not being properly tested.
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1164): Resolve this
-  # The reason for failure is that compile-time folding, as initially conceived, is
-  # only supported by ClientIVC through hacks. ClientIVC in Aztec is ultimately to be
-  # used through runtime folding, since the kernels that are needed are detected and
-  # constructed at runtime in Aztec's typescript proving interface. ClientIVC appends
-  # folding verifiers and does databus and Goblin merge work depending on its inputs,
-  # detecting which circuits are Aztec kernels. These tests may simple fail for trivial
-  # reasons, e.g. because  the number of circuits in the stack is odd.
-  local civc_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'fold_basic_nested_call|fold_fibonacci|fold_numeric_generic_poseidon|ram_blowup_regression')
-  for t in $civc_tests; do
-    run FLOW=prove_then_verify_client_ivc ./run_test.sh $(basename $t)
-  done
+  run FLOW=prove_then_verify_client_ivc ./run_test.sh 6_array
+  run FLOW=prove_then_verify_client_ivc ./run_test.sh databus
+  run FLOW=prove_then_verify_client_ivc ./run_test.sh databus_two_calldata
 
   # Close parallels input file descriptor and wait for completion.
   exec 3>&-
