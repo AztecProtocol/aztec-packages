@@ -360,8 +360,8 @@ export class SimulatorOracle implements DBOracle {
     // we found and quit.
     // 2. If we don't find minimum consecutive empty logs in a window of logs we slide the window to latest log index
     // and repeat the process.
-    const WINDOW_SIZE = 20;
-    const MIN_CONSECUTIVE_EMPTY_LOGS = WINDOW_SIZE / 2;
+    const MIN_CONSECUTIVE_EMPTY_LOGS = 10;
+    const WINDOW_SIZE = MIN_CONSECUTIVE_EMPTY_LOGS * 2;
 
     let [numConsecutiveEmptyLogs, currentIndex] = [0, oldIndex];
     do {
