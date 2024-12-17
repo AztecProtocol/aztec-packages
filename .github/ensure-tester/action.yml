@@ -102,6 +102,7 @@ runs:
       shell: bash
       run:
         set +e;
+        exit_code=254
         scripts/run_on_builder "
           set -eux;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
