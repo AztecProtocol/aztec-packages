@@ -691,6 +691,7 @@ contract Token {
         assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
 
         // 2. We compute the refund amount as the difference between funded amount and the tx fee.
+        // TODO(#10805): Introduce a real exchange rate
         let refund_amount = max_fee - tx_fee;
 
         // 3. We send the tx fee to the fee recipient in public.

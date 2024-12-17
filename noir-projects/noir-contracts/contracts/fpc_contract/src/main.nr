@@ -42,30 +42,30 @@ contract FPC {
     ///     - Calls the AA token contract, which:
     ///         - subtracts the `max_fee` from the user's balance;
     ///         - prepares a partial note for the user (which will be used to later refund the user any unspent fee);
-    ///         - sets a public teardown function (within the same AA token contract), where at the end of the tx 
-    ///            a fee (denominated in AA) will be transferred to the FPC in public, and a partial note will be finalized 
+    ///         - sets a public teardown function (within the same AA token contract), where at the end of the tx
+    ///            a fee (denominated in AA) will be transferred to the FPC in public, and a partial note will be finalized
     ///            with the refund amount (also denominated in AA).
-    ///     - Sets itself as the `fee_payer` of the tx; meaning this contract will be responsible for ultimately 
-    ///        transferring the `tx_fee` -- denominated in fee juice -- to the protocol, during the later "teardown" 
+    ///     - Sets itself as the `fee_payer` of the tx; meaning this contract will be responsible for ultimately
+    ///        transferring the `tx_fee` -- denominated in fee juice -- to the protocol, during the later "teardown"
     ///        phase of this tx.
     ///
     /// Execution Phase:
     /// 2. Then the private and public functions of the tx get executed.
     ///
     /// Teardown Phase:
-    /// 3. By this point, the protocol has computed the `tx_fee` (denominated in "fee juice"). So now we can 
-    /// execute the "teardown function" which was lined-up during the earlier "setup phase". 
+    /// 3. By this point, the protocol has computed the `tx_fee` (denominated in "fee juice"). So now we can
+    /// execute the "teardown function" which was lined-up during the earlier "setup phase".
     /// Within the teardown function, we:
-    ///     - compute how much of the `max_fee` (denominated in AA) the user needs to pay to the FPC, 
+    ///     - compute how much of the `max_fee` (denominated in AA) the user needs to pay to the FPC,
     ///       and how much of it will be refunded back to the user. Since the protocol-calculated `tx_fee` is
-    ///       denominated in fee juice, and not in this FPC's AA, an equivalent value of AA is computed based 
+    ///       denominated in fee juice, and not in this FPC's AA, an equivalent value of AA is computed based
     ///       on an exchange rate between AA and fee juice.
     ///     - finalize the refund note with a value of `max_fee - tx_fee` for the user;
     ///     - send the tx fee to the FPC in public.
     ///
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the protocol-calculated `tx_fee` (denominated in fee juice) from the `fee_payer`'s
-    /// balance (which in this case is this FPC's balance), which is a special storage slot in a protocol-controlled 
+    /// balance (which in this case is this FPC's balance), which is a special storage slot in a protocol-controlled
     /// "fee juice" contract.
     ///
     /// With this scheme a user has privately paid for the tx fee with an arbitrary AA (e.g. could be a stablecoin),
@@ -94,11 +94,21 @@ contract FPC {
     ///
     /// ## Overview
     /// The refund flow works as follows:
-    /// 1. We pull the `max_fee` from the user's balance of the AA to this contract (requires setting an authwit),
-    /// 2. then the private and public functions of a tx get executed,
-    /// 3. at this point we know the tx fee so we can compute how much of AA the user needs to pay to FPC and how much
-    /// of it will be refunded back. Note that this is computed based on an exchange rate between AA and fee juice.
-    /// 4. the protocol deducts the actual fee denominated in fee juice from the FPC's balance.
+    /// Setup phase:
+    /// 1. This `fee_entrypoint_public` function:
+    ///     - Transfers the `max_fee` from the user's balance of the accepted asset to this contract.
+    ///     - Sets itself as the `fee_payer` of the tx.
+    ///     - Sets a public teardown function in which the refund will be paid back to the user in public.
+    ///
+    /// Execution phase:
+    /// 2. Then the private and public functions of the tx get executed.
+    ///
+    /// Teardown phase:
+    /// 3. At this point we know the tx fee so we can compute how much of AA the user needs to pay to FPC and how much
+    /// of it will be refunded back. We send the refund back to the user in public.
+    ///
+    /// Protocol-enshrined fee-payment phase:
+    /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
     fn fee_entrypoint_public(max_fee: Field, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
@@ -129,6 +139,7 @@ contract FPC {
     fn pay_refund(refund_recipient: AztecAddress, max_fee: Field, accepted_asset: AztecAddress) {
         let actual_fee = context.transaction_fee();
         assert(!max_fee.lt(actual_fee), "Max fee paid to the paymaster does not cover actual fee");
+        // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
 
         Token::at(accepted_asset)
