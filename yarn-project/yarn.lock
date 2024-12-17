@@ -286,6 +286,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb-prover@workspace:bb-prover"
   dependencies:
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -307,6 +308,7 @@ __metadata:
     commander: "npm:^12.1.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
+    pako: "npm:^2.1.0"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -322,7 +324,7 @@ __metadata:
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
-    commander: "npm:^10.0.1"
+    commander: "npm:^12.1.0"
     debug: "npm:^4.3.4"
     fflate: "npm:^0.8.0"
     pako: "npm:^2.1.0"

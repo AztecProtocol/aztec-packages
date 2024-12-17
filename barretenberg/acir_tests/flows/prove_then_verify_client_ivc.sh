@@ -2,7 +2,7 @@
 # Create intermediate state in a directory. Uses a temp dir to ensure parallel safe and cleansup on exit.
 set -eu
 
-CRS_PATH=${CRS_PATH:-$PWD/crs}
+CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 
 [ -n "${1:-}" ] && cd ./acir_tests/$1

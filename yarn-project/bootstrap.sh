@@ -66,8 +66,7 @@ function test_e2e {
   github_group "yarn-project e2e tests"
   cd end-to-end
 
-  # Pre-pull the required image for visibility.
-  # TODO: We want to avoid this time burden. Slim the image? Preload it in from host?
+  # This is pre-pulled in our build instance ami, so should be a time noop in CI.
   denoise docker pull aztecprotocol/build:2.0
 
   # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.

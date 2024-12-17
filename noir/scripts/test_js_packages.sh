@@ -25,3 +25,17 @@ yarn workspaces foreach \
   --exclude integration-tests \
   --exclude @noir-lang/noir_wasm \
   run test
+
+# TOOD(ci3): Circular dependency on bb. Rethink or remove this. Should we run these?
+# yarn workspaces foreach \
+#   --parallel \
+#   --verbose \
+#   --include integration-tests \
+#   --include @noir-lang/noir_wasm \
+#   run test:node
+
+# yarn workspaces foreach \
+#   --verbose \
+#   --include integration-tests \
+#   --include @noir-lang/noir_wasm \
+#   run test:browser
