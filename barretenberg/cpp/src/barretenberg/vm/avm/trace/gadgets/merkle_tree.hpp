@@ -69,6 +69,7 @@ class AvmMerkleTreeTraceBuilder {
                                 const std::vector<FF>& low_path,
                                 const FF& nullifier,
                                 const std::vector<FF>& insertion_path);
+    void set_nullifier_tree_size(uint32_t size) { tree_snapshots.nullifier_tree.size = size; }
 
     // Note Hash Tree
     bool perform_note_hash_read(uint32_t clk,
@@ -77,6 +78,7 @@ class AvmMerkleTreeTraceBuilder {
                                 const std::vector<FF>& path) const;
 
     FF perform_note_hash_append(uint32_t clk, const FF& note_hash, const std::vector<FF>& insertion_path);
+    void set_note_hash_tree_size(uint32_t size) { tree_snapshots.note_hash_tree.size = size; }
 
     // L1 to L2 Message Tree
     bool perform_l1_to_l2_message_read(uint32_t clk,
