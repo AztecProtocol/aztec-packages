@@ -246,12 +246,14 @@ contract AvmTest {
 
     #[public]
     fn external_call_to_divide_by_zero_recovers() {
-        // Get the gas remaining and allocate half to nested call
+        // Be sure to allocate ~200k+ gas to this function~
+
+        // Get the gas remaining and allocate some smaller amount to nested call.
         // We don't want to allocate too much to the nested call
-        // since it all be consumed on exceptional halt.
+        // since it will all be consumed on exceptional halt.
         let l2_gas_left = context.l2_gas_left();
         let da_gas_left = context.da_gas_left();
-        let gas_allocation: [Field; 2] = [l2_gas_left / 2, da_gas_left / 2];
+        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
         let selector = FunctionSelector::from_signature("divide_by_zero()");
         let success = call(
             gas_allocation,
