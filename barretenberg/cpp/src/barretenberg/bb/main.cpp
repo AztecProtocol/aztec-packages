@@ -348,7 +348,7 @@ void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recurs
                                     gates_per_opcode_str,
                                     "]\n  }");
 
-        // Attach a comma if we still circuit reports to generate
+        // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
             result_string = format(result_string, ",");
         }
@@ -378,6 +378,7 @@ void gate_count_for_ivc(const std::string& bytecodePath)
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, /*honk_recursion=*/false);
 
+    // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << 20);
     init_grumpkin_crs(1 << 15);
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
@@ -394,7 +395,8 @@ void gate_count_for_ivc(const std::string& bytecodePath)
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         size_t circuit_size = builder.num_gates;
-        vinfo("Calculated num_gates in gateCount: ", circuit_size);
+
+        // Print the details of the gate types within the structured execution trace
         builder.blocks.set_fixed_block_sizes(trace_settings);
         builder.blocks.summarize();
 
@@ -415,7 +417,7 @@ void gate_count_for_ivc(const std::string& bytecodePath)
                                     gates_per_opcode_str,
                                     "]\n  }");
 
-        // Attach a comma if we still circuit reports to generate
+        // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
             result_string = format(result_string, ",");
         }
