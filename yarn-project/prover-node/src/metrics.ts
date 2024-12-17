@@ -4,7 +4,7 @@ import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec
 export class ProverNodeMetrics {
   provingJobDuration: Histogram;
 
-  constructor(client: TelemetryClient, name = 'ProverNode') {
+  constructor(public readonly client: TelemetryClient, name = 'ProverNode') {
     const meter = client.getMeter(name);
     this.provingJobDuration = meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
       description: 'Duration of proving job',

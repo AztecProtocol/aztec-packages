@@ -103,6 +103,7 @@ import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { writeToOutputDirectory } from './client_ivc_proof_utils.js';
 
 const logger = createLogger('bb-prover');
 
@@ -571,7 +572,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const hasher = crypto.createHash('sha256');
     hasher.update(input.toBuffer());
 
-    await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {

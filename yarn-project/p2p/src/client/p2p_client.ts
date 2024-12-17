@@ -32,8 +32,8 @@ import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
-import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-import type { P2PService } from '../service/service.js';
+import { TX_REQ_PROTOCOL } from '../services/reqresp/interface.js';
+import type { P2PService } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -659,12 +659,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
+    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }

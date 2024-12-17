@@ -399,6 +399,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
         trace_builder.pay_fee();
     }
 
+    trace_builder.pad_trees();
+
     auto trace = trace_builder.finalize(apply_e2e_assertions);
 
     returndata = trace_builder.get_all_returndata();

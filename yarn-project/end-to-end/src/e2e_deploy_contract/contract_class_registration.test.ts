@@ -22,7 +22,7 @@ import {
 } from '@aztec/aztec.js/deployment';
 import { type ContractClassIdPreimage, PublicKeys, computeContractClassId } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { writeTestData } from '@aztec/foundation/testing';
+import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';

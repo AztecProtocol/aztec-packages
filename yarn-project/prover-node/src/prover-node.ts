@@ -20,7 +20,7 @@ import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -42,13 +42,15 @@ export type ProverNodeOptions = {
  * from a tx source in the p2p network or an external node, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
+export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+
+  public readonly tracer: Tracer;
 
   constructor(
     private readonly prover: EpochProverManager,
@@ -74,6 +76,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    this.tracer = telemetryClient.getTracer('ProverNode');
   }
 
   public getP2P() {
@@ -242,6 +245,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     return maxPendingJobs === 0 || this.jobs.size < maxPendingJobs;
   }
 
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async createProvingJob(epochNumber: bigint) {
     if (!this.checkMaximumPendingJobs()) {
       throw new Error(`Maximum pending proving jobs ${this.options.maxPendingJobs} reached. Cannot create new job.`);

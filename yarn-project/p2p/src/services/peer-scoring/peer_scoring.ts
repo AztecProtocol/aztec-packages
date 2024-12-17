@@ -1,6 +1,6 @@
 import { median } from '@aztec/foundation/collection';
 
-import { type P2PConfig } from '../config.js';
+import { type P2PConfig } from '../../config.js';
 
 export enum PeerErrorSeverity {
   /**

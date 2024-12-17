@@ -8,7 +8,7 @@ import {
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 

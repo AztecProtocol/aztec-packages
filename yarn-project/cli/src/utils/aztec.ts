@@ -5,7 +5,7 @@ import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';

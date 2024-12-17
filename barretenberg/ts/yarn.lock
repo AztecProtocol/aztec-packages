@@ -38,7 +38,7 @@ __metadata:
     "@typescript-eslint/parser": ^5.54.1
     buffer: ^6.0.3
     comlink: ^4.4.1
-    commander: ^10.0.1
+    commander: ^12.1.0
     copy-webpack-plugin: ^11.0.0
     debug: ^4.3.4
     eslint: ^8.35.0
@@ -2431,6 +2431,13 @@ __metadata:
   version: 10.0.1
   resolution: "commander@npm:10.0.1"
   checksum: 436901d64a818295803c1996cd856621a74f30b9f9e28a588e726b2b1670665bccd7c1a77007ebf328729f0139838a88a19265858a0fa7a8728c4656796db948
+  languageName: node
+  linkType: hard
+
+"commander@npm:^12.1.0":
+  version: 12.1.0
+  resolution: "commander@npm:12.1.0"
+  checksum: 68e9818b00fc1ed9cdab9eb16905551c2b768a317ae69a5e3c43924c2b20ac9bb65b27e1cab36aeda7b6496376d4da908996ba2c0b5d79463e0fb1e77935d514
   languageName: node
   linkType: hard
 

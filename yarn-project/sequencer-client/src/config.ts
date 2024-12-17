@@ -1,5 +1,5 @@
-import { type AllowedElement } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
+import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -14,9 +14,6 @@ import {
 } from '@aztec/foundation/config';
 import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type PublisherConfig,
@@ -24,7 +21,9 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigMappings,
 } from './publisher/config.js';
-import { type SequencerConfig } from './sequencer/config.js';
+
+export * from './publisher/config.js';
+export { SequencerConfig };
 
 /** Chain configuration. */
 type ChainConfig = {
@@ -92,17 +91,9 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   allowedInSetup: {
     env: 'SEQ_ALLOWED_SETUP_FN',
     parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedSetupFunctions(),
     description: 'The list of functions calls allowed to run in setup',
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
-  },
-  allowedInTeardown: {
-    env: 'SEQ_ALLOWED_TEARDOWN_FN',
-    parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedTeardownFunctions(),
-    description: 'The list of functions calls allowed to run teardown',
-    printDefault: () => 'FPC.pay_refund',
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
@@ -201,39 +192,4 @@ export function parseSequencerAllowList(value: string): AllowedElement[] {
   }
 
   return entries;
-}
-
-function getDefaultAllowedSetupFunctions(): AllowedElement[] {
-  return [
-    // needed for authwit support
-    {
-      address: ProtocolContractAddress.AuthRegistry,
-    },
-    // needed for claiming on the same tx as a spend
-    {
-      address: ProtocolContractAddress.FeeJuice,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    // needed for private transfers via FPC
-    {
-      classId: getContractClassFromArtifact(TokenContractArtifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
-    },
-  ];
-}
-
-function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
-  return [
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
-    },
-  ];
 }

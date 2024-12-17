@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./bundle": "./dest/bundle/index.js",
     "./*": "./dest/*/index.js"
   },
   "typedocOptions": {
@@ -94,7 +95,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "engines": {
     "node": ">=18"
