@@ -128,7 +128,7 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
-    this.log.info(`Sequencer config set`, omit(pickFromSchema(this.config, SequencerConfigSchema), 'allowedInSetup'));
+    this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
