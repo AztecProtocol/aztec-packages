@@ -253,12 +253,16 @@ contract AvmTest {
         let da_gas_left = context.da_gas_left();
         let gas_allocation: [Field; 2] = [l2_gas_left / 2, da_gas_left / 2];
         let selector = FunctionSelector::from_signature("divide_by_zero()");
-        let success = call(gas_allocation, context.this_address(), &[selector.to_field()]);
-        assert(
-            !success,
-            "Nested CALL instruction should return failure on exceptional halt",
+        let success = call(
+            gas_allocation,
+            context.this_address(),
+            &[selector.to_field()],
         );
-        assert(returndata_size() == 0, "Returndata should be empty when nested call exceptionally halts");
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
     }
 
     #[public]
