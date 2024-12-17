@@ -17,6 +17,7 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -27,7 +28,9 @@ import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig }
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
-import { join } from 'path';
+import fs from 'fs/promises';
+import { tmpdir } from 'os';
+import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -50,6 +53,7 @@ export type SubsystemsContext = {
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
   dateProvider: TestDateProvider;
+  directoryToCleanup?: string;
 };
 
 type SnapshotEntry = {
@@ -247,8 +251,12 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.proverNode?.stop();
     await context.aztecNode.stop();
     await context.acvmConfig?.cleanup();
+    await context.bbConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();
+    if (context.directoryToCleanup) {
+      await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
+    }
   } catch (err) {
     getLogger().error('Error during teardown', err);
   }
@@ -273,7 +281,15 @@ async function setupFromFresh(
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
-  aztecNodeConfig.dataDirectory = statePath;
+
+  // Create a temp directory for all ephemeral state and cleanup afterwards
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
+  if (statePath === undefined) {
+    aztecNodeConfig.dataDirectory = directoryToCleanup;
+  } else {
+    aztecNodeConfig.dataDirectory = statePath;
+  }
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -363,12 +379,13 @@ async function setupFromFresh(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
       aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
     );
   }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
-  pxeConfig.dataDirectory = statePath;
+  pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
@@ -389,6 +406,7 @@ async function setupFromFresh(
     watcher,
     cheatCodes,
     dateProvider,
+    directoryToCleanup,
   };
 }
 
@@ -397,6 +415,9 @@ async function setupFromFresh(
  */
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
+
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
 
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
@@ -446,7 +467,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     logger.verbose('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+    proverNode = await createAndSyncProverNode(
+      proverNodePrivateKeyHex,
+      aztecNodeConfig,
+      aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+    );
   }
 
   logger.verbose('Creating pxe...');
@@ -472,6 +498,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     watcher,
     cheatCodes,
     dateProvider,
+    directoryToCleanup,
   };
 }
 
