@@ -111,7 +111,7 @@ describe('e2e_epochs', () => {
 
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${l2BlockNumber}`, 60, 0.1);
+    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {

@@ -47,8 +47,6 @@ import {
   convertBaseParityOutputsFromWitnessMap,
   convertBlockMergeRollupInputsToWitnessMap,
   convertBlockMergeRollupOutputsFromWitnessMap,
-  convertBlockRootRollupInputsToWitnessMap,
-  convertBlockRootRollupOutputsFromWitnessMap,
   convertEmptyBlockRootRollupInputsToWitnessMap,
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
@@ -58,6 +56,8 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  convertSimulatedBlockRootRollupInputsToWitnessMap,
+  convertSimulatedBlockRootRollupOutputsFromWitnessMap,
   convertSimulatedPrivateBaseRollupInputsToWitnessMap,
   convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
   convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
@@ -229,8 +229,8 @@ export class TestCircuitProver implements ServerCircuitProver {
       input,
       'BlockRootRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertBlockRootRollupInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
+      convertSimulatedBlockRootRollupInputsToWitnessMap,
+      convertSimulatedBlockRootRollupOutputsFromWitnessMap,
     );
   }
 
@@ -331,7 +331,12 @@ export class TestCircuitProver implements ServerCircuitProver {
     const witnessMap = convertInput(input);
     const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
 
-    const simulationProvider = this.simulationProvider ?? this.wasmSimulator;
+    let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
+    if (artifactName == 'BlockRootRollupArtifact') {
+      // TODO(#10323): temporarily force block root to use wasm while we simulate
+      // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
+      simulationProvider = this.wasmSimulator;
+    }
     const witness = await simulationProvider.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts[artifactName]);
 
     const result = convertOutput(witness);

@@ -10,16 +10,18 @@ export class AggregateTxValidator<T extends Tx | ProcessedTx> implements TxValid
     this.#validators = validators;
   }
 
-  async validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[]]> {
+  async validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[], skippedTxs: T[]]> {
     const invalidTxs: T[] = [];
+    const skippedTxs: T[] = [];
     let txPool = txs;
     for (const validator of this.#validators) {
-      const [valid, invalid] = await validator.validateTxs(txPool);
+      const [valid, invalid, skipped] = await validator.validateTxs(txPool);
       invalidTxs.push(...invalid);
+      skippedTxs.push(...(skipped ?? []));
       txPool = valid;
     }
 
-    return [txPool, invalidTxs];
+    return [txPool, invalidTxs, skippedTxs];
   }
 
   async validateTx(tx: T): Promise<boolean> {

@@ -90,8 +90,9 @@ library Constants {
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
+  uint256 internal constant FIELDS_PER_BLOB = 4096;
+  uint256 internal constant BLOBS_PER_BLOCK = 3;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_FIELDS = 18;
-  uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     1002640778211850180189505934749257244705296832326768971348723156503780793518;
@@ -148,6 +149,10 @@ library Constants {
   uint256 internal constant FUNCTION_LEAF_PREIMAGE_LENGTH = 5;
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 9;
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH = 2;
+  uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES = 36;
+  uint256 internal constant SPONGE_BLOB_LENGTH = 11;
+  uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
+  uint256 internal constant BLOB_PUBLIC_INPUTS_BYTES = 112;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
   uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 3;
   uint256 internal constant SCOPED_L2_TO_L1_MESSAGE_LENGTH = 4;
@@ -180,6 +185,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
+  uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 739;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 38;
@@ -200,9 +206,9 @@ library Constants {
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1845;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 958;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
-  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 31;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 122;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 108;
+  uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 986;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 972;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -276,6 +282,16 @@ library Constants {
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
+  uint256 internal constant TX_START_PREFIX = 8392562855083340404;
+  uint256 internal constant REVERT_CODE_PREFIX = 1;
+  uint256 internal constant TX_FEE_PREFIX = 2;
+  uint256 internal constant NOTES_PREFIX = 3;
+  uint256 internal constant NULLIFIERS_PREFIX = 4;
+  uint256 internal constant L2_L1_MSGS_PREFIX = 5;
+  uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
+  uint256 internal constant PRIVATE_LOGS_PREFIX = 7;
+  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

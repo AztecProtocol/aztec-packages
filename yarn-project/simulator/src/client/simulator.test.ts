@@ -3,7 +3,7 @@ import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
-import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js';
+import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

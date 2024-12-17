@@ -44,6 +44,12 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
+        // For now, we do them individually
+        // How we accumulate is being worked on by @Mike
+        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
+        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
@@ -56,6 +62,7 @@ impl BlockMergeRollupInputs {
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+            blob_public_inputs,
         }
     }
 }
@@ -143,6 +150,25 @@ mod tests {
         assert_eq(
             outputs.fees[1],
             inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0],
+        );
+    }
+
+    #[test]
+    fn blob_inputs_are_accumulated() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        let outputs = inputs.block_merge_rollup_circuit();
+
+        assert_eq(
+            outputs.blob_public_inputs[0],
+            inputs.previous_rollup_data[0]
+                .block_root_or_block_merge_public_inputs
+                .blob_public_inputs[0],
+        );
+        assert_eq(
+            outputs.blob_public_inputs[1],
+            inputs.previous_rollup_data[1]
+                .block_root_or_block_merge_public_inputs
+                .blob_public_inputs[0],
         );
     }
 

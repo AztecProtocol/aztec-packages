@@ -26,6 +26,7 @@ import {
   EthAddress,
   Fr,
   GasFees,
+  type GasSettings,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
@@ -221,7 +222,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -294,7 +294,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -328,7 +327,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -357,7 +355,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -388,11 +385,51 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+  });
+
+  it('builds a block out of several txs skipping the ones not providing enough fee per gas', async () => {
+    const gasFees = new GasFees(10, 20);
+    mockedGlobalVariables.gasFees = gasFees;
+
+    const txs = Array(5)
+      .fill(0)
+      .map((_, i) => mockTxForRollup(0x10000 * i));
+
+    const skippedTxIndexes = [1, 2];
+    const validTxHashes: TxHash[] = [];
+    txs.forEach((tx, i) => {
+      tx.data.constants.txContext.chainId = chainId;
+      const maxFeesPerGas: Writeable<GasFees> = gasFees.clone();
+      const feeToAdjust = i % 2 ? 'feePerDaGas' : 'feePerL2Gas';
+      if (skippedTxIndexes.includes(i)) {
+        // maxFeesPerGas is less than gasFees.
+        maxFeesPerGas[feeToAdjust] = maxFeesPerGas[feeToAdjust].sub(new Fr(i + 1));
+      } else {
+        // maxFeesPerGas is greater than or equal to gasFees.
+        maxFeesPerGas[feeToAdjust] = maxFeesPerGas[feeToAdjust].add(new Fr(i));
+        validTxHashes.push(tx.getTxHash());
+      }
+      (tx.data.constants.txContext.gasSettings as Writeable<GasSettings>).maxFeesPerGas = maxFeesPerGas;
+    });
+
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    await sequencer.doRealWork();
+
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+    // The txs are not included. But they are not dropped from the pool either.
+    expect(p2p.deleteTxs).not.toHaveBeenCalled();
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -428,7 +465,6 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -469,10 +505,10 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
+    expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
   });
@@ -512,7 +548,6 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
-      3,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

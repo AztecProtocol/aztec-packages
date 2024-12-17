@@ -5,13 +5,16 @@ import {
   type ProcessedTx,
   type ServerCircuitProver,
   makeEmptyProcessedTx,
+  toNumBlobFields,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
+  BLOBS_PER_BLOCK,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BlockRootRollupInputs,
+  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -30,6 +33,7 @@ import {
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  SpongeBlob,
   TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -37,7 +41,9 @@ import {
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import {
@@ -197,11 +203,8 @@ describe('LightBlockBuilder', () => {
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const txCount = Math.max(2, txs.length);
-    await builder.startNewBlock(txCount, globalVariables, l1ToL2Messages);
-    for (const tx of txs) {
-      await builder.addNewTx(tx);
-    }
+    await builder.startNewBlock(globalVariables, l1ToL2Messages);
+    await builder.addTxs(txs);
     const { header } = await builder.setBlockCompleted();
     return header;
   };
@@ -238,7 +241,7 @@ describe('LightBlockBuilder', () => {
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
-    const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot);
+    const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot, txs);
     const expectedHeader = buildHeaderFromCircuitOutputs(
       [mergeLeft, mergeRight],
       parityOutput,
@@ -270,12 +273,13 @@ describe('LightBlockBuilder', () => {
 
   const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
+    const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
       const vkIndex = TUBE_VK_INDEX;
       const vkPath = getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
       const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyRollupProof, vkData);
-      const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork);
+      const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
@@ -321,6 +325,7 @@ describe('LightBlockBuilder', () => {
       newL1ToL2MessageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>;
       messageTreeSnapshot: AppendOnlyTreeSnapshot;
     },
+    txs: ProcessedTx[],
   ) => {
     const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
     const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
@@ -331,7 +336,9 @@ describe('LightBlockBuilder', () => {
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
-
+    const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
+    const blobs = Blob.getBlobs(blobFields);
+    const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
     const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
@@ -352,6 +359,13 @@ describe('LightBlockBuilder', () => {
       newArchiveSiblingPath,
       previousBlockHash,
       proverId: Fr.ZERO,
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(
+        blobs.map(b => b.commitmentToFields()),
+        [Fr.ZERO, Fr.ZERO],
+        BLOBS_PER_BLOCK,
+      ),
+      blobsHash,
     });
 
     const result = await simulator.getBlockRootRollupProof(inputs);
