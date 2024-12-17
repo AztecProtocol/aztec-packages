@@ -46,18 +46,12 @@ jobs:
     # Set username to a value derived from our github username.
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
-      avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
       base-images: ${{ steps.filter.outputs.base-images }}
-      barretenberg: ${{ steps.filter.outputs.barretenberg == 'true' || github.ref_name == 'master' || github.event_name == 'merge_group' }}
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp == 'true' || github.ref_name == 'master' || github.event_name == 'merge_group' }}
-      noir: ${{ steps.filter.outputs.noir }}
-      noir-projects: ${{ steps.filter.outputs.noir-projects }}
       yarn-project: ${{ steps.filter.outputs.yarn-project }}
-      txe: ${{ steps.filter.outputs.txe }}
-      l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
-      non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
       non-barretenberg-cpp: ${{ steps.filter.outputs.non-barretenberg-cpp }}
+      # Test flags:
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
       bench-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
@@ -91,18 +85,8 @@ jobs:
               - 'barretenberg/**'
             barretenberg-cpp:
               - 'barretenberg/cpp/**'
-            noir:
-              - 'noir/**'
-            avm-transpiler:
-              - 'avm-transpiler/**'
-            l1-contracts:
-              - 'l1-contracts/**'
-            noir-projects:
-              - 'noir-projects/**'
             yarn-project:
               - 'yarn-project/**'
-            txe:
-              - 'yarn-project/txe/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
@@ -113,10 +97,6 @@ jobs:
               - barretenberg/cpp/src/barretenberg/bb/main.cpp
             non-docs:
               - '!(docs/**)'
-            non-misc-ci:
-              - '!(.github/**)'
-              # Always rebuild when this file changes
-              - .github/workflows/ci.yml
 
   # Used by CI build as a base image.
   base-images:
@@ -604,7 +584,7 @@ jobs:
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
+    if: needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
