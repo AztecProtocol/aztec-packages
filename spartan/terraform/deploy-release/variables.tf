@@ -23,12 +23,14 @@ variable "L1_DEPLOYMENT_MNEMONIC" {
   description = "Mnemonic to use for the L1 contract deployments"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "L1_DEPLOYMENT_PRIVATE_KEY" {
   description = "Private key to use for the L1 contract deployments"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "VALIDATOR_KEYS" {
