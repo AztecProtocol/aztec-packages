@@ -1,6 +1,6 @@
 import { type Logger } from '@aztec/foundation/log';
 
-import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
+import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import { type AztecAsyncArray } from '../interfaces/array.js';
 import { type Key } from '../interfaces/common.js';
@@ -183,7 +183,8 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   /** Deletes this store and removes the database */
   delete() {
     this.#containers.clear();
-    return Promise.resolve(this.#rootDB.deleteObjectStore('data'));
+    this.#rootDB.close();
+    return deleteDB(this.#name);
   }
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
