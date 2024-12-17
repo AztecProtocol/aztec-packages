@@ -97,31 +97,7 @@ runs:
             git checkout FETCH_HEAD >/dev/null
           )
           cd ~/run-$RUN_ID
-          # One-time config.
-          if ! [ -f ~/maybe_exit_spot.sh ] ; then
-            cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
-            # Run maybe_exit_spot.sh every minute
-            chmod +x ~/maybe_exit_spot.sh
-            echo "* * * * * ~/maybe_exit_spot.sh" | crontab -
-            echo "Configured instance exit cron job."
-          else
-            echo "Chron jobs already configured."
-          fi
-          set +x
-          # Ensure docker is active.
-          i=0
-          while ! systemctl is-active --quiet docker; do
-            sleep 2
-            if [ $(( i++ )) -gt 60 ]; then
-              echo "Docker service not found! Report this."
-              exit 1
-            fi
-          done
-          [ -x /usr/local/bin/earthly ] || ci3/earthly_install
-          echo "Docker service is active!"
-          echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
-          # Run the test.
-          ci3/aws_handle_evict "${{ inputs.run }}"
+          .github/ensure-builder/init
       shell: bash
       run:
         set +e;
