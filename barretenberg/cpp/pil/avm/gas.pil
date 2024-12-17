@@ -64,10 +64,10 @@ namespace main(256);
     is_fake_row * (1 - is_fake_row) = 0; // Temporary
 
     //TODO(8945): clean up fake row related code
-    #[L2_GAS_NO_DECREMENT_FAKE_ROW]
-    is_fake_row * (l2_gas_remaining - l2_gas_remaining') = 0;
-    #[DA_GAS_NO_DECREMENT_FAKE_ROW]
-    is_fake_row * (da_gas_remaining - da_gas_remaining') = 0;
+    //#[L2_GAS_NO_DECREMENT_FAKE_ROW]
+    //is_fake_row * (l2_gas_remaining - l2_gas_remaining') = 0;
+    //#[DA_GAS_NO_DECREMENT_FAKE_ROW]
+    //is_fake_row * (da_gas_remaining - da_gas_remaining') = 0;
 
     // Constrain that the gas decrements correctly per instruction
     #[L2_GAS_REMAINING_DECREMENT_NOT_CALL]
