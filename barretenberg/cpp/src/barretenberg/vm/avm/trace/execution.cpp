@@ -871,7 +871,6 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // did the return opcode hit an exceptional halt?
             error = ret.error;
             if (ret.is_top_level) {
-                // error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
@@ -892,7 +891,6 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // revert itself does not trigger "error"
             error = ret.error;
             if (ret.is_top_level) {
-                // error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
@@ -913,7 +911,6 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // revert itself does not trigger "error"
             error = ret.error;
             if (ret.is_top_level) {
-                // error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
@@ -991,7 +988,6 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             break;
         }
 
-        // TODO: handle case when first instruction fails parsing
         if (!is_ok(error)) {
             const bool is_top_level = trace_builder.current_ext_call_ctx.context_id == 0;
 
