@@ -239,6 +239,8 @@ class AvmTraceBuilder {
                                          const std::vector<FF>& siloed_note_hashes);
     void pay_fee();
     void pad_trees();
+    void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
+    void handle_exceptional_halt();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -269,8 +271,10 @@ class AvmTraceBuilder {
         std::vector<FF> nested_returndata;
         uint32_t last_pc;
         uint32_t success_offset;
-        uint32_t l2_gas;
-        uint32_t da_gas;
+        uint32_t start_l2_gas_left;
+        uint32_t start_da_gas_left;
+        uint32_t l2_gas_left; // as of start of latest nested call
+        uint32_t da_gas_left; // as of start of latest nested call
         std::stack<uint32_t> internal_return_ptr_stack;
     };
 
@@ -371,7 +375,7 @@ class AvmTraceBuilder {
     bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
-    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
     template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
 };
 
