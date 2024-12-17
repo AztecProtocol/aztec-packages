@@ -85,7 +85,7 @@ jobs:
         working-directory: ./yarn-project/end-to-end
         run: |
           ./bootstrap.sh image-e2e
-      - name: "Build E2E Image"
+      - name: "Test"
         timeout-minutes: 40
         continue-on-error: true
         working-directory: ./yarn-project/end-to-end
