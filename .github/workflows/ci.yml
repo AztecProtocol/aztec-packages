@@ -218,13 +218,6 @@ jobs:
     steps:
       - run: "echo Full bench tests enabled."
 
-  e2e-test-gate:
-    needs: [images-e2e, configure]
-    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
-    runs-on: ubuntu-20.04
-    steps:
-      - run: "echo Full E2E tests enabled."
-
   network-test-gate:
     needs: [ci-rest, configure]
     if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
@@ -545,7 +538,7 @@ jobs:
           max-items-in-chart: 50
 
   boxes-test:
-    needs: [ci-rest, e2e-test-gate, configure]
+    needs: [ci-rest, configure]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -565,7 +558,7 @@ jobs:
             fi
 
   rough-rhino-installer:
-    needs: [e2e-test-gate, configure]
+    needs: [bootstrap, configure]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
