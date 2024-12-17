@@ -26,6 +26,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
+  Nullifier,
   type NullifierLeafPreimage,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   type PUBLIC_DATA_TREE_HEIGHT,
@@ -108,6 +109,7 @@ export class TXE implements TypedOracle {
 
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
+  private siloedNullifiersFromPrivate: Set<Fr> = new Set();
   private privateLogs: PrivateLog[] = [];
   private publicLogs: UnencryptedL2Log[] = [];
 
@@ -252,18 +254,27 @@ export class TXE implements TypedOracle {
 
   async addSiloedNullifiers(siloedNullifiers: Fr[]) {
     const db = await this.trees.getLatest();
-    try {
-      await db.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        siloedNullifiers.map(n => n.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-    } catch (err: any) {
-      if (err.message === 'Nullifiers are create only') {
-        throw new Error(`Rejecting tx for emitting duplicate nullifiers`);
-      } else {
-        throw err;
-      }
+    await db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      siloedNullifiers.map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+  }
+
+  async addNullifiersFromPrivate(contractAddress: AztecAddress, nullifiers: Fr[]) {
+    const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier));
+    const db = await this.trees.getLatest();
+    const nullifierIndexesInTree = await db.findLeafIndices(
+      MerkleTreeId.NULLIFIER_TREE,
+      siloedNullifiers.map(n => n.toBuffer()),
+    );
+    const notInTree = nullifierIndexesInTree.every(index => index === undefined);
+    const notInCache = siloedNullifiers.every(n => !this.siloedNullifiersFromPrivate.has(n));
+
+    if (notInTree && notInCache) {
+      siloedNullifiers.forEach(n => this.siloedNullifiersFromPrivate.add(n));
+    } else {
+      throw new Error(`Rejecting tx for emitting duplicate nullifiers`);
     }
   }
 
@@ -625,7 +636,7 @@ export class TXE implements TypedOracle {
         ),
       ...this.uniqueNoteHashesFromPublic,
     ];
-    txEffect.nullifiers = [new Fr(blockNumber + 6969), ...this.noteCache.getAllNullifiers()];
+    txEffect.nullifiers = [new Fr(blockNumber + 6969), ...this.siloedNullifiersFromPrivate];
 
     // Using block number itself, (without adding 6969) gets killed at 1 as it says the slot is already used,
     // it seems like we commit a 1 there to the trees before ? To see what I mean, uncomment these lines below
@@ -644,6 +655,7 @@ export class TXE implements TypedOracle {
 
     this.privateLogs = [];
     this.publicLogs = [];
+    this.siloedNullifiersFromPrivate = new Set();
     this.uniqueNoteHashesFromPublic = [];
     this.siloedNullifiersFromPublic = [];
     this.noteCache = new ExecutionNoteCache(new Fr(1));
@@ -717,7 +729,7 @@ export class TXE implements TypedOracle {
       targetContractAddress,
       publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
     );
-    await this.addNullifiers(
+    await this.addNullifiersFromPrivate(
       targetContractAddress,
       publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
     );
