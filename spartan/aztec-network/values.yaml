@@ -133,7 +133,7 @@ proverNode:
     dataDirectory: ""
   resources:
     requests:
-      memory: "2Gi"
+      memory: "8Gi"
       cpu: "1.9"
   storage: "8Gi"
 
@@ -235,7 +235,7 @@ proverBroker:
   nodeSelector: {}
   resources:
     requests:
-      memory: "2Gi"
+      memory: "8Gi"
       cpu: "1.9"
 
 jobs:
