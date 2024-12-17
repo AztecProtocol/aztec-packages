@@ -99,7 +99,6 @@ spec:
             name: {{ include "aztec-network.fullname" . }}-reth-genesis
         - name: genesis-output
           emptyDir: {}
-{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -108,7 +107,11 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.ethereum.service.type }}
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: ethereum
@@ -119,7 +122,6 @@ spec:
       {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
       nodePort: {{ .Values.ethereum.service.nodePort }}
       {{- end }}
-{{ end }}
 ---
 apiVersion: v1
 kind: ConfigMap

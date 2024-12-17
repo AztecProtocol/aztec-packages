@@ -432,9 +432,19 @@ export const deployL1Contracts = async (
     txHashes.push(txHash);
   }
 
-  if (args.initialValidators && args.initialValidators.length > 0) {
+  const attesters = (await rollup.read
+    .getAttesters([])
+    .then(attesters =>
+      (attesters as `0x${string}`[]).map(attester => EthAddress.fromString(attester.toString())),
+    )) as EthAddress[];
+
+  logger.debug(`Existing attesters`, attesters);
+
+  const newAttesters = (args.initialValidators ?? []).filter(v => !attesters.some(a => a.equals(v)));
+
+  if (newAttesters.length > 0) {
     // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-    const stakeNeeded = MINIMUM_STAKE * BigInt(args.initialValidators.length);
+    const stakeNeeded = MINIMUM_STAKE * BigInt(newAttesters.length);
     await Promise.all(
       [
         await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
@@ -442,8 +452,10 @@ export const deployL1Contracts = async (
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
+    logger.info(`Minted ${newAttesters.length} validators`);
+
     const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([
-      args.initialValidators.map(v => ({
+      newAttesters.map(v => ({
         attester: v.toString(),
         proposer: v.toString(),
         withdrawer: v.toString(),
@@ -451,7 +463,7 @@ export const deployL1Contracts = async (
       })),
     ]);
     txHashes.push(initiateValidatorSetTxHash);
-    logger.info(`Initialized validator set (${args.initialValidators.join(', ')}) in tx ${initiateValidatorSetTxHash}`);
+    logger.info(`Initialized validator set (${newAttesters.join(', ')}) in tx ${initiateValidatorSetTxHash}`);
   }
 
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
@@ -521,6 +533,7 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
   if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
+    logger.info(`Registry ${registryAddress} is not registered to rollup ${rollupAddress}`);
     const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
     logger.verbose(
       `Upgrading registry contract at ${registryAddress} to rollup ${rollupAddress} in tx ${upgradeTxHash}`,

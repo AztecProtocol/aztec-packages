@@ -194,7 +194,6 @@ ethereum:
   gasLimit: "1000000000"
   args: ""
   service:
-    type: ClusterIP
     port: 8545
     targetPort: 8545
     nodePort: ""
