@@ -4,7 +4,8 @@ import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
+import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
+import { writeTestData } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
