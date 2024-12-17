@@ -292,12 +292,13 @@ describe('Simulator oracle', () => {
       let indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
       expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
-      // Two windows are fetch for each sender
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
+      // Only 1 window is obtained for each sender
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
       aztecNode.getLogsByTags.mockReset();
 
-      // We add more logs at the end of the window to make sure we only detect them and bump the indexes if it lies within our window
-      senderOffset = 10;
+      // We add more logs to the second half of the window to test that a second iteration in `syncTaggedLogsAsSender`
+      // is handled correctly.
+      senderOffset = 11;
       generateMockLogs(senderOffset);
       for (let i = 0; i < senders.length; i++) {
         await simulatorOracle.syncTaggedLogsAsSender(
@@ -308,7 +309,7 @@ describe('Simulator oracle', () => {
       }
 
       indexesAsSenderAfterSync = await database.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSenderAfterSync).toStrictEqual([11, 11, 11, 11, 11, 12, 12, 12, 12, 12]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
