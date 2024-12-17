@@ -23,6 +23,7 @@ import {
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { type UltraKeccakHonkProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
+import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
 import { isProtocolArtifactRecursive, mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -162,7 +163,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
-        await tx.clientIvcProof.writeToOutputDirectory(bbWorkingDirectory);
+        await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
         const result = await verifyClientIvcProof(this.config.bbBinaryPath, bbWorkingDirectory, logFunction);
 
         if (result.status === BB_RESULT.FAILURE) {

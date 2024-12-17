@@ -2,11 +2,13 @@ import {
   type AztecNode,
   EncryptedLogPayload,
   L1NotePayload,
+  L2Block,
   Note,
   type TxEffect,
   TxHash,
   TxScopedL2Log,
   randomInBlock,
+  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -233,7 +235,8 @@ describe('Simulator oracle', () => {
       const senderOffset = 0;
       generateMockLogs(senderOffset);
       const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
-      // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
+      // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
+      // one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
@@ -252,9 +255,9 @@ describe('Simulator oracle', () => {
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
-      // We should have called the node 12 times:
-      // 2 times with logs (sliding the window) + 10 times with no results (window size)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node 2 times:
+      // 2 times: first time during initial request, second time after pushing the edge of the window once
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it('should sync tagged logs as senders', async () => {
@@ -332,9 +335,9 @@ describe('Simulator oracle', () => {
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
 
-      // We should have called the node 17 times:
-      // 5 times with no results (sender offset) + 2 times with logs (sliding the window) + 10 times with no results (window size)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(5 + 2 + SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node 2 times:
+      // 2 times: first time during initial request, second time after pushing the edge of the window once
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it("should sync tagged logs for which indexes are not updated if they're inside the window", async () => {
@@ -358,16 +361,16 @@ describe('Simulator oracle', () => {
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // First sender should have 2 logs, but keep index 2 since they were built using the same tag
-      // Next 4 senders hould also have index 2 = offset + 1
+      // Next 4 senders should also have index 2 = offset + 1
       // Last 5 senders should have index 3 = offset + 2
       const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
 
-      // We should have called the node 13 times:
-      // 1 time without logs + 2 times with logs (sliding the window) + 10 times with no results (window size)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(3 + SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node 2 times:
+      // first time during initial request, second time after pushing the edge of the window once
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it("should not sync tagged logs for which indexes are not updated if they're outside the window", async () => {
@@ -396,9 +399,8 @@ describe('Simulator oracle', () => {
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
 
-      // We should have called the node SENDER_OFFSET_WINDOW_SIZE + 1 (with logs) + SENDER_OFFSET_WINDOW_SIZE:
-      // Once for index 1 (NUM_SENDERS/2 logs) + 2 times the sliding window (no logs each time)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1 + 2 * SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node once and that is only for the first window
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
     });
 
     it('should sync tagged logs from scratch after a DB wipe', async () => {
@@ -420,8 +422,9 @@ describe('Simulator oracle', () => {
 
       // No logs should be synced since we start from index 2 = 12 - window_size
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
-      // We should have called the node 21 times (window size + current_index + window size)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 * SENDER_OFFSET_WINDOW_SIZE + 1);
+      // Since no logs were synced, window edge hash not been pushed and for this reason we should have called
+      // the node only once for the initial window
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
 
       aztecNode.getLogsByTags.mockClear();
 
@@ -431,16 +434,16 @@ describe('Simulator oracle', () => {
       syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders hould also have index 1 = offset + 1
+      // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
       const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
-      // We should have called the node 12 times:
-      // 2 times with logs (sliding the window) + 10 times with no results (window size)
-      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2 + SENDER_OFFSET_WINDOW_SIZE);
+      // We should have called the node 2 times:
+      // first time during initial request, second time after pushing the edge of the window once
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
@@ -654,40 +657,27 @@ describe('Simulator oracle', () => {
       }
     });
 
-    it('should not store nullified notes', async () => {
+    it('should remove nullified notes', async () => {
       const requests = [
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
-      const taggedLogs = mockTaggedLogs(requests, 2);
-
-      getIncomingNotesSpy.mockResolvedValueOnce(Promise.resolve(requests.map(request => request.snippetOfNoteDao)));
-
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      expect(addNotesSpy).toHaveBeenCalledTimes(1);
-      expect(addNotesSpy).toHaveBeenCalledWith(
-        // Incoming should contain notes from requests 0, 1, 2 because in those requests we set owner address point.
-        [
-          expect.objectContaining({
-            ...requests[0].snippetOfNoteDao,
-            index: requests[0].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[1].snippetOfNoteDao,
-            index: requests[1].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[2].snippetOfNoteDao,
-            index: requests[2].indexWithinNoteHashTree,
-          }),
-        ],
-        recipient.address,
+      getIncomingNotesSpy.mockResolvedValueOnce(
+        Promise.resolve(requests.map(request => ({ siloedNullifier: Fr.random(), ...request.snippetOfNoteDao }))),
       );
+      let requestedNullifier;
+      aztecNode.findNullifiersIndexesWithBlock.mockImplementationOnce((_blockNumber, nullifiers) => {
+        const block = L2Block.random(2);
+        requestedNullifier = wrapInBlock(nullifiers[0], block);
+        return Promise.resolve([wrapInBlock(1n, L2Block.random(2)), undefined, undefined]);
+      });
+
+      await simulatorOracle.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
+      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith([requestedNullifier], recipient.address.toAddressPoint());
     }, 30_000);
   });
 });
