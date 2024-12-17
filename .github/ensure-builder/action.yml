@@ -94,14 +94,14 @@ runs:
             git fetch --depth 1 origin $GIT_COMMIT;
             git checkout FETCH_HEAD >/dev/null;
           )
+          cd ~/run-$RUN_ID
       run:
         set +e;
         exit_code=254
         scripts/run_on_builder "
           set -x;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
-          $CLONE;
-          cd ~/run-$RUN_ID;
+          $CLONE
           .github/ensure-builder/init $DOCKERHUB_PASSWORD "${{ inputs.run }}";
         "
         exit_code=$?;

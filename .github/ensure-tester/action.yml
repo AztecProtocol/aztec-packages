@@ -105,7 +105,7 @@ runs:
           set -x;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
           $CLONE
-          .github/ensure-builder/init $DOCKERHUB_PASSWORD "${{ inputs.run }}"";
+          .github/ensure-builder/init $DOCKERHUB_PASSWORD "${{ inputs.run }}";
         "
         exit_code=$?;
         if [ $exit_code = 255 ]; then
