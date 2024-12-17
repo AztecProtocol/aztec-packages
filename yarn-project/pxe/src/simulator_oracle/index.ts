@@ -38,7 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
+import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -418,9 +418,6 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
-    // Half the size of the window we slide over the tagging secret indexes.
-    const WINDOW_HALF_SIZE = 10;
-
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
     // This nesting is necessary because for a given set of tags we don't
