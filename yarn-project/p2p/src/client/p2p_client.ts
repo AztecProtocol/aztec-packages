@@ -659,12 +659,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
+    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }

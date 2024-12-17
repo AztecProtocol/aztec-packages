@@ -855,9 +855,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator({
-        getNullifierIndex(nullifier) {
-          return db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]).then(x => x[0]);
-        },
+        getNullifierIndices: nullifiers => db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers),
       }),
     ];
 
