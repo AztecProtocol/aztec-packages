@@ -23,4 +23,4 @@ ci3/earthly_install
 chmod +x ./yq
 sudo mv ./yq /usr/bin/yq
 # Run command.
-ci3/aws_handle_evict "set -eu; $2"
+ci3/aws_handle_evict "set -eu; $INPUT"

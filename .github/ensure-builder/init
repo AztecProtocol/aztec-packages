@@ -24,4 +24,4 @@ done
 echo "Docker service is active!"
 echo $1 | docker login -u aztecprotocolci --password-stdin
 # Run the test.
-ci3/aws_handle_evict "set -eu; $2"
+ci3/aws_handle_evict "set -eu; $INPUT"
