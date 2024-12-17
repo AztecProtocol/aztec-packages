@@ -1,12 +1,10 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        constant_rollup_data::ConstantRollupData,
-    },
+    abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
+            PublicTubeDataValidator,
         },
         state_diff_hints::PublicBaseStateDiffHints,
     },
@@ -18,6 +16,7 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         log_hash::ScopedLogHash,
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_write::PublicDataWrite,
@@ -92,11 +91,9 @@ impl PublicBaseRollupInputs {
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        if !dep::std::runtime::is_unconstrained() {
-            self.tube_data.verify();
-            // TODO(#7410)
-            // self.tube_data.vk_data.validate_in_vk_tree([TUBE_VK_INDEX]);
-        }
+        let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
+        tube_data_validator.verify_proof();
+        tube_data_validator.validate_with_rollup_data(self.constants);
 
         // Warning: Fake verification! TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
@@ -281,10 +278,7 @@ impl PublicBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::{
-            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-            constant_rollup_data::ConstantRollupData,
-        },
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         base::{
             public_base_rollup::PublicBaseRollupInputs, state_diff_hints::PublicBaseStateDiffHints,
         },
@@ -296,6 +290,7 @@ mod tests {
         abis::{
             accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             sponge_blob::SpongeBlob,
         },
@@ -317,8 +312,9 @@ mod tests {
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
         tests::{
-            fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree,
-            utils::pad_end,
+            fixture_builder::FixtureBuilder,
+            fixtures::{self, merkle_tree::generate_full_sha_tree},
+            merkle_tree_utils::NonEmptyMerkleTree,
         },
         traits::{Empty, is_empty},
         utils::{
@@ -1141,9 +1137,7 @@ mod tests {
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
-            siloed_l2_to_l1_msgs.storage(),
-        );
+        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

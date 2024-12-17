@@ -242,4 +242,9 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The recipient of the logs.
    */
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+
+  /**
+   * Removes all of a contract's notes that have been nullified from the note database.
+   */
+  removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
 }
