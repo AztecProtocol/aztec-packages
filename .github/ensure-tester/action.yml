@@ -89,24 +89,24 @@ runs:
       id: test
       env:
         CLONE: |
-          [ -d ~/run-$RUN_ID ] || (
+          if ! [ -d ~/run-$RUN_ID ]; then
             mkdir -p ~/run-$RUN_ID;
             cd ~/run-$RUN_ID;
             git init &>/dev/null;
             git remote add origin https://github.com/aztecprotocol/aztec-packages;
             git fetch --depth 1 origin $GIT_COMMIT;
             git checkout FETCH_HEAD >/dev/null;
-          )
+          fi
           cd ~/run-$RUN_ID
         INPUT: ${{ inputs.run }}
       shell: bash
       run:
         set +e;
         scripts/run_on_builder "
-          set -x;
+          set -eux;
           sudo shutdown -P ${{ steps.select_instance.outputs.ttl }};
           $CLONE
-          INPUT="$INPUT" .github/ensure-builder/init $DOCKERHUB_PASSWORD;
+          INPUT='$INPUT' .github/ensure-builder/init $DOCKERHUB_PASSWORD;
         "
         exit_code=$?;
         if [ $exit_code = 255 ]; then
