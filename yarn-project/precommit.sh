@@ -13,17 +13,14 @@ export FORCE_COLOR=true
 staged_files_cmd="git diff-index --diff-filter=d --relative --cached --name-only HEAD"
 
 function lint {
-  if [ -n "${HOOKS_NO_LINT:-}" ]; then
-    echo "Skipping lint due to HOOKS_NO_LINT."
-    return
-  fi
   ls -d ./*/src | xargs dirname | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
 }
 export -f lint
 
 parallel ::: \
   'yarn prepare:check' \
-  "$staged_files_cmd | grep -E '\.(json|js|mjs|cjs|ts)$' | parallel -N10 ./node_modules/.bin/prettier --loglevel error --write" \
-  "lint"
+  "$staged_files_cmd | grep -E '\.(json|js|mjs|cjs|ts)$' | parallel -N10 ./node_modules/.bin/prettier --loglevel error --write"
+  # TODO(ci3) find a way to ensure the yarn-project state is ready for linting
+  # "lint"
 
 $staged_files_cmd | xargs -r git add

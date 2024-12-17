@@ -28,7 +28,8 @@ bootstrap-noir-bb:
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
-    DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/bootstrap.sh fast" && \
+    DENOISE=1 CI=1 ./noir/bootstrap.sh fast && \
+    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast && \
     mv $(ls -A) /usr/src
   WORKDIR /usr/src
   SAVE ARTIFACT /usr/src /usr/sr
@@ -53,7 +54,8 @@ bootstrap:
     ([ -z "$AZTEC_CACHE_COMMIT" ] || git fetch --depth 1 origin $AZTEC_CACHE_COMMIT >/dev/null 2>&1) && \
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
     git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
-    DENOISE=1 CI=1 parallel ::: "./noir/bootstrap.sh fast" "./barretenberg/bootstrap.sh fast" && \
+    DENOISE=1 CI=1 ./noir/bootstrap.sh fast && \
+    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
     (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) && \
@@ -223,7 +225,7 @@ docs-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=docs-ci-deploy-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  LET artifact=docs-ci-deploy-$(./boxes/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD --pass-args ./docs/+deploy-preview
@@ -234,7 +236,7 @@ avm-transpiler-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=avm-transpiler-ci-$(./barretenberg/acir_tests/bootstrap.sh hash)
+  LET artifact=avm-transpiler-ci-$(./avm-transpiler/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./avm-transpiler/+format
@@ -323,6 +325,7 @@ protocol-verification-keys:
 
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
+# TODO(ci3): we either don't need this or should be in bootstrap
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src

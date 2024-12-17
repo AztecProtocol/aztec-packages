@@ -135,12 +135,13 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "CI (noir and bb)"
         uses: ./.github/ensure-builder
+        # we place this here as ci-noir-bb is a dependency for rest of chain
+        if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true'
         timeout-minutes: 40
         with:
           runner_type: builder-x86
