@@ -13,13 +13,11 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
-import {
-  AppSubscriptionContract,
-  TokenContract as BananaCoin,
-  CounterContract,
-  FPCContract,
-  FeeJuiceContract,
-} from '@aztec/noir-contracts.js';
+import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 

@@ -31,7 +31,8 @@ import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client';
 import {
   getProtocolContractSiblingPath,
   isProtocolContract,
@@ -118,6 +119,8 @@ export class KernelProver {
     profile: boolean = false,
     dryRun: boolean = false,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const timer = new Timer();
+
     const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
 
     const executionStack = [executionResult];
@@ -197,7 +200,9 @@ export class KernelProver {
           privateCallData,
           isPrivateOnlyTx,
         );
+
         pushTestData('private-kernel-inputs-init', proofInput);
+
         output = await this.proofCreator.simulateProofInit(proofInput);
 
         acirs.push(output.bytecode);
@@ -214,7 +219,9 @@ export class KernelProver {
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
+
         pushTestData('private-kernel-inputs-inner', proofInput);
+
         output = await this.proofCreator.simulateProofInner(proofInput);
 
         acirs.push(output.bytecode);
@@ -267,6 +274,7 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
+
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
@@ -281,6 +289,8 @@ export class KernelProver {
       await addGateCount('private_kernel_tail', tailOutput.bytecode);
       tailOutput.profileResult = { gateCounts };
     }
+
+    this.log.info(`Witness generation took ${timer.ms()}ms`);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!dryRun) {

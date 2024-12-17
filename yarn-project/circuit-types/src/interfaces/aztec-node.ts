@@ -315,7 +315,8 @@ export interface AztecNode
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
-   array implies no logs match that tag.
+   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
+   * --> e.g. when sending a note from multiple unsynched devices.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
