@@ -315,6 +315,7 @@ mod tests {
             fixture_builder::FixtureBuilder,
             fixtures::{self, merkle_tree::generate_full_sha_tree},
             merkle_tree_utils::NonEmptyMerkleTree,
+            utils::pad_end,
         },
         traits::{Empty, is_empty},
         utils::{
