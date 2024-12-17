@@ -6,19 +6,16 @@
 # We mount in aws credentials to leverage the s3 cache.
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
 # If anything goes wrong during the run, the container will drop into a shell.
-#
-# TODO: The docker flows need to pull images. Kinda sucks as they're right on the host (and maybe more up-to-date).
-# Preload them in?
-# The docker volume makes the image partly stateful.
+
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
 cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
 
-# if ! git diff --quiet; then
-#   echo "There are local changes to tracked files."
-#   exit 1
-# fi
+if ! git diff --quiet; then
+  echo "There are local changes to tracked files."
+  exit 1
+fi
 
 interactive_args=""
 # Only add -ti and a name if we are not in CI.
