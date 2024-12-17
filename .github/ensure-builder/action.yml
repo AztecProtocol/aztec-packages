@@ -95,7 +95,6 @@ runs:
             git checkout FETCH_HEAD >/dev/null;
           )
           cd ~/run-$RUN_ID
-      env:
         INPUT: ${{ inputs.run }}
       run:
         set +e;

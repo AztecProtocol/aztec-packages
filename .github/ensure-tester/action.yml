@@ -98,9 +98,8 @@ runs:
             git checkout FETCH_HEAD >/dev/null;
           )
           cd ~/run-$RUN_ID
-      shell: bash
-      env:
         INPUT: ${{ inputs.run }}
+      shell: bash
       run:
         set +e;
         scripts/run_on_builder "
