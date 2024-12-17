@@ -135,7 +135,7 @@ jobs:
   ci-noir-bb:
     needs: [base-images, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.noir == 'true' && needs.configure.outputs.bb == 'true'
+    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -382,8 +382,9 @@ jobs:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
           run: |
-            if ci3/test_should_run barretenberg-test-$(./barretenberg/cpp/bootstrap.sh hash); then
+            if ci3/test_should_run network-test-$(./yarn-project/bootstrap.sh hash); then
               scripts/earthly-ci +network-test --test=./test-4epochs.sh
+              ci3/cache_upload_flag bb-bench-$(./yarn-project/bootstrap.sh hash)
             fi
 
   kind-smoke-test:
