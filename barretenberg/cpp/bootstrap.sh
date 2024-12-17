@@ -37,6 +37,7 @@ function build_native {
     cmake --build --preset $pic_preset --target world_state_napi
     cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib
   fi
+  cp build-pic/lib/world_state_napi.node build
 }
 
 function build_wasm {
