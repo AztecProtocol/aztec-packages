@@ -7,6 +7,11 @@ terraform {
       version = "~> 3.13.2"
     }
   }
+
+  backend "gcs" {
+    bucket = "aztec-terraform"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke/metrics/alerting/terraform.tfstate"
+  }
 }
 
 provider "grafana" {
@@ -29,18 +34,21 @@ resource "grafana_contact_point" "slack" {
 
 resource "grafana_notification_policy" "ignore_policy" {
   contact_point = grafana_contact_point.slack.name
-  group_by      = ["service_namespace"]
+  group_by      = ["k8s_namespace_name"]
+
 
   policy {
     contact_point = grafana_contact_point.slack.name
-
     matcher {
-      label = "service_namespace"
-      match = "="
-      value = "smoke"
+      label = "k8s_namespace_name"
+      match = "=~"
+      value = "devnet|troll-turtle"
     }
+  }
 
-    mute_timings = ["always"]
+  policy {
+    mute_timings  = ["always"]
+    contact_point = grafana_contact_point.slack.name
   }
 }
 

@@ -12,9 +12,9 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
-import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
+import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';

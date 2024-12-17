@@ -1,5 +1,6 @@
 import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 

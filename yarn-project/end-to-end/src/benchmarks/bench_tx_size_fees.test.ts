@@ -8,7 +8,9 @@ import {
   TxStatus,
 } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings } from '@aztec/circuits.js';
-import { FPCContract, FeeJuiceContract, TokenContract } from '@aztec/noir-contracts.js';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
