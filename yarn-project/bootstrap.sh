@@ -20,7 +20,7 @@ function build {
   denoise yarn install
 
   # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash-1.tar.gz
+  tar_file=yarn-project-$hash.tar.gz
 
   if ! cache_download $tar_file; then
     case "${1:-}" in
