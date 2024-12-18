@@ -2,10 +2,10 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountManager,
   type AccountWallet,
-  type DebugLogger,
   FeeJuicePaymentMethod,
   FeeJuicePaymentMethodWithClaim,
   Fr,
+  type Logger,
   type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -20,7 +20,9 @@ import {
   Fq,
   type GasSettings,
 } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -43,7 +45,7 @@ describe('e2e_fees account_init', () => {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let logger: DebugLogger;
+  let logger: Logger;
   let pxe: PXE;
   let gasSettings: GasSettings;
   let bananaCoin: BananaCoin;

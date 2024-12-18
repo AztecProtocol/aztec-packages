@@ -14,31 +14,31 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
   Fr,
   type FunctionSelector,
-  type Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   PrivateLog,
   computeAddressSecret,
-  computeTaggingSecret,
+  computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { tryJsonStringify } from '@aztec/foundation/json-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
+import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -49,7 +49,7 @@ export class SimulatorOracle implements DBOracle {
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
-    private log = createDebugLogger('aztec:pxe:simulator_oracle'),
+    private log = createLogger('pxe:simulator_oracle'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -229,10 +229,10 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a Header object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHeader(): Promise<Header> {
-    return Promise.resolve(this.db.getHeader());
+  getBlockHeader(): Promise<BlockHeader> {
+    return this.db.getBlockHeader();
   }
 
   /**
@@ -253,33 +253,33 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public getContacts(): AztecAddress[] {
+  public getContacts(): Promise<AztecAddress[]> {
     return this.db.getContactAddresses();
   }
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A siloed tagging secret that can be used to tag notes.
+   * @returns An indexed tagging secret that can be used to tag notes.
    */
-  public async getAppTaggingSecretAsSender(
+  public async getIndexedTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
-    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
+    const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
+    const [index] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    return new IndexedTaggingSecret(secret, index);
+    return new IndexedTaggingSecret(appTaggingSecret, index);
   }
 
   /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -289,35 +289,39 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const secret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.verbose(
-      `Incrementing secret ${secret} as sender ${sender} for recipient: ${recipient} at contract: ${contractName}(${contractAddress})`,
-    );
+    this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
+      secret,
+      sender,
+      recipient,
+      contractName,
+      contractAddress,
+    });
 
     const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
   }
 
-  async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
-    // Silo the secret to the app so it can't be used to track other app's notes
-    const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    return siloedSecret;
+    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    // Silo the secret so it can't be used to track other app's notes
+    const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
+    return appSecret;
   }
 
   /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * Returns the indexed tagging secrets for a given recipient and all the senders in the address book
    * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
    * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
    * so we're keeping it private for now.
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
+   * @returns A list of indexed tagging secrets
    */
-  async #getAppTaggingSecretsForContacts(
+  async #getIndexedTaggingSecretsForContacts(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
@@ -325,11 +329,11 @@ export class SimulatorOracle implements DBOracle {
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...this.db.getContactAddresses(), ...(await this.keyStore.getAccounts())].filter(
+    const contacts = [...(await this.db.getContactAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
     const appTaggingSecrets = contacts.map(contact => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
+      const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
@@ -348,7 +352,7 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const appTaggingSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
     let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
     const INDEX_OFFSET = 10;
@@ -395,14 +399,19 @@ export class SimulatorOracle implements DBOracle {
     await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
 
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.debug(
-      `Syncing logs for sender ${sender}, secret ${appTaggingSecret}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
-    );
+    this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
+      sender,
+      secret: appTaggingSecret,
+      index: currentIndex,
+      contractName,
+      contractAddress,
+    });
   }
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the addressbook.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book.
+   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs
+   * to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
@@ -412,117 +421,140 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    // Half the size of the window we slide over the tagging secret indexes.
+    const WINDOW_HALF_SIZE = 10;
+
+    // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
+    // However it is impossible at the moment due to the language not supporting nested slices.
+    // This nesting is necessary because for a given set of tags we don't
+    // know how many logs we will get back. Furthermore, these logs are of undetermined
+    // length, since we don't really know the note they correspond to until we decrypt them.
+
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    const result = new Map<string, TxScopedL2Log[]>();
+    // A map of logs going from recipient address to logs. Note that the logs might have been processed before
+    // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
+    // that a logs will be received ordered by a given tax index and that the tags won't be reused).
+    const logsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
-      const logs: TxScopedL2Log[] = [];
-      // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
-      // However it is impossible at the moment due to the language not supporting nested slices.
-      // This nesting is necessary because for a given set of tags we don't
-      // know how many logs we will get back. Furthermore, these logs are of undetermined
-      // length, since we don't really know the note they correspond to until we decrypt them.
+      const logsForRecipient: TxScopedL2Log[] = [];
 
-      // 1. Get all the secrets for the recipient and sender pairs (#9365)
-      const appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
+      // Get all the secrets for the recipient and sender pairs (#9365)
+      const secrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
 
-      // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
-      // and inadvertedly incremented their index without use getting any logs (for example, in case
-      // of a revert). If we stopped looking for logs the first time
-      // we receive 0 for a tag, we might never receive anything from that sender again.
-      // Also there's a possibility that we have advanced our index, but the sender has reused it, so
-      // we might have missed some logs. For these reasons, we have to look both back and ahead of the
-      // stored index
-      const INDEX_OFFSET = 10;
-      type SearchState = {
-        currentTagggingSecrets: IndexedTaggingSecret[];
-        maxIndexesToCheck: { [k: string]: number };
-        initialSecretIndexes: { [k: string]: number };
-        secretsToIncrement: { [k: string]: number };
-      };
-      const searchState = appTaggingSecrets.reduce<SearchState>(
-        (acc, appTaggingSecret) => ({
-          // Start looking for logs before the stored index
-          currentTagggingSecrets: acc.currentTagggingSecrets.concat([
-            new IndexedTaggingSecret(appTaggingSecret.secret, Math.max(0, appTaggingSecret.index - INDEX_OFFSET)),
-          ]),
-          // Keep looking for logs beyond the stored index
-          maxIndexesToCheck: {
-            ...acc.maxIndexesToCheck,
-            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
-          },
-          // Keeps track of the secrets we have to increment in the database
-          secretsToIncrement: {},
-          // Store the initial set of indexes for the secrets
-          initialSecretIndexes: {
-            ...acc.initialSecretIndexes,
-            ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
-          },
-        }),
-        { currentTagggingSecrets: [], maxIndexesToCheck: {}, secretsToIncrement: {}, initialSecretIndexes: {} },
-      );
+      // We fetch logs for a window of indexes in a range:
+      //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
+      //
+      // We use this window approach because it could happen that a sender might have messed up and inadvertently
+      // incremented their index without us getting any logs (for example, in case of a revert). If we stopped looking
+      // for logs the first time we don't receive any logs for a tag, we might never receive anything from that sender again.
+      //    Also there's a possibility that we have advanced our index, but the sender has reused it, so we might have missed
+      // some logs. For these reasons, we have to look both back and ahead of the stored index.
+      let secretsAndWindows = secrets.map(secret => {
+        return {
+          appTaggingSecret: secret.appTaggingSecret,
+          leftMostIndex: Math.max(0, secret.index - WINDOW_HALF_SIZE),
+          rightMostIndex: secret.index + WINDOW_HALF_SIZE,
+        };
+      });
 
-      let { currentTagggingSecrets } = searchState;
-      const { maxIndexesToCheck, secretsToIncrement, initialSecretIndexes } = searchState;
+      // As we iterate we store the largest index we have seen for a given secret to later on store it in the db.
+      const newLargestIndexMapToStore: { [k: string]: number } = {};
 
-      while (currentTagggingSecrets.length > 0) {
-        // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-        const currentTags = currentTagggingSecrets.map(taggingSecret =>
-          taggingSecret.computeSiloedTag(recipient, contractAddress),
+      // The initial/unmodified indexes of the secrets stored in a key-value map where key is the app tagging secret.
+      const initialIndexesMap = getInitialIndexesMap(secrets);
+
+      while (secretsAndWindows.length > 0) {
+        const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
+        const tagsForTheWholeWindow = secretsForTheWholeWindow.map(secret =>
+          secret.computeSiloedTag(recipient, contractAddress),
         );
-        const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
-        const newTaggingSecrets: IndexedTaggingSecret[] = [];
-        logsByTags.forEach((logsByTag, logIndex) => {
-          const { secret: currentSecret, index: currentIndex } = currentTagggingSecrets[logIndex];
-          const currentSecretAsStr = currentSecret.toString();
-          this.log.debug(
-            `Syncing logs for recipient ${recipient}, secret ${currentSecretAsStr}:${currentIndex} at contract: ${contractName}(${contractAddress})`,
-          );
-          // 3.1. Append logs to the list and increment the index for the tags that have logs (#9380)
-          if (logsByTag.length > 0) {
-            this.log.verbose(
-              `Found ${
-                logsByTag.length
-              } logs for secret ${currentSecretAsStr} as recipient ${recipient}. Incrementing index to ${
-                currentIndex + 1
-              } at contract: ${contractName}(${contractAddress})`,
-            );
-            logs.push(...logsByTag);
 
-            if (currentIndex >= initialSecretIndexes[currentSecretAsStr]) {
-              // 3.2. Increment the index for the tags that have logs, provided they're higher than the one
-              // we have stored in the db (#9380)
-              secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
-              // 3.3. Slide the window forwards if we have found logs beyond the initial index
-              maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
+        // We store the new largest indexes we find in the iteration in the following map to later on construct
+        // a new set of secrets and windows to fetch logs for.
+        const newLargestIndexMapForIteration: { [k: string]: number } = {};
+
+        // Fetch the logs for the tags and iterate over them
+        const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
+
+        logsByTags.forEach((logsByTag, logIndex) => {
+          if (logsByTag.length > 0) {
+            // The logs for the given tag exist so we store them for later processing
+            logsForRecipient.push(...logsByTag);
+
+            // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
+            // a new largest index have been found.
+            const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
+            const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
+
+            this.log.debug(`Found ${logsByTag.length} logs as recipient ${recipient}`, {
+              recipient,
+              secret: secretCorrespondingToLog.appTaggingSecret,
+              contractName,
+              contractAddress,
+            });
+
+            if (
+              secretCorrespondingToLog.index >= initialIndex &&
+              (newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] === undefined ||
+                secretCorrespondingToLog.index >=
+                  newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()])
+            ) {
+              // We have found a new largest index so we store it for later processing (storing it in the db + fetching
+              // the difference of the window sets of current and the next iteration)
+              newLargestIndexMapForIteration[secretCorrespondingToLog.appTaggingSecret.toString()] =
+                secretCorrespondingToLog.index + 1;
+
+              this.log.debug(
+                `Incrementing index to ${
+                  secretCorrespondingToLog.index + 1
+                } at contract ${contractName}(${contractAddress})`,
+              );
             }
           }
-          // 3.4 Keep increasing the index (inside the window) temporarily for the tags that have no logs
-          // There's a chance the sender missed some and we want to catch up
-          if (currentIndex < maxIndexesToCheck[currentSecretAsStr]) {
-            const newTaggingSecret = new IndexedTaggingSecret(currentSecret, currentIndex + 1);
-            newTaggingSecrets.push(newTaggingSecret);
-          }
         });
-        await this.db.setTaggingSecretsIndexesAsRecipient(
-          Object.keys(secretsToIncrement).map(
-            secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
-          ),
-        );
-        currentTagggingSecrets = newTaggingSecrets;
+
+        // Now based on the new largest indexes we found, we will construct a new secrets and windows set to fetch logs
+        // for. Note that it's very unlikely that a new log from the current window would appear between the iterations
+        // so we fetch the logs only for the difference of the window sets.
+        const newSecretsAndWindows = [];
+        for (const [appTaggingSecret, newIndex] of Object.entries(newLargestIndexMapForIteration)) {
+          const secret = secrets.find(secret => secret.appTaggingSecret.toString() === appTaggingSecret);
+          if (secret) {
+            newSecretsAndWindows.push({
+              appTaggingSecret: secret.appTaggingSecret,
+              // We set the left most index to the new index to avoid fetching the same logs again
+              leftMostIndex: newIndex,
+              rightMostIndex: newIndex + WINDOW_HALF_SIZE,
+            });
+
+            // We store the new largest index in the map to later store it in the db.
+            newLargestIndexMapToStore[appTaggingSecret] = newIndex;
+          } else {
+            throw new Error(
+              `Secret not found for appTaggingSecret ${appTaggingSecret}. This is a bug as it should never happen!`,
+            );
+          }
+        }
+
+        // Now we set the new secrets and windows and proceed to the next iteration.
+        secretsAndWindows = newSecretsAndWindows;
       }
 
-      result.set(
+      // We filter the logs by block number and store them in the map.
+      logsMap.set(
         recipient.toString(),
-        // Remove logs with a block number higher than the max block number
-        // Duplicates are likely to happen due to the sliding window, so we also filter them out
-        logs.filter(
-          (log, index, self) =>
-            log.blockNumber <= maxBlockNumber && index === self.findIndex(otherLog => otherLog.equals(log)),
+        logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
+      );
+
+      // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
+      await this.db.setTaggingSecretsIndexesAsRecipient(
+        Object.entries(newLargestIndexMapToStore).map(
+          ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
         ),
       );
     }
-    return result;
+    return logsMap;
   }
 
   /**
@@ -538,14 +570,11 @@ export class SimulatorOracle implements DBOracle {
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
-    const ovskM = await this.keyStore.getMasterSecretKey(
-      recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-    );
+
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
     const incomingNotes: IncomingNoteDao[] = [];
-    const outgoingNotes: OutgoingNoteDao[] = [];
 
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
@@ -553,21 +582,9 @@ export class SimulatorOracle implements DBOracle {
       const incomingNotePayload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
-      const outgoingNotePayload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsOutgoingFromPublic(scopedLog.logData, ovskM)
-        : L1NotePayload.decryptAsOutgoing(PrivateLog.fromBuffer(scopedLog.logData), ovskM);
 
-      if (incomingNotePayload || outgoingNotePayload) {
-        if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
-          this.log.warn(
-            `Incoming and outgoing note payloads do not match. Incoming: ${tryJsonStringify(
-              incomingNotePayload,
-            )}, Outgoing: ${tryJsonStringify(outgoingNotePayload)}`,
-          );
-          continue;
-        }
-
-        const payload = incomingNotePayload || outgoingNotePayload;
+      if (incomingNotePayload) {
+        const payload = incomingNotePayload;
 
         const txEffect =
           txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
@@ -582,14 +599,13 @@ export class SimulatorOracle implements DBOracle {
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
-        const { incomingNote, outgoingNote } = await produceNoteDaos(
+        const { incomingNote } = await produceNoteDaos(
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
           incomingNotePayload ? recipient.toAddressPoint() : undefined,
-          outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
           payload!,
           txEffect.data.txHash,
           txEffect.l2BlockNumber,
@@ -603,12 +619,9 @@ export class SimulatorOracle implements DBOracle {
         if (incomingNote) {
           incomingNotes.push(incomingNote);
         }
-        if (outgoingNote) {
-          outgoingNotes.push(outgoingNote);
-        }
       }
     }
-    return { incomingNotes, outgoingNotes };
+    return { incomingNotes };
   }
 
   /**
@@ -621,41 +634,41 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
-    if (incomingNotes.length || outgoingNotes.length) {
-      await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
+    const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    if (incomingNotes.length) {
+      await this.db.addNotes(incomingNotes, recipient);
       incomingNotes.forEach(noteDao => {
-        this.log.verbose(
-          `Added incoming note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
-          } with nullifier ${noteDao.siloedNullifier.toString()}`,
-        );
-      });
-      outgoingNotes.forEach(noteDao => {
-        this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
+        this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+          contract: noteDao.contractAddress,
+          slot: noteDao.storageSlot,
+          nullifier: noteDao.siloedNullifier.toString(),
+        });
       });
     }
-    const nullifiedNotes: IncomingNoteDao[] = [];
-    const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
-    const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-    const currentBlockNumber = await this.getBlockNumber();
-    const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock(currentBlockNumber, nullifiersToCheck);
+  }
 
-    const foundNullifiers = nullifiersToCheck
-      .map((nullifier, i) => {
-        if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
-        }
-      })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+  public async removeNullifiedNotes(contractAddress: AztecAddress) {
+    for (const recipient of await this.keyStore.getAccounts()) {
+      const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
+      const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
+      const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
-    await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
-    nullifiedNotes.forEach(noteDao => {
-      this.log.verbose(
-        `Removed note for contract ${noteDao.contractAddress} at slot ${
-          noteDao.storageSlot
-        } with nullifier ${noteDao.siloedNullifier.toString()}`,
-      );
-    });
+      const foundNullifiers = nullifiersToCheck
+        .map((nullifier, i) => {
+          if (nullifierIndexes[i] !== undefined) {
+            return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+          }
+        })
+        .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+
+      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
+      nullifiedNotes.forEach(noteDao => {
+        this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+          contract: noteDao.contractAddress,
+          slot: noteDao.storageSlot,
+          nullifier: noteDao.siloedNullifier.toString(),
+        });
+      });
+    }
   }
 }

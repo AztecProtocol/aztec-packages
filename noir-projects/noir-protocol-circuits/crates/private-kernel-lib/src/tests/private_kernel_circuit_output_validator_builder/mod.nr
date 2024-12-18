@@ -56,7 +56,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.counter = 777;
     }
 
-    pub fn validate_as_first_call(self) {
+    pub fn validate_as_first_call(self, is_private_only: bool) {
         let private_call = self.private_call.to_private_call_data();
         let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
@@ -66,6 +66,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             array_lengths,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
+            is_private_only,
         );
     }
 

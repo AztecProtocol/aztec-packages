@@ -4,7 +4,6 @@ import {
   type EpochProver,
   type EpochProverManager,
   type ForkMerkleTreeOperations,
-  type ProverCache,
   type ProvingJobBroker,
   type ProvingJobConsumer,
   type ProvingJobProducer,
@@ -12,17 +11,14 @@ import {
 } from '@aztec/circuit-types/interfaces';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import { join } from 'path';
-
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { CachingBrokerFacade } from '../proving_broker/caching_broker_facade.js';
+import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore } from '../proving_broker/proof_store.js';
-import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
@@ -30,25 +26,22 @@ export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
-  private cacheDir?: string;
-
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations,
     private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
-    private log = createDebugLogger('aztec:prover-client:tx-prover'),
+    private log = createLogger('prover-client:tx-prover'),
   ) {
     // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
     // so it can be reused across multiple ones and not recomputed every time.
-    this.cacheDir = this.config.cacheDir ? join(this.config.cacheDir, `tx_prover_${this.config.proverId}`) : undefined;
   }
 
-  public createEpochProver(cache: ProverCache = new InMemoryProverCache()): EpochProver {
+  public createEpochProver(): EpochProver {
     return new ProvingOrchestrator(
       this.worldState,
-      new CachingBrokerFacade(this.orchestratorClient, cache),
+      new BrokerCircuitProverFacade(this.orchestratorClient),
       this.telemetry,
       this.config.proverId,
     );
@@ -137,7 +130,15 @@ export class ProverClient implements EpochProverManager {
     const prover = await buildServerCircuitProver(this.config, this.telemetry);
     this.agents = times(
       this.config.proverAgentCount,
-      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
+      () =>
+        new ProvingAgent(
+          this.agentClient!,
+          proofStore,
+          prover,
+          this.telemetry,
+          [],
+          this.config.proverAgentPollIntervalMs,
+        ),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));

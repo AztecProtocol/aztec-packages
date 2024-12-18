@@ -40,6 +40,16 @@ export interface AttestationPool {
   deleteAttestationsForSlot(slot: bigint): Promise<void>;
 
   /**
+   * Delete Attestations for slot and proposal
+   *
+   * Removes all attestations associated with a slot and proposal
+   *
+   * @param slot - The slot to delete.
+   * @param proposalId - The proposal to delete.
+   */
+  deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void>;
+
+  /**
    * Get Attestations for slot
    *
    * Retrieve all of the attestations observed pertaining to a given slot

@@ -5,7 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import { type PXE } from '@aztec/circuit-types';
-import { PublicKeys } from '@aztec/circuits.js';
+import { PublicKeys } from '@aztec/circuits.js/types';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
@@ -33,6 +33,7 @@ export const makePxeOption = (mandatory: boolean) =>
   new Option('-u, --rpc-url <string>', 'URL of the PXE')
     .env('PXE_URL')
     .default(`http://${LOCALHOST}:8080`)
+    .conflicts('remote-pxe')
     .makeOptionMandatory(mandatory);
 
 export const pxeOption = makePxeOption(true);
@@ -299,7 +300,7 @@ export function parsePublicKey(publicKey: string): PublicKeys | undefined {
  */
 export function parsePartialAddress(address: string): Fr {
   try {
-    return Fr.fromString(address);
+    return Fr.fromHexString(address);
   } catch (err) {
     throw new InvalidArgumentError(`Invalid partial address: ${address}`);
   }
@@ -313,7 +314,7 @@ export function parsePartialAddress(address: string): Fr {
  */
 export function parseSecretKey(secretKey: string): Fr {
   try {
-    return Fr.fromString(secretKey);
+    return Fr.fromHexString(secretKey);
   } catch (err) {
     throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
   }
@@ -329,7 +330,7 @@ export function parseField(field: string): Fr {
   try {
     const isHex = field.startsWith('0x') || field.match(new RegExp(`^[0-9a-f]{${Fr.SIZE_IN_BYTES * 2}}$`, 'i'));
     if (isHex) {
-      return Fr.fromString(field);
+      return Fr.fromHexString(field);
     }
 
     if (['true', 'false'].includes(field)) {

@@ -1,6 +1,6 @@
 import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { type Fr, GasSettings } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -30,7 +30,7 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected log = createDebugLogger('aztec:js:contract_interaction');
+  protected log = createLogger('aztecjs:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 
@@ -122,6 +122,7 @@ export abstract class BaseContractInteraction {
     const defaultFeeOptions = await this.getDefaultFeeOptions(request.fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
+    const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
 
     let gasSettings = defaultFeeOptions.gasSettings;
     if (request.fee?.estimateGas) {
@@ -132,7 +133,7 @@ export abstract class BaseContractInteraction {
         simulationResult,
         request.fee?.estimatedGasPadding,
       );
-      gasSettings = GasSettings.from({ maxFeesPerGas, gasLimits, teardownGasLimits });
+      gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
       this.log.verbose(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );

@@ -22,7 +22,13 @@ class AvmMerkleTreeTraceBuilder {
     };
 
     AvmMerkleTreeTraceBuilder() = default;
+    AvmMerkleTreeTraceBuilder(TreeSnapshots& tree_snapshots)
+        : tree_snapshots(tree_snapshots){};
+
     void reset();
+
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
 
     bool check_membership(
         uint32_t clk, const FF& leaf_value, const uint64_t leaf_index, const std::vector<FF>& path, const FF& root);
@@ -35,12 +41,13 @@ class AvmMerkleTreeTraceBuilder {
 
     FF compute_public_tree_leaf_slot(uint32_t clk, FF contract_address, FF leaf_index);
 
-    // These can be static, but not yet in-case we want to store the tree snapshots in this gadget
+    TreeSnapshots& get_tree_snapshots() { return tree_snapshots; }
+
+    // Public Data Tree
     bool perform_storage_read(uint32_t clk,
                               const PublicDataTreeLeafPreimage& preimage,
                               const FF& leaf_index,
-                              const std::vector<FF>& path,
-                              const FF& root);
+                              const std::vector<FF>& path) const;
 
     FF perform_storage_write(uint32_t clk,
                              PublicDataTreeLeafPreimage& low_preimage,
@@ -48,24 +55,36 @@ class AvmMerkleTreeTraceBuilder {
                              const std::vector<FF>& low_path,
                              const FF& slot,
                              const FF& value,
-                             const FF& insertion_index,
-                             const std::vector<FF>& insertion_path,
-                             const FF& initial_root);
+                             const std::vector<FF>& insertion_path);
 
+    // Nullifier Tree
     bool perform_nullifier_read(uint32_t clk,
                                 const NullifierLeafPreimage& preimage,
                                 const FF& leaf_index,
-                                const std::vector<FF>& path,
-                                const FF& root);
+                                const std::vector<FF>& path) const;
 
     FF perform_nullifier_append(uint32_t clk,
                                 NullifierLeafPreimage& low_preimage,
                                 const FF& low_index,
                                 const std::vector<FF>& low_path,
                                 const FF& nullifier,
-                                const FF& insertion_index,
-                                const std::vector<FF>& insertion_path,
-                                const FF& root);
+                                const std::vector<FF>& insertion_path);
+    void set_nullifier_tree_size(uint32_t size) { tree_snapshots.nullifier_tree.size = size; }
+
+    // Note Hash Tree
+    bool perform_note_hash_read(uint32_t clk,
+                                const FF& note_hash,
+                                const FF& leaf_index,
+                                const std::vector<FF>& path) const;
+
+    FF perform_note_hash_append(uint32_t clk, const FF& note_hash, const std::vector<FF>& insertion_path);
+    void set_note_hash_tree_size(uint32_t size) { tree_snapshots.note_hash_tree.size = size; }
+
+    // L1 to L2 Message Tree
+    bool perform_l1_to_l2_message_read(uint32_t clk,
+                                       const FF& leaf_value,
+                                       const FF leaf_index,
+                                       const std::vector<FF>& path) const;
 
     // Unconstrained variants while circuit stuff is being worked out
     static bool unconstrained_check_membership(const FF& leaf_value,
@@ -82,15 +101,25 @@ class AvmMerkleTreeTraceBuilder {
     static FF unconstrained_hash_public_data_preimage(const PublicDataTreeLeafPreimage& preimage);
 
     static FF unconstrained_silo_note_hash(FF contract_address, FF note_hash);
+    static FF unconstrained_compute_note_hash_nonce(FF tx_hash, FF note_index_in_tx);
+    static FF unconstrained_compute_unique_note_hash(FF nonce, FF siloed_note_hash);
     static FF unconstrained_silo_nullifier(FF contract_address, FF nullifier);
     static FF unconstrained_compute_public_tree_leaf_slot(FF contract_address, FF leaf_index);
+    // Could probably template these
+    static bool assert_public_data_non_membership_check(const PublicDataTreeLeafPreimage& low_leaf_preimage,
+                                                        const FF& leaf_slot);
+    static bool assert_nullifier_non_membership_check(const NullifierLeafPreimage& low_leaf_preimage,
+                                                      const FF& nullifier);
 
     void finalize(std::vector<AvmFullRow<FF>>& main_trace);
+
     // We need access to the poseidon2 gadget
     AvmPoseidon2TraceBuilder poseidon2_builder;
 
   private:
     std::vector<MerkleEntry> merkle_check_trace;
+    TreeSnapshots non_revertible_tree_snapshots;
+    TreeSnapshots tree_snapshots;
     MerkleEntry compute_root_from_path(uint32_t clk,
                                        const FF& leaf_value,
                                        const uint64_t leaf_index,

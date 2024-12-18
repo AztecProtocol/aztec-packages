@@ -105,6 +105,8 @@ std::string to_name(AvmError error)
     switch (error) {
     case AvmError::NO_ERROR:
         return "NO ERROR";
+    case AvmError::REVERT_OPCODE:
+        return "REVERT OPCODE";
     case AvmError::INVALID_PROGRAM_COUNTER:
         return "INVALID PROGRAM COUNTER";
     case AvmError::INVALID_OPCODE:
@@ -127,6 +129,12 @@ std::string to_name(AvmError error)
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
     case AvmError::RADIX_OUT_OF_BOUNDS:
         return "RADIX OUT OF BOUNDS";
+    case AvmError::DUPLICATE_NULLIFIER:
+        return "DUPLICATE NULLIFIER";
+    case AvmError::SIDE_EFFECT_LIMIT_REACHED:
+        return "SIDE EFFECT LIMIT REACHED";
+    case AvmError::OUT_OF_GAS:
+        return "OUT OF GAS";
     default:
         throw std::runtime_error("Invalid error type");
         break;
@@ -136,6 +144,11 @@ std::string to_name(AvmError error)
 bool is_ok(AvmError error)
 {
     return error == AvmError::NO_ERROR;
+}
+
+bool exceptionally_halted(AvmError error)
+{
+    return error != AvmError::NO_ERROR && error != AvmError::REVERT_OPCODE;
 }
 
 /**

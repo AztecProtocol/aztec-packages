@@ -198,11 +198,17 @@ template <typename Flavor> class SumcheckProver {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
+        RowDisablingPolynomial<FF> row_disabling_polynomial;
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
-        auto round_univariate = round.compute_univariate(
-            round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
+        auto round_univariate = round.compute_univariate(round_idx,
+                                                         full_polynomials,
+                                                         relation_parameters,
+                                                         gate_separators,
+                                                         alpha,
+                                                         zk_sumcheck_data,
+                                                         row_disabling_polynomial);
         vinfo("starting sumcheck rounds...");
         {
 
@@ -217,6 +223,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare ZK Sumcheck data for the next round
             if constexpr (Flavor::HasZK) {
                 update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
+                row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
             };
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
@@ -233,7 +240,8 @@ template <typename Flavor> class SumcheckProver {
                                                         relation_parameters,
                                                         gate_separators,
                                                         alpha,
-                                                        zk_sumcheck_data);
+                                                        zk_sumcheck_data,
+                                                        row_disabling_polynomial);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
@@ -243,6 +251,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             if constexpr (Flavor::HasZK) {
                 update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
+                row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
             };
 
             gate_separators.partially_evaluate(round_challenge);
@@ -590,10 +599,21 @@ template <typename Flavor> class SumcheckVerifier {
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
+        // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
+        FF correcting_factor{ 1 };
+        if constexpr (Flavor::HasZK) {
+            RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
+            correcting_factor = row_disabler.evaluate_at_challenge(multivariate_challenge, multivariate_d);
+        }
+
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        FF full_honk_purported_value = round.compute_full_relation_purported_value(
-            purported_evaluations, relation_parameters, gate_separators, alpha, full_libra_purported_value);
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(purported_evaluations,
+                                                                                   relation_parameters,
+                                                                                   gate_separators,
+                                                                                   alpha,
+                                                                                   full_libra_purported_value,
+                                                                                   correcting_factor);
         bool final_check(false);
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {

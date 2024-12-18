@@ -141,17 +141,6 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             memory.write(*result_address, result.into());
             Ok(())
         }
-        BlackBoxOp::SchnorrVerify { public_key_x, public_key_y, message, signature, result } => {
-            let public_key_x = *memory.read(*public_key_x).extract_field().unwrap();
-            let public_key_y = *memory.read(*public_key_y).extract_field().unwrap();
-            let message: Vec<u8> = to_u8_vec(read_heap_vector(memory, message));
-            let signature: [u8; 64] =
-                to_u8_vec(read_heap_vector(memory, signature)).try_into().unwrap();
-            let verified =
-                solver.schnorr_verify(&public_key_x, &public_key_y, &signature, &message)?;
-            memory.write(*result, verified.into());
-            Ok(())
-        }
         BlackBoxOp::MultiScalarMul { points, scalars, outputs: result } => {
             let points: Vec<F> = read_heap_vector(memory, points)
                 .iter()
@@ -321,21 +310,27 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             memory.write_slice(memory.read_ref(output.pointer), &state);
             Ok(())
         }
-        BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
+        BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits } => {
             let input: F = *memory.read(*input).extract_field().expect("ToRadix input not a field");
             let radix = memory
                 .read(*radix)
                 .expect_integer_with_bit_size(IntegerBitSize::U32)
                 .expect("ToRadix opcode's radix bit size does not match expected bit size 32");
+            let num_limbs = memory.read(*num_limbs).to_usize();
+            let output_bits = !memory
+                .read(*output_bits)
+                .expect_integer_with_bit_size(IntegerBitSize::U1)
+                .expect("ToRadix opcode's output_bits size does not match expected bit size 1")
+                .is_zero();
 
             let mut input = BigUint::from_bytes_be(&input.to_be_bytes());
             let radix = BigUint::from_bytes_be(&radix.to_be_bytes());
 
-            let mut limbs: Vec<MemoryValue<F>> = vec![MemoryValue::default(); output.size];
+            let mut limbs: Vec<MemoryValue<F>> = vec![MemoryValue::default(); num_limbs];
 
-            for i in (0..output.size).rev() {
+            for i in (0..num_limbs).rev() {
                 let limb = &input % &radix;
-                if *output_bits {
+                if output_bits {
                     limbs[i] = MemoryValue::new_integer(
                         if limb.is_zero() { 0 } else { 1 },
                         IntegerBitSize::U1,
@@ -347,7 +342,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
                 input /= &radix;
             }
 
-            memory.write_slice(memory.read_ref(output.pointer), &limbs);
+            memory.write_slice(memory.read_ref(*output_pointer), &limbs);
 
             Ok(())
         }
@@ -362,7 +357,6 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
         BlackBoxOp::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
         BlackBoxOp::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
         BlackBoxOp::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
-        BlackBoxOp::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
         BlackBoxOp::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
         BlackBoxOp::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
         BlackBoxOp::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,

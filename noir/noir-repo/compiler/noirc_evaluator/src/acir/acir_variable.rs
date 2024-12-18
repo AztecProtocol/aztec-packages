@@ -23,7 +23,7 @@ use std::{borrow::Cow, hash::Hash};
 use crate::brillig::brillig_ir::artifact::GeneratedBrillig;
 use crate::errors::{InternalBug, InternalError, RuntimeError, SsaReport};
 use crate::ssa::ir::{
-    dfg::CallStack, instruction::Endian, types::NumericType, types::Type as SsaType,
+    call_stack::CallStack, instruction::Endian, types::NumericType, types::Type as SsaType,
 };
 
 use super::big_int::BigIntContext;
@@ -92,7 +92,7 @@ impl<'a> From<&'a SsaType> for AcirType {
             SsaType::Numeric(numeric_type) => AcirType::NumericType(*numeric_type),
             SsaType::Array(elements, size) => {
                 let elements = elements.iter().map(|e| e.into()).collect();
-                AcirType::Array(elements, *size)
+                AcirType::Array(elements, *size as usize)
             }
             _ => unreachable!("The type {value} cannot be represented in ACIR"),
         }

@@ -43,6 +43,7 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
@@ -50,15 +51,19 @@ import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';
 
 export class TestBroker implements ProvingJobProducer {
-  private broker = new ProvingBroker(new InMemoryBrokerDatabase());
+  private broker = new ProvingBroker(new InMemoryBrokerDatabase(), new NoopTelemetryClient());
   private agents: ProvingAgent[];
 
   constructor(
     agentCount: number,
     prover: ServerCircuitProver,
     private proofStore: ProofStore = new InlineProofStore(),
+    agentPollInterval = 100,
   ) {
-    this.agents = times(agentCount, () => new ProvingAgent(this.broker, proofStore, prover));
+    this.agents = times(
+      agentCount,
+      () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), undefined, agentPollInterval),
+    );
   }
 
   public async start() {
@@ -81,8 +86,8 @@ export class TestBroker implements ProvingJobProducer {
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     return this.broker.getProvingJobStatus(id);
   }
-  removeAndCancelProvingJob(id: ProvingJobId): Promise<void> {
-    return this.broker.removeAndCancelProvingJob(id);
+  cancelProvingJob(id: string): Promise<void> {
+    return this.broker.cancelProvingJob(id);
   }
   waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
     return this.broker.waitForJobToSettle(id);

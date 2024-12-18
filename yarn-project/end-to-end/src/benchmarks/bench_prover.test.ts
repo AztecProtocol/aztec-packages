@@ -3,7 +3,10 @@ import { PublicFeePaymentMethod, TxStatus, sleep } from '@aztec/aztec.js';
 import { type AccountWallet } from '@aztec/aztec.js/wallet';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr, GasSettings } from '@aztec/circuits.js';
-import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
@@ -177,9 +180,6 @@ describe('benchmarks/proving', () => {
   });
 
   afterAll(async () => {
-    for (const pxe of provingPxes) {
-      await pxe.stop();
-    }
     await ctx.teardown();
     await acvmCleanup();
     await bbCleanup();

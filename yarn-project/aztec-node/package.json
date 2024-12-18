@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "main": "dest/index.js",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/aztec-node/config.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -57,6 +60,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

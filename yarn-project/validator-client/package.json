@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "main": "dest/index.js",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -56,11 +59,16 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",

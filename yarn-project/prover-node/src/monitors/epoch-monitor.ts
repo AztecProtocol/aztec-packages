@@ -1,22 +1,29 @@
 import { type L2BlockSource } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
   handleInitialEpochSync(epochNumber: bigint): Promise<void>;
   handleEpochCompleted(epochNumber: bigint): Promise<void>;
 }
 
-export class EpochMonitor {
+export class EpochMonitor implements Traceable {
   private runningPromise: RunningPromise;
-  private log = createDebugLogger('aztec:prover-node:epoch-monitor');
+  private log = createLogger('prover-node:epoch-monitor');
+  public readonly tracer: Tracer;
 
   private handler: EpochMonitorHandler | undefined;
 
   private latestEpochNumber: bigint | undefined;
 
-  constructor(private readonly l2BlockSource: L2BlockSource, private options: { pollingIntervalMs: number }) {
-    this.runningPromise = new RunningPromise(this.work.bind(this), this.options.pollingIntervalMs);
+  constructor(
+    private readonly l2BlockSource: L2BlockSource,
+    telemetry: TelemetryClient,
+    private options: { pollingIntervalMs: number },
+  ) {
+    this.tracer = telemetry.getTracer('EpochMonitor');
+    this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);
   }
 
   public start(handler: EpochMonitorHandler) {
@@ -30,6 +37,7 @@ export class EpochMonitor {
     this.log.info('Stopped EpochMonitor');
   }
 
+  @trackSpan('EpochMonitor.work')
   public async work() {
     if (!this.latestEpochNumber) {
       const epochNumber = await this.l2BlockSource.getL2EpochNumber();

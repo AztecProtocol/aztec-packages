@@ -36,14 +36,13 @@ fn main() {
     generate_compile_success_empty_tests(&mut test_file, &test_dir);
     generate_compile_success_contract_tests(&mut test_file, &test_dir);
     generate_compile_success_no_bug_tests(&mut test_file, &test_dir);
+    generate_compile_success_with_bug_tests(&mut test_file, &test_dir);
     generate_compile_failure_tests(&mut test_file, &test_dir);
 }
 
 /// Some tests are explicitly ignored in brillig due to them failing.
 /// These should be fixed and removed from this list.
-const IGNORED_BRILLIG_TESTS: [&str; 11] = [
-    // Takes a very long time to execute as large loops do not get simplified.
-    "regression_4709",
+const IGNORED_BRILLIG_TESTS: [&str; 10] = [
     // bit sizes for bigint operation doesn't match up.
     "bigint",
     // ICE due to looking for function which doesn't exist.
@@ -60,13 +59,9 @@ const IGNORED_BRILLIG_TESTS: [&str; 11] = [
 ];
 
 /// Tests which aren't expected to work with the default inliner cases.
-const INLINER_MIN_OVERRIDES: [(&str, i64); 2] = [
+const INLINER_MIN_OVERRIDES: [(&str, i64); 1] = [
     // 0 works if PoseidonHasher::write is tagged as `inline_always`, otherwise 22.
     ("eddsa", 0),
-    // (#6583): The RcTracker in the DIE SSA pass is removing inc_rcs that are still needed.
-    // This triggers differently depending on the optimization level (although all are wrong),
-    // so we arbitrarily only run with the inlined versions.
-    ("reference_counts", 0),
 ];
 
 /// Some tests are expected to have warnings
@@ -213,8 +208,13 @@ fn test_{test_name}(force_brillig: ForceBrillig, inliner_aggressiveness: Inliner
     nargo.arg("--program-dir").arg(test_program_dir);
     nargo.arg("{test_command}").arg("--force");
     nargo.arg("--inliner-aggressiveness").arg(inliner_aggressiveness.0.to_string());
+
     if force_brillig.0 {{
         nargo.arg("--force-brillig");
+
+        // Set the maximum increase so that part of the optimization is exercised (it might fail).
+        nargo.arg("--max-bytecode-increase-percent");
+        nargo.arg("50");
     }}
 
     {test_content}
@@ -450,6 +450,35 @@ fn generate_compile_success_no_bug_tests(test_file: &mut File, test_data_dir: &P
             "compile",
             r#"
                 nargo.assert().success().stderr(predicate::str::contains("bug:").not());
+            "#,
+            &MatrixConfig::default(),
+        );
+    }
+    writeln!(test_file, "}}").unwrap();
+}
+
+/// Generate tests for checking that the contract compiles and there are "bugs" in stderr
+fn generate_compile_success_with_bug_tests(test_file: &mut File, test_data_dir: &Path) {
+    let test_type = "compile_success_with_bug";
+    let test_cases = read_test_cases(test_data_dir, test_type);
+
+    writeln!(
+        test_file,
+        "mod {test_type} {{
+        use super::*;
+    "
+    )
+    .unwrap();
+    for (test_name, test_dir) in test_cases {
+        let test_dir = test_dir.display();
+
+        generate_test_cases(
+            test_file,
+            &test_name,
+            &test_dir,
+            "compile",
+            r#"
+                nargo.assert().success().stderr(predicate::str::contains("bug:"));
             "#,
             &MatrixConfig::default(),
         );

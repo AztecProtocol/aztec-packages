@@ -11,15 +11,13 @@ services:
     image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     command: 'start --sandbox'
     environment:
-      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
-      DEBUG_COLORS: 1
+      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50
       P2P_BLOCK_CHECK_INTERVAL_MS: 50
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
-      PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       ENABLE_GAS: ${ENABLE_GAS:-}
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
@@ -30,11 +28,11 @@ services:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: 'true'
-      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
-      DEBUG_COLORS: 1
+      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
       PXE_URL: http://sandbox:8080
+      AZTEC_NODE_URL: http://sandbox:8080
     entrypoint: >
       sh -c '
         while ! nc -z sandbox 8080; do sleep 1; done;

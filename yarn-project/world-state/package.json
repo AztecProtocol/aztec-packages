@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./native": "./dest/native/index.js"
+    "./native": "./dest/native/index.js",
+    "./config": "./dest/synchronizer/config.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -59,6 +60,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import { inflate } from 'pako';
 import { z } from 'zod';
 
 import { type Fr } from '../fields/fields.js';
+import { createLogger } from '../log/index.js';
 import { schemas } from '../schemas/schemas.js';
 import { type ZodFor } from '../schemas/types.js';
 import { type FunctionSelector } from './function_selector.js';
@@ -14,6 +15,8 @@ export interface BasicValue<T extends string, V> {
   kind: T;
   value: V;
 }
+
+const logger = createLogger('aztec:foundation:abi');
 
 /** An exported value. */
 export type AbiValue =
@@ -390,7 +393,9 @@ export function getFunctionArtifact(
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
+
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+
   return { ...functionArtifact, debug: debugMetadata };
 }
 
@@ -404,18 +409,32 @@ export function getFunctionDebugMetadata(
   contractArtifact: ContractArtifact,
   functionArtifact: FunctionArtifact,
 ): FunctionDebugMetadata | undefined {
-  if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
-    const programDebugSymbols = JSON.parse(
-      inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
-    );
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
-    // We only support handling debug info for the contract function entry point.
-    // So for now we simply index into the first debug info.
-    return {
-      debugSymbols: programDebugSymbols.debug_infos[0],
-      files: contractArtifact.fileMap,
-    };
+  try {
+    if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10546) investigate why debugMetadata is so big for some tests.
+      const programDebugSymbols = JSON.parse(
+        inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
+      );
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
+      // We only support handling debug info for the contract function entry point.
+      // So for now we simply index into the first debug info.
+      return {
+        debugSymbols: programDebugSymbols.debug_infos[0],
+        files: contractArtifact.fileMap,
+      };
+    }
+  } catch (err: any) {
+    if (err instanceof RangeError && err.message.includes('Invalid string length')) {
+      logger.warn(
+        `Caught RangeError: Invalid string length. This suggests the debug_symbols field of the contract ${contractArtifact.name} and function ${functionArtifact.name} is huge; too big to parse. We'll skip returning this info until this issue is resolved. Here's the error:\n${err.message}`,
+      );
+      // We'll return undefined.
+    } else {
+      // Rethrow unexpected errors
+      throw err;
+    }
   }
+
   return undefined;
 }
 

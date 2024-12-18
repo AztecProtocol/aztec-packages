@@ -1,6 +1,6 @@
 import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
 import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type Wallet } from '../account/index.js';
@@ -24,7 +24,7 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
  * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
-  private log = createDebugLogger('aztec:js:deploy_sent_tx');
+  private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
     wallet: PXE | Wallet,

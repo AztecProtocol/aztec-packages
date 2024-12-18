@@ -6,6 +6,83 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.67.1
+
+### Noir contracts package no longer exposes artifacts as default export
+
+To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
+
+## 0.67.0
+
+### L2 Gas limit of 6M enforced for public portion of TX
+
+A 12M limit was previously enforced per-enqueued-public-call. The protocol now enforces a stricter limit that the entire public portion of a transaction consumes at most 6,000,000 L2 gas.
+
+### [aztec.nr] Renamed `Header` and associated helpers
+
+The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` family of functions have been similarly renamed to `get_block_header()`.
+
+```diff
+- let header = context.get_header_at(block_number);
++ let header = context.get_block_header_at(block_number);
+```
+
+### Outgoing Events removed
+
+Previously, every event which was emitted included:
+
+- Incoming Header (to convey the app contract address to the recipient)
+- Incoming Ciphertext (to convey the note contents to the recipient)
+- Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
+- Outgoing Ciphertext (served as a backup, encrypting the symmetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
+
+The latter two have been removed from the `.emit()` functions, so now only an Incoming Header and Incoming Ciphertext will be emitted.
+
+The interface for emitting a note has therefore changed, slightly. No more ovpk's need to be derived and passed into `.emit()` functions.
+
+```diff
+- nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, from_ovpk_m, to, from));
++ nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+```
+
+The `getOutgoingNotes` function is removed from the PXE interface.
+
+Some aztec.nr library methods' arguments are simplified to remove an `outgoing_viewer` parameter. E.g. `ValueNote::increment`, `ValueNote::decrement`, `ValueNote::decrement_by_at_most`, `EasyPrivateUint::add`, `EasyPrivateUint::sub`.
+
+Further changes are planned, so that:
+
+- Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
+- Headers will be removed, due to the new tagging scheme.
+
+## 0.66
+
+### DEBUG env var is removed
+
+The `DEBUG` variable is no longer used. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
+
+### `tty` resolve fallback required for browser bundling
+
+When bundling `aztec.js` for web, the `tty` package now needs to be specified as an empty fallback:
+
+```diff
+resolve: {
+  plugins: [new ResolveTypeScriptPlugin()],
+  alias: { './node/index.js': false },
+  fallback: {
+    crypto: false,
+    os: false,
+    fs: false,
+    path: false,
+    url: false,
++   tty: false,
+    worker_threads: false,
+    buffer: require.resolve('buffer/'),
+    util: require.resolve('util/'),
+    stream: require.resolve('stream-browserify'),
+  },
+},
+```
+
 ## 0.65
 
 ### [aztec.nr] Removed SharedImmutable

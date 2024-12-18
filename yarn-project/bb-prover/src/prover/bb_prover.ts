@@ -42,7 +42,7 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -76,7 +76,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 import crypto from 'crypto';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import {
@@ -99,8 +99,9 @@ import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { writeToOutputDirectory } from './client_ivc_proof_utils.js';
 
-const logger = createDebugLogger('aztec:bb-prover');
+const logger = createLogger('bb-prover');
 
 // All `ServerCircuitArtifact` are recursive.
 const SERVER_CIRCUIT_RECURSIVE = true;
@@ -535,7 +536,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for ${input.functionName}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger.verbose);
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for ${input.functionName}: ${provingResult.reason}`);
@@ -551,7 +552,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const hasher = crypto.createHash('sha256');
     hasher.update(input.toBuffer());
 
-    await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -795,8 +796,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const json = JSON.parse(proofString);
       const fields = json
         .slice(0, 3)
-        .map(Fr.fromString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+        .map(Fr.fromHexString)
+        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
       return new RecursiveProof(
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
@@ -877,8 +878,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
-      .map(Fr.fromString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
+      .map(Fr.fromHexString)
+      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

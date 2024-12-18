@@ -1,8 +1,10 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { asyncPool } from '@aztec/foundation/async-pool';
+import { Blob } from '@aztec/foundation/blob';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
@@ -25,19 +27,17 @@ import { type L1Published, type L1PublishedData } from './structs/published.js';
  * Fetches new L2 blocks.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
- * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
  * @returns An array of block; as well as the next eth block to search from.
  */
-export async function retrieveBlockFromRollup(
+export async function retrieveBlocksFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  logger: DebugLogger = createDebugLogger('aztec:archiver'),
+  logger: Logger = createLogger('archiver'),
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   do {
@@ -58,13 +58,13 @@ export async function retrieveBlockFromRollup(
 
     const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${l2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
-  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  } while (searchStartBlock <= searchEndBlock);
   return retrievedBlocks;
 }
 
@@ -79,17 +79,16 @@ export async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
-  logger: DebugLogger,
+  logger: Logger,
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
-  for (const log of logs) {
+  await asyncPool(10, logs, async log => {
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      // TODO: Fetch blocks from calldata in parallel
       const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
@@ -100,11 +99,12 @@ export async function processL2BlockProposedLogs(
 
       retrievedBlocks.push({ data: block, l1 });
     } else {
-      logger.warn(
-        `Archive mismatch matching, ignoring block ${l2BlockNumber} with archive: ${archive}, expected ${archiveFromChain}`,
-      );
+      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
+        actual: archive,
+        expected: archiveFromChain,
+      });
     }
-  }
+  });
 
   return retrievedBlocks;
 }
@@ -129,17 +129,15 @@ async function getBlockFromRollupTx(
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi,
-    data,
-  });
+  const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
   const allowedMethods = ['propose', 'proposeAndClaim'];
 
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [decodedArgs, , bodyHex] = args! as readonly [
+  // TODO(#9101): 'bodyHex' will be removed from below
+  const [decodedArgs, , bodyHex, blobInputs] = args! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -152,10 +150,37 @@ async function getBlockFromRollupTx(
     },
     ViemSignature[],
     Hex,
+    Hex,
   ];
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
+  // either a beacon chain client or link to some blob store. Web2 is ok because we will
+  // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+
+  const blockFields = blockBody.toBlobFields();
+  // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
+  // The blob source will give us blockFields, and we must construct the body from them:
+  // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
+  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.unencryptedLogs, blockBody.contractClassLogs);
+
+  if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
+    // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
+    throw new Error(`Block reconstructed from blob fields does not match`);
+  }
+
+  // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
+  const blobCheck = Blob.getBlobs(blockFields);
+  if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
+    // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
+    // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
+    throw new Error(
+      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${Blob.getEthBlobEvaluationInputs(
+        blobCheck,
+      )} \nGot: ${blobInputs}`,
+    );
+  }
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
@@ -184,7 +209,6 @@ async function getBlockFromRollupTx(
  */
 export async function retrieveL1ToL2Messages(
   inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>,
-  blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
 ): Promise<DataRetrieval<InboxLeaf>> {
@@ -208,12 +232,12 @@ export async function retrieveL1ToL2Messages(
 
     for (const log of messageSentLogs) {
       const { index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromString(hash!)));
+      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromHexString(hash!)));
     }
 
     // handles the case when there are no new messages:
     searchStartBlock = (messageSentLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
-  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  } while (searchStartBlock <= searchEndBlock);
   return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
 }
 
@@ -235,7 +259,7 @@ export async function retrieveL2ProofVerifiedEvents(
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
-    proverId: Fr.fromString(log.args.proverId),
+    proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
 }
@@ -302,8 +326,8 @@ export async function getProofFromSubmitProofTx(
     ];
 
     aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
-    proverId = Fr.fromString(decodedArgs.args[6]);
-    archiveRoot = Fr.fromString(decodedArgs.args[1]);
+    proverId = Fr.fromHexString(decodedArgs.args[6]);
+    archiveRoot = Fr.fromHexString(decodedArgs.args[1]);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);

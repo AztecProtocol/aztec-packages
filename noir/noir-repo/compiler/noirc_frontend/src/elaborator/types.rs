@@ -576,7 +576,7 @@ impl<'context> Elaborator<'context> {
     fn resolve_trait_static_method(&mut self, path: &Path) -> Option<TraitPathResolution> {
         let path_resolution = self.resolve_path(path.clone()).ok()?;
         let func_id = path_resolution.item.function_id()?;
-        let meta = self.interner.function_meta(&func_id);
+        let meta = self.interner.try_function_meta(&func_id)?;
         let the_trait = self.interner.get_trait(meta.trait_id?);
         let method = the_trait.find_method(path.last_name())?;
         let constraint = the_trait.as_constraint(path.span);
@@ -1321,11 +1321,23 @@ impl<'context> Elaborator<'context> {
                 {
                     Some(method_id) => Some(HirMethodReference::FuncId(method_id)),
                     None => {
-                        self.push_err(TypeCheckError::UnresolvedMethodCall {
-                            method_name: method_name.to_string(),
-                            object_type: object_type.clone(),
-                            span,
-                        });
+                        let has_field_with_function_type =
+                            typ.borrow().get_fields_as_written().into_iter().any(|field| {
+                                field.name.0.contents == method_name && field.typ.is_function()
+                            });
+                        if has_field_with_function_type {
+                            self.push_err(TypeCheckError::CannotInvokeStructFieldFunctionType {
+                                method_name: method_name.to_string(),
+                                object_type: object_type.clone(),
+                                span,
+                            });
+                        } else {
+                            self.push_err(TypeCheckError::UnresolvedMethodCall {
+                                method_name: method_name.to_string(),
+                                object_type: object_type.clone(),
+                                span,
+                            });
+                        }
                         None
                     }
                 }

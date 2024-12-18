@@ -99,6 +99,8 @@ pub enum TypeCheckError {
     CannotMutateImmutableVariable { name: String, span: Span },
     #[error("No method named '{method_name}' found for type '{object_type}'")]
     UnresolvedMethodCall { method_name: String, object_type: Type, span: Span },
+    #[error("Cannot invoke function field '{method_name}' on type '{object_type}' as a method")]
+    CannotInvokeStructFieldFunctionType { method_name: String, object_type: Type, span: Span },
     #[error("Integers must have the same signedness LHS is {sign_x:?}, RHS is {sign_y:?}")]
     IntegerSignedness { sign_x: Signedness, sign_y: Signedness, span: Span },
     #[error("Integers must have the same bit width LHS is {bit_width_x}, RHS is {bit_width_y}")]
@@ -204,6 +206,8 @@ pub enum TypeCheckError {
     UnspecifiedType { span: Span },
     #[error("Binding `{typ}` here to the `_` inside would create a cyclic type")]
     CyclicType { typ: Type, span: Span },
+    #[error("Type annotations required before indexing this array or slice")]
+    TypeAnnotationsNeededForIndex { span: Span },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -511,6 +515,20 @@ impl<'a> From<&'a TypeCheckError> for Diagnostic {
             TypeCheckError::CyclicType { typ: _, span } => {
                 Diagnostic::simple_error(error.to_string(), "Cyclic types have unlimited size and are prohibited in Noir".into(), *span)
             }
+            TypeCheckError::CannotInvokeStructFieldFunctionType { method_name, object_type, span } => {
+                Diagnostic::simple_error(
+                    format!("Cannot invoke function field '{method_name}' on type '{object_type}' as a method"), 
+                    format!("to call the function stored in '{method_name}', surround the field access with parentheses: '(', ')'"),
+                    *span,
+                )
+            },
+            TypeCheckError::TypeAnnotationsNeededForIndex { span } => {
+                Diagnostic::simple_error(
+                    "Type annotations required before indexing this array or slice".into(), 
+                    "Type annotations needed before this point, can't decide if this is an array or slice".into(),
+                    *span,
+                )
+            },
         }
     }
 }

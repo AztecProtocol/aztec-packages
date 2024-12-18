@@ -10,7 +10,7 @@ describe('ContractClass', () => {
     const artifact = getBenchmarkContractArtifact();
     const contractClass = getContractClassFromArtifact({
       ...artifact,
-      artifactHash: Fr.fromString('0x1234'),
+      artifactHash: Fr.fromHexString('0x1234'),
     });
 
     // Assert bytecode has a reasonable length

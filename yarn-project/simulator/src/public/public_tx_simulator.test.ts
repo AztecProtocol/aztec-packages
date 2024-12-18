@@ -7,12 +7,12 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  Header,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
@@ -24,7 +24,7 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -42,13 +42,14 @@ describe('public_tx_simulator', () => {
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled
   const MIN_NULLIFIER = 128;
   // Gas settings.
-  const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
-  const gasLimits = Gas.from({ daGas: 100, l2Gas: 150 });
-  const teardownGasLimits = Gas.from({ daGas: 20, l2Gas: 30 });
-  const maxFeesPerGas = gasFees;
+  const gasLimits = new Gas(100, 150);
+  const teardownGasLimits = new Gas(20, 30);
+  const gasFees = new GasFees(2, 3);
+  let maxFeesPerGas = gasFees;
+  let maxPriorityFeesPerGas = GasFees.empty();
 
   // gasUsed for the tx after private execution, minus the teardownGasLimits.
-  const privateGasUsed = Gas.from({ daGas: 13, l2Gas: 17 });
+  const privateGasUsed = new Gas(13, 17);
 
   // gasUsed for each enqueued call.
   const enqueuedCallGasUsed = new Gas(12, 34);
@@ -86,7 +87,12 @@ describe('public_tx_simulator', () => {
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
     });
-    tx.data.constants.txContext.gasSettings = GasSettings.from({ gasLimits, teardownGasLimits, maxFeesPerGas });
+    tx.data.constants.txContext.gasSettings = GasSettings.from({
+      gasLimits,
+      teardownGasLimits,
+      maxFeesPerGas,
+      maxPriorityFeesPerGas,
+    });
 
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(7777);
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(8888);
@@ -194,7 +200,7 @@ describe('public_tx_simulator', () => {
       Fr.fromBuffer(publicDataTree.getRoot(true)),
       Number(publicDataTree.getNumLeaves(true)),
     );
-    const header = Header.empty();
+    const header = BlockHeader.empty();
     const stateReference = new StateReference(
       header.state.l1ToL2MessageTree,
       new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
@@ -209,7 +215,6 @@ describe('public_tx_simulator', () => {
       worldStateDB,
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      /*realAvmProvingRequest=*/ false,
       /*doMerkleOperations=*/ true,
     );
 
@@ -439,15 +444,9 @@ describe('public_tx_simulator', () => {
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-      // squashed
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x101)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
       new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
-
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
-      // squashed
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x201)),
-      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x102)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
     ]);
   });
 
@@ -752,5 +751,38 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     await checkNullifierRoot(txResult);
+  });
+
+  it('runs a tx with non-empty priority fees', async () => {
+    // gasFees = new GasFees(2, 3);
+    maxPriorityFeesPerGas = new GasFees(5, 7);
+    // The max fee is gasFee + priorityFee + 1.
+    maxFeesPerGas = new GasFees(2 + 5 + 1, 3 + 7 + 1);
+
+    const tx = mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 1,
+      hasPublicTeardownCall: true,
+    });
+
+    const txResult = await simulator.simulate(tx);
+    expect(txResult.revertCode).toEqual(RevertCode.OK);
+
+    const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // 1 for setup and 1 for app logic.
+    const expectedTeardownGasUsed = enqueuedCallGasUsed;
+    const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed).add(expectedTeardownGasUsed);
+    expect(txResult.gasUsed).toEqual({
+      totalGas: expectedTotalGas,
+      teardownGas: expectedTeardownGasUsed,
+    });
+
+    const output = txResult.avmProvingRequest!.inputs.output;
+
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
+
+    const totalFees = new GasFees(2 + 5, 3 + 7);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(totalFees);
+    expect(output.transactionFee).toEqual(expectedTxFee);
   });
 });

@@ -10,7 +10,9 @@
     "./pxe": "./dest/cmds/pxe/index.js",
     "./cli-utils": "./dest/utils/index.js",
     "./misc": "./dest/cmds/misc/index.js",
-    "./utils": "./dest/utils/index.js"
+    "./setup-contracts": "./dest/cmds/misc/setup_contracts.js",
+    "./utils": "./dest/utils/index.js",
+    "./inspect": "./dest/utils/inspect.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -63,6 +65,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations, getTreeHeight } from '@aztec/circuit-types';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foundation/trees';
@@ -550,6 +550,11 @@ export class AvmEphemeralForest {
     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
     return poseidon2Hash(input);
   }
+
+  getTreeSnapshot(id: MerkleTreeId): AppendOnlyTreeSnapshot {
+    const tree = this.treeMap.get(id)!;
+    return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
+  }
 }
 
 /****************************************************/
@@ -680,7 +685,12 @@ export class EphemeralAvmTree {
     for (let i = 0; i < siblingPath.length; i++) {
       // Flip(XOR) the last bit because we are inserting siblings of the leaf
       const sibIndex = index ^ 1n;
-      this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      const node = this.getNode(sibIndex, this.depth - i);
+      // If we are inserting a sibling path and we already have a branch at that index in our
+      // ephemeral tree, we should not overwrite it
+      if (node === undefined || node.tag === TreeType.LEAF) {
+        this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      }
       index >>= 1n;
     }
   }

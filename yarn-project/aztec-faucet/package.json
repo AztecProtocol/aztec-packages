@@ -4,6 +4,10 @@
   "main": "dest/bin/index.js",
   "type": "module",
   "bin": "./dest/bin/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/bin/index.ts"
@@ -55,20 +59,27 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@koa/cors": "^5.0.0",
     "koa": "^2.14.2",
-    "koa-cors": "^0.0.16",
+    "koa-bodyparser": "^4.4.1",
     "koa-router": "^12.0.0",
-    "viem": "^2.7.15"
+    "viem": "^2.7.15",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
+    "@types/koa-bodyparser": "^4.3.12",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",

@@ -12,9 +12,9 @@ import {
 } from '@aztec/circuits.js';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const outputFilename = './src/private_kernel_reset_data.ts';
 

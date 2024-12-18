@@ -44,11 +44,19 @@ pub struct LookupSide {
 pub trait LookupBuilder {
     /// Takes in an AST and works out what lookup relations are needed
     /// Note: returns the name of the inverse columns, such that they can be added to the prover in subsequent steps
-    fn create_lookup_files<F: FieldElement>(&self, analyzed: &Analyzed<F>) -> Vec<Lookup>;
+    fn create_lookup_files<F: FieldElement>(
+        &self,
+        analyzed: &Analyzed<F>,
+        vm_name: &str,
+    ) -> Vec<Lookup>;
 }
 
 impl LookupBuilder for BBFiles {
-    fn create_lookup_files<F: FieldElement>(&self, analyzed: &Analyzed<F>) -> Vec<Lookup> {
+    fn create_lookup_files<F: FieldElement>(
+        &self,
+        analyzed: &Analyzed<F>,
+        vm_name: &str,
+    ) -> Vec<Lookup> {
         let lookups = analyzed
             .identities
             .iter()
@@ -81,7 +89,7 @@ impl LookupBuilder for BBFiles {
             .unwrap();
 
         for lookup in lookups.iter() {
-            let data = create_lookup_settings_data(lookup);
+            let data = create_lookup_settings_data(lookup, vm_name);
             let lookup_settings = handlebars.render("lookup.hpp", &data).unwrap();
 
             let file_name = format!("{}.hpp", lookup.name);
@@ -107,7 +115,7 @@ pub fn get_counts_from_lookups(lookups: &[Lookup]) -> Vec<String> {
         .collect()
 }
 
-fn create_lookup_settings_data(lookup: &Lookup) -> Json {
+fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
     let columns_per_set = lookup.left.cols.len();
 
     // NOTE: https://github.com/AztecProtocol/aztec-packages/issues/3879
@@ -160,6 +168,7 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     let write_term_types = "{0}".to_owned();
 
     json!({
+        "root_name": vm_name,
         "lookup_name": lookup.name,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,

@@ -1,10 +1,10 @@
 import {
+  type BlockHeader,
   ClientIvcProof,
   CombinedConstantData,
   Fr,
   Gas,
   type GlobalVariables,
-  type Header,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
@@ -86,7 +86,7 @@ export type FailedTx = {
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(
-  header: Header,
+  header: BlockHeader,
   chainId: Fr,
   version: Fr,
   vkTreeRoot: Fr,
@@ -163,10 +163,15 @@ export function makeProcessedTxFromPrivateOnlyTx(
   };
 }
 
+export function toNumBlobFields(txs: ProcessedTx[]): number {
+  return txs.reduce((acc, tx) => {
+    return acc + tx.txEffect.toBlobFields().length;
+  }, 0);
+}
+
 export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
-  feePaymentPublicDataWrite: PublicDataWrite | undefined,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
@@ -176,14 +181,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
   const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
 
   const publicDataWrites = avmOutput.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
-  if (feePaymentPublicDataWrite) {
-    const existingIndex = publicDataWrites.findIndex(w => w.leafSlot.equals(feePaymentPublicDataWrite.leafSlot));
-    if (existingIndex >= 0) {
-      publicDataWrites[existingIndex] = feePaymentPublicDataWrite;
-    } else {
-      publicDataWrites.push(feePaymentPublicDataWrite);
-    }
-  }
 
   const privateLogs = [
     ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,

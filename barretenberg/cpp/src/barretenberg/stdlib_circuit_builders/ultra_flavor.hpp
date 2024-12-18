@@ -42,7 +42,7 @@ class UltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
     // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 44;
+    static constexpr size_t NUM_ALL_ENTITIES = 40;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
@@ -52,14 +52,10 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
-    // The number of shifted tables
-    static constexpr size_t NUM_SHIFTED_TABLES = 4;
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
-                                NUM_SHIFTED_WITNESSES);
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
@@ -183,15 +179,15 @@ class UltraFlavor {
                               lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+        auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShitftedEntities, containing shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -200,33 +196,7 @@ class UltraFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**
@@ -258,30 +228,15 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
-                               WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
 
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // getter for all witnesses including shifted ones
         auto get_all_witnesses()
         {
-            return concatenate(WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_witnesses());
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -328,7 +283,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            PROFILE_THIS();
+            PROFILE_THIS_NAME("UltraFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];

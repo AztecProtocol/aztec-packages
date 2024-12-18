@@ -2,9 +2,9 @@
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
 
 template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
@@ -102,7 +102,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraFlavor<Flavor>) {
+        if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
             if (block.size() > 0) {
                 proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
             }
@@ -150,6 +150,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
+
     return trace_data;
 }
 
@@ -174,6 +175,7 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 }
 
 template class TraceToPolynomials<UltraFlavor>;
+template class TraceToPolynomials<UltraFlavorWithZK>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;

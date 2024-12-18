@@ -140,4 +140,12 @@ export class FieldReader {
   }): T {
     return deserializer.fromFields(this);
   }
+
+  /**
+   * Returns whether the reader has finished reading all fields.
+   * @returns A bool.
+   */
+  public isFinished(): boolean {
+    return this.index === this.length;
+  }
 }

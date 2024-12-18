@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./bundle": "./dest/bundle/index.js",
     "./*": "./dest/*/index.js"
   },
   "typedocOptions": {
@@ -64,6 +65,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -90,7 +95,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "engines": {
     "node": ">=18"

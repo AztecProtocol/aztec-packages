@@ -37,13 +37,12 @@ import {
   LogFilterSchema,
 } from '../logs/index.js';
 import { type IncomingNotesFilter, IncomingNotesFilterSchema } from '../notes/incoming_notes_filter.js';
-import { ExtendedNote, type OutgoingNotesFilter, OutgoingNotesFilterSchema, UniqueNote } from '../notes/index.js';
+import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -53,6 +52,13 @@ import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
  * is exposed to dapps for interacting with the network on behalf of the user.
  */
 export interface PXE {
+  /**
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
+   */
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
   /**
    * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
@@ -255,13 +261,6 @@ export interface PXE {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
-   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
-   * @param filter - The filter to apply to the notes.
-   * @returns The requested notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]>;
-
-  /**
    * Adds a note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
@@ -352,22 +351,6 @@ export interface PXE {
   getPXEInfo(): Promise<PXEInfo>;
 
   /**
-   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
-   * @returns True if there are no outstanding blocks to be synched.
-   * @remarks This indicates that blocks and transactions are synched even if notes are not. Compares local block number with the block number from aztec node.
-   * @deprecated Use `getSyncStatus` instead.
-   */
-  isGlobalStateSynchronized(): Promise<boolean>;
-
-  /**
-   * Returns the latest block that has been synchronized globally and for each account. The global block number
-   * indicates whether global state has been updated up to that block, whereas each address indicates up to which
-   * block the private state has been synced for that account.
-   * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
-   */
-  getSyncStatus(): Promise<SyncStatus>;
-
-  /**
    * Returns a Contract Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
@@ -417,7 +400,7 @@ export interface PXE {
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
-   * @param vpks - The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
+   * @param vpks - The incoming viewing public keys that can decrypt the log.
    * @returns - The deserialized events.
    */
   getEncryptedEvents<T>(
@@ -428,7 +411,7 @@ export interface PXE {
   ): Promise<T[]>;
 
   /**
-   * Returns the unenctypred events given search parameters.
+   * Returns the unencrypted events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
@@ -470,6 +453,7 @@ const PXEInfoSchema = z.object({
 }) satisfies ZodFor<PXEInfo>;
 
 export const PXESchema: ApiSchemaFor<PXE> = {
+  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
   addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
   getAuthWitness: z
     .function()
@@ -515,7 +499,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
-  getOutgoingNotes: z.function().args(OutgoingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
   addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
   getBlock: z
@@ -540,8 +523,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getProvenBlockNumber: z.function().returns(z.number()),
   getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
-  isGlobalStateSynchronized: z.function().returns(z.boolean()),
-  getSyncStatus: z.function().returns(SyncStatusSchema),
   getContractInstance: z
     .function()
     .args(schemas.AztecAddress)

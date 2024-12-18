@@ -5,6 +5,7 @@ on:
       - master
       - provernet
       - "*/ci-push*"
+  merge_group:
   pull_request:
     types:
       - opened
@@ -17,8 +18,8 @@ on:
     inputs: {}
 
 concurrency:
-  # force parallelism in master
-  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  # allow parallelism in master and merge queue
+  group: ci-${{ (contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master') && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -158,7 +159,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
-        if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
+        if: needs.configure.outputs.non-docs == 'true'
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
@@ -166,29 +167,64 @@ jobs:
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
             LABELS=""
           fi
+
+          echo REF: $REF
           echo Labels: $LABELS
-          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")"
-          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")"
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: |
+          if [[ "$GITHUB_REF_NAME" == *"gh-readonly-queue"* ]]; then
+            REF="master"
+          else
+            REF="$GITHUB_REF_NAME"
+          fi
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
           else
             LABELS=""
           fi
-          echo Labels: $LABELS
-          echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+          echo "list=$(./scripts/ci/get_bench_jobs.sh $REF "$LABELS")"
+          echo "list=$(./scripts/ci/get_bench_jobs.sh $REF "$LABELS")" >> $GITHUB_OUTPUT
+
+  bench-test-gate:
+    needs: [build, configure]
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full bench tests enabled."
+
+  e2e-test-gate:
+    needs: [build, configure]
+    if: contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full E2E tests enabled."
+
+  network-test-gate:
+    needs: [build, yarn-project-test, configure]
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+    runs-on: ubuntu-20.04
+    steps:
+      - run: "echo Full network tests enabled."
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, configure]
-    if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    if: needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -204,7 +240,7 @@ jobs:
           runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
           echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
-        timeout-minutes: 40
+        timeout-minutes: 50
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
@@ -222,8 +258,8 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: [build, configure]
-    if: needs.build.outputs.bench_list != '[]' && ((needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench'))
+    needs: [build, bench-test-gate, configure]
+    if: needs.build.outputs.bench_list != '[]' && needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -264,9 +300,7 @@ jobs:
 
   acir-bench:
     runs-on: ubuntu-20.04
-    needs: [build, configure]
-    # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true'
+    needs: [bench-test-gate, configure]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -598,7 +632,7 @@ jobs:
 
   yarn-project-formatting:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+    if: needs.configure.outputs.yarn-project == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -612,7 +646,6 @@ jobs:
 
   yarn-project-test:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -627,7 +660,6 @@ jobs:
   prover-client-test:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -635,19 +667,12 @@ jobs:
         with:
           concurrency_key: prover-client-test-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
-  # proving disabled
-  network-test:
-    needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
+  network-transfer-test:
+    needs: [network-test-gate, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        test: [test-transfer.sh, test-4epochs.sh]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -656,8 +681,24 @@ jobs:
           concurrency_key: network-test-${{ matrix.test }}
       - name: "Setup and Local Network Tests"
         timeout-minutes: 60
-        # Only allow transfer test to run on every (non-network-all) PR
-        if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./test-transfer.sh
+
+  network-full-test:
+    needs: [network-test-gate, network-transfer-test, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        test: [test-4epochs.sh]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: network-test-${{ matrix.test }}
+      - name: "Setup and Local Network Tests"
+        timeout-minutes: 60
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
   kind-smoke-test:
@@ -690,8 +731,7 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-  # note: proving disabled
-  kind-network-test:
+  kind-network-full-test:
     needs: [build, configure]
     if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ${{ needs.configure.outputs.username }}-x86
@@ -716,10 +756,10 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          - test: gating-passive.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86
-            timeout: 60
+          # - test: gating-passive.test.ts
+          #   values: 16-validators
+          #   runner_type: 16core-tester-x86
+          #   timeout: 60
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -839,15 +879,14 @@ jobs:
           max-items-in-chart: 50
 
   boxes:
-    needs: [build, configure]
+    needs: [e2e-test-gate, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'boxes') || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: boxes
+          concurrency_key: boxes-${{ matrix.box }}-${{ matrix.browser }}
       - name: Build
         working-directory: ./boxes
         timeout-minutes: 40
@@ -858,6 +897,7 @@ jobs:
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         box: [vanilla, react]
         # intermittent issues with firefox https://github.com/AztecProtocol/aztec-packages/issues/6676
@@ -868,16 +908,28 @@ jobs:
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
-          # must be globally unique for build x runner
-          concurrency_key: boxes-${{ needs.configure.outputs.username }}-x86-${{ matrix.box }}-${{ matrix.browser }}
+          concurrency_key: boxes-${{ matrix.box }}-${{ matrix.browser }}
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 40
         run: earthly-ci -P --no-output +test --box=${{ matrix.box }} --browser=${{ matrix.browser }} --mode=cache
 
+  rough-rhino-installer:
+    needs: [e2e-test-gate, configure]
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: rough-rhino-installer
+      - name: Rough Rhino Installer Helper Script
+        working-directory: ./spartan/releases/rough-rhino
+        run: earthly-ci +test-all
+
   protocol-circuits-gates-report:
     needs: [build, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     permissions:
       pull-requests: write
@@ -982,14 +1034,14 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
-      - network-test
+      - network-transfer-test
+      - network-full-test # OK if skipped
       - kind-smoke-test
-      - kind-network-test
+      - kind-network-full-test # OK if skipped
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
-      - boxes
-      - boxes-test
+      - boxes-test # OK if skipped
       # - protocol-circuits-gates-report # non-blocking
     if: always()
     outputs:

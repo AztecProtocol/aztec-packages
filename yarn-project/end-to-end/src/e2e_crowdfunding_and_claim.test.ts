@@ -3,8 +3,8 @@ import {
   type AccountWallet,
   type AztecNode,
   type CheatCodes,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   PackedValues,
   TxExecutionRequest,
@@ -12,9 +12,9 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
-import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
+import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -45,7 +45,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
-  let logger: DebugLogger;
+  let logger: Logger;
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;

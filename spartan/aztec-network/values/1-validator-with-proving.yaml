@@ -1,3 +1,8 @@
+aztec:
+  realProofs: true
+  slotDuration: 36
+  epochDuration: 32
+
 validator:
   replicas: 1
   validatorKeys:
@@ -11,12 +16,8 @@ bootNode:
   validator:
     disabled: true
 
-proverNode:
-  realProofs: true
-
 proverAgent:
   replicas: 6
-  realProofs: true
   bb:
     hardwareConcurrency: 16
   resources:
@@ -27,18 +28,10 @@ proverAgent:
       memory: "96Gi"
       cpu: "16"
 
-pxe:
-  proverEnabled: true
-
 bot:
   enabled: true
-  pxeProverEnabled: true
   txIntervalSeconds: 200
 
 jobs:
   deployL1Verifier:
     enable: true
-
-aztec:
-  slotDuration: 36
-  epochDuration: 32

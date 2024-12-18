@@ -4,12 +4,14 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
-import { TokenBridgeContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts.js';
-import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { createStore } from '@aztec/kv-store/lmdb';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
+import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -24,7 +26,7 @@ export async function createArchiver(
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<ArchiverApi & Maybe<Service>> {
   if (!config.archiverUrl) {
-    const store = await createStore('archiver', config, createDebugLogger('aztec:archiver:lmdb'));
+    const store = await createStore('archiver', config, createLogger('archiver:lmdb'));
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
     await registerProtocolContracts(archiverStore);
     await registerCommonContracts(archiverStore);

@@ -14,14 +14,14 @@ contract StakingCheater is Staking {
   {}
 
   function cheat__SetStatus(address _attester, Status _status) external {
-    info[_attester].status = _status;
+    stakingStore.info[_attester].status = _status;
   }
 
   function cheat__AddAttester(address _attester) external {
-    attesters.add(_attester);
+    stakingStore.attesters.add(_attester);
   }
 
   function cheat__RemoveAttester(address _attester) external {
-    attesters.remove(_attester);
+    stakingStore.attesters.remove(_attester);
   }
 }

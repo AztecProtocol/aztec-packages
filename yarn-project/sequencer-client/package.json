@@ -2,7 +2,10 @@
   "name": "@aztec/sequencer-client",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -109,6 +112,10 @@
           "summaryThreshold": 9999
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   }
 }

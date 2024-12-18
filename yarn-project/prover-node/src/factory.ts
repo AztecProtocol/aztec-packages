@@ -2,7 +2,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
@@ -12,14 +12,12 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { join } from 'path';
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 
 import { createBondManager } from './bond/factory.js';
 import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
@@ -31,7 +29,7 @@ export async function createProverNode(
   config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
-    log?: DebugLogger;
+    log?: Logger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
     publisher?: L1Publisher;
@@ -39,7 +37,7 @@ export async function createProverNode(
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-  const log = deps.log ?? createDebugLogger('aztec:prover');
+  const log = deps.log ?? createLogger('prover-node');
   const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
@@ -47,7 +45,7 @@ export async function createProverNode(
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config));
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
@@ -71,15 +69,12 @@ export async function createProverNode(
     maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
   };
 
-  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig);
+  const claimsMonitor = new ClaimsMonitor(publisher, telemetry, proverNodeConfig);
+  const epochMonitor = new EpochMonitor(archiver, telemetry, proverNodeConfig);
 
   const rollupContract = publisher.getRollupContract();
   const walletClient = publisher.getClient();
   const bondManager = await createBondManager(rollupContract, walletClient, config);
-
-  const cacheDir = config.cacheDir ? join(config.cacheDir, `prover_${config.proverId}`) : undefined;
-  const cacheManager = new ProverCacheManager(cacheDir);
 
   return new ProverNode(
     prover,
@@ -95,7 +90,6 @@ export async function createProverNode(
     epochMonitor,
     bondManager,
     telemetry,
-    cacheManager,
     proverNodeConfig,
   );
 }
