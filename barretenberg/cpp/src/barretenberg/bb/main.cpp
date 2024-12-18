@@ -243,6 +243,7 @@ void prove_tube(const std::string& output_path)
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+    info("tube proof length: ", tube_proof.size());
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
@@ -883,6 +884,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write toml file
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
+// double_verify_honk_proof as well
 template <IsUltraFlavor Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
