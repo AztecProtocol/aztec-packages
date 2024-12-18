@@ -1,3 +1,5 @@
+import { TimeoutError } from '../error/index.js';
+
 /**
  * TimeoutTask class creates an instance for managing and executing a given asynchronous function with a specified timeout duration.
  * The task will be automatically interrupted if it exceeds the given timeout duration, and will throw a custom error message.
@@ -10,14 +12,9 @@ export class TimeoutTask<T> {
   private interrupt = () => {};
   private totalTime = 0;
 
-  constructor(
-    private fn: () => Promise<T>,
-    private timeout = 0,
-    fnName = '',
-    error = () => new Error(`Timeout${fnName ? ` running ${fnName}` : ''} after ${timeout}ms.`),
-  ) {
+  constructor(private fn: () => Promise<T>, private timeout: number, errorFn: () => any) {
     this.interruptPromise = new Promise<T>((_, reject) => {
-      this.interrupt = () => reject(error());
+      this.interrupt = () => reject(errorFn());
     });
   }
 
@@ -63,17 +60,19 @@ export class TimeoutTask<T> {
   }
 }
 
-export const executeTimeout = async <T>(fn: () => Promise<T>, timeout = 0, fnName = '') => {
-  const task = new TimeoutTask(fn, timeout, fnName);
+export async function executeTimeout<T>(fn: () => Promise<T>, timeout: number, errorOrFnName?: string | (() => any)) {
+  const errorFn =
+    typeof errorOrFnName === 'function'
+      ? errorOrFnName
+      : () => new TimeoutError(`Timeout running ${errorOrFnName ?? 'function'} after ${timeout}ms.`);
+  const task = new TimeoutTask(fn, timeout, errorFn);
   return await task.exec();
-};
+}
 
-export const executeTimeoutWithCustomError = async <T>(
-  fn: () => Promise<T>,
-  timeout = 0,
-  error = () => new Error('No custom error provided'),
-  fnName = '',
-) => {
-  const task = new TimeoutTask(fn, timeout, fnName, error);
-  return await task.exec();
-};
+export async function executeDeadline<T>(fn: () => Promise<T>, deadline: Date, error: () => any) {
+  const timeout = +deadline - Date.now();
+  if (timeout <= 0) {
+    throw error();
+  }
+  return await executeTimeout(fn, timeout, error);
+}
