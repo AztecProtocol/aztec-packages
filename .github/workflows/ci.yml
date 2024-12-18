@@ -122,6 +122,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "Build Images"
+        if: needs.configure.outputs.base-images == 'true'
         uses: ./.github/ensure-builder
         timeout-minutes: 120
         with:
