@@ -17,7 +17,7 @@ import {
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -26,7 +26,6 @@ import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_s
 import { type DataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
-import { ContractArtifactsStore } from './contract_artifacts_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -43,7 +42,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
-  #contractArtifactStore: ContractArtifactsStore;
   private functionNames = new Map<string, string>();
 
   #log = createLogger('archiver:data-store');
@@ -54,27 +52,22 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
-    this.#contractArtifactStore = new ContractArtifactsStore(db);
     this.#nullifierStore = new NullifierStore(db);
-  }
-
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return Promise.resolve(this.#contractArtifactStore.getContractArtifact(address));
   }
 
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  async addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    await this.#contractArtifactStore.addContractArtifact(address, contract);
-    // Building tup this map of selectors to function names save expensive re-hydration of contract artifacts later
-    contract.functions.forEach(f => {
-      this.functionNames.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
-    });
+  registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    for (const [selector, name] of Object.entries(names)) {
+      this.functionNames.set(selector, name);
+    }
+
+    return Promise.resolve();
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

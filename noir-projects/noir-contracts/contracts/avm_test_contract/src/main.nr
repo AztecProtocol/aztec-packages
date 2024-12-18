@@ -30,7 +30,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::call;
+    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -38,6 +38,7 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
@@ -241,6 +242,29 @@ contract AvmTest {
     #[public]
     fn external_call_to_divide_by_zero() {
         AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+    }
+
+    #[public]
+    fn external_call_to_divide_by_zero_recovers() {
+        // Be sure to allocate ~200k+ gas to this function~
+
+        // Get the gas remaining and allocate some smaller amount to nested call.
+        // We don't want to allocate too much to the nested call
+        // since it will all be consumed on exceptional halt.
+        let l2_gas_left = context.l2_gas_left();
+        let da_gas_left = context.da_gas_left();
+        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
+        let selector = FunctionSelector::from_signature("divide_by_zero()");
+        let success = call(
+            gas_allocation,
+            context.this_address(),
+            &[selector.to_field()],
+        );
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
     }
 
     #[public]

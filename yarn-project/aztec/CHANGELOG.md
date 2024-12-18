@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.67.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.67.0...aztec-package-v0.67.1) (2024-12-17)
+
+
+### Miscellaneous
+
+* Granular CLI imports to reduce start time ([#10778](https://github.com/AztecProtocol/aztec-packages/issues/10778)) ([e2fd046](https://github.com/AztecProtocol/aztec-packages/commit/e2fd046250664cd785269a718b036c0310dfcda7))
+* Split up protocol contract artifacts ([#10765](https://github.com/AztecProtocol/aztec-packages/issues/10765)) ([5a9ca18](https://github.com/AztecProtocol/aztec-packages/commit/5a9ca18ceee03ca2175605d1029153a7bf228ea9))
+* Trace and handle errors in running promises ([#10645](https://github.com/AztecProtocol/aztec-packages/issues/10645)) ([4cc0a6d](https://github.com/AztecProtocol/aztec-packages/commit/4cc0a6d832e6ee1c3fcc6876517ed3f743f59d4b))
+
 ## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.66.0...aztec-package-v0.67.0) (2024-12-13)
 
 
