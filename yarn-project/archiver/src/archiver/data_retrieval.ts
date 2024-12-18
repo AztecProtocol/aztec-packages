@@ -44,13 +44,15 @@ export async function retrieveBlocksFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2BlockProposedLogs = await rollup.getEvents.L2BlockProposed(
-      {},
-      {
-        fromBlock: searchStartBlock,
-        toBlock: searchEndBlock + 1n,
-      },
-    );
+    const l2BlockProposedLogs = (
+      await rollup.getEvents.L2BlockProposed(
+        {},
+        {
+          fromBlock: searchStartBlock,
+          toBlock: searchEndBlock,
+        },
+      )
+    ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
 
     if (l2BlockProposedLogs.length === 0) {
       break;
@@ -218,13 +220,15 @@ export async function retrieveL1ToL2Messages(
       break;
     }
 
-    const messageSentLogs = await inbox.getEvents.MessageSent(
-      {},
-      {
-        fromBlock: searchStartBlock,
-        toBlock: searchEndBlock + 1n,
-      },
-    );
+    const messageSentLogs = (
+      await inbox.getEvents.MessageSent(
+        {},
+        {
+          fromBlock: searchStartBlock,
+          toBlock: searchEndBlock,
+        },
+      )
+    ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
 
     if (messageSentLogs.length === 0) {
       break;
@@ -251,7 +255,7 @@ export async function retrieveL2ProofVerifiedEvents(
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
-    toBlock: searchEndBlock ? searchEndBlock + 1n : undefined,
+    toBlock: searchEndBlock ? searchEndBlock : undefined,
     strict: true,
     event: getAbiItem({ abi: RollupAbi, name: 'L2ProofVerified' }),
   });
