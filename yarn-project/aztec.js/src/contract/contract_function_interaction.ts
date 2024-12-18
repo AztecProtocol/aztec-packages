@@ -103,13 +103,20 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const txRequest = await this.create();
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
 
-    // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-    // since we're interested in the first set of values AFTER the account entrypoint
-    // For public functions we retrieve the first values directly from the public output.
-    const rawReturnValues =
-      this.functionDao.functionType == FunctionType.PRIVATE
-        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
-        : simulatedTx.getPublicReturnValues()?.[0].values;
+    let rawReturnValues;
+    if (this.functionDao.functionType == FunctionType.PRIVATE) {
+      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
+        // The function invoked is private and it was called via an account contract
+        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
+        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
+      } else {
+        // The function invoked is private and it was called directly (without account contract)
+        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
+      }
+    } else {
+      // For public functions we retrieve the first values directly from the public output.
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
+    }
 
     return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
   }

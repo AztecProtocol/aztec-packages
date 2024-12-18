@@ -4,6 +4,7 @@ import {
   BlockHeader,
   CallContext,
   type ContractClassPublic,
+  type ContractDataSource,
   type ContractInstanceWithAddress,
   DEFAULT_GAS_LIMIT,
   DEPLOYER_CONTRACT_ADDRESS,
@@ -125,7 +126,7 @@ export function createTxForPublicCall(
   }
 
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
-  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
+  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 
@@ -144,7 +145,7 @@ export function createTxForPublicCall(
   return tx;
 }
 
-export class MockedAvmTestContractDataSource {
+export class MockedAvmTestContractDataSource implements ContractDataSource {
   private fnName = 'public_dispatch';
   private bytecode: Buffer;
   public fnSelector: FunctionSelector;
@@ -218,7 +219,7 @@ export class MockedAvmTestContractDataSource {
     return Promise.resolve(this.fnName);
   }
 
-  addContractArtifact(_address: AztecAddress, _contract: ContractArtifact): Promise<void> {
+  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
     return Promise.resolve();
   }
 }

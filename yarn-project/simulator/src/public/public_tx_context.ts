@@ -26,6 +26,7 @@ import {
   RevertCode,
   type StateReference,
   TreeSnapshots,
+  computeTransactionFee,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -298,12 +299,15 @@ export class PublicTxContext {
    * Should only be called during or after teardown.
    */
   private getTransactionFeeUnsafe(): Fr {
-    const txFee = this.getTotalGasUsed().computeFee(this.globalVariables.gasFees);
+    const gasUsed = this.getTotalGasUsed();
+    const txFee = computeTransactionFee(this.globalVariables.gasFees, this.gasSettings, gasUsed);
+
     this.log.debug(`Computed tx fee`, {
       txFee,
-      gasUsed: inspect(this.getTotalGasUsed()),
+      gasUsed: inspect(gasUsed),
       gasFees: inspect(this.globalVariables.gasFees),
     });
+
     return txFee;
   }
 

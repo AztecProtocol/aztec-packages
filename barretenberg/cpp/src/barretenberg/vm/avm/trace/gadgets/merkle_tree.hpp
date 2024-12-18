@@ -6,6 +6,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
 
+#include <unordered_set>
 #include <vector>
 namespace bb::avm_trace {
 
@@ -42,6 +43,12 @@ class AvmMerkleTreeTraceBuilder {
     FF compute_public_tree_leaf_slot(uint32_t clk, FF contract_address, FF leaf_index);
 
     TreeSnapshots& get_tree_snapshots() { return tree_snapshots; }
+    void restore_tree_state(TreeSnapshots& tree_snapshots, std::unordered_set<FF>& public_data_unique_writes)
+    {
+        this->tree_snapshots = tree_snapshots;
+        this->public_data_unique_writes = public_data_unique_writes;
+    }
+    std::unordered_set<FF> get_public_data_unique_writes() { return public_data_unique_writes; }
 
     // Public Data Tree
     bool perform_storage_read(uint32_t clk,
@@ -120,6 +127,7 @@ class AvmMerkleTreeTraceBuilder {
     std::vector<MerkleEntry> merkle_check_trace;
     TreeSnapshots non_revertible_tree_snapshots;
     TreeSnapshots tree_snapshots;
+    std::unordered_set<FF> public_data_unique_writes;
     MerkleEntry compute_root_from_path(uint32_t clk,
                                        const FF& leaf_value,
                                        const uint64_t leaf_index,

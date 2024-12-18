@@ -93,6 +93,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       return;
     }
 
+    const provenEpoch = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpoch !== undefined && proofClaim.epochToProve <= provenEpoch) {
+      this.log.verbose(`Claim for epoch ${proofClaim.epochToProve} is already proven`);
+      return;
+    }
+
     try {
       await this.startProof(proofClaim.epochToProve);
       this.latestEpochWeAreProving = proofClaim.epochToProve;
@@ -117,12 +123,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       const claim = await this.publisher.getProofClaim();
       if (!claim || claim.epochToProve < epochNumber) {
+        this.log.verbose(`Handling epoch ${epochNumber} completed as initial sync`);
         await this.handleEpochCompleted(epochNumber);
-      } else if (claim && claim.bondProvider.equals(this.publisher.getSenderAddress())) {
-        const lastEpochProven = await this.l2BlockSource.getProvenL2EpochNumber();
-        if (lastEpochProven === undefined || lastEpochProven < claim.epochToProve) {
-          await this.handleClaim(claim);
-        }
       }
     } catch (err) {
       this.log.error(`Error handling initial epoch sync`, err);

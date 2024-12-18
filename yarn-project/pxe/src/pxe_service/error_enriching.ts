@@ -39,7 +39,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
             );
           } else {
             logger.warn(
-              `Could not function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
+              `Could not find function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
             );
           }
         });
