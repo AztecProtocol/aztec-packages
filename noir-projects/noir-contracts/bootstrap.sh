@@ -25,8 +25,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
-export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
-export BB_HASH=$(cache_content_hash)
+export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 
 export tmp_dir=./target/tmp
 
