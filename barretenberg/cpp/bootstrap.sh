@@ -36,7 +36,7 @@ function build_native {
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $pic_preset --target world_state_napi
-    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib
+    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib/world_state_napi.node
   fi
 }
 
