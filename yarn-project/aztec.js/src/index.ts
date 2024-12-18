@@ -157,5 +157,5 @@ export * from './api/abi.js';
 export * from './api/fee.js';
 export * from './api/init.js';
 // Granular export, even if not in the api folder
-export * from './api/addresses.js';
+export * from './contract/index.js';
 export * from './api/addresses.js';
