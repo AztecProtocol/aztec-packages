@@ -1,4 +1,5 @@
 // @attribution: lodestar impl for inspiration
+import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
@@ -13,7 +14,6 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {

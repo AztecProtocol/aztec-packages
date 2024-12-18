@@ -6,6 +6,7 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  PeerErrorSeverity,
   type PeerInfo,
   type RawGossipMessage,
   TopicTypeMap,
@@ -38,16 +39,17 @@ import { createLibp2p } from 'libp2p';
 
 import { type P2PConfig } from '../../config.js';
 import { type MemPools } from '../../mem_pools/interface.js';
+import { EpochProofQuoteValidator } from '../../msg_validators/epoch_proof_quote_validator/index.js';
+import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import {
   DataTxValidator,
   DoubleSpendTxValidator,
   MetadataTxValidator,
   TxProofValidator,
-} from '../../tx_validator/index.js';
+} from '../../msg_validators/tx_validator/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 import { PeerManager } from '../peer_manager.js';
 import { pingHandler, statusHandler } from '../reqresp/handlers.js';
 import {
@@ -86,6 +88,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
 
+  // Message validators
+  private attestationValidator: AttestationValidator;
+  private blockProposalValidator: BlockProposalValidator;
+  private epochProofQuoteValidator: EpochProofQuoteValidator;
+
   // Request and response sub service
   public reqresp: ReqResp;
 
@@ -118,6 +125,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     };
     this.node.services.pubsub.score.params.appSpecificWeight = 10;
     this.reqresp = new ReqResp(config, node, this.peerManager);
+
+    this.attestationValidator = new AttestationValidator(epochCache);
+    this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
@@ -614,9 +624,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param msg - The epoch proof quote message.
    * @returns True if the epoch proof quote is valid, false otherwise.
    */
-  private validatePropagatedEpochProofQuoteFromMessage(propagationSource: PeerId, msg: Message): TopicValidatorResult {
+  private async validatePropagatedEpochProofQuoteFromMessage(
+    propagationSource: PeerId,
+    msg: Message,
+  ): Promise<TopicValidatorResult> {
     const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(msg.data));
-    const isValid = this.validateEpochProofQuote(propagationSource, epochProofQuote);
+    const isValid = await this.validateEpochProofQuote(propagationSource, epochProofQuote);
     this.logger.trace(`validatePropagatedEpochProofQuote: ${isValid}`, {
       [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
@@ -765,19 +778,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
   }))
   public async validateAttestation(peerId: PeerId, attestation: BlockAttestation): Promise<boolean> {
-    const { currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
-
-    // Check that the attestation is for the current or next slot
-    const slotNumberBigInt = attestation.payload.header.globalVariables.slotNumber.toBigInt();
-    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      return false;
-    }
-
-    // Check that the attestation is from the somebody in the committee
-    const attester = attestation.getSender();
-    if (!(await this.epochCache.isInCommittee(attester))) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+    const severity = await this.attestationValidator.validate(attestation);
+    if (severity) {
+      this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
 
@@ -794,20 +797,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
   }))
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
-    const { currentProposer, nextProposer, currentSlot, nextSlot } =
-      await this.epochCache.getProposerInCurrentOrNextSlot();
-
-    // Check that the attestation is for the current or next slot
-    const slotNumberBigInt = block.payload.header.globalVariables.slotNumber.toBigInt();
-    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      return false;
-    }
-
-    // Check that the block proposal is from the current or next proposer
-    const proposer = block.getSender();
-    if (!proposer.equals(currentProposer) && !proposer.equals(nextProposer)) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+    const severity = await this.blockProposalValidator.validate(block);
+    if (severity) {
+      this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
 
@@ -823,13 +815,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   @trackSpan('Libp2pService.validateEpochProofQuote', (_peerId, epochProofQuote) => ({
     [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
   }))
-  public validateEpochProofQuote(peerId: PeerId, epochProofQuote: EpochProofQuote): boolean {
-    const { epoch } = this.epochCache.getEpochAndSlotNow();
-
-    // Check that the epoch proof quote is for the current epoch
-    const epochToProve = epochProofQuote.payload.epochToProve;
-    if (epochToProve !== epoch && epochToProve !== epoch - 1n) {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+  public async validateEpochProofQuote(peerId: PeerId, epochProofQuote: EpochProofQuote): Promise<boolean> {
+    const severity = await this.epochProofQuoteValidator.validate(epochProofQuote);
+    if (severity) {
+      this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
 

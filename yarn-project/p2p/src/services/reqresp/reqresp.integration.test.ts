@@ -3,6 +3,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import {
   type ClientProtocolCircuitVerifier,
   P2PClientType,
+  PeerErrorSeverity,
   type WorldStateSynchronizer,
   mockTx,
 } from '@aztec/circuit-types';
@@ -29,7 +30,6 @@ import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discv5/discV5_service.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 
 const TEST_TIMEOUT = 80000;
 
