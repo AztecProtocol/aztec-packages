@@ -36,7 +36,7 @@ function build_native {
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $pic_preset --target world_state_napi
-    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib
+    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib/world_state_napi.node
   fi
 }
 
@@ -120,6 +120,11 @@ case "$cmd" in
     ;;
   "hash")
     echo $hash
+    ;;
+  "ls-cache")
+    cache_ls barretenberg-release-$hash.tar.gz
+    cache_ls barretenberg-release-world-state-$hash.tar.gz
+    cache_ls barretenberg-wasm-$hash.tar.gz
     ;;
   *)
     echo "Unknown command: $cmd"
