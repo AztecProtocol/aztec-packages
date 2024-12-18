@@ -637,6 +637,8 @@ contract Token {
             U128::from_integer(max_fee),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
+        // Note: We don't emit the change note straight away and instead we pass the change amount to the teardown
+        // function where it gets added to the refund amount. This avoids unnecessary emission of one note.
 
         // 3. Prepare the partial note for the refund.
         let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);

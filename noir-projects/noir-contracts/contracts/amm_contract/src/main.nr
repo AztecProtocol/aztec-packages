@@ -431,7 +431,7 @@ contract AMM {
         // public execution as it depends on the live balances. We therefore transfer the full maximum amount and
         // prepare partial notes both for the token out and the refund.
         // Technically the token out note does not need to be partial, since we do know the amount out, but we do want
-        // to wait until the swap has been completed before commiting the note to the tree to avoid it being spent too
+        // to wait until the swap has been completed before committing the note to the tree to avoid it being spent too
         // early.
         // TODO(#10286): consider merging these two calls
         Token::at(token_in)
