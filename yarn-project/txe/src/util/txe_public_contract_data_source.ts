@@ -85,7 +85,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return Promise.resolve(func?.name);
   }
 
-  registerContractFunctionNames(_names: Record<string, string>): Promise<void> {
+  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
     return Promise.resolve();
   }
 

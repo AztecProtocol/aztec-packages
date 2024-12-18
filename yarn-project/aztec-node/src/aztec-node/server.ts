@@ -55,7 +55,6 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -902,7 +901,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   }
 
   public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.contractDataSource.registerContractFunctionNames(names);
+    return this.contractDataSource.registerContractFunctionNames(_address, names);
   }
 
   public flushTxs(): Promise<void> {
