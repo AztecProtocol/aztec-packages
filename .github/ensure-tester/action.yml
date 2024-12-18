@@ -88,8 +88,10 @@ runs:
     - name: Run On Tester
       id: test
       shell: bash
+      env:
+        INPUT: ${{ inputs.run }}
       run:
-        set +e;
+        set +e
         exit_code=254
         scripts/run_on_tester "
           set -eu;
@@ -103,17 +105,17 @@ runs:
             git checkout FETCH_HEAD >/dev/null 2>&1;
           fi;
           cd ~/run-$RUN_ID;
-          ci3/dump_fail .github/ensure-tester/run $DOCKERHUB_PASSWORD '${{ inputs.run }}';
-        ";
-        exit_code=$?;
+          .github/ensure-tester/run $DOCKERHUB_PASSWORD '$INPUT';
+        "
+        exit_code=$?
         if [ $exit_code = 255 ]; then
-          echo "Treating ssh termination as spot eviction.";
-          exit_code=155;
-        fi;
-        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
+          echo "Treating ssh termination as spot eviction."
+          exit_code=155
+        fi
+        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
         if [ $exit_code = 155 ]; then
-          echo "Spot eviction detected - retrying with on-demand.";
-        fi;
+          echo "Spot eviction detected - retrying with on-demand."
+        fi
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-tester
@@ -121,7 +123,7 @@ runs:
       with:
         username: ${{ inputs.username }}
         runner_type: ${{ inputs.runner_type}}
-        spot_strategy: None
+        # spot_strategy: None
         ttl: ${{ inputs.ttl }}
         run: ${{ inputs.run }}
 

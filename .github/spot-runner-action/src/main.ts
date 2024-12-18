@@ -108,7 +108,6 @@ async function startBareSpot(config: ActionConfig) {
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
 
   const tempKeyPath = installSshKey(config.ec2Key);
-  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
   await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
     "-c",
@@ -169,7 +168,6 @@ async function startBuilder(config: ActionConfig) {
   }
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
-  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
   await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
     "-c",

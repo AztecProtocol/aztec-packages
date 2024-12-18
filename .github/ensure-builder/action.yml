@@ -82,8 +82,10 @@ runs:
     - name: Run On Builder
       id: test
       shell: bash
+      env:
+        INPUT: ${{ inputs.run }}
       run:
-        set +e;
+        set +e
         exit_code=254
         scripts/run_on_builder "
           set -eu;
@@ -97,17 +99,17 @@ runs:
             git checkout FETCH_HEAD >/dev/null 2>&1;
           fi;
           cd ~/run-$RUN_ID;
-          .github/ensure-builder/run $DOCKERHUB_PASSWORD '${{ inputs.run }}';
+          .github/ensure-builder/run $DOCKERHUB_PASSWORD '$INPUT';
         ";
-        exit_code=$?;
+        exit_code=$?
         if [ $exit_code = 255 ]; then
           echo "Treating ssh termination as spot eviction.";
-          exit_code=155;
-        fi;
-        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
+          exit_code=155
+        fi
+        echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
         if [ $exit_code = 155 ]; then
-          echo "Spot eviction detected - retrying with on-demand.";
-        fi;
+          echo "Spot eviction detected - retrying with on-demand."
+        fi
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-builder
