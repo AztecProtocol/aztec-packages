@@ -8,8 +8,8 @@
 # Maintainer: The Dev Container spec maintainers
 
 
-DOCKER_VERSION="${VERSION:-"latest"}" # The Docker/Moby Engine + CLI should match in version
-USE_MOBY="${MOBY:-"true"}"
+DOCKER_VERSION="${VERSION:-'latest'}" # The Docker/Moby Engine + CLI should match in version
+USE_MOBY="${MOBY:-'true'}"
 MOBY_BUILDX_VERSION="${MOBYBUILDXVERSION:-"latest"}"
 DOCKER_DASH_COMPOSE_VERSION="${DOCKERDASHCOMPOSEVERSION:-"latest"}" #latest, v2 or none
 AZURE_DNS_AUTO_DETECTION="${AZUREDNSAUTODETECTION:-"true"}"
@@ -52,7 +52,7 @@ if [ "${USERNAME}" = "auto" ] || [ "${USERNAME}" = "automatic" ]; then
             break
         fi
     done
-    if [ "${USERNAME}" = "" ]; then
+    if [ -z "${USERNAME}" ]; then
         USERNAME=root
     fi
 elif [ "${USERNAME}" = "none" ] || ! id -u ${USERNAME} > /dev/null 2>&1; then
@@ -194,11 +194,11 @@ architecture="$(dpkg --print-architecture)"
 # Check if distro is supported
 if [ "${USE_MOBY}" = "true" ]; then
     if [[ "${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}" != *"${VERSION_CODENAME}"* ]]; then
-        err "Unsupported  distribution version '${VERSION_CODENAME}'. To resolve, either: (1) set feature option '\"moby\": false' , or (2) choose a compatible OS distribution"
+        err "Unsupported distribution version '${VERSION_CODENAME}'. To resolve, either: (1) set feature option '\"moby\": false' , or (2) choose a compatible OS distribution"
         err "Support distributions include:  ${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}"
         exit 1
     fi
-    echo "Distro codename  '${VERSION_CODENAME}'  matched filter  '${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}'"
+    echo "Distro codename '${VERSION_CODENAME}' matched filter '${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}'"
 else
     if [[ "${DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES}" != *"${VERSION_CODENAME}"* ]]; then
         err "Unsupported distribution version '${VERSION_CODENAME}'. To resolve, please choose a compatible OS distribution"
@@ -607,7 +607,7 @@ do
         set -e
     fi
 
-    retry_docker_start_count=`expr $retry_docker_start_count + 1`
+    retry_docker_start_count=$((retry_docker_start_count + 1))
 done
 
 # Execute whatever commands were passed in (if any). This allows us
