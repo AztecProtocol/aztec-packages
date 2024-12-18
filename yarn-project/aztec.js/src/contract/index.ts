@@ -35,10 +35,14 @@
  *
  * @packageDocumentation
  */
-export * from './contract.js';
-export * from './contract_function_interaction.js';
-export * from './sent_tx.js';
-export * from './contract_base.js';
-export * from './batch_call.js';
+export { Contract } from './contract.js';
+export {
+  ContractFunctionInteraction,
+  type ProfileResult,
+  type SendMethodOptions,
+} from './contract_function_interaction.js';
+export { DefaultWaitOpts, SentTx, type WaitOpts } from './sent_tx.js';
+export { ContractBase, type ContractMethod, type ContractNotes, type ContractStorageLayout } from './contract_base.js';
+export { BatchCall } from './batch_call.js';
 export { type DeployOptions, DeployMethod } from './deploy_method.js';
-export * from './deploy_sent_tx.js';
+export { DeploySentTx } from './deploy_sent_tx.js';
