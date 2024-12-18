@@ -286,7 +286,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -533,10 +533,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  registerContractFunctionNames: z
-    .function()
-    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
-    .returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 

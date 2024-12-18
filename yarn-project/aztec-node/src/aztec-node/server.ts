@@ -904,8 +904,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.contractDataSource.registerContractFunctionNames(_address, names);
+  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(_address, signatures);
   }
 
   public flushTxs(): Promise<void> {
