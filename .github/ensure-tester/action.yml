@@ -101,7 +101,7 @@ runs:
             git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1;
             git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
             git checkout FETCH_HEAD >/dev/null 2>&1;
-          fi
+          fi;
           cd ~/run-$RUN_ID;
           ci3/dump_fail .github/ensure-tester/run $DOCKERHUB_PASSWORD '${{ inputs.run }}';
         "
