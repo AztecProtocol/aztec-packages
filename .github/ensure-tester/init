@@ -19,8 +19,7 @@ done
 set -x
 echo "Docker service is active!"
 echo $1 | docker login -u aztecprotocolci --password-stdin
-# Install yq and earthly.
-wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq 2>&1 >/dev/null
+wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
 chmod +x ./yq
 sudo mv ./yq /usr/bin/yq
 ci3/earthly_install
