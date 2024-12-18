@@ -1,6 +1,12 @@
 network:
   public: true
 
+ethereum:
+  resources:
+    requests:
+      memory: "31Gi"
+      cpu: "200m"
+
 aztec:
   slotDuration: 36
   epochDuration: 48
