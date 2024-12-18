@@ -128,6 +128,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
+    this.epochProofQuoteValidator = new EpochProofQuoteValidator(epochCache);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
