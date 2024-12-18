@@ -63,6 +63,9 @@ export class KVPxeDatabase implements PxeDatabase {
   #taggingSecretIndexesForSenders: AztecAsyncMap<string, number>;
   #taggingSecretIndexesForRecipients: AztecAsyncMap<string, number>;
 
+  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
+  #contractStore: AztecAsyncMap<string, Buffer>;
+
   protected constructor(private db: AztecAsyncKVStore) {
     this.#db = db;
 
@@ -100,6 +103,8 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#taggingSecretIndexesForSenders = db.openMap('tagging_secret_indexes_for_senders');
     this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
+
+    this.#contractStore = db.openMap('contract_store');
   }
 
   public static async create(db: AztecAsyncKVStore): Promise<KVPxeDatabase> {
@@ -610,5 +615,27 @@ export class KVPxeDatabase implements PxeDatabase {
       const senders = await toArray(this.#taggingSecretIndexesForSenders.keysAsync());
       await Promise.all(senders.map(sender => this.#taggingSecretIndexesForSenders.delete(sender)));
     });
+  }
+
+  async store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    if (values.length === 0) {
+      throw new Error('Cannot store an empty array of values in a local contract store');
+    }
+    const dataKey = `${contract.toString()}:${key.toString()}`;
+    const dataBuffer = Buffer.concat(values.map(value => value.toBuffer()));
+    await this.#contractStore.set(dataKey, dataBuffer);
+  }
+
+  async load(contract: AztecAddress, key: Fr[]): Promise<Fr[]> {
+    const dataKey = `${contract.toString()}:${key.toString()}`;
+    const dataBuffer = await this.#contractStore.getAsync(dataKey);
+    if (!dataBuffer) {
+      throw new Error(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+    }
+    const values: Fr[] = [];
+    for (let i = 0; i < dataBuffer.length; i += Fr.SIZE_IN_BYTES) {
+      values.push(Fr.fromBuffer(dataBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
+    }
+    return values;
   }
 }
