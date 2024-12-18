@@ -3,21 +3,58 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 
 #include <array>
-#include <chrono>
-#include <optional>
 #include <vector>
 
 namespace bb {
 
 /**
- * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
+ * @brief Small Subgroup IPA Prover for Zero-Knowledge Opening of Libra Polynomials.
  *
+ * @details Implements a less general version of the protocol described in
+ * [Ariel's HackMD](https://hackmd.io/xYHn1qqvQjey1yJutcuXdg). This version is specialized for making
+ * commitments and openings of Libra polynomials zero-knowledge.
+ *
+ * ### Overview
+ * This class enables the prover to:
+ *
+ * - Open the commitment to concatenated Libra polynomial with zero-knowledge while proving correctness of the claimed
+ * inner product. The concatenated polynomial is commited to during the construction of ZKSumcheckData structure.
+ *
+ * ### Inputs
+ * The prover receives:
+ * - **ZKSumcheckData:** Contains:
+ *   - Concatenated coefficients of the masking term and \( d \) random Libra univariates of degree 3.
+ *   - Monomial coefficients of the masked concatenated Libra polynomial denoted by \( G \) .
+ *   - Interpolation domain for a small subgroup \( H \subset \mathbb{F}^\ast \).
+ * - **Sumcheck challenges:** \( u_0, \ldots, u_{D-1} \), where \( D = \text{CONST_PROOF_SIZE_LOG_N} \).
+ * - **Claimed inner product:** \( s = \text{claimed\_ipa\_eval} \), defined as:
+ *   \f[
+ *   s = \sum_{i=1}^{|H|} F(g^i) G(g^i),
+ *   \f]
+ *   where \( F(X) \) is the challenge polynomial and \( G(X) \) is the concatenated Libra polynomial.
+ *
+ * ### Prover's Construction
+ * 1. Define a polynomial \( A(X) \), called the **big sum polynomial**, satisfying:
+ *    - \( A(1) = 0 \),
+ *    - \( A(g^i) = A(g^{i-1}) + F(g^{i-1}) G(g^{i-1}) \) for \( i = 1, \ldots, |H|-1 \).
+ * 2. Mask \( A(X) \) by adding \( Z_H(X) R(X) \), where \( R(X) \) is a random polynomial of degree 3.
+ * 3. Commit to \( A(X) \) and send the commitment to the verifier.
+ *
+ * ### Key Identity
+ * If \( A(X) \) is honestly constructed, the following identity holds:
+ * \f[
+ * L_1(X) A(X) + (X - g^{-1}) (A(g \cdot X) - A(X) - F(X) G(X)) + L_{|H|}(X) (A(X) - s) = Z_H(X) Q(X),
+ * \f]
+ * where \( Q(X) \) is the quotient of the left-hand side by \( Z_H(X) \).
+ *
+ * The methods of this class allow the prover to compute \( A(X) \) and \( Q(X) \).
+ *
+ * After receiveing a random evaluation challenge \f$ r \f$ , the prover sends \f$ G(r), A(g\cdot r), A(r), Q(r) \f$ to
+ * the verifier. In our case, \f$ r \f$ is the Gemini evaluation challenge, and this part is taken care of by Shplemini.
  */
-
 template <typename Curve, typename Transcript, typename CommitmentKey> class SmallSubgroupIPAProver {
     using FF = typename Curve::ScalarField;
 
@@ -42,16 +79,11 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
     // Claimed evaluation s = constant_term + g_0(u_0) + ... + g_{d-1}(u_{d-1})
     FF claimed_evaluation;
 
-    // Monomial coefficients of the challenge polynomial
     Polynomial<FF> challenge_polynomial;
-    // Challenge polynomial constructed as (1, 1, u_0, u_0^2, 1, u_1,..., u_{27}^2 )
     Polynomial<FF> challenge_polynomial_lagrange;
-
-    // Monomial coefficients of the polynomial A satisfying A_0 = 0, A_{i} = A_{i-1} + F_{i-1} * G_{i-1}
     Polynomial<FF> big_sum_polynomial;
     std::array<FF, SUBGROUP_SIZE> big_sum_lagrange_coeffs;
 
-    // L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s)
     Polynomial<FF> batched_polynomial;
 
     // Quotient of the batched polynomial by the subgroup vanishing polynomial X^{|H|} - 1
@@ -98,8 +130,7 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
 
-    // compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0 +
-    // m_1 X)
+    //
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
         std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
@@ -142,6 +173,10 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         }
     };
 
+    /**
+     * @brief   Compute \f$ L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) \f$
+     *
+     */
     void compute_batched_polynomial(const FF& claimed_evaluation)
     {
         // Compute shifted big sum polynomial A(gX)
@@ -216,6 +251,12 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
     }
 };
 
+/**
+ * @brief Verifier class for Small Subgroup IPA Prover.
+ *
+ * @details Checks the consistency of polynomial evaluations provided by the prover against
+ * the values derived from the sumcheck challenge and a random evaluation challenge.
+ */
 template <typename Curve> class SmallSubgroupIPAVerifier {
     using FF = typename Curve::ScalarField;
 
@@ -224,7 +265,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
 
   public:
-    /**
+    /*!
      * @brief Verifies the consistency of polynomial evaluations provided by the prover.
      *
      * @details
@@ -288,9 +329,9 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     }
 
     /**
-     * @brief Given the sumcheck multivariate challenge \f$ u_0,\ldots, u_{D-1}\f$, where \f$ D =
+     * @brief Given the sumcheck multivariate challenge \f$ (u_0,\ldots, u_{D-1})\f$, where \f$ D =
      * \text{CONST_PROOF_SIZE_LOG_N}\f$, the verifier has to construct and evaluate the polynomial whose
-     * coefficients are given by \f$ (1, u_0, u_0^2, u_1,\ldots,1, u_{D-1}, u_{D-1}^2) \f$. We spend \f$ D \f$
+     * coefficients are given by \f$ (1, u_0, u_0^2, u_1,\ldots, 1, u_{D-1}, u_{D-1}^2) \f$. We spend \f$ D \f$
      * multiplications to construct the coefficients.
      *
      * @param multivariate_challenge
@@ -304,6 +345,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         challenge_polynomial_lagrange[0] = FF{ 1 };
         FF challenge_sqr = FF{ 1 };
+
+        // Populate the vector with the powers of the challenges
         for (size_t poly_idx = 0; poly_idx < CONST_PROOF_SIZE_LOG_N; poly_idx++) {
             challenge_sqr = multivariate_challenge[poly_idx] * multivariate_challenge[poly_idx];
 
@@ -318,7 +361,10 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     /**
      * @brief Efficient batch evaluation of the challenge polynomial, Lagrange first, and Lagrange last
      *
-     * @details It is a
+     * @details It is a modification of \ref bb::polynomial_arithmetic::compute_barycentric_evaluation
+     * "compute_barycentric_evaluation" method that does not require EvaluationDomain object and outputs the barycentric
+     * evaluation of a polynomial along with the evaluations of the first and last Lagrange polynomials. The
+     * interpolation domain is given by \f$ (1, g, g^2, \ldots, g^{|H| -1 } )\f$
      *
      * @param coeffs Coefficients of the polynomial to be evaluated, in our case it is the challenge polynomial
      * @param z Evaluation point, we are using the Gemini evaluation challenge
@@ -336,14 +382,13 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         numerator = numerator.pow(SUBGROUP_SIZE) - one;
         numerator *= one / FF(SUBGROUP_SIZE); // (r^n - 1) / n
 
-        // Compute denominators for the barycentric interpolation over the small subgroup
         denominators[0] = r - one;
-        FF work_root = inverse_root_of_unity; // ω^{-1}
+        FF work_root = inverse_root_of_unity; // g^{-1}
+                                              //
+        // Compute the evaluations of the Lagrange polynomials for H
         for (size_t i = 1; i < SUBGROUP_SIZE; ++i) {
-            denominators[i] =
-                work_root * r;      // denominators[i] will correspond to L_[i+1] (since our 'commented maths' notation
-                                    // indexes L_i from 1). So ʓ.ω^{-i} = ʓ.ω^{1-(i+1)} is correct for L_{i+1}.
-            denominators[i] -= one; // ʓ.ω^{-i} - 1
+            denominators[i] = work_root * r;
+            denominators[i] -= one; // r * g^{-i} - 1
             work_root *= inverse_root_of_unity;
         }
         if constexpr (Curve::is_stdlib_type) {
@@ -356,17 +401,13 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         std::array<FF, 3> result;
         result[0] = FF{ 0 };
         for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
-            FF temp = coeffs[i] * denominators[i]; // f_i * 1/(ʓ.ω^{-i} - 1)
+            FF temp = coeffs[i] * denominators[i]; // coeffs_i * 1/(r * g^{-i}  - 1)
             result[0] = result[0] + temp;
         }
 
-        result[0] = result[0] * numerator;
-        result[1] = denominators[0] * numerator;
-        result[2] = denominators[SUBGROUP_SIZE - 1] * numerator;
-
-        //   \sum_{i=0}^{num_coeffs-1} f_i * [ʓ^n - 1]/[n.(ʓ.ω^{-i} - 1)]
-        // = \sum_{i=0}^{num_coeffs-1} f_i * L_{i+1}
-        // (with our somewhat messy 'commented maths' convention that L_1 corresponds to the 0th coeff).
+        result[0] = result[0] * numerator;       // The evaluation of the polynomials given by its evaluations over H
+        result[1] = denominators[0] * numerator; // Lagrange first evaluated at r
+        result[2] = denominators[SUBGROUP_SIZE - 1] * numerator; // Lagrange last evaluated at r
 
         return result;
     }

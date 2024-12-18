@@ -25,7 +25,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
 
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     Polynomial<FF> random_poly(size_t size)

@@ -4,7 +4,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
-#include <optional>
 #include <vector>
 
 namespace bb {

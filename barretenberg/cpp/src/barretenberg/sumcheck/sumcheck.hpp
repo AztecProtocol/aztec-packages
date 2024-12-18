@@ -153,7 +153,7 @@ template <typename Flavor> class SumcheckProver {
     // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
-    using ZKSumcheckData = ZKSumcheckData<typename Flavor::Curve, Transcript, typename Flavor::CommitmentKey>;
+    using ZKData = ZKSumcheckData<typename Flavor::Curve, Transcript, typename Flavor::CommitmentKey>;
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
@@ -190,7 +190,7 @@ template <typename Flavor> class SumcheckProver {
                                  const bb::RelationParameters<FF>& relation_parameters,
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges,
-                                 ZKSumcheckData zk_sumcheck_data = ZKSumcheckData())
+                                 ZKData zk_sumcheck_data = ZKData())
     {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
@@ -401,7 +401,7 @@ polynomials that are sent in clear.
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_zk_sumcheck_data(ZKSumcheckData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
+    void update_zk_sumcheck_data(ZKData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
     {
         constexpr FF one_half = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed

@@ -25,7 +25,7 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using ZKSumcheckData = ZKSumcheckData<Curve, Transcript, CommitmentKey>;
+    using ZKData = ZKSumcheckData<Curve, Transcript, CommitmentKey>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Curve, Transcript, CommitmentKey>;
 
   public:
@@ -48,7 +48,7 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
     Polynomial quotient_W;
 
-    ZKSumcheckData zk_sumcheck_data;
+    ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

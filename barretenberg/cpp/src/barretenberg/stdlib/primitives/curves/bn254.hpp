@@ -46,9 +46,10 @@ template <typename CircuitBuilder> struct bn254 {
     static const ScalarField SUBGROUP_GENERATOR;
 
 }; // namespace bn254
+
 template <typename CircuitBuilder>
 const typename bn254<CircuitBuilder>::ScalarField bn254<CircuitBuilder>::SUBGROUP_GENERATOR =
     typename bn254<CircuitBuilder>::ScalarField(
-        uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        uint256_t("0e4061303ba140794a3a2d8659909fd6ffb3dfdc290e4d9ca93bccd950f16404"));
 
 } // namespace bb::stdlib

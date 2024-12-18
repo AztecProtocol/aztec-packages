@@ -48,12 +48,10 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        // static constexpr FF bn_254_subgroup_generator =
-        //     FF(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
-        static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
         OpeningClaim new_claim;
 
         if (has_zk) {
+            static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
             const auto gemini_r = opening_claims[0].opening_pair.challenge;
 
             std::array<std::string, 4> libra_eval_labels = {
@@ -317,7 +315,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
         bool consistency_checked = true;
-        info("has zk ", has_zk, " cons checked ", consistency_checked);
         if (has_zk) {
             add_zk_data(commitments,
                         scalars,

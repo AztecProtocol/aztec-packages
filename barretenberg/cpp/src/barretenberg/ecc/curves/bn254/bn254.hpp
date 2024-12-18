@@ -24,8 +24,8 @@ class BN254 {
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
 
-    static constexpr size_t SUBGROUP_SIZE = 87;
+    static constexpr size_t SUBGROUP_SIZE = 377;
     static constexpr ScalarField SUBGROUP_GENERATOR =
-        ScalarField(uint256_t("0x0434c9aa553ba64b2b3f7f0762c119ec87353b7813c54205c5ec13d97d1f944e"));
+        ScalarField(uint256_t("0e4061303ba140794a3a2d8659909fd6ffb3dfdc290e4d9ca93bccd950f16404"));
 };
 } // namespace bb::curve

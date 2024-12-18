@@ -41,10 +41,7 @@ template <typename Flavor> class SumcheckProverRound {
   public:
     using FF = typename Flavor::FF;
     using ExtendedEdges = typename Flavor::ExtendedEdges;
-
-    using ZKSumcheckData =
-        ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
-
+    using ZKData = ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -145,7 +142,7 @@ template <typename Flavor> class SumcheckProverRound {
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_sparators,
                                                const RelationSeparator alpha,
-                                               ZKSumcheckData zk_sumcheck_data, // only populated when Flavor HasZK
+                                               ZKData zk_sumcheck_data, // only populated when Flavor HasZK
                                                RowDisablingPolynomial<FF> row_disabling_poly)
     {
         PROFILE_THIS_NAME("compute_univariate");
@@ -337,8 +334,7 @@ template <typename Flavor> class SumcheckProverRound {
      * @param zk_sumcheck_data
      * @param round_idx
      */
-    static SumcheckRoundUnivariate compute_libra_round_univariate(const ZKSumcheckData& zk_sumcheck_data,
-                                                                  size_t round_idx)
+    static SumcheckRoundUnivariate compute_libra_round_univariate(const ZKData& zk_sumcheck_data, size_t round_idx)
     {
         bb::Univariate<FF, 3> libra_round_univariate;
         // select the i'th column of Libra book-keeping table

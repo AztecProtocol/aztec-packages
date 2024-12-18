@@ -64,6 +64,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         vinfo("eccvm sumcheck failed");
