@@ -1,10 +1,10 @@
 aztec:
-  slotDuration: 6
+  slotDuration: 16
   epochDuration: 4
   epochProofClaimWindow: 2
 
 ethereum:
-  blockTime: 6sec
+  blockTime: 8sec
 
 telemetry:
   enabled: true
