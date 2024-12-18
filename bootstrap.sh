@@ -175,8 +175,10 @@ case "$cmd" in
     fi
     github_endgroup
     exit
+  ;;
   "image-e2e")
     parallel ./bootstrap.sh ::: image-aztec _image-e2e
+    exit
   ;;
   "image-faucet")
     image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
