@@ -54,7 +54,7 @@ loki:
     limits_config:
       allow_structured_metadata: true
       volume_enabled: true
-      retention_period: 336h # 14 days
+      retention_period: 168h # 7 days
     compactor:
       retention_enabled: true
       delete_request_store: s3
@@ -74,7 +74,7 @@ loki:
   minio:
     enabled: true
     persistence:
-      size: 64Gi
+      size: 1Ti
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
