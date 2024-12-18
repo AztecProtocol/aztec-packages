@@ -30,7 +30,7 @@ bootstrap-noir-bb:
     DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast && \
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
-
+  WORKDIR /usr/src
   ENV CI=1
   ENV TEST=1
   ENV USE_CACHE=1
