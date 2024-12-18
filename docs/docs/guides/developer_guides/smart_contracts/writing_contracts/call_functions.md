@@ -1,11 +1,10 @@
 ---
 title: Calling Other Functions
-sidebar_position: 2
+sidebar_position: 4
 tags: [functions, contracts]
 ---
 
-
-A contract is a collection of persistent state variables and functions which may manipulate these variables. 
+A contract is a collection of persistent state variables and functions which may manipulate these variables.
 
 Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state.
 
@@ -19,13 +18,14 @@ A contract may be declared and given a name using the `contract` keyword (see sn
 // highlight-next-line
 contract MyContract {
 
-    // Imports 
+    // Imports
 
-    // Storage 
+    // Storage
 
     // Functions
 }
 ```
+
 :::info A note for vanilla Noir devs
 There is no [`main()` (GitHub link)](https://noir-lang.org/docs/getting_started/project_breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
 :::
@@ -53,7 +53,7 @@ To call the function, you need to
 - Specify the address of the contract with `Contract::at(contract_address)`
 - Call the function name with `.function_name()`
 - Pass the parameters into the function call, like `.function_name(param1,param2)`
-- Specify the type of call you want to make and pass a mut reference to the context, like `.call(&mut context)` 
+- Specify the type of call you want to make and pass a mut reference to the context, like `.call(&mut context)`
 
 #### Private calls
 
@@ -77,6 +77,4 @@ Public functions are always executed after private execution. To learn why, read
 
 #### Other call types
 
-There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md). 
-
-
+There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md).
