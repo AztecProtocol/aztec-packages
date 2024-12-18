@@ -6,6 +6,7 @@ pub(crate) mod public_data_tree;
 
 mod private_tube_data_validator;
 mod public_tube_data_validator;
+pub(crate) mod private_base_rollup_output_composer;
 pub(crate) mod validate_tube_data;
 
 pub(crate) use private_tube_data_validator::PrivateTubeDataValidator;
