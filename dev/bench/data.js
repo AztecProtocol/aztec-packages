@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734523072392,
+  "lastUpdate": 1734525448974,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da809c58290f9590836f45ec59376cbf04d3c4ce",
-          "message": "chore: redo typo PR by Dimitrolito (#10364)\n\nThanks Dimitrolito for\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/10171. Our policy\r\nis to redo typo changes to dissuade metric farming. This is an automated\r\nscript.",
-          "timestamp": "2024-12-03T15:44:23Z",
-          "tree_id": "658c8b5666b1ec68d21e7a99d246ba086817a1e9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da809c58290f9590836f45ec59376cbf04d3c4ce"
-        },
-        "date": 1733242479351,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28077.23477799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26508.392528 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5041.33717900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4700.703569000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86147.2139,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86147214000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15199.769935000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15199770000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3063815423,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3063815423 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140592705,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140592705 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3060,6 +3000,72 @@ window.BENCHMARK_DATA = {
             "value": 142377178,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142377178 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "970ad77966a17fd5c8071a7c3c3a405f83630c5d",
+          "message": "fix: toBlock argument in L1 getLogs is inclusive (#10828)\n\nAs @alexghr identified, we got a spurious reorg on a node in the exp1\r\nnetwork. This was caused by the node getting a current\r\n`l1BlockNumber=245`, but then fetching an L2 block mined at 246.\r\n\r\nThis caused the `canPrune` check to fail: \r\n\r\n```\r\nconst canPrune =\r\n      localPendingBlockNumber > provenBlockNumber &&\r\n      (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));\r\n```\r\n\r\nThe `canPruneAtTime` was evaluated at L1 block number 245, and it\r\ncorrectly returned true, since there had been a reorg shortly before (at\r\n240), and no new L2 block had been mined so the rollup hadn't reset its\r\nstate by then. However, the `localPendingBlockNumber` was incorrectly\r\nincreased due to the block mined at 246, which caused the archiver to\r\nincorrectly reorg it.\r\n\r\nThis PR fixes the L1 event queries so the `toBlock` is inclusive. A\r\nquick test with cast shows that this is the case:\r\n```\r\n$ cast logs -r https://mainnet.infura.io/v3/$INFURA_API_KEY --from-block 0x146eade --to-block 0x146eadf --address 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 --json | jq .[].blockNumber | uniq\r\n\"0x146eade\"\r\n\"0x146eadf\"\r\n```\r\n\r\nAnd just for good measure, we also filter the logs returned by the block\r\nrange searched.",
+          "timestamp": "2024-12-18T09:11:04-03:00",
+          "tree_id": "88fcc9cac8e1e230915fc3ec5831be1d3b43f54b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/970ad77966a17fd5c8071a7c3c3a405f83630c5d"
+        },
+        "date": 1734525442139,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 21512.632263,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18789.880754 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24456.08347000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 21644.320863 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4951.82334499998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4605.475333 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85072.53844,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85072539000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15053.910278,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15053911000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2831719351,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2831719351 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142050591,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142050591 ns\nthreads: 1"
           }
         ]
       }
