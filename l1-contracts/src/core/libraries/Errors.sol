@@ -60,6 +60,9 @@ library Errors {
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
+  error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
+  error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
+  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NotClaimingCorrectEpoch(Epoch expected, Epoch actual); // 0xf0e0744d
@@ -76,10 +79,6 @@ library Errors {
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
-
-  //TxsDecoder
-  error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
-  error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

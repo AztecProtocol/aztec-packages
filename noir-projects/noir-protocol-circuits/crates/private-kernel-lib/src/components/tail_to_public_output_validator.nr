@@ -9,9 +9,8 @@ use dep::types::{
         log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::Counted,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{

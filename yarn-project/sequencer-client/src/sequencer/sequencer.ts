@@ -38,6 +38,7 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerState, getSecondsIntoSlot, orderAttestations } from './utils.js';
@@ -82,7 +83,7 @@ export class Sequencer {
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = [];
+  private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
@@ -127,10 +128,7 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
-    this.log.info(
-      `Sequencer config set`,
-      omit(pickFromSchema(this.config, SequencerConfigSchema), 'allowedInSetup', 'allowedInTeardown'),
-    );
+    this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
@@ -545,21 +543,17 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(
-          validTxs,
-          blockSize,
-          blockBuilder,
-          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
-        ),
+        processor.process(validTxs, blockSize, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+      await blockBuilder.addTxs(processedTxs);
 
       await interrupt?.(processedTxs);
 
@@ -650,7 +644,6 @@ export class Sequencer {
       const blockHash = block.hash();
       const txHashes = validTxs.map(tx => tx.getTxHash());
       this.log.info(`Built block ${block.number} with hash ${blockHash}`, {
-        txEffectsHash: block.header.contentCommitment.txsEffectsHash.toString('hex'),
         blockHash,
         globalVariables: block.header.globalVariables.toInspect(),
         txHashes,

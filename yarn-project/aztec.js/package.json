@@ -17,6 +17,7 @@
     "./fields": "./dest/api/fields.js",
     "./init": "./dest/api/init.js",
     "./log_id": "./dest/api/log_id.js",
+    "./rpc": "./dest/rpc_clients/index.js",
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js"
   },

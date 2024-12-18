@@ -146,6 +146,19 @@ where
     result
 }
 
+// Helper fn to create a subarray from a given array
+pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+where
+    T: Empty,
+{
+    assert(M + offset <= N, "Subarray length larger than array length");
+    let mut result: [T; M] = [T::empty(); M];
+    for i in 0..M {
+        result[i] = array[offset + i];
+    }
+    result
+}
+
 pub fn check_permutation<T, let N: u32>(
     original_array: [T; N],
     permuted_array: [T; N],
