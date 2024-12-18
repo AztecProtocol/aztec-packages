@@ -356,7 +356,7 @@ export class Ec2Instance {
     const client = await this.getEc2Client();
     try {
       await client
-        .waitFor("instanceRunning", { InstanceIds: [instanceId] }, )
+        .waitFor("instanceRunning", { InstanceIds: [instanceId] })
         .promise();
       core.info(`AWS EC2 instance ${instanceId} is up and running`);
       return;

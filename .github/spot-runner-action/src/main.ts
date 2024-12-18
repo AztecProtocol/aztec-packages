@@ -14,9 +14,9 @@ async function pollSpotStatus(
   ec2Client: Ec2Instance,
 ): Promise<string | "unusable" | "none"> {
   const instances = await ec2Client.getInstancesForTags("running");
-  let filteredInstances = instances.filter(i => {
-    const ip = await ec2Client.getPublicIpFromInstanceId(i.InstanceId!);
-    return trySsh(ip, config.ec2Key);
+  const ips = await Promise.all(instances.map(i => ec2Client.getPublicIpFromInstanceId(i.InstanceId!)));
+  let filteredInstances = instances.filter((_, i) => {
+    return trySsh(ips[i], config.ec2Key);
   });
   if (filteredInstances.length === 0) {
     filteredInstances = instances;
@@ -232,14 +232,13 @@ async function establishSshContact(
       return true;
     }
     if (attempts >= maxAttempts - 1) {
-        core.error(
-          `Timeout: SSH could not connect to ${ip} within 60 seconds.`
-        );
-        return false;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Retry every second
-      attempts++;
+      core.error(
+        `Timeout: SSH could not connect to ${ip} within 60 seconds.`
+      );
+      return false;
     }
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Retry every second
+    attempts++;
   }
 }
 
