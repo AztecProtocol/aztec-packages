@@ -12,8 +12,7 @@ fi
 name="$1"
 
 s3_path="s3://aztec-ci-artifacts/build-cache/$name"
-
-if ! aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "$s3_path" >/dev/null 2>&1; then
+if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "$s3_path" >/dev/null 2>&1; then
   aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 rm "$s3_path" >&2
 else
   echo "File not found, skipping delete: $name" >&2
