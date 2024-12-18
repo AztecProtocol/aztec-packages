@@ -96,13 +96,10 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
     }
-    if (instanceId) {
-      core.info("Successfully requested/found instance with ID " + instanceId);
-      break;
-    }
   }
-  if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
-  else {
+  if (instanceId) {
+    core.info("Successfully requested/found instance with ID " + instanceId);
+  } else {
     core.error("Failed to get ID of running instance");
     throw Error("Failed to get ID of running instance");
   }
