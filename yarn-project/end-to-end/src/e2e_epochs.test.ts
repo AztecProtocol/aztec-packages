@@ -26,9 +26,9 @@ describe('e2e_epochs', () => {
 
   const EPOCH_DURATION_IN_L2_SLOTS = 4;
   const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
-  const L1_BLOCK_TIME_IN_S = 8;
+  const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     context = await setup(0, {
@@ -99,7 +99,7 @@ describe('e2e_epochs', () => {
     logger.info(`L2 genesis at L1 block ${constants.l1GenesisBlock} (timestamp ${constants.l1GenesisTime})`);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     clearInterval(handle);
     await context.teardown();
   });
@@ -115,6 +115,11 @@ describe('e2e_epochs', () => {
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
     await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
+  };
+
+  /** Waits until the given L2 block number is marked as proven. */
+  const waitUntilProvenL2BlockNumber = async (target: number) => {
+    await retryUntil(() => Promise.resolve(target === l2ProvenBlockNumber), `Wait proven L2 block ${target}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {
@@ -147,6 +152,17 @@ describe('e2e_epochs', () => {
     const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
     expect(lastL2BlockTxReceipt.status).toEqual('success');
     expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
+    logger.info(`Test succeeded`);
+  });
+
+  it('submits proof claim alone if there is no txs to build a block', async () => {
+    context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+    await waitUntilEpochStarts(1);
+    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
+    logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
+
+    await waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0);
+    expect(l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
 });
