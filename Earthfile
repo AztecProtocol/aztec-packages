@@ -54,11 +54,6 @@ bootstrap:
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
-  ENV CI=1
-  ENV TEST=1
-  ENV USE_CACHE=1
-  ARG GITHUB_RUN_URL=""
-  ENV GITHUB_RUN_URL="$GITHUB_RUN_URL"
 
 bootstrap-with-verifier:
   # TODO(ci3) roll this into normal bootstrap
