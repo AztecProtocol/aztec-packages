@@ -96,9 +96,8 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
     }
-    if (instanceId) {
-      break;
-    }
+  if (instanceId) {
+    break;
   }
   if (instanceId) {
     core.info("Successfully requested/found instance with ID " + instanceId);
