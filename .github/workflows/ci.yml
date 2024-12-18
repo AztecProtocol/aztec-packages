@@ -239,7 +239,6 @@ jobs:
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
               FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
               ci3/cache_upload_flag "$artifact"
             fi
