@@ -75,6 +75,10 @@ loki:
     enabled: true
     persistence:
       size: 1Ti
+    resources:
+      requests:
+        memory: 8Gi
+        cpu: 200m
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
