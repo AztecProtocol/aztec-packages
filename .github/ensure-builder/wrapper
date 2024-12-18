@@ -22,12 +22,12 @@ while ! systemctl is-active --quiet docker; do
 done
 echo $1 | ci3/dump_fail docker login -u aztecprotocolci --password-stdin
 if ! command -v yq >/dev/null; then
-  wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
+  ci3/dump_fail wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq
   chmod +x ./yq
   sudo mv ./yq /usr/bin/yq
 fi
 if ! command -v jq >/dev/null; then
-  wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq 2>&1 >/dev/null
+  ci3/dump_fail wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq 2>&1 >/dev/null
   chmod +x ./jq
   sudo mv ./jq /usr/bin/jq
 fi

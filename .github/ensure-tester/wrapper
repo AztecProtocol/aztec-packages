@@ -17,10 +17,10 @@ while ! systemctl is-active --quiet docker; do
   fi
 done
 echo $1 | ci3/dump_fail docker login -u aztecprotocolci --password-stdin
-wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
+ci3/dump_fail wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
 chmod +x ./yq
 sudo mv ./yq /usr/bin/yq
-wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq 2>&1 >/dev/null
+ci3/dump_fail wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq
 chmod +x ./jq
 sudo mv ./jq /usr/bin/jq
 ci3/dump_fail ci3/earthly_install

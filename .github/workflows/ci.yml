@@ -390,7 +390,7 @@ jobs:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
           run: |
-            artifact="network-4epochs-test-$(./yarn-project/bootstrap.sh hash)""
+            artifact="network-4epochs-test-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               scripts/earthly-ci +network-test --test=./test-4epochs.sh
               ci3/cache_upload_flag "$artifact"
