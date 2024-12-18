@@ -78,9 +78,9 @@ const levelToSeverityFormatter = (label: string, level: number): object => {
   switch (label as pino.Level | keyof typeof customLevels) {
     case 'trace':
     case 'debug':
-    case 'verbose':
       severity = 'DEBUG';
       break;
+    case 'verbose':
     case 'info':
       severity = 'INFO';
       break;
