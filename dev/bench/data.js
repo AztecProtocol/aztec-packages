@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734476728713,
+  "lastUpdate": 1734484738277,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "159419107+DanielKotov@users.noreply.github.com",
-            "name": "DanielKotov",
-            "username": "DanielKotov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4a38edfc1580aa1cb5113993ff8a2e5574076226",
-          "message": "fix: witness changes in file sponge.hpp (#10345)\n\nStatic analyzer found that initial values in cache and state arrays\r\nweren't properly constrained. Initially state fill in 0 + iv value, but\r\nthese values weren't constrained as witnesses.\r\n\r\nWe replaced witness_t constructor with function create_constant_witness\r\nfrom class witness_t in file sponge.hpp.\r\n\r\nAll tests for poseidon2s passed after fix.",
-          "timestamp": "2024-12-02T20:44:53+03:00",
-          "tree_id": "d0444278f60e51a3c5ef6cedd929b8c3404e4878",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a38edfc1580aa1cb5113993ff8a2e5574076226"
-        },
-        "date": 1733165442826,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28206.610216,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26382.913040000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5030.539386000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4615.324457 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85472.53586,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85472536000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15179.204237999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15179205000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3074885816,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3074885816 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140784160,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140784160 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3034,6 +2974,68 @@ window.BENCHMARK_DATA = {
             "value": 135609740,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135609740 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "113245eb5757ea4fa8dd9fd5faa22ecb43255420",
+          "message": "chore(master): Release 0.67.1",
+          "timestamp": "2024-12-18T01:03:08Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10684/commits/113245eb5757ea4fa8dd9fd5faa22ecb43255420"
+        },
+        "date": 1734484730560,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 26850.193681999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 21104.154198 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25913.98430199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 23714.04403 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4813.244138000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4466.447006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91026.32383299999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91026323000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 17241.906355000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17241906000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2877515977,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2877515977 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 138447633,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 138447633 ns\nthreads: 1"
           }
         ]
       }
