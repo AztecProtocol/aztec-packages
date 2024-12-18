@@ -16,8 +16,10 @@ From the repo root:
 ./bootstrap.sh image-e2e
 ```
 
+Then
 
-From `yarn-project/end-to-end`
 ```
-AZTEC_DOCKER_TAG=<the tag that was spit out> NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE="3-validators-with-metrics.yaml" ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+AZTEC_DOCKER_TAG=<the tag that was spit out> NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE="3-validators-with-metrics.yaml" ./yarn-project/end-to-end/scripts/network_test.sh ./src/spartan/smoke.test.ts
 ```
+
+Replace the values file and test with the ones you want to use.
