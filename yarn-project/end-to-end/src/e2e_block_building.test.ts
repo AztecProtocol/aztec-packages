@@ -20,7 +20,7 @@ import {
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -287,6 +287,8 @@ describe('e2e_block_building', () => {
       testContract = await TestContract.deploy(owner).send().deployed();
     }, 60_000);
 
+    afterEach(() => teardown());
+
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
@@ -394,12 +396,12 @@ describe('e2e_block_building', () => {
         .send()
         .deployed();
 
-      logger.info('Updating min txs per block to 4');
-      await aztecNode.setConfig({ minTxsPerBlock: 4 });
+      logger.info('Updating txs per block to 4');
+      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 24; i++) {
         const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
         txs.push(tx.send({ skipPublicSimulation: false }));
       }
@@ -482,14 +484,6 @@ describe('e2e_block_building', () => {
 
       // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
-
-      // PXE should be synced to the block number on the new chain
-      await retryUntil(
-        async () => (await pxe.getSyncStatus()).blocks === newTx1Receipt.blockNumber,
-        'wait for pxe block header sync',
-        15,
-        1,
-      );
 
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');

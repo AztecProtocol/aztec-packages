@@ -10,17 +10,15 @@ contract TestLog {
     use dep::value_note::value_note::ValueNote;
     use std::meta::derive;
 
-    use std::embedded_curve_ops::EmbeddedCurveScalar;
-
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct ExampleEvent0 {
         value0: Field,
         value1: Field,
     }
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct ExampleEvent1 {
         value2: AztecAddress,
         value3: u8,

@@ -19,7 +19,8 @@ import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -179,8 +180,8 @@ describe('End-to-end tests for devnet', () => {
       .deploy({
         fee: {
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
-            claimAmount: Fr.fromString(claimAmount),
-            claimSecret: Fr.fromString(claimSecret.value),
+            claimAmount: Fr.fromHexString(claimAmount),
+            claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
           }),
         },

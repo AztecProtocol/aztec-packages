@@ -142,7 +142,7 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
-    using Flavor = MegaFlavor;
+    using Flavor = UltraFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
@@ -386,38 +386,6 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
 
         program_stack.pop_back();
     }
-}
-
-TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
-{
-    using Flavor = MegaFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    std::string test_name = GetParam();
-    auto program_stack = get_program_stack_data_from_test_file(
-        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                              // Assumes Flavor is not UltraHonk
-
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*auto_verify_mode=*/true);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
-    while (!program_stack.empty()) {
-        auto program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(program, metadata);
-
-        ivc->accumulate(circuit);
-
-        CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
-
-        program_stack.pop_back();
-    }
-
-    EXPECT_TRUE(ivc->prove_and_verify());
 }
 
 INSTANTIATE_TEST_SUITE_P(AcirTests,

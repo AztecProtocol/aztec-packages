@@ -17,7 +17,6 @@ import {
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
-import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -287,7 +286,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
+  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -315,7 +314,8 @@ export interface AztecNode
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
-   array implies no logs match that tag.
+   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
+   * --> e.g. when sending a note from multiple unsynched devices.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
@@ -533,7 +533,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
+  registerContractFunctionNames: z
+    .function()
+    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
+    .returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 

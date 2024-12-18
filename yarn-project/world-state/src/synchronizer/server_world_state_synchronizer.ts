@@ -3,7 +3,7 @@ import {
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
+  type L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
@@ -23,7 +23,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, TraceableL2BlockStream } from '@aztec/telemetry-client';
 
 import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
@@ -110,8 +110,10 @@ export class ServerWorldStateSynchronizer
     return this.syncPromise.promise;
   }
 
-  protected createBlockStream() {
-    return new L2BlockStream(this.l2BlockSource, this, this, createLogger('world_state:block_stream'), {
+  protected createBlockStream(): L2BlockStream {
+    const tracer = this.instrumentation.telemetry.getTracer('WorldStateL2BlockStream');
+    const logger = createLogger('world-state:block_stream');
+    return new TraceableL2BlockStream(this.l2BlockSource, this, this, tracer, 'WorldStateL2BlockStream', logger, {
       proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,

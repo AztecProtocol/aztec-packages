@@ -1,10 +1,11 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { SpamContract } from '@aztec/noir-contracts.js';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
@@ -93,7 +94,7 @@ export class P2PNetworkTest {
    */
   public async syncMockSystemTime() {
     this.logger.info('Syncing mock system time');
-    const { timer, deployL1ContractsValues } = this.ctx!;
+    const { dateProvider, deployL1ContractsValues } = this.ctx!;
     // Send a tx and only update the time after the tx is mined, as eth time is not continuous
     const tx = await deployL1ContractsValues.walletClient.sendTransaction({
       to: this.baseAccount.address,
@@ -104,8 +105,7 @@ export class P2PNetworkTest {
       hash: tx,
     });
     const timestamp = await deployL1ContractsValues.publicClient.getBlock({ blockNumber: receipt.blockNumber });
-    timer.setSystemTime(Number(timestamp.timestamp) * 1000);
-    this.logger.info(`Synced mock system time to ${timestamp.timestamp * 1000n}`);
+    dateProvider.setTime(Number(timestamp.timestamp) * 1000);
   }
 
   static async create({
@@ -133,7 +133,7 @@ export class P2PNetworkTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot(
       'add-validators',
-      async ({ deployL1ContractsValues, aztecNodeConfig, timer }) => {
+      async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
         const rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
           abi: RollupAbi,
@@ -185,7 +185,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.EPOCH_DURATION();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {
@@ -203,7 +203,7 @@ export class P2PNetworkTest {
 
         // Set the system time in the node, only after we have warped the time and waited for a block
         // Time is only set in the NEXT block
-        timer.setSystemTime(Number(timestamp) * 1000);
+        dateProvider.setTime(Number(timestamp) * 1000);
       },
     );
   }
@@ -244,7 +244,7 @@ export class P2PNetworkTest {
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
       'remove-inital-validator',
-      async ({ deployL1ContractsValues, aztecNode, timer }) => {
+      async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await deployL1ContractsValues.walletClient.sendTransaction({
@@ -256,7 +256,7 @@ export class P2PNetworkTest {
         const block = await deployL1ContractsValues.publicClient.getBlock({
           blockNumber: receipt.blockNumber,
         });
-        timer.setSystemTime(Number(block.timestamp) * 1000);
+        dateProvider.setTime(Number(block.timestamp) * 1000);
 
         await aztecNode.stop();
       },

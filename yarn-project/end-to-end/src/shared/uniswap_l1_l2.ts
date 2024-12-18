@@ -195,7 +195,7 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      await wethCrossChainHarness.makeMessageConsumable(Fr.fromString(wethDepositClaim.messageHash));
+      await wethCrossChainHarness.makeMessageConsumable(Fr.fromHexString(wethDepositClaim.messageHash));
 
       // 2. Claim WETH on L2
       logger.info('Minting weth on L2');
@@ -331,7 +331,7 @@ export const uniswapL1L2TestSuite = (
       // We get the msg leaf from event so that we can later wait for it to be available for consumption
       const inboxAddress = daiCrossChainHarness.l1ContractAddresses.inboxAddress.toString();
       const txLog = extractEvent(txReceipt.logs, inboxAddress, InboxAbi, 'MessageSent');
-      const tokenOutMsgHash = Fr.fromString(txLog.args.hash);
+      const tokenOutMsgHash = Fr.fromHexString(txLog.args.hash);
       const tokenOutMsgIndex = txLog.args.index;
 
       // weth was swapped to dai and send to portal
@@ -559,7 +559,7 @@ export const uniswapL1L2TestSuite = (
     //       data: txLog.data,
     //       topics: txLog.topics,
     //     });
-    //     outTokenDepositMsgHash = Fr.fromString(topics.args.hash);
+    //     outTokenDepositMsgHash = Fr.fromHexString(topics.args.hash);
     //   }
 
     //   // weth was swapped to dai and send to portal

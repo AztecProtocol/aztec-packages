@@ -35,6 +35,7 @@ aztec:
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  l1Salt: "" # leave empty for random salt
 
 bootNode:
   peerIdPrivateKey: ""
@@ -96,6 +97,7 @@ validator:
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
+    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -167,6 +169,7 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
+  feePaymentMethod: "none"
   maxErrors: 3
   stopIfUnhealthy: true
   service:

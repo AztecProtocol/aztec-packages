@@ -10,8 +10,8 @@ describe('DoubleSpendTxValidator', () => {
 
   beforeEach(() => {
     nullifierSource = mock<NullifierSource>({
-      getNullifierIndex: mockFn().mockImplementation(() => {
-        return Promise.resolve(undefined);
+      getNullifierIndices: mockFn().mockImplementation(() => {
+        return Promise.resolve([undefined]);
       }),
     });
     txValidator = new DoubleSpendTxValidator(nullifierSource);
@@ -48,7 +48,7 @@ describe('DoubleSpendTxValidator', () => {
 
   it('rejects duplicates against history', async () => {
     const badTx = mockTx();
-    nullifierSource.getNullifierIndex.mockReturnValueOnce(Promise.resolve(1n));
+    nullifierSource.getNullifierIndices.mockReturnValueOnce(Promise.resolve([1n]));
     await expect(txValidator.validateTxs([badTx])).resolves.toEqual([[], [badTx]]);
   });
 });

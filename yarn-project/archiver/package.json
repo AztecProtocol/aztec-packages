@@ -6,7 +6,8 @@
     ".": "./dest/index.js",
     "./data-retrieval": "./dest/archiver/data_retrieval.js",
     "./epoch": "./dest/archiver/epoch_helpers.js",
-    "./test": "./dest/test/index.js"
+    "./test": "./dest/test/index.js",
+    "./config": "./dest/archiver/config.js"
   },
   "typedocOptions": {
     "entryPoints": [

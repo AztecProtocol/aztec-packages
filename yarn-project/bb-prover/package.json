@@ -4,9 +4,11 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./wasm": "./dest/wasm/index.js",
     "./prover": "./dest/prover/index.js",
     "./verifier": "./dest/verifier/index.js",
-    "./test": "./dest/test/index.js"
+    "./test": "./dest/test/index.js",
+    "./config": "./dest/config.js"
   },
   "bin": {
     "bb-cli": "./dest/bb/index.js"
@@ -69,6 +71,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -80,6 +83,7 @@
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^12.1.0",
+    "pako": "^2.1.0",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0"
   },

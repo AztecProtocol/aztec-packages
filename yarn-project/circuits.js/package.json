@@ -59,7 +59,8 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "!src/scripts/*"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

@@ -38,6 +38,7 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerState, getSecondsIntoSlot, orderAttestations } from './utils.js';
@@ -76,13 +77,11 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
-  private minSecondsBetweenBlocks = 0;
-  private maxSecondsBetweenBlocks = 0;
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = [];
+  private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
@@ -127,10 +126,7 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
-    this.log.info(
-      `Sequencer config set`,
-      omit(pickFromSchema(this.config, SequencerConfigSchema), 'allowedInSetup', 'allowedInTeardown'),
-    );
+    this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
@@ -140,12 +136,6 @@ export class Sequencer {
     }
     if (config.minTxsPerBlock !== undefined) {
       this.minTxsPerBLock = config.minTxsPerBlock;
-    }
-    if (config.minSecondsBetweenBlocks !== undefined) {
-      this.minSecondsBetweenBlocks = config.minSecondsBetweenBlocks;
-    }
-    if (config.maxSecondsBetweenBlocks !== undefined) {
-      this.maxSecondsBetweenBlocks = config.maxSecondsBetweenBlocks;
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
@@ -192,7 +182,7 @@ export class Sequencer {
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
@@ -339,6 +329,7 @@ export class Sequencer {
     this.setState(SequencerState.IDLE, 0n);
   }
 
+  @trackSpan('Sequencer.work')
   protected async work() {
     try {
       await this.doRealWork();
@@ -352,15 +343,6 @@ export class Sequencer {
     } finally {
       this.setState(SequencerState.IDLE, 0n);
     }
-  }
-
-  /** Whether to skip the check of min txs per block if more than maxSecondsBetweenBlocks has passed since the previous block. */
-  private skipMinTxsPerBlockCheck(historicalHeader: BlockHeader | undefined): boolean {
-    const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
-    const currentTime = Math.floor(Date.now() / 1000);
-    const elapsed = currentTime - lastBlockTime;
-
-    return this.maxSecondsBetweenBlocks > 0 && elapsed >= this.maxSecondsBetweenBlocks;
   }
 
   async mayProposeBlock(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint> {
@@ -445,53 +427,29 @@ export class Sequencer {
       `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
     );
 
-    // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-    // Do not go forward with new block if not enough time has passed since last block
-    if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
+    // We need to have at least minTxsPerBLock txs.
+    if (args.pendingTxsCount != undefined && args.pendingTxsCount < this.minTxsPerBLock) {
       this.log.verbose(
-        `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
+        `Not creating block because not enough txs in the pool (got ${args.pendingTxsCount} min ${this.minTxsPerBLock})`,
       );
       return false;
     }
 
-    const skipCheck = this.skipMinTxsPerBlockCheck(historicalHeader);
-
-    // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-    if (args.pendingTxsCount != undefined) {
-      if (args.pendingTxsCount < this.minTxsPerBLock) {
-        if (skipCheck) {
-          this.log.debug(
-            `Creating block with only ${args.pendingTxsCount} txs as more than ${this.maxSecondsBetweenBlocks}s have passed since last block`,
-          );
-        } else {
-          this.log.verbose(
-            `Not creating block because not enough txs in the pool (got ${args.pendingTxsCount} min ${this.minTxsPerBLock})`,
-          );
-          return false;
-        }
-      }
-    }
-
     // Bail if we don't have enough valid txs
-    if (args.validTxsCount != undefined) {
-      // Bail if we don't have enough valid txs
-      if (!skipCheck && args.validTxsCount < this.minTxsPerBLock) {
-        this.log.verbose(
-          `Not creating block because not enough valid txs loaded from the pool (got ${args.validTxsCount} min ${this.minTxsPerBLock})`,
-        );
-        return false;
-      }
+    if (args.validTxsCount != undefined && args.validTxsCount < this.minTxsPerBLock) {
+      this.log.verbose(
+        `Not creating block because not enough valid txs loaded from the pool (got ${args.validTxsCount} min ${this.minTxsPerBLock})`,
+      );
+      return false;
     }
 
     // TODO: This check should be processedTxs.length < this.minTxsPerBLock, so we don't publish a block with
     // less txs than the minimum. But that'd cause the entire block to be aborted and retried. Instead, we should
     // go back to the p2p pool and load more txs until we hit our minTxsPerBLock target. Only if there are no txs
     // we should bail.
-    if (args.processedTxsCount != undefined) {
-      if (args.processedTxsCount === 0 && !skipCheck && this.minTxsPerBLock > 0) {
-        this.log.verbose('No txs processed correctly to build block.');
-        return false;
-      }
+    if (args.processedTxsCount === 0 && this.minTxsPerBLock > 0) {
+      this.log.verbose('No txs processed correctly to build block.');
+      return false;
     }
 
     return true;
@@ -544,21 +502,17 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(
-          validTxs,
-          blockSize,
-          blockBuilder,
-          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
-        ),
+        processor.process(validTxs, blockSize, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+      await blockBuilder.addTxs(processedTxs);
 
       await interrupt?.(processedTxs);
 
@@ -649,7 +603,6 @@ export class Sequencer {
       const blockHash = block.hash();
       const txHashes = validTxs.map(tx => tx.getTxHash());
       this.log.info(`Built block ${block.number} with hash ${blockHash}`, {
-        txEffectsHash: block.header.contentCommitment.txsEffectsHash.toString('hex'),
         blockHash,
         globalVariables: block.header.globalVariables.toInspect(),
         txHashes,

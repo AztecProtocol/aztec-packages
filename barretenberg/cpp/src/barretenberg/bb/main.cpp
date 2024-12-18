@@ -190,8 +190,6 @@ void prove_tube(const std::string& output_path)
 {
     using namespace stdlib::recursion::honk;
 
-    using GoblinVerifierInput = ClientIVCRecursiveVerifier::GoblinVerifierInput;
-    using VerifierInput = ClientIVCRecursiveVerifier::VerifierInput;
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
@@ -211,8 +209,6 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 
-    GoblinVerifierInput goblin_verifier_input{ vk.eccvm, vk.translator };
-    VerifierInput input{ vk.mega, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
 
     // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
@@ -226,7 +222,7 @@ void prove_tube(const std::string& output_path)
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
-    ClientIVCRecursiveVerifier verifier{ builder, input };
+    ClientIVCRecursiveVerifier verifier{ builder, vk };
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
@@ -887,6 +883,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write toml file
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
+// double_verify_honk_proof as well
 template <IsUltraFlavor Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
@@ -1119,8 +1117,7 @@ int main(int argc, char* argv[])
 
         const API::Flags flags = [&args]() {
             return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
-                               .no_auto_verify = flag_present(args, "--no_auto_verify") };
+                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
         }();
 
         const std::string command = args[0];
@@ -1156,6 +1153,12 @@ int main(int argc, char* argv[])
 
             if (command == "prove_and_verify") {
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
+            }
+
+            if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
+                return 1;
             }
 
             throw_or_abort("Invalid command passed to execute_command in bb");

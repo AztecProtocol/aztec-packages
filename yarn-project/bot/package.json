@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js"
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
   },
   "inherits": [
     "../package.common.json"
@@ -64,6 +65,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",

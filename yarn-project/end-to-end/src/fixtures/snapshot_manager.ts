@@ -7,7 +7,6 @@ import {
   CheatCodes,
   type CompleteAddress,
   type DeployL1Contracts,
-  EthCheatCodes,
   Fr,
   GrumpkinScalar,
   type Logger,
@@ -16,19 +15,22 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
-import { startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
-import { type InstalledClock, install } from '@sinonjs/fake-timers';
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
-import { join } from 'path';
+import fs from 'fs/promises';
+import { tmpdir } from 'os';
+import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -50,7 +52,8 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
-  timer: InstalledClock;
+  dateProvider: TestDateProvider;
+  directoryToCleanup?: string;
 };
 
 type SnapshotEntry = {
@@ -178,7 +181,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodes(context.aztecNodeConfig.l1RpcUrl);
+    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrl);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -247,11 +250,13 @@ async function teardown(context: SubsystemsContext | undefined) {
     getLogger().info('Tearing down subsystems');
     await context.proverNode?.stop();
     await context.aztecNode.stop();
-    await context.pxe.stop();
     await context.acvmConfig?.cleanup();
+    await context.bbConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();
-    context.timer?.uninstall();
+    if (context.directoryToCleanup) {
+      await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
+    }
   } catch (err) {
     getLogger().error('Error during teardown', err);
   }
@@ -273,13 +278,18 @@ async function setupFromFresh(
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
-  // Use sinonjs fake timers
-  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
-
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
-  aztecNodeConfig.dataDirectory = statePath;
+
+  // Create a temp directory for all ephemeral state and cleanup afterwards
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
+  if (statePath === undefined) {
+    aztecNodeConfig.dataDirectory = directoryToCleanup;
+  } else {
+    aztecNodeConfig.dataDirectory = statePath;
+  }
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -299,7 +309,7 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
 
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime);
@@ -338,7 +348,7 @@ async function setupFromFresh(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );
@@ -359,7 +369,8 @@ async function setupFromFresh(
   const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
@@ -368,12 +379,13 @@ async function setupFromFresh(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
       aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
     );
   }
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
-  pxeConfig.dataDirectory = statePath;
+  pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
@@ -393,7 +405,8 @@ async function setupFromFresh(
     proverNode,
     watcher,
     cheatCodes,
-    timer,
+    dateProvider,
+    directoryToCleanup,
   };
 }
 
@@ -403,8 +416,8 @@ async function setupFromFresh(
 async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
-  // TODO: make one function
-  const timer = install({ shouldAdvanceTime: true, advanceTimeDelta: 20, toFake: ['Date'] });
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
 
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
@@ -418,7 +431,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.l1RpcUrl = rpcUrl;
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -438,7 +451,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,
   );
@@ -446,14 +459,20 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   logger.verbose('Creating aztec node...');
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry });
+  const dateProvider = new TestDateProvider();
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 
   let proverNode: ProverNode | undefined = undefined;
   if (aztecNodeConfig.startProverNode) {
     logger.verbose('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, aztecNodeConfig, aztecNode);
+    proverNode = await createAndSyncProverNode(
+      proverNodePrivateKeyHex,
+      aztecNodeConfig,
+      aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+    );
   }
 
   logger.verbose('Creating pxe...');
@@ -478,7 +497,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     },
     watcher,
     cheatCodes,
-    timer,
+    dateProvider,
+    directoryToCleanup,
   };
 }
 

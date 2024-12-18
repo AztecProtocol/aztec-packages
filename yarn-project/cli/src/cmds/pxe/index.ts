@@ -54,11 +54,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .option('-f, --follow', 'Keep polling for new blocks')
     .addOption(pxeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+      await getBlock(options.rpcUrl, blockNumber, debugLogger, log);
     });
 
   program
@@ -145,6 +144,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-node-info')
     .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
     .option('--node-url <string>', 'URL of the node.')
+    .option('--json', 'Emit output as json')
     .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
@@ -154,7 +154,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       } else {
         url = options.rpcUrl;
       }
-      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, options.json, log, logJson(log));
     });
 
   program
