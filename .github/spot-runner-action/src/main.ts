@@ -66,8 +66,9 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       // Start instance
       const instanceIdOrError =
         await ec2Client.requestMachine(
+          /* try number */ i,
           // we fallback to on-demand
-          ec2Strategy.toLocaleLowerCase() === "none"
+          ec2Strategy.toLocaleLowerCase() === "none",
         );
       // let's exit, only loop on InsufficientInstanceCapacity
       if (
@@ -80,6 +81,14 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
             ", waiting " + 5 * 2 ** backoff + " seconds and trying again."
         );
       } else {
+        try {
+          await ec2Client.waitForInstanceRunningStatus(instanceId);
+        } catch (err) {
+          // If this runner has long been terminated this transition will error out
+          // Use this fact ot try again
+          console.error(err);
+          continue;
+        }
         instanceId = instanceIdOrError;
         break;
       }
