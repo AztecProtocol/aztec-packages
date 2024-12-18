@@ -2,18 +2,17 @@
 set -euo pipefail
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 
-# Ensure AZTEC_CACHE_REBUILD_PATTERNS is set
-if [[ -z "${REBUILD_PATTERNS:-}" && -z "${AZTEC_CACHE_REBUILD_PATTERNS:-}" && "$#" = 0 ]]; then
-    echo "Error: REBUILD_PATTERNS and AZTEC_CACHE_REBUILD_PATTERNS environment variable is not set, and no args."
+# Ensure REBUILD_PATTERNS or args are set
+if [[ -z "${REBUILD_PATTERNS:-}" &&  "$#" = 0 ]]; then
+    echo "Error: No arguments provided and REBUILD_PATTERNS environment variable is not set."
     exit 1
 fi
 
 # If too many spurious cache misses: can be customized to pin artifacts to a specific version
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
+# Literal patterns can be provided with REBUILD_PATTERNS
 REBUILD_PATTERNS=${REBUILD_PATTERNS:-}
-# Literal patterns can be provided
-[ -n "${AZTEC_CACHE_REBUILD_PATTERNS:-}" ] && REBUILD_PATTERNS+=$'\n'$(cat $AZTEC_CACHE_REBUILD_PATTERNS)
 if [ "$#" != 0 ]; then
   REBUILD_PATTERNS+=$'\n'$(cat "$@")
 fi
