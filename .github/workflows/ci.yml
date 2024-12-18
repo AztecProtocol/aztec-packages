@@ -223,26 +223,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-      - name: Determine runner type
-        id: runner_type
-        run: |
-          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
-          echo "type=$runner" >> $GITHUB_OUTPUT
-      - name: Setup and Test
+      # - uses: ./.github/ci-setup-action
+      # - name: Determine runner type
+      #   id: runner_type
+      #   run: |
+      #     runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
+      #     echo "type=$runner" >> $GITHUB_OUTPUT
+      - name: Test
         timeout-minutes: 40
-        uses: ./.github/ensure-tester
-        with:
-          username: ${{ needs.configure.outputs.username }}
-          runner_type: ${{ steps.runner_type.outputs.type }}
-          run: |
-            artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
-            if ci3/test_should_run "$artifact"; then
-              docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-              ci3/cache_upload_flag "$artifact"
-            fi
+        run: |
+          artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+          if ci3/test_should_run "$artifact"; then
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+            ci3/cache_upload_flag "$artifact"
+          fi
+      # - name: Setup and Test
+      #   timeout-minutes: 40
+      #   uses: ./.github/ensure-tester
+      #   with:
+      #     username: ${{ needs.configure.outputs.username }}
+      #     runner_type: ${{ steps.runner_type.outputs.type }}
+      #     run: |
+      #       artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+      #       if ci3/test_should_run "$artifact"; then
+      #         docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+      #         docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+      #         FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+      #         ci3/cache_upload_flag "$artifact"
+      #       fi
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -380,6 +390,26 @@ jobs:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # - test: gating-passive.test.ts
+          #   values: 16-validators
+          #   runner_type: 16core-tester-x86
+          #   timeout: 60
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
