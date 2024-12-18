@@ -155,8 +155,7 @@ case "$cmd" in
     github_endgroup
     exit
   ;;
-  "image-e2e")
-    ./bootstrap.sh image-aztec
+  "_image-e2e")
     image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
     docker pull $image &>/dev/null || true
     if docker_has_image $image; then
@@ -176,6 +175,8 @@ case "$cmd" in
     fi
     github_endgroup
     exit
+  "image-e2e")
+    parallel ./bootstrap.sh ::: image-aztec _image-e2e
   ;;
   "image-faucet")
     image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
