@@ -311,6 +311,7 @@ describe('prover-node', () => {
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
   describe('Using a p2p coordination', () => {
     let bootnode: BootstrapNode;
+    let epochCache: MockProxy<EpochCache>;
     let p2pClient: P2PClient<P2PClientType.Prover>;
     let otherP2PClient: P2PClient<P2PClientType.Prover>;
 
@@ -319,7 +320,7 @@ describe('prover-node', () => {
         txPool: new InMemoryTxPool(telemetryClient),
         epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
       };
-      const epochCache = mock<EpochCache>();
+      epochCache = mock<EpochCache>();
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],
@@ -373,14 +374,21 @@ describe('prover-node', () => {
       });
 
       it('Should send a proof quote via p2p to another node', async () => {
+        const epochNumber = 10n;
+        epochCache.getEpochAndSlotNow.mockReturnValue({
+          epoch: epochNumber,
+          slot: epochNumber * 2n,
+          ts: BigInt(Date.now()),
+        });
+
         // Check that the p2p client receives the quote (casted as any to access private property)
         const p2pEpochReceivedSpy = jest.spyOn((otherP2PClient as any).p2pService, 'processEpochProofQuoteFromPeer');
 
         // Check the other node's pool has no quotes yet
-        const peerInitialState = await otherP2PClient.getEpochProofQuotes(10n);
+        const peerInitialState = await otherP2PClient.getEpochProofQuotes(epochNumber);
         expect(peerInitialState.length).toEqual(0);
 
-        await proverNode.handleEpochCompleted(10n);
+        await proverNode.handleEpochCompleted(epochNumber);
 
         // Wait for message to be propagated
         await retry(
@@ -394,8 +402,8 @@ describe('prover-node', () => {
         );
 
         // We should be able to retreive the quote from the other node
-        const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(10n);
-        expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(10n));
+        const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(epochNumber);
+        expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(epochNumber));
       });
     });
   });
