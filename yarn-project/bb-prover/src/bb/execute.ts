@@ -889,6 +889,7 @@ export async function computeGateCountForCircuit(
   circuitName: string,
   bytecode: Buffer,
   flavor: UltraHonkFlavor | 'mega_honk',
+  log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -912,6 +913,7 @@ export async function computeGateCountForCircuit(
   let stdout = '';
   const logHandler = (message: string) => {
     stdout += message;
+    log(message);
   };
 
   try {
@@ -921,9 +923,9 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_mega_honk` : `gates`,
+      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
       ['-b', bytecodePath, '-v'],
-      logHandler,
+      logHandler
     );
     const duration = timer.ms();
 
