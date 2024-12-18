@@ -59,17 +59,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
   },
-  minSecondsBetweenBlocks: {
-    env: 'SEQ_MIN_SECONDS_BETWEEN_BLOCKS',
-    description: 'The minimum number of seconds in-between consecutive blocks.',
-    ...numberConfigHelper(0),
-  },
-  maxSecondsBetweenBlocks: {
-    env: 'SEQ_MAX_SECONDS_BETWEEN_BLOCKS',
-    description:
-      'The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached.',
-    ...numberConfigHelper(0),
-  },
   coinbase: {
     env: 'COINBASE',
     parseEnv: (val: string) => EthAddress.fromString(val),
