@@ -91,7 +91,7 @@ runs:
       env:
         INPUT: ${{ inputs.run }}
       run: |
-        .github/ensure-test/wrapper
+        .github/ensure-test/run ${{ steps.select_instance.outputs.ttl }}
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-tester

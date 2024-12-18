@@ -85,7 +85,7 @@ runs:
       env:
         INPUT: ${{ inputs.run }}
       run: |
-        .github/ensure-builder/run
+        .github/ensure-builder/run ${{ steps.select_instance.outputs.ttl }}
 
     - name: Re-run with On-Demand
       uses: ./.github/ensure-builder
