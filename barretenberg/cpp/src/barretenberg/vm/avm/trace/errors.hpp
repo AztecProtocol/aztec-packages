@@ -21,6 +21,7 @@ enum class AvmError : uint32_t {
     DUPLICATE_NULLIFIER,
     SIDE_EFFECT_LIMIT_REACHED,
     OUT_OF_GAS,
+    NO_BYTECODE_FOUND,
 };
 
 } // namespace bb::avm_trace

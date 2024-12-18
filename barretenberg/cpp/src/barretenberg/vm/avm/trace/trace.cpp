@@ -178,6 +178,10 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         // nullifier read hint for the contract address
         NullifierReadTreeHint nullifier_read_hint = bytecode_hint.contract_instance.membership_hint;
 
+        vinfo("contract address: ", contract_address);
+        vinfo("contract address nullifier: ", contract_address_nullifier);
+        vinfo("low leaf nullifier: ", nullifier_read_hint.low_leaf_preimage.nullifier);
+        vinfo("low leaf next nullifier: ", nullifier_read_hint.low_leaf_preimage.next_nullifier);
         // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
         // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
         exists = nullifier_read_hint.low_leaf_preimage.nullifier == contract_address_nullifier;
@@ -197,10 +201,8 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         } else {
             // This was a non-membership proof!
             // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
-            // Show that the contract address nullifier meets the non membership conditions (sandwich or max)
-            ASSERT(contract_address_nullifier < nullifier_read_hint.low_leaf_preimage.nullifier &&
-                   (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
-                    contract_address_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
+            AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(nullifier_read_hint.low_leaf_preimage,
+                                                                             contract_address_nullifier);
         }
     }
 
@@ -208,7 +210,6 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         vinfo("Found bytecode for contract address: ", contract_address);
         return bytecode_hint.bytecode;
     }
-    // TODO(dbanks12): handle non-existent bytecode
     vinfo("Bytecode not found for contract address: ", contract_address);
     throw std::runtime_error("Bytecode not found");
 }
@@ -3739,44 +3740,46 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     pc += Deserialization::get_pc_increment(opcode);
 
-    // Save the current gas left in the context before pushing it to stack
-    // It will be used on RETURN/REVERT/halt to remember how much gas the caller had left.
-    current_ext_call_ctx.l2_gas_left = gas_trace_builder.get_l2_gas_left();
-    current_ext_call_ctx.da_gas_left = gas_trace_builder.get_da_gas_left();
+    if (is_ok(error)) {
+        // Save the current gas left in the context before pushing it to stack
+        // It will be used on RETURN/REVERT/halt to remember how much gas the caller had left.
+        current_ext_call_ctx.l2_gas_left = gas_trace_builder.get_l2_gas_left();
+        current_ext_call_ctx.da_gas_left = gas_trace_builder.get_da_gas_left();
 
-    // We push the current ext call ctx onto the stack and initialize a new one
-    current_ext_call_ctx.last_pc = pc;
-    current_ext_call_ctx.success_offset = resolved_success_offset,
-    external_call_ctx_stack.emplace(current_ext_call_ctx);
+        // We push the current ext call ctx onto the stack and initialize a new one
+        current_ext_call_ctx.last_pc = pc;
+        current_ext_call_ctx.success_offset = resolved_success_offset,
+        external_call_ctx_stack.emplace(current_ext_call_ctx);
 
-    // Ext Ctx setup
-    std::vector<FF> calldata;
-    read_slice_from_memory(resolved_args_offset, args_size, calldata);
+        // Ext Ctx setup
+        std::vector<FF> calldata;
+        read_slice_from_memory(resolved_args_offset, args_size, calldata);
 
-    set_call_ptr(static_cast<uint8_t>(clk));
+        set_call_ptr(static_cast<uint8_t>(clk));
 
-    // Don't try allocating more than the gas that is actually left
-    const auto l2_gas_allocated_to_nested_call =
-        std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
-    const auto da_gas_allocated_to_nested_call =
-        std::min(static_cast<uint32_t>(read_gas_da.val), gas_trace_builder.get_da_gas_left());
-    current_ext_call_ctx = ExtCallCtx{
-        .context_id = static_cast<uint8_t>(clk),
-        .parent_id = current_ext_call_ctx.context_id,
-        .contract_address = read_addr.val,
-        .calldata = calldata,
-        .nested_returndata = {},
-        .last_pc = 0,
-        .success_offset = 0,
-        .start_l2_gas_left = l2_gas_allocated_to_nested_call,
-        .start_da_gas_left = da_gas_allocated_to_nested_call,
-        .l2_gas_left = l2_gas_allocated_to_nested_call,
-        .da_gas_left = da_gas_allocated_to_nested_call,
-        .internal_return_ptr_stack = {},
-    };
+        // Don't try allocating more than the gas that is actually left
+        const auto l2_gas_allocated_to_nested_call =
+            std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
+        const auto da_gas_allocated_to_nested_call =
+            std::min(static_cast<uint32_t>(read_gas_da.val), gas_trace_builder.get_da_gas_left());
+        current_ext_call_ctx = ExtCallCtx{
+            .context_id = static_cast<uint8_t>(clk),
+            .parent_id = current_ext_call_ctx.context_id,
+            .contract_address = read_addr.val,
+            .calldata = calldata,
+            .nested_returndata = {},
+            .last_pc = 0,
+            .success_offset = 0,
+            .start_l2_gas_left = l2_gas_allocated_to_nested_call,
+            .start_da_gas_left = da_gas_allocated_to_nested_call,
+            .l2_gas_left = l2_gas_allocated_to_nested_call,
+            .da_gas_left = da_gas_allocated_to_nested_call,
+            .internal_return_ptr_stack = {},
+        };
 
-    allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
-    set_pc(0);
+        allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
+        set_pc(0);
+    }
 
     return error;
 }

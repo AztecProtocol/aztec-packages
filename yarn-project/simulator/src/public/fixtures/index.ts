@@ -40,6 +40,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   functionName: string,
   calldata: Fr[] = [],
   expectRevert: boolean = false,
+  skipContractDeployments: boolean = false,
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
   const sender = AztecAddress.random();
@@ -52,21 +53,24 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   const telemetry = new NoopTelemetryClient();
   const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
-  const contractDataSource = new MockedAvmTestContractDataSource();
+  const contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
   const contractInstance = contractDataSource.contractInstance;
-  const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-    contractInstance.address.toField(),
-  );
-  await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-  // other contract address used by the bulk test's GETCONTRACTINSTANCE test
-  const otherContractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-    contractDataSource.otherContractInstance.address.toField(),
-  );
-  await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
+
+  if (!skipContractDeployments) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractInstance.address.toField(),
+      );
+      await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+      // other contract address used by the bulk test's GETCONTRACTINSTANCE test
+      const otherContractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractDataSource.otherContractInstance.address.toField(),
+      );
+      await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
+  }
 
   const simulator = new PublicTxSimulator(
     merkleTrees,
@@ -154,7 +158,7 @@ export class MockedAvmTestContractDataSource {
   private bytecodeCommitment: Fr;
   public otherContractInstance: ContractInstanceWithAddress;
 
-  constructor() {
+  constructor(private noContractsDeployed: boolean = false) {
     this.bytecode = getAvmTestContractBytecode(this.fnName);
     this.fnSelector = getAvmTestContractFunctionSelector(this.fnName);
     this.publicFn = { bytecode: this.bytecode, selector: this.fnSelector };
@@ -198,12 +202,15 @@ export class MockedAvmTestContractDataSource {
     return Promise.resolve();
   }
 
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress> {
-    if (address.equals(this.contractInstance.address)) {
-      return Promise.resolve(this.contractInstance);
-    } else {
-      return Promise.resolve(this.otherContractInstance);
+  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    if (!this.noContractsDeployed) {
+      if (address.equals(this.contractInstance.address)) {
+        return Promise.resolve(this.contractInstance);
+      } else if (address.equals(this.otherContractInstance.address)) {
+        return Promise.resolve(this.otherContractInstance);
+      }
     }
+    return Promise.resolve(undefined);
   }
 
   getContractClassIds(): Promise<Fr[]> {
