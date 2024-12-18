@@ -203,7 +203,7 @@ jobs:
       - name: Publish aztec manifests
         if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
         run: |
-          if [ "${{ github.ref_name }}" == "release/*" ]; then
+          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
             TAG="${{ github.ref_name }}"
             VERSION="${TAG#release/}"
             DIST_TAG=devnet
@@ -274,7 +274,7 @@ jobs:
       - name: Set tags and versions
         id: version_step
         run: |
-          if [ "${{ github.ref_name }}" == "release/*" ]; then
+          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
             DIST_TAG=devnet
             TAG=${{ env.DEPLOY_TAG }}
             VERSION=${TAG#aztec-packages-v}-devnet
@@ -348,7 +348,7 @@ jobs:
       - name: Publish aztec-up
         working-directory: ./aztec-up/terraform
         run: |
-          if [ "${{ github.ref_name }}" == "release/*" ]; then
+          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
             TAG="${{ github.ref_name }}"
             VERSION="${TAG#release/}"
           elif [ -n "${{ env.DEPLOY_TAG }}" ]; then

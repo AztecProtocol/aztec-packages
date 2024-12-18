@@ -220,12 +220,12 @@ class AvmTraceBuilder {
                              uint32_t output_offset,
                              uint32_t point_length_offset);
     // Conversions
-    AvmError op_to_radix_be(uint8_t indirect,
+    AvmError op_to_radix_be(uint16_t indirect,
                             uint32_t src_offset,
-                            uint32_t dst_offset,
                             uint32_t radix_offset,
-                            uint32_t num_limbs,
-                            uint8_t output_bits);
+                            uint32_t num_limbs_offset,
+                            uint32_t output_bits_offset,
+                            uint32_t dst_offset);
 
     std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
@@ -239,6 +239,8 @@ class AvmTraceBuilder {
                                          const std::vector<FF>& siloed_note_hashes);
     void pay_fee();
     void pad_trees();
+    void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
+    void handle_exceptional_halt();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -264,14 +266,19 @@ class AvmTraceBuilder {
     struct ExtCallCtx {
         uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
         uint32_t parent_id;
+        bool is_static_call = false;
         FF contract_address{};
         std::vector<FF> calldata;
         std::vector<FF> nested_returndata;
         uint32_t last_pc;
         uint32_t success_offset;
-        uint32_t l2_gas;
-        uint32_t da_gas;
+        uint32_t start_l2_gas_left;
+        uint32_t start_da_gas_left;
+        uint32_t l2_gas_left; // as of start of latest nested call
+        uint32_t da_gas_left; // as of start of latest nested call
         std::stack<uint32_t> internal_return_ptr_stack;
+        TreeSnapshots tree_snapshot; // This is the tree state at the time of the call
+        std::unordered_set<FF> public_data_unique_writes;
     };
 
     ExtCallCtx current_ext_call_ctx{};
@@ -363,6 +370,8 @@ class AvmTraceBuilder {
                                       IntermRegister reg,
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
     uint32_t get_inserted_note_hashes_count();
+    uint32_t get_inserted_nullifiers_count();
+    uint32_t get_public_data_writes_count();
     FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
@@ -371,7 +380,7 @@ class AvmTraceBuilder {
     bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
-    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
     template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
 };
 

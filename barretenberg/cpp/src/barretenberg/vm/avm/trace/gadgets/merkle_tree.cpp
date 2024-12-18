@@ -146,6 +146,8 @@ FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t cl
         // Update the low leaf
         tree_snapshots.public_data_tree.root =
             unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
+        // Update the set of writes to unique slots
+        public_data_unique_writes.insert(slot);
         return tree_snapshots.public_data_tree.root;
     }
     // Check the low leaf conditions (i.e. the slot is sandwiched by the low nullifier, or the new slot is a max
@@ -172,6 +174,8 @@ FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t cl
     // Insert the new leaf into the tree
     tree_snapshots.public_data_tree.root = unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
     tree_snapshots.public_data_tree.size++;
+    // Update the set of writes to unique slots
+    public_data_unique_writes.insert(slot);
     return tree_snapshots.public_data_tree.root;
 }
 

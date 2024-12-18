@@ -269,6 +269,7 @@ basebox:
           tmux \
           vim \
           zsh \
+          inotify-tools \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
   # Install earthly.
@@ -361,7 +362,7 @@ devbox:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/devbox:2.2-$TARGETARCH
   # Save it without the arch tag as this is what's referenced in devcontainer.json
-  SAVE IMAGE aztecprotocol/devbox:2.1
+  SAVE IMAGE aztecprotocol/devbox:2.2
 
 devbox-manifest:
   LET VERSION = 2.1

@@ -12,6 +12,7 @@ export type CliFeeArgs = {
   gasLimits?: string;
   payment?: string;
   maxFeesPerGas?: string;
+  maxPriorityFeesPerGas?: string;
   estimateGas?: boolean;
 };
 
@@ -69,7 +70,11 @@ export class FeeOpts implements IFeeOpts {
     return [
       new Option('--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>', 'Gas limits for the tx.'),
       FeeOpts.paymentMethodOption(),
-      new Option('--max-fee-per-gas <da=100,l2=100>', 'Maximum fee per gas unit for DA and L2 computation.'),
+      new Option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.'),
+      new Option(
+        '--max-priority-fees-per-gas <da=0,l2=0>',
+        'Maximum priority fees per gas unit for DA and L2 computation.',
+      ),
       new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
       new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
     ];
@@ -77,12 +82,13 @@ export class FeeOpts implements IFeeOpts {
 
   static async fromCli(args: CliFeeArgs, pxe: PXE, log: LogFn, db?: WalletDB) {
     const estimateOnly = args.estimateGasOnly;
-    const gasFees = args.maxFeesPerGas
-      ? parseGasFees(args.maxFeesPerGas)
-      : { maxFeesPerGas: await pxe.getCurrentBaseFees() };
+    const gasLimits = args.gasLimits ? parseGasLimits(args.gasLimits) : {};
+    const maxFeesPerGas = args.maxFeesPerGas ? parseGasFees(args.maxFeesPerGas) : await pxe.getCurrentBaseFees();
+    const maxPriorityFeesPerGas = args.maxPriorityFeesPerGas ? parseGasFees(args.maxPriorityFeesPerGas) : undefined;
     const gasSettings = GasSettings.default({
-      ...gasFees,
-      ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
+      ...gasLimits,
+      maxFeesPerGas,
+      maxPriorityFeesPerGas,
     });
 
     if (!args.gasLimits && !args.payment) {
@@ -129,15 +135,10 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    if (!parsed.feeRecipient) {
-      // Recipient of a fee in the refund flow
-      throw new Error('Missing "feeRecipient" in payment option');
-    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
-    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
+    return [AztecAddress.fromString(parsed.asset), fpc];
   };
 
   return async (sender: AccountWallet) => {
@@ -176,13 +177,13 @@ export function parsePaymentMethod(
         const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PublicFeePaymentMethod(asset, fpc, sender);
+        return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
-        log(`Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient}`);
+        const [asset, fpc] = getFpcOpts(parsed, db);
+        log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
+        return new PrivateFeePaymentMethod(fpc, sender);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');
@@ -212,7 +213,7 @@ function parseGasLimits(gasLimits: string): { gasLimits: Gas; teardownGasLimits:
   };
 }
 
-function parseGasFees(gasFees: string): { maxFeesPerGas: GasFees } {
+export function parseGasFees(gasFees: string): GasFees {
   const parsed = gasFees.split(',').reduce((acc, fee) => {
     const [dimension, value] = fee.split('=');
     acc[dimension] = parseInt(value, 10);
@@ -226,5 +227,5 @@ function parseGasFees(gasFees: string): { maxFeesPerGas: GasFees } {
     }
   }
 
-  return { maxFeesPerGas: new GasFees(parsed.da, parsed.l2) };
+  return new GasFees(parsed.da, parsed.l2);
 }
