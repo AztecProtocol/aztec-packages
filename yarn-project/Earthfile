@@ -195,9 +195,9 @@ export-aztec-faucet:
 end-to-end-prod:
     BUILD ../spartan/+charts
     FROM +cli-base
-    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     # A fast build is not enough for the end-to-end tests, we still need to run webpack
     RUN cd end-to-end && yarn build:web
+    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
     COPY --dir ../spartan/+charts/usr/src/spartan /usr/src/spartan
