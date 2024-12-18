@@ -115,6 +115,19 @@ describe('In-Memory Slasher Client', () => {
         proven: { number: 90, hash: expect.any(String) },
         finalized: { number: 90, hash: expect.any(String) },
       });
+
+      const slashEvents = (client as any).slashEvents;
+
+      const slotsIntoRound = BigInt(90) % BigInt(config.slashingRoundSize);
+      const toNext = slotsIntoRound == 0n ? 0n : BigInt(config.slashingRoundSize) - slotsIntoRound;
+      const expectedLifetime = BigInt(90) + toNext + BigInt(config.slashingRoundSize);
+
+      expect(slashEvents).toHaveLength(1);
+      expect(slashEvents[0]).toEqual({
+        epoch: BigInt(Math.floor(90 / config.aztecEpochDuration)),
+        amount: 0n,
+        lifetime: expectedLifetime,
+      });
     });
   });
 });
