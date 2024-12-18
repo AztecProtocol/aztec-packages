@@ -11,7 +11,7 @@ namespace bb {
 template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit,
-                                        [[maybe_unused]] const size_t dyadic_circuit_size,
+                                        const size_t dyadic_circuit_size,
                                         const size_t additional_offset = 0)
 {
     // Create lookup selector polynomials which interpolate each table column.

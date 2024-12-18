@@ -33,9 +33,10 @@ struct ExecutionTraceUsageTracker {
     size_t max_tables_size = 0;
 
     // For printing only. Must match the order of the members in the arithmetization
-    static constexpr std::array<std::string_view, 13> block_labels{ "busread",
+
+    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+                                                                    "busread",
                                                                     "lookup",
-                                                                    "ecc_op",
                                                                     "pub_inputs",
                                                                     "arithmetic",
                                                                     "delta_range",
