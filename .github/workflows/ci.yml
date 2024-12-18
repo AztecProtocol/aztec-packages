@@ -739,27 +739,18 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - test: transfer.test.ts
-            values: ci
-            runner_type: 16core-tester-x86
-            timeout: 60
-          # TODO: Enable this once stable
-          # - test: transfer.test.ts
-          #   values: 48-validators
-          #   runner_type: 32core-tester-x86
-          #   timeout: 90
           - test: reorg.test.ts
             values: ci
             runner_type: 16core-tester-x86-high-memory
-            timeout: 90
+            timeout: 30
           - test: 4epochs.test.ts
             values: ci
             runner_type: 16core-tester-x86
-            timeout: 60
-          # - test: gating-passive.test.ts
-          #   values: ci
-          #   runner_type: 16core-tester-x86
-          #   timeout: 60
+            timeout: 20
+          - test: gating-passive.test.ts
+            values: ci
+            runner_type: 16core-tester-x86
+            timeout: 20
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
