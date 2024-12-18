@@ -99,7 +99,7 @@ case "$cmd" in
   "trigger")
     # Trigger workflow and drop through to start logging.
     # We use this label trick because triggering the workflow direct doesn't associate with the PR.
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -z "$pr_number" ]; then
       echo "No pull request found for branch $BRANCH."
       exit 1
@@ -180,7 +180,7 @@ case "$cmd" in
     exit 0
     ;;
   "ready")
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -n "$pr_number" ]; then
       gh pr ready "$pr_number"
       echo "Pull request #$pr_number has been set to ready."
