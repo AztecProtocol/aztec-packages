@@ -123,8 +123,8 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic,
       msgSender,
       skipTxValidation,
-      profile,
       enforceFeePayment,
+      profile,
       this.scopes,
     );
   }
