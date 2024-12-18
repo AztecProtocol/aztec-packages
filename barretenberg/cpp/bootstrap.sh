@@ -121,6 +121,11 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
+  "ls-cache")
+    cache_ls barretenberg-release-$hash.tar.gz
+    cache_ls barretenberg-release-world-state-$hash.tar.gz
+    cache_ls barretenberg-wasm-$hash.tar.gz
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

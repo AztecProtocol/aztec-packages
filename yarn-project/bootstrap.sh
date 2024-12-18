@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns* \
+hash=$(cache_content_hash ../noir/.rebuild_patterns \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
@@ -41,10 +41,18 @@ function build {
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
+    if [[ "$files_to_upload" =~ "world-state/build/" ]]; then
+      # TODO(ci3) this is a kludge - why does this happen?
+      echo "Error: world-state/build/ is not present in the files to upload. Erroring to prevent bad cache."
+      exit 1
+    fi
+
     cache_upload $tar_file $files_to_upload
     echo
     echo -e "${green}Yarn project successfully built!${reset}"
   fi
+  # Kludge: TODO find out why world state napi is sometimes not in the bundle
+  if
   github_endgroup
 }
 
