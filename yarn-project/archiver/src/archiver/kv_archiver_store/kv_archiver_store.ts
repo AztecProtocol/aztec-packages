@@ -17,7 +17,7 @@ import {
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -62,7 +62,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  async registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+  registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
     for (const [selector, name] of Object.entries(names)) {
       this.functionNames.set(selector, name);
     }

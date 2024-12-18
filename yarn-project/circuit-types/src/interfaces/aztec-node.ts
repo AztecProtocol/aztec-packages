@@ -17,7 +17,6 @@ import {
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
-import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';

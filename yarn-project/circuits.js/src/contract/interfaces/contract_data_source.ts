@@ -1,4 +1,4 @@
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
