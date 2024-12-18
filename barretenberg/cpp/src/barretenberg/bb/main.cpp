@@ -939,11 +939,14 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
 
+    ASSERT(recursive);
+
     uint32_t honk_recursion = 0;
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
@@ -959,7 +962,8 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     VerificationKey verification_key(prover.proving_key->proving_key);
 
     // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
-    std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key);
+    std::string toml_content =
+        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data<Flavor>(proof, verification_key);
 
     // Write all components to the TOML file
     std::string toml_path = outputPath + "/Prover.toml";
@@ -1290,6 +1294,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_recursion_inputs_honk") {
             std::string output_path = get_option(args, "-o", "./target");
             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
+        } else if (command == "write_recursion_inputs_rollup_honk") {
+            std::string output_path = get_option(args, "-o", "./target");
+            write_recursion_inputs_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_public_inputs_path =
