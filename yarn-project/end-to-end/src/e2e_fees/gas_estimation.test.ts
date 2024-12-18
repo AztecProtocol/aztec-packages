@@ -96,7 +96,7 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with public payment method', async () => {
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet);
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
