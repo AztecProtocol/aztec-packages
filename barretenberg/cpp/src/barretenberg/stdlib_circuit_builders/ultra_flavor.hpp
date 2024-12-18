@@ -42,7 +42,7 @@ class UltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
     // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 44;
+    static constexpr size_t NUM_ALL_ENTITIES = 40;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
@@ -52,14 +52,10 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
-    // The number of shifted tables
-    static constexpr size_t NUM_SHIFTED_TABLES = 4;
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
-                                NUM_SHIFTED_WITNESSES);
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
@@ -129,11 +125,11 @@ class UltraFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
+                              q_lookup,             // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
                               q_poseidon2_external, // column 11
                               q_poseidon2_internal, // column 12
                               sigma_1,              // column 13
@@ -156,8 +152,9 @@ class UltraFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
-                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_lookup, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -183,15 +180,15 @@ class UltraFlavor {
                               lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+        auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShitftedEntities, containing shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -200,33 +197,7 @@ class UltraFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**
@@ -258,30 +229,15 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
-                               WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
 
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // getter for all witnesses including shifted ones
         auto get_all_witnesses()
         {
-            return concatenate(WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_witnesses());
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -481,11 +437,11 @@ class UltraFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
                         const Commitment& sigma_1,
@@ -515,11 +471,11 @@ class UltraFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
             this->sigma_1 = sigma_1;
@@ -551,11 +507,11 @@ class UltraFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -641,11 +597,11 @@ class UltraFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_lookup = "Q_LOOKUP";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
@@ -682,11 +638,11 @@ class UltraFlavor {
             this->q_r = verification_key->q_r;
             this->q_o = verification_key->q_o;
             this->q_4 = verification_key->q_4;
+            this->q_lookup = verification_key->q_lookup;
             this->q_arith = verification_key->q_arith;
             this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
             this->q_poseidon2_external = verification_key->q_poseidon2_external;
             this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;

@@ -62,6 +62,19 @@ export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * @param range - The range of keys to iterate over
    */
   keys(range?: Range<K>): IterableIterator<K>;
+
+  /**
+   * Clears the map.
+   */
+  clear(): Promise<void>;
+}
+
+export interface AztecMapWithSize<K extends Key, V> extends AztecMap<K, V> {
+  /**
+   * Gets the size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
 }
 
 /**
@@ -80,6 +93,14 @@ export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
    * @param val - The value to delete
    */
   deleteValue(key: K, val: V): Promise<void>;
+}
+
+export interface AztecMultiMapWithSize<K extends Key, V> extends AztecMultiMap<K, V> {
+  /**
+   * Gets the size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
 }
 
 /**
