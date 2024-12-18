@@ -479,6 +479,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    enforceFeePayment: boolean = true,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -516,7 +517,7 @@ export class PXEService implements PXE {
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx);
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
       }
 
       if (!skipTxValidation) {
@@ -773,11 +774,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx) {
+  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx);
+      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
       if (result.revertReason) {
         throw result.revertReason;
       }

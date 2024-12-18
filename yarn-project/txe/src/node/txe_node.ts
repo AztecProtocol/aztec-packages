@@ -546,7 +546,7 @@ export class TXENode implements AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(_tx: Tx): Promise<PublicSimulationOutput> {
+  simulatePublicCalls(_tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     throw new Error('TXE Node method simulatePublicCalls not implemented');
   }
 

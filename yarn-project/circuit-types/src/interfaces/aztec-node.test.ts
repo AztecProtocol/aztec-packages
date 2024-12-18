@@ -556,7 +556,7 @@ class MockAztecNode implements AztecNode {
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
-  simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
+  simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }

@@ -43,12 +43,14 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor.
    * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
+   * @param enforceFeePayment - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
+    enforceFeePayment: boolean,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
@@ -59,6 +61,7 @@ export class PublicProcessorFactory {
       this.telemetryClient,
       globalVariables,
       /*doMerkleOperations=*/ true,
+      enforceFeePayment,
     );
 
     return new PublicProcessor(

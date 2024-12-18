@@ -198,6 +198,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -482,6 +483,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       TxExecutionRequest.schema,
       z.boolean(),
       optional(schemas.AztecAddress),
+      optional(z.boolean()),
       optional(z.boolean()),
       optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),
