@@ -1,6 +1,4 @@
 #!/bin/bash
-# Argument 1 is the command to run.
-# Argument 2 is the unique name of the target instance. Defaults to the branch name.
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-}
@@ -148,31 +146,31 @@ case "$cmd" in
     exit 0
     ;;
   "shell")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
+    exit 0
     ;;
   "attach")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
-      exit 0
-    ;;
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+    exit 0
+   ;;
   "log")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
+    exit 0
     ;;
   "shell-host")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    exit 0
     ;;
   "draft")
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -n "$pr_number" ]; then
       gh pr ready "$pr_number" --undo
       echo "Pull request #$pr_number has been set to draft."
@@ -205,7 +203,6 @@ case "$cmd" in
     exit 0
     ;;
   "gha-url")
-    # TODO(ci3) change over to CI3 once fully enabled.
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
     run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
     if [ -z "$run_url" ]; then
