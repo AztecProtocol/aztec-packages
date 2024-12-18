@@ -22,6 +22,9 @@ echo $1 | docker login -u aztecprotocolci --password-stdin
 wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
 chmod +x ./yq
 sudo mv ./yq /usr/bin/yq
+wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq 2>&1 >/dev/null
+chmod +x ./jq
+sudo mv ./jq /usr/bin/jq
 ci3/earthly_install
 # Run command.
 ci3/aws_handle_evict "set -eu; $INPUT"

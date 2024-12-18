@@ -10,9 +10,6 @@ on:
       username:
         required: true
         type: string
-      runner_action:
-        default: start
-        type: string
       runner_type:
         required: true
         type: string
@@ -54,5 +51,4 @@ jobs:
       - name: Start EC2 runner
         uses: ./.github/ensure-builder
         with:
-          runner_action: ${{ inputs.runner_action }}
           runner_type: ${{ inputs.runner_type }}

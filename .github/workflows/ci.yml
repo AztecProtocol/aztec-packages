@@ -477,10 +477,9 @@ jobs:
             fi
       - name: Run Bench
         uses: ./.github/ensure-tester
-        env:
-          USERNAME: ${{ needs.configure.outputs.username }}
         timeout-minutes: 40
         with:
+          username: ${{ needs.configure.outputs.username }}
           runner_type: 16core-tester-x86
           run: |
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}

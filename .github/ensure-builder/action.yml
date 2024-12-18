@@ -16,8 +16,6 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - name: CI Setup
-      uses: ./.github/ci-setup-action
     - name: Select Instance Type and AMI
       id: select_instance
       shell: bash
