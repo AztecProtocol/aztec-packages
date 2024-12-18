@@ -461,7 +461,7 @@ jobs:
             fi
       - name: Copy Network Logs
         if: always()
-        run: copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -503,7 +503,7 @@ jobs:
               ci3/cache_upload_flag bb-bench-$HASH
             fi
       - name: Copy Bench.json
-        run: copy_from_tester barretenberg/cpp/bench.json bench.json || true
+        run: scripts/copy_from_tester barretenberg/cpp/bench.json bench.json || true
       - name: Store benchmark result
         if: github.ref == 'refs/heads/master'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
@@ -574,7 +574,7 @@ jobs:
             scripts/earthly-ci --artifact ./noir-projects/+gates-report/gates_report.json
       - name: Copy Report
         run: |
-          copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
+          scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
         uses: vezenovm/noir-gates-diff@510d7da8a7b027510ca0734761dfa9bcf3e8309d
@@ -612,7 +612,7 @@ jobs:
             scripts/earthly-ci --artifact ./noir-projects/+public-functions-report/public_functions_report.json
       - name: Copy Report
         run: |
-          copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
+          scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
         uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48

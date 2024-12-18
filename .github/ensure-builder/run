@@ -20,7 +20,7 @@ while ! systemctl is-active --quiet docker; do
     exit 1
   fi
 done
-echo $1 | docker login -u aztecprotocolci --password-stdin
+echo $1 | ci3/dump_fail docker login -u aztecprotocolci --password-stdin
 if ! command -v yq >/dev/null; then
   wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
   chmod +x ./yq
