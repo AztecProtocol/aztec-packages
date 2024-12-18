@@ -40,6 +40,10 @@ template <typename Flavor> class SumcheckProverRound {
   public:
     using FF = typename Flavor::FF;
     using ExtendedEdges = typename Flavor::ExtendedEdges;
+
+    using ZKSumcheckData =
+        ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
+
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -135,13 +139,12 @@ template <typename Flavor> class SumcheckProverRound {
      method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate(
-        const size_t round_idx,
-        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-        const bb::RelationParameters<FF>& relation_parameters,
-        const bb::GateSeparatorPolynomial<FF>& gate_sparators,
-        const RelationSeparator alpha,
-        ZKSumcheckData<Flavor> zk_sumcheck_data) // only populated when Flavor HasZK
+    SumcheckRoundUnivariate compute_univariate(const size_t round_idx,
+                                               ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                               const bb::RelationParameters<FF>& relation_parameters,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                               const RelationSeparator alpha,
+                                               ZKSumcheckData zk_sumcheck_data) // only populated when Flavor HasZK
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -290,7 +293,7 @@ template <typename Flavor> class SumcheckProverRound {
      * @param zk_sumcheck_data
      * @param round_idx
      */
-    static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData<Flavor> zk_sumcheck_data,
+    static SumcheckRoundUnivariate compute_libra_round_univariate(const ZKSumcheckData& zk_sumcheck_data,
                                                                   size_t round_idx)
     {
         bb::Univariate<FF, 3> libra_round_univariate;

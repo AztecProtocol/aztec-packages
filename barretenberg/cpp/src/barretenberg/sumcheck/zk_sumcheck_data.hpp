@@ -13,17 +13,16 @@ namespace bb {
  * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
  *
  */
-template <typename Flavor> struct ZKSumcheckData {
-    using FF = typename Flavor::FF;
+template <typename Curve, typename Transcript, typename CommitmentKey> struct ZKSumcheckData {
 
-    using Curve = Flavor::Curve;
+    using FF = typename Curve::ScalarField;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
     static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
 
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? 3 : 0;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.
     using LibraUnivariates = std::vector<bb::Polynomial<FF>>;
     // Container for the evaluations of Libra Univariates that have to be proven.
@@ -48,8 +47,8 @@ template <typename Flavor> struct ZKSumcheckData {
 
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
-                   std::shared_ptr<typename Flavor::Transcript> transcript,
-                   std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+                   std::shared_ptr<Transcript> transcript,
+                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
         : constant_term(FF::random_element())
         , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2

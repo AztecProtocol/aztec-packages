@@ -21,7 +21,11 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationSeparator = Flavor::RelationSeparator;
+    using ZKSumcheckData =
+        ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
+
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
+
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     Polynomial<FF> random_poly(size_t size)
@@ -146,7 +150,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
+            ZKSumcheckData zk_sumcheck_data(multivariate_d, transcript);
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
         } else {
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
@@ -230,7 +234,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKSumcheckData zk_sumcheck_data(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -318,7 +322,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKSumcheckData zk_sumcheck_data(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {

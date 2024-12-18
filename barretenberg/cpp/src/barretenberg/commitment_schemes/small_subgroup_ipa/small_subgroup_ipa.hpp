@@ -18,9 +18,8 @@ namespace bb {
  *
  */
 
-template <typename Flavor> class SmallSubgroupIPAProver {
-    using Curve = typename Flavor::Curve;
-    using FF = typename Flavor::FF;
+template <typename Curve, typename Transcript, typename CommitmentKey> class SmallSubgroupIPAProver {
+    using FF = typename Curve::ScalarField;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
@@ -59,22 +58,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     Polynomial<FF> batched_quotient;
 
   public:
-    // Default constructor for non-ZK Flavors
-    SmallSubgroupIPAProver()
-        : interpolation_domain{}
-        , concatenated_polynomial(0)
-        , libra_concatenated_lagrange_form(0)
-        , challenge_polynomial(0)
-        , challenge_polynomial_lagrange(0) // public polynomial
-        , big_sum_polynomial(0)            // includes masking
-        , batched_polynomial(0)            // batched polynomial, input to shplonk prover
-        , batched_quotient(0)
-    {}
-
-    SmallSubgroupIPAProver(const ZKSumcheckData<Flavor>& zk_sumcheck_data,
-                           const SumcheckOutput<Flavor>& sumcheck_output,
-                           std::shared_ptr<typename Flavor::Transcript> transcript,
-                           std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+    SmallSubgroupIPAProver(ZKSumcheckData<Curve, Transcript, CommitmentKey>& zk_sumcheck_data,
+                           const std::vector<FF>& multivariate_challenge,
+                           const FF claimed_ipa_eval,
+                           std::shared_ptr<Transcript> transcript,
+                           std::shared_ptr<CommitmentKey> commitment_key = nullptr)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
         , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
@@ -88,7 +76,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
         ASSERT(concatenated_polynomial.size() < SUBGROUP_SIZE + 3);
 
-        compute_challenge_polynomial(sumcheck_output.challenge);
+        compute_challenge_polynomial(multivariate_challenge);
 
         compute_big_sum_polynomial();
         if (commitment_key) {
@@ -96,7 +84,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                                                   commitment_key->commit(big_sum_polynomial));
         }
 
-        compute_batched_polynomial(sumcheck_output.claimed_libra_evaluation);
+        compute_batched_polynomial(claimed_ipa_eval);
         compute_batched_quotient();
 
         if (commitment_key) {

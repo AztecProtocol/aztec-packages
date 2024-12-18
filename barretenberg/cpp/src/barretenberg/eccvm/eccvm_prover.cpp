@@ -105,7 +105,7 @@ void ECCVMProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
+    zk_sumcheck_data = ZKSumcheckData(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -122,10 +122,12 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
-
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
+                                               sumcheck_output.challenge,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               transcript,
+                                               key->commitment_key);
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     const OpeningClaim multivariate_to_univariate_opening_claim =

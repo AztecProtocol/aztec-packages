@@ -162,7 +162,7 @@ void TranslatorProver::execute_relation_check_rounds()
     }
 
     // // create masking polynomials for sumcheck round univariates and auxiliary data
-    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
+    zk_sumcheck_data = ZKSumcheckData(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -179,9 +179,13 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Curve, Transcript, CommitmentKey>;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, key->commitment_key);
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
+                                               sumcheck_output.challenge,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               transcript,
+                                               key->commitment_key);
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->circuit_size,

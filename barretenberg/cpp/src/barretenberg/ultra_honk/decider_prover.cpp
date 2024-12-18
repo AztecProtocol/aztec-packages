@@ -35,7 +35,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
         PROFILE_THIS_NAME("sumcheck.prove");
         if constexpr (Flavor::HasZK) {
             auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
-            zk_sumcheck_data = ZKSumcheckData<Flavor>(numeric::get_msb(polynomial_size), transcript, commitment_key);
+            zk_sumcheck_data = ZKSumcheckData(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                              proving_key->relation_parameters,
                                              proving_key->alphas,
@@ -59,7 +59,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
@@ -74,7 +73,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               transcript);
     } else {
 
-        SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data, sumcheck_output, transcript, ck);
+        SmallSubgroupIPA small_subgroup_ipa_prover(
+            zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               proving_key->proving_key.polynomials.get_unshifted(),
