@@ -248,4 +248,12 @@ export abstract class TypedOracle {
   syncNotes(): Promise<void> {
     throw new OracleMethodNotAvailableError('syncNotes');
   }
+
+  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('store');
+  }
+
+  load(_contract: AztecAddress, _key: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('load');
+  }
 }

@@ -419,7 +419,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const values = [new Fr(42)];
 
         await database.store(contract, key, values);
-        const result = await database.load(contract, [key]);
+        const result = await database.load(contract, key);
         expect(result).toEqual(values);
       });
 
@@ -428,7 +428,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const values = [new Fr(42), new Fr(43), new Fr(44)];
 
         await database.store(contract, key, values);
-        const result = await database.load(contract, [key]);
+        const result = await database.load(contract, key);
         expect(result).toEqual(values);
       });
 
@@ -440,7 +440,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.store(contract, key, initialValues);
         await database.store(contract, key, newValues);
 
-        const result = await database.load(contract, [key]);
+        const result = await database.load(contract, key);
         expect(result).toEqual(newValues);
       });
 
@@ -460,8 +460,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.store(contract, key, values1);
         await database.store(anotherContract, key, values2);
 
-        const result1 = await database.load(contract, [key]);
-        const result2 = await database.load(anotherContract, [key]);
+        const result1 = await database.load(contract, key);
+        const result2 = await database.load(anotherContract, key);
 
         expect(result1).toEqual(values1);
         expect(result2).toEqual(values2);

@@ -247,4 +247,21 @@ export interface DBOracle extends CommitmentsDB {
    * Removes all of a contract's notes that have been nullified from the note database.
    */
   removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to store the data.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void>;
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to load the data.
+   * @returns An array of field elements representing the stored data.
+   * @throws If the data is not found.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[]>;
 }

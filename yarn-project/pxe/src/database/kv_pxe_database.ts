@@ -626,7 +626,7 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#contractStore.set(dataKey, dataBuffer);
   }
 
-  async load(contract: AztecAddress, key: Fr[]): Promise<Fr[]> {
+  async load(contract: AztecAddress, key: Fr): Promise<Fr[]> {
     const dataKey = `${contract.toString()}:${key.toString()}`;
     const dataBuffer = await this.#contractStore.getAsync(dataKey);
     if (!dataBuffer) {

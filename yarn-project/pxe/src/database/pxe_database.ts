@@ -229,5 +229,5 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns An array of field elements representing the stored data.
    * @throws If the data is not found.
    */
-  load(contract: AztecAddress, key: Fr[]): Promise<Fr[]>;
+  load(contract: AztecAddress, key: Fr): Promise<Fr[]>;
 }
