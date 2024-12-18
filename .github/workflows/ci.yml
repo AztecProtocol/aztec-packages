@@ -235,9 +235,14 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ steps.runner_type.outputs.type }}
           run: |
-            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+            artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+            if ci3/test_should_run "$artifact"; then
+              docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+              scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+              FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+              ci3/cache_upload_flag "$artifact"
+            fi
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -265,15 +270,19 @@ jobs:
           runner_type: ${{ steps.runner_type.outputs.type }}
           ttl: 40
           run: |
-            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-            export COMMIT_HASH=${{ env.GIT_COMMIT }}
-            export PULL_REQUEST=${{ github.event.pull_request.number }}
-            export BRANCH=${{ github.ref_name }}
-            scripts/logs/upload_logs_to_s3.sh /usr/var/log
+            artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+            if ci3/test_should_run "$artifact"; then
+              docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+              export FORCE_COLOR=1
+              export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+              ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+              export COMMIT_HASH=${{ env.GIT_COMMIT }}
+              export PULL_REQUEST=${{ github.event.pull_request.number }}
+              export BRANCH=${{ github.ref_name }}
+              scripts/logs/upload_logs_to_s3.sh /usr/var/log
+              ci3/cache_upload_flag "$artifact"
+            fi
 
   acir-bench:
     runs-on: ubuntu-latest
@@ -381,9 +390,10 @@ jobs:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
           run: |
-            if ci3/test_should_run network-test-$(./yarn-project/bootstrap.sh hash); then
+            artifact="network-4epochs-test-$(./yarn-project/bootstrap.sh hash)""
+            if ci3/test_should_run "$artifact"; then
               scripts/earthly-ci +network-test --test=./test-4epochs.sh
-              ci3/cache_upload_flag bb-bench-$(./yarn-project/bootstrap.sh hash)
+              ci3/cache_upload_flag "$artifact"
             fi
 
   kind-smoke-test:
@@ -443,9 +453,12 @@ jobs:
           spot_strategy: None # use on-demand machines
           ttl: ${{ matrix.config.timeout }}
           run: |
-            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+            artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)"
+            if ci3/test_should_run "$artifact"; then
+              docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+              ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+            fi
       - name: Copy Network Logs
         if: always()
         run: copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true

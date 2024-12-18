@@ -102,7 +102,7 @@ runs:
             git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
             git checkout FETCH_HEAD >/dev/null 2>&1;
           fi
-          cd ~/run-$RUN_ID
+          cd ~/run-$RUN_ID;
           ci3/dump_fail .github/ensure-tester/run $DOCKERHUB_PASSWORD '${{ inputs.run }}';
         "
         exit_code=$?;
