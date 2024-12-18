@@ -748,6 +748,10 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+
+    // output the vk
+    typename Flavor::VerificationKey vk(prover.proving_key->proving_key);
+    info(vk.to_field_elements());
     return std::move(prover);
 }
 
@@ -1293,7 +1297,7 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
-        } else if (command == "write_recursion_inputs_honk") {
+        } else if (command == "write_recursion_inputs_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target");
             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "write_recursion_inputs_rollup_honk") {

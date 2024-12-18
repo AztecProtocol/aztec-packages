@@ -115,39 +115,45 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     if (is_rollup_honk_recursion_constraint) {
-        // IPA claim challenge
-        auto claim_chal = fq::random_element();
-        auto claim_chal_frs =
-            stdlib::bigfield<Builder, bb::Bn254FqParams>::create_from_u512_as_witness(&builder, uint256_t(claim_chal));
-        builder.assert_equal(claim_chal_frs.binary_basis_limbs[0].element.witness_index,
-                             proof_fields[offset].witness_index);
-        builder.assert_equal(claim_chal_frs.binary_basis_limbs[1].element.witness_index,
-                             proof_fields[offset + 1].witness_index);
-        builder.assert_equal(claim_chal_frs.binary_basis_limbs[2].element.witness_index,
-                             proof_fields[offset + 2].witness_index);
-        builder.assert_equal(claim_chal_frs.binary_basis_limbs[3].element.witness_index,
-                             proof_fields[offset + 3].witness_index);
-        offset += 4;
-        // IPA claim evaluation
-        auto claim_eval = fq::random_element();
-        auto claim_eval_frs =
-            stdlib::bigfield<Builder, bb::Bn254FqParams>::create_from_u512_as_witness(&builder, uint256_t(claim_eval));
-        builder.assert_equal(claim_eval_frs.binary_basis_limbs[0].element.witness_index,
-                             proof_fields[offset].witness_index);
-        builder.assert_equal(claim_eval_frs.binary_basis_limbs[1].element.witness_index,
-                             proof_fields[offset + 1].witness_index);
-        builder.assert_equal(claim_eval_frs.binary_basis_limbs[2].element.witness_index,
-                             proof_fields[offset + 2].witness_index);
-        builder.assert_equal(claim_eval_frs.binary_basis_limbs[3].element.witness_index,
-                             proof_fields[offset + 3].witness_index);
-        offset += 4;
-        // IPA claim commitment
-        auto claim_comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
-        auto claim_comm_frs = field_conversion::convert_to_bn254_frs(claim_comm);
-        ASSERT(claim_comm_frs.size() == 2);
-        builder.assert_equal(builder.add_variable(claim_comm_frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(claim_comm_frs[1]), proof_fields[offset + 1].witness_index);
-        offset += 2;
+        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+            offset++;
+        }
+        // // IPA claim challenge
+        // auto claim_chal = fq::random_element();
+        // auto claim_chal_frs =
+        //     stdlib::bigfield<Builder, bb::Bn254FqParams>::create_from_u512_as_witness(&builder,
+        //     uint256_t(claim_chal));
+        // builder.assert_equal(claim_chal_frs.binary_basis_limbs[0].element.witness_index,
+        //                      proof_fields[offset].witness_index);
+        // builder.assert_equal(claim_chal_frs.binary_basis_limbs[1].element.witness_index,
+        //                      proof_fields[offset + 1].witness_index);
+        // builder.assert_equal(claim_chal_frs.binary_basis_limbs[2].element.witness_index,
+        //                      proof_fields[offset + 2].witness_index);
+        // builder.assert_equal(claim_chal_frs.binary_basis_limbs[3].element.witness_index,
+        //                      proof_fields[offset + 3].witness_index);
+        // offset += 4;
+        // // IPA claim evaluation
+        // auto claim_eval = fq::random_element();
+        // auto claim_eval_frs =
+        //     stdlib::bigfield<Builder, bb::Bn254FqParams>::create_from_u512_as_witness(&builder,
+        //     uint256_t(claim_eval));
+        // builder.assert_equal(claim_eval_frs.binary_basis_limbs[0].element.witness_index,
+        //                      proof_fields[offset].witness_index);
+        // builder.assert_equal(claim_eval_frs.binary_basis_limbs[1].element.witness_index,
+        //                      proof_fields[offset + 1].witness_index);
+        // builder.assert_equal(claim_eval_frs.binary_basis_limbs[2].element.witness_index,
+        //                      proof_fields[offset + 2].witness_index);
+        // builder.assert_equal(claim_eval_frs.binary_basis_limbs[3].element.witness_index,
+        //                      proof_fields[offset + 3].witness_index);
+        // offset += 4;
+        // // IPA claim commitment
+        // auto claim_comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
+        // auto claim_comm_frs = field_conversion::convert_to_bn254_frs(claim_comm);
+        // ASSERT(claim_comm_frs.size() == 2);
+        // builder.assert_equal(builder.add_variable(claim_comm_frs[0]), proof_fields[offset].witness_index);
+        // builder.assert_equal(builder.add_variable(claim_comm_frs[1]), proof_fields[offset + 1].witness_index);
+        // offset += 2;
     }
 
     // first 8 witness commitments
