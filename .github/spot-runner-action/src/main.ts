@@ -66,8 +66,9 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       // Start instance
       const instanceIdOrError =
         await ec2Client.requestMachine(
+          /* try number */ i,
           // we fallback to on-demand
-          ec2Strategy.toLocaleLowerCase() === "none"
+          ec2Strategy.toLocaleLowerCase() === "none",
         );
       // let's exit, only loop on InsufficientInstanceCapacity
       if (
@@ -80,6 +81,14 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
             ", waiting " + 5 * 2 ** backoff + " seconds and trying again."
         );
       } else {
+        try {
+          await ec2Client.waitForInstanceRunningStatus(instanceIdOrError);
+        } catch (err) {
+          // If this runner has long been terminated this transition will error out
+          // Use this fact ot try again
+          console.error(err);
+          continue;
+        }
         instanceId = instanceIdOrError;
         break;
       }
@@ -87,13 +96,12 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
     }
-    if (instanceId) {
-      core.info("Successfully requested/found instance with ID " + instanceId);
-      break;
-    }
+  if (instanceId) {
+    break;
   }
-  if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
-  else {
+  if (instanceId) {
+    core.info("Successfully requested/found instance with ID " + instanceId);
+  } else {
     core.error("Failed to get ID of running instance");
     throw Error("Failed to get ID of running instance");
   }
