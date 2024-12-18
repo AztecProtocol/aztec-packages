@@ -218,17 +218,15 @@ describe('prover-node', () => {
     });
 
     it('starts proving if there is a claim sent by us', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
       l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(9);
-      await proverNode.handleInitialEpochSync(10n);
+      await proverNode.handleClaim(claim);
 
       expect(jobs[0].epochNumber).toEqual(10n);
     });
 
     it('does not start proving if there is a claim sent by us but proof has already landed', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
       l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(10);
-      await proverNode.handleInitialEpochSync(10n);
+      await proverNode.handleClaim(claim);
 
       expect(jobs.length).toEqual(0);
     });
@@ -259,6 +257,27 @@ describe('prover-node', () => {
       await proverNode.start();
       await sleep(100);
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts proving if there is a claim during initial sync', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      await proverNode.start();
+      await sleep(100);
+
+      expect(jobs[0].epochNumber).toEqual(10n);
+      expect(jobs.length).toEqual(1);
+    });
+
+    it('does not start proving if there is a claim for proven epoch during initial sync', async () => {
+      l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(10);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      await proverNode.start();
+      await sleep(100);
+
+      expect(jobs.length).toEqual(0);
     });
 
     it('sends another quote when a new epoch is completed', async () => {

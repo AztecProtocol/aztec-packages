@@ -7,7 +7,8 @@
     "./wasm": "./dest/wasm/index.js",
     "./prover": "./dest/prover/index.js",
     "./verifier": "./dest/verifier/index.js",
-    "./test": "./dest/test/index.js"
+    "./test": "./dest/test/index.js",
+    "./config": "./dest/config.js"
   },
   "bin": {
     "bb-cli": "./dest/bb/index.js"

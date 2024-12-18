@@ -1,5 +1,5 @@
 import { type AvmContext } from '../avm_context.js';
-import { Field, type Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { ToRadixBE } from './conversion.js';
@@ -15,20 +15,20 @@ describe('Conversion Opcodes', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         ToRadixBE.opcode, // opcode
-        1, // indirect
+        ...Buffer.from('0001', 'hex'), // indirect
         ...Buffer.from('1234', 'hex'), // inputStateOffset
-        ...Buffer.from('2345', 'hex'), // outputStateOffset
-        ...Buffer.from('3456', 'hex'), // radixOffset
-        ...Buffer.from('0100', 'hex'), // numLimbs
-        ...Buffer.from('01', 'hex'), // outputBits
+        ...Buffer.from('2345', 'hex'), // radixOffset
+        ...Buffer.from('3456', 'hex'), // numLimbsOffset
+        ...Buffer.from('4567', 'hex'), // outputBitsOffset
+        ...Buffer.from('5678', 'hex'), // outputStateOffset
       ]);
       const inst = new ToRadixBE(
-        /*indirect=*/ 1,
+        /*indirect=*/ 0x0001,
         /*srcOffset=*/ 0x1234,
-        /*dstOffset=*/ 0x2345,
-        /*radixOffset=*/ 0x3456,
-        /*numLimbs=*/ 256,
-        /*outputBits=*/ 1,
+        /*radixOffset=*/ 0x2345,
+        /*numLimbsOffset=*/ 0x3456,
+        /*outputBitsOffset=*/ 0x4567,
+        /*dstOffset=*/ 0x5678,
       );
 
       expect(ToRadixBE.deserialize(buf)).toEqual(inst);
@@ -42,21 +42,27 @@ describe('Conversion Opcodes', () => {
       const srcOffset = 0;
       const dstOffset = 20;
       const radixOffset = 1;
-      const numLimbs = 10; // only the first 10 bits
-      const outputBits = 0; // false, output as bytes
+      const numLimbs = new Uint32(10); // only the first 10 bits
+      const numLimbsOffset = 100;
+      const outputBits = new Uint1(0); // false, output as bytes
+      const outputBitsOffset = 200;
       context.machineState.memory.set(srcOffset, arg);
       context.machineState.memory.set(radixOffset, radix);
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      context.machineState.memory.set(outputBitsOffset, outputBits);
 
-      await new ToRadixBE(indirect, srcOffset, dstOffset, radixOffset, numLimbs, outputBits).execute(context);
+      await new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset).execute(
+        context,
+      );
 
       const resultBuffer: Buffer = Buffer.concat(
-        context.machineState.memory.getSliceAs<Uint8>(dstOffset, numLimbs).map(byte => byte.toBuffer()),
+        context.machineState.memory.getSliceAs<Uint8>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the first 10 bits of the input
       // Reverse before slice because still only care about the first `numLimb` bytes.
       // Then reverse back since we want big endian (as the original string is).
-      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs).reverse().map(Number);
-      for (let i = 0; i < numLimbs; i++) {
+      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
+      for (let i = 0; i < numLimbs.toNumber(); i++) {
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[i]);
       }
     });
@@ -68,21 +74,27 @@ describe('Conversion Opcodes', () => {
       const srcOffset = 0;
       const dstOffset = 20;
       const radixOffset = 1;
-      const numLimbs = 10; // only the first 10 bits
-      const outputBits = 1; // true, output as bits
+      const numLimbs = new Uint32(10); // only the first 10 bits
+      const numLimbsOffset = 100;
+      const outputBits = new Uint1(1); // true, output as bits
+      const outputBitsOffset = 200;
       context.machineState.memory.set(srcOffset, arg);
       context.machineState.memory.set(radixOffset, radix);
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      context.machineState.memory.set(outputBitsOffset, outputBits);
 
-      await new ToRadixBE(indirect, srcOffset, dstOffset, radixOffset, numLimbs, outputBits).execute(context);
+      await new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset).execute(
+        context,
+      );
 
       const resultBuffer: Buffer = Buffer.concat(
-        context.machineState.memory.getSliceAs<Uint1>(dstOffset, numLimbs).map(byte => byte.toBuffer()),
+        context.machineState.memory.getSliceAs<Uint1>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the first 10 bits of the input
       // Reverse before slice because still only care about the first `numLimb` bytes.
       // Then reverse back since we want big endian (as the original string is).
-      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs).reverse().map(Number);
-      for (let i = 0; i < numLimbs; i++) {
+      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
+      for (let i = 0; i < numLimbs.toNumber(); i++) {
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[i]);
       }
     });
@@ -91,29 +103,41 @@ describe('Conversion Opcodes', () => {
       const arg = new Field(Buffer.from('1234567890abcdef', 'hex'));
       const indirect = new Addressing([
         /*srcOffset=*/ AddressingMode.INDIRECT,
-        /*dstOffset*/ AddressingMode.INDIRECT,
         /*radixOffset*/ AddressingMode.INDIRECT,
+        /*numLimbsOffset*/ AddressingMode.INDIRECT,
+        /*outputBitsOffset*/ AddressingMode.INDIRECT,
+        /*dstOffset*/ AddressingMode.INDIRECT,
       ]).toWire();
       const srcOffset = 0;
-      const srcOffsetReal = 10;
+      const srcOffsetReal = 1000;
       const dstOffset = 2;
-      const dstOffsetReal = 30;
+      const dstOffsetReal = 2000;
       const radixOffset = 3;
       const radix = new Uint32(1 << 8); // Byte decomposition
-      const radixOffsetReal = 50;
+      const radixOffsetReal = 3000;
+      const numLimbsOffset = 4;
+      const numLimbsOffsetReal = 4000;
+      const numLimbs = new Uint32(32); // 256-bit decomposition
+      const outputBitsOffset = 5;
+      const outputBitsOffsetReal = 5000;
+      const outputBits = new Uint1(0); // false, output as bytes
 
       context.machineState.memory.set(srcOffset, new Uint32(srcOffsetReal));
       context.machineState.memory.set(dstOffset, new Uint32(dstOffsetReal));
       context.machineState.memory.set(radixOffset, new Uint32(radixOffsetReal));
+      context.machineState.memory.set(numLimbsOffset, new Uint32(numLimbsOffsetReal));
+      context.machineState.memory.set(outputBitsOffset, new Uint32(outputBitsOffsetReal));
       context.machineState.memory.set(srcOffsetReal, arg);
       context.machineState.memory.set(radixOffsetReal, radix);
+      context.machineState.memory.set(numLimbsOffsetReal, numLimbs);
+      context.machineState.memory.set(outputBitsOffsetReal, outputBits);
 
-      const numLimbs = 32; // 256-bit decomposition
-      const outputBits = 0; // false, output as bytes
-      await new ToRadixBE(indirect, srcOffset, dstOffset, radixOffset, numLimbs, outputBits).execute(context);
+      await new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset).execute(
+        context,
+      );
 
       const resultBuffer: Buffer = Buffer.concat(
-        context.machineState.memory.getSliceAs<Uint8>(dstOffsetReal, numLimbs).map(byte => byte.toBuffer()),
+        context.machineState.memory.getSliceAs<Uint8>(dstOffsetReal, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the input (padded to 256 bits)
       const expectedResults = '1234567890abcdef'
@@ -121,7 +145,7 @@ describe('Conversion Opcodes', () => {
         .split('')
         .map(a => parseInt(a, 16));
       // Checking the value in each byte of the buffer is correct
-      for (let i = 0; i < numLimbs; i++) {
+      for (let i = 0; i < numLimbs.toNumber(); i++) {
         // Compute the expected byte's numerical value from its two hex digits
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[2 * i] * 16 + expectedResults[2 * i + 1]);
       }

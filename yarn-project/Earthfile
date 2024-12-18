@@ -55,7 +55,6 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh
 
-
 build-dev:
     FROM +build
     SAVE ARTIFACT /usr/src /usr/src
@@ -195,7 +194,17 @@ export-aztec-faucet:
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
     BUILD ../spartan/+charts
-    FROM +cli-base
+    FROM +build
+    # A fast build is not enough for the end-to-end tests, we still need to run webpack
+    RUN cd end-to-end && yarn build:web
+    # Now that the web is compiled, we can trim down the image further
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser
+
     RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts

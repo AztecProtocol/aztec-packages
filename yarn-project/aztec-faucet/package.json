@@ -5,7 +5,8 @@
   "type": "module",
   "bin": "./dest/bin/index.js",
   "exports": {
-    ".": "./dest/index.js"
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [

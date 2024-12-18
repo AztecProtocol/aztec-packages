@@ -250,7 +250,7 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     HonkRecursionConstraintOutput output;
     if (is_rollup_honk_recursion_constraint) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-        const size_t HONK_PROOF_LENGTH = 473;
+        const size_t HONK_PROOF_LENGTH = 469;
         // The extra calculation is for the IPA proof length.
         ASSERT(input.proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
         ASSERT(proof_fields.size() == HONK_PROOF_LENGTH + 65 + input.public_inputs.size());
