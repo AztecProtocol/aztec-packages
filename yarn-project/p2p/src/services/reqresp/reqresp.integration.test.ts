@@ -2,6 +2,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import {
   type ClientProtocolCircuitVerifier,
+  EpochProofQuoteHasher,
   P2PClientType,
   PeerErrorSeverity,
   type Tx,
@@ -50,6 +51,7 @@ describe('Req Resp p2p client integration', () => {
   let attestationPool: MockProxy<AttestationPool>;
   let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
   let epochCache: MockProxy<EpochCache>;
+  let epochProofQuoteHasher: MockProxy<EpochProofQuoteHasher>;
   let l2BlockSource: MockL2BlockSource;
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
@@ -61,6 +63,7 @@ describe('Req Resp p2p client integration', () => {
     attestationPool = mock<AttestationPool>();
     epochProofQuotePool = mock<EpochProofQuotePool>();
     epochCache = mock<EpochCache>();
+    epochProofQuoteHasher = mock<EpochProofQuoteHasher>();
 
     txPool.getAllTxs.mockImplementation(() => {
       return [] as Tx[];
@@ -134,6 +137,7 @@ describe('Req Resp p2p client integration', () => {
         proofVerifier,
         worldState,
         epochCache,
+        epochProofQuoteHasher,
         undefined,
         deps,
       );

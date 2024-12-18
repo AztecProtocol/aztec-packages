@@ -1,5 +1,6 @@
 import {
   type ClientProtocolCircuitVerifier,
+  EpochProofQuoteHasher,
   type L2BlockSource,
   P2PClientType,
   type WorldStateSynchronizer,
@@ -38,6 +39,7 @@ export const createP2PClient = async <T extends P2PClientType>(
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCache,
+  epochProofQuoteHasher: EpochProofQuoteHasher,
   telemetry: TelemetryClient = getTelemetryClient(),
   deps: P2PClientDeps<T> = {},
 ) => {
@@ -76,6 +78,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       mempools,
       l2BlockSource,
       epochCache,
+      epochProofQuoteHasher,
       proofVerifier,
       worldStateSynchronizer,
       store,

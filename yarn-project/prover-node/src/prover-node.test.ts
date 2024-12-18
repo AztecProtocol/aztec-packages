@@ -2,6 +2,7 @@ import {
   EmptyL1RollupConstants,
   type EpochProofClaim,
   EpochProofQuote,
+  EpochProofQuoteHasher,
   EpochProofQuotePayload,
   type EpochProverManager,
   type L1ToL2MessageSource,
@@ -141,7 +142,7 @@ describe('prover-node', () => {
     quoteProvider.getQuote.mockResolvedValue(partialQuote);
 
     // Signer returns an empty signature
-    quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
+    quoteSigner.sign.mockImplementation(payload => new EpochProofQuote(payload, Signature.empty()));
 
     // We create 3 fake blocks with 1 tx effect each
     blocks = times(3, i => L2Block.random(i + 20, 1));
@@ -373,12 +374,14 @@ describe('prover-node', () => {
         epochProofQuotePool: new MemoryEpochProofQuotePool(),
       };
       epochCache = mock<EpochCache>();
+      const epochProofQuoteHasher = new EpochProofQuoteHasher(EthAddress.random(), 1);
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],
         l2BlockSource,
         worldState,
         epochCache,
+        epochProofQuoteHasher,
         mempools,
         getTelemetryClient(),
         port,

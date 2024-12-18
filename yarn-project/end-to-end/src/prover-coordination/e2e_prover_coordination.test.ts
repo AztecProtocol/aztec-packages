@@ -10,6 +10,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { EpochProofQuoteHasher } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -240,9 +241,11 @@ describe('e2e_prover_coordination', () => {
       signer.address,
       basisPointFee ?? randomInt(100),
     );
-    const digest = await rollupContract.read.quoteToDigest([quotePayload.toViemArgs()]);
 
-    return EpochProofQuote.new(Buffer32.fromString(digest), quotePayload, signer);
+    const { rollupAddress } = ctx.deployL1ContractsValues.l1ContractAddresses;
+    const { l1ChainId } = ctx.aztecNodeConfig;
+    const hasher = new EpochProofQuoteHasher(rollupAddress, l1ChainId);
+    return EpochProofQuote.new(hasher, quotePayload, signer);
   };
 
   it('Sequencer selects best valid proving quote for each block', async () => {

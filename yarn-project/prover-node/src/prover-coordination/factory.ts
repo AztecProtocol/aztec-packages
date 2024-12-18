@@ -1,6 +1,7 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
+  type EpochProofQuoteHasher,
   P2PClientType,
   type ProverCoordination,
   type WorldStateSynchronizer,
@@ -21,6 +22,7 @@ type ProverCoordinationDeps = {
   archiver?: Archiver | ArchiveSource;
   telemetry?: TelemetryClient;
   epochCache?: EpochCache;
+  epochProofQuoteHasher?: EpochProofQuoteHasher;
 };
 
 /**
@@ -43,7 +45,13 @@ export async function createProverCoordination(
   if (config.p2pEnabled) {
     log.info('Using prover coordination via p2p');
 
-    if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry || !deps.epochCache) {
+    if (
+      !deps.archiver ||
+      !deps.worldStateSynchronizer ||
+      !deps.telemetry ||
+      !deps.epochCache ||
+      !deps.epochProofQuoteHasher
+    ) {
       throw new Error('Missing dependencies for p2p prover coordination');
     }
 
@@ -55,6 +63,7 @@ export async function createProverCoordination(
       proofVerifier,
       deps.worldStateSynchronizer,
       deps.epochCache,
+      deps.epochProofQuoteHasher,
       deps.telemetry,
     );
     await p2pClient.start();

@@ -1,19 +1,30 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import omit from 'lodash.omit';
 import { inspect } from 'util';
+import { encodeAbiParameters, keccak256 } from 'viem';
+import { parseAbiParameters } from 'viem';
 import { z } from 'zod';
+
+import { Signable } from '../p2p/index.js';
 
 // Required so typescript can properly annotate the exported schema
 export { type EthAddress };
 
-export class EpochProofQuotePayload {
+export class EpochProofQuotePayload implements Signable {
   // Cached values
   private asBuffer: Buffer | undefined;
   private size: number | undefined;
+
+  private typeHash: `0x${string}` = keccak256(
+    Buffer.from(
+      'EpochProofQuote(uint256 epochToProve,uint256 validUntilSlot,uint256 bondAmount,address prover,uint32 basisPointFee)',
+    ),
+  );
 
   constructor(
     public readonly epochToProve: bigint,
@@ -70,6 +81,19 @@ export class EpochProofQuotePayload {
       reader.readObject(EthAddress),
       reader.readNumber(),
     );
+  }
+
+  getPayloadToSign(): Buffer {
+    const abi = parseAbiParameters('bytes32, uint256, uint256, uint256, address, uint256');
+    const encodedData = encodeAbiParameters(abi, [
+      this.typeHash,
+      this.epochToProve,
+      this.validUntilSlot,
+      this.bondAmount,
+      this.prover.toString(),
+      BigInt(this.basisPointFee),
+    ]);
+    return hexToBuffer(encodedData);
   }
 
   static from(fields: FieldsOf<EpochProofQuotePayload>): EpochProofQuotePayload {

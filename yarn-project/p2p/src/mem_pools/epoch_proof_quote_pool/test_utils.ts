@@ -1,6 +1,5 @@
-import { EpochProofQuote, EpochProofQuotePayload } from '@aztec/circuit-types';
+import { EpochProofQuote, EpochProofQuoteHasher, EpochProofQuotePayload } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 
 export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
@@ -17,10 +16,11 @@ export function makeRandomEpochProofQuote(payload?: EpochProofQuotePayload): {
   quote: EpochProofQuote;
   signer: Secp256k1Signer;
 } {
+  const hasher = new EpochProofQuoteHasher(EthAddress.random(), 1);
   const signer = Secp256k1Signer.random();
 
   return {
-    quote: EpochProofQuote.new(Buffer32.random(), payload ?? makeRandomEpochProofQuotePayload(), signer),
+    quote: EpochProofQuote.new(hasher, payload ?? makeRandomEpochProofQuotePayload(), signer),
     signer,
   };
 }

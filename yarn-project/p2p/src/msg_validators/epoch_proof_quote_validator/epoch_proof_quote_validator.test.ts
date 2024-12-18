@@ -1,4 +1,9 @@
-import { EpochProofQuote, EpochProofQuotePayload, PeerErrorSeverity } from '@aztec/circuit-types';
+import {
+  EpochProofQuote,
+  EpochProofQuoteHasher,
+  EpochProofQuotePayload,
+  PeerErrorSeverity,
+} from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -10,10 +15,12 @@ import { EpochProofQuoteValidator } from './epoch_proof_quote_validator.js';
 describe('EpochProofQuoteValidator', () => {
   let epochCache: EpochCache;
   let validator: EpochProofQuoteValidator;
+  let epochProofQuoteHasher: EpochProofQuoteHasher;
 
   beforeEach(() => {
     epochCache = mock<EpochCache>();
-    validator = new EpochProofQuoteValidator(epochCache);
+    epochProofQuoteHasher = mock<EpochProofQuoteHasher>();
+    validator = new EpochProofQuoteValidator(epochCache, epochProofQuoteHasher);
   });
 
   const makeEpochProofQuote = (epochToProve: bigint) => {

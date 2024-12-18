@@ -1,19 +1,15 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
+import { EpochProofQuoteHasher, type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { EpochCache } from '@aztec/epoch-cache';
-import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
-
-import { createPublicClient, getAddress, getContract, http } from 'viem';
 
 import { createBondManager } from './bond/factory.js';
 import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
@@ -54,7 +50,9 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = deps.publisher ?? new L1Publisher(config, { telemetry, blobSinkClient });
 
+  // Dependencies of the p2p client
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
+  const epochProofQuoteHasher = new EpochProofQuoteHasher(config.l1Contracts.rollupAddress, config.l1ChainId);
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
@@ -63,11 +61,12 @@ export async function createProverNode(
     worldStateSynchronizer,
     archiver,
     epochCache,
+    epochProofQuoteHasher,
     telemetry,
   });
 
   const quoteProvider = createQuoteProvider(config);
-  const quoteSigner = createQuoteSigner(config);
+  const quoteSigner = createQuoteSigner(config, epochProofQuoteHasher);
 
   const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,
@@ -109,13 +108,9 @@ function createQuoteProvider(config: QuoteProviderConfig) {
     : new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
 }
 
-function createQuoteSigner(config: ProverNodeConfig) {
-  // REFACTOR: We need a package that just returns an instance of a rollup contract ready to use
-  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, l1Contracts } = config;
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const client = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
-  const address = getAddress(l1Contracts.rollupAddress.toString());
-  const rollupContract = getContract({ address, abi: RollupAbi, client });
-  const privateKey = config.publisherPrivateKey;
-  return QuoteSigner.new(Buffer32.fromString(privateKey), rollupContract);
+function createQuoteSigner(config: ProverNodeConfig, epochProofQuoteHasher: EpochProofQuoteHasher) {
+  const { publisherPrivateKey } = config;
+
+  const privateKey = Buffer32.fromString(publisherPrivateKey);
+  return QuoteSigner.new(epochProofQuoteHasher, privateKey);
 }

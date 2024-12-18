@@ -182,7 +182,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
         prover: this.publisher.getSenderAddress(),
         validUntilSlot: partialQuote.validUntilSlot ?? BigInt(Number.MAX_SAFE_INTEGER), // Should we constrain this?
       });
-      const signed = await this.quoteSigner.sign(quote);
+      const signed = this.quoteSigner.sign(quote);
 
       // Send it to the coordinator
       this.log.info(

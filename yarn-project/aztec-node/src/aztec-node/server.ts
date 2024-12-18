@@ -5,6 +5,7 @@ import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
+  EpochProofQuoteHasher,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
@@ -174,6 +175,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
 
+    const epochProofQuoteHasher = new EpochProofQuoteHasher(config.l1Contracts.rollupAddress, config.l1ChainId);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
@@ -184,6 +186,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       proofVerifier,
       worldStateSynchronizer,
       epochCache,
+      epochProofQuoteHasher,
       telemetry,
     );
 
