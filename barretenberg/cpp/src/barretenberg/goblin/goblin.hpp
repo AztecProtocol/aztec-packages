@@ -39,7 +39,7 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = bb::TranslatorCircuitBuilder;
     using TranslatorProver = bb::TranslatorProver;
-    using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
+    using TranslatorProvingKey = bb::TranslatorProvingKey;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
@@ -60,13 +60,14 @@ class GoblinProver {
     bool merge_proof_exists{ false };
 
     std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
-    std::shared_ptr<TranslatorProvingKey> get_translator_proving_key() const { return translator_prover->key; }
+    std::shared_ptr<TranslatorProver::Flavor::ProvingKey> get_translator_proving_key() const { return translator_key; }
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
     std::shared_ptr<ECCVMProvingKey> eccvm_key;
+    std::shared_ptr<TranslatorProver::Flavor::ProvingKey> translator_key;
 
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
@@ -211,7 +212,9 @@ class GoblinProver {
 
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript, commitment_key);
+            auto translator_proving_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
+            translator_key = translator_proving_key->proving_key;
+            auto translator_prover = std::make_unique<TranslatorProver>(translator_proving_key, transcript);
         }
 
         {

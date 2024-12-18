@@ -1,7 +1,7 @@
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 #include <gtest/gtest.h>
 #include <unordered_set>
@@ -45,7 +45,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = bb::Polynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
@@ -59,8 +58,10 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    auto proving_key = std::make_shared<ProvingKey>();
-
+    auto proving_key = std::make_shared<Flavor::ProvingKey>(full_circuit_size);
+    TranslatorProvingKey key;
+    key.mini_circuit_dyadic_size = mini_circuit_size;
+    key.proving_key = proving_key;
     ProverPolynomials& prover_polynomials = proving_key->polynomials;
     // ensure we can shift these
     for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
@@ -149,13 +150,13 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
-    compute_translator_range_constraint_ordered_polynomials<Flavor>(prover_polynomials, mini_circuit_size);
+    key.compute_translator_range_constraint_ordered_polynomials();
 
     // Compute the fixed numerator (part of verification key)
-    proving_key->compute_extra_range_constraint_numerator();
+    key.compute_extra_range_constraint_numerator();
 
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
-    compute_concatenated_polynomials<Flavor>(prover_polynomials);
+    key.compute_concatenated_polynomials();
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
@@ -271,7 +272,6 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
         FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
     };
 
-    // Create storage for polynomials
     ProverPolynomials prover_polynomials;
     // We use polynomial ids to make shifting the polynomials easier
     ProverPolynomialIds prover_polynomial_ids;

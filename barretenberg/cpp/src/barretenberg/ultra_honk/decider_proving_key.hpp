@@ -24,7 +24,6 @@ namespace bb {
 template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -61,7 +60,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
 
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
-        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
+        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit ci
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
