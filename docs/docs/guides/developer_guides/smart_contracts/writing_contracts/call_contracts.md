@@ -10,31 +10,11 @@ Functions and state variables within a contract's scope are said to belong to th
 
 If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
 
-### Defining a contract
-
-A contract may be declared and given a name using the `contract` keyword (see snippet below). By convention, contracts are named in `PascalCase`.
-
-```rust title="contract keyword"
-// highlight-next-line
-contract MyContract {
-
-    // Imports
-
-    // Storage
-
-    // Functions
-}
-```
-
-:::info A note for vanilla Noir devs
-There is no [`main()` (GitHub link)](https://noir-lang.org/docs/getting_started/project_breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
-:::
-
-### Add as a dependency in Nargo.toml
+### Add Contract as a Dependency
 
 Import the contract that you want to call into your `Nargo.toml` under `dependencies` like this:
 
-```
+```toml
 token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
 ```
 
@@ -42,7 +22,7 @@ token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 
 At the top of your contract, import the contract you want to call like this:
 
-```
+```rust
 use token::Token;
 ```
 
