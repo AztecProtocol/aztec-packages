@@ -125,7 +125,7 @@ export function createTxForPublicCall(
   }
 
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
-  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
+  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 

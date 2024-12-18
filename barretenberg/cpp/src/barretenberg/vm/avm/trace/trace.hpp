@@ -266,6 +266,7 @@ class AvmTraceBuilder {
     struct ExtCallCtx {
         uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
         uint32_t parent_id;
+        bool is_static_call = false;
         FF contract_address{};
         std::vector<FF> calldata;
         std::vector<FF> nested_returndata;
@@ -276,6 +277,8 @@ class AvmTraceBuilder {
         uint32_t l2_gas_left; // as of start of latest nested call
         uint32_t da_gas_left; // as of start of latest nested call
         std::stack<uint32_t> internal_return_ptr_stack;
+        TreeSnapshots tree_snapshot; // This is the tree state at the time of the call
+        std::unordered_set<FF> public_data_unique_writes;
     };
 
     ExtCallCtx current_ext_call_ctx{};
@@ -367,6 +370,8 @@ class AvmTraceBuilder {
                                       IntermRegister reg,
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
     uint32_t get_inserted_note_hashes_count();
+    uint32_t get_inserted_nullifiers_count();
+    uint32_t get_public_data_writes_count();
     FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
