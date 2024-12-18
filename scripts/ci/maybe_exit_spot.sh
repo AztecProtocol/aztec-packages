@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eux
 
-MAX_WAIT_TIME=600 # Maximum wait time in seconds, 10 minutes
+MAX_WAIT_TIME=300 # Maximum wait time in seconds, 5 minutes
 WAIT_INTERVAL=10  # Interval between checks in seconds
 elapsed_time=0
 
@@ -40,5 +40,5 @@ while has_none Runner.Worker && has_none earthly && has_no_docker && has_none cl
   sleep $WAIT_INTERVAL
   elapsed_time=$((elapsed_time + WAIT_INTERVAL))
 done
-echo "System seems alive, extending life by 10 minutes."
-sudo shutdown -P 10
+echo "System seems alive, extending life by 6 minutes."
+sudo shutdown -P 6

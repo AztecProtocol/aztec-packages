@@ -1,6 +1,4 @@
 #!/bin/bash
-# Argument 1 is the command to run.
-# Argument 2 is the unique name of the target instance. Defaults to the branch name.
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-}
@@ -35,10 +33,12 @@ shift
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
-  echo "Commit $current_commit is not pushed, exiting."
-  exit 1
-fi
+function enforce_pushed_commit {
+  if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
+    echo "Commit $current_commit is not pushed, exiting."
+    exit 1
+  fi
+}
 
 instance_name="${BRANCH//\//_}"
 
@@ -54,25 +54,31 @@ function get_ip_for_instance {
 
 case "$cmd" in
   "ec2")
+    enforce_pushed_commit
     # Spin up ec2 instance and ci bootstrap with shell on failure.
     bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-full")
+    enforce_pushed_commit
     # Spin up ec2 instance and full bootstrap with shell on failure.
     bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
     ;;
   "ec2-full-test")
+    enforce_pushed_commit
     # Spin up ec2 instance and full bootstrap with tests and shell on failure.
     bootstrap_ec2 "USE_CACHE=0 ./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-shell")
+    enforce_pushed_commit
     # Spin up ec2 instance and drop into shell.
     bootstrap_ec2 "exec bash"
     ;;
   "ec2-e2e")
+    enforce_pushed_commit
     bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" ${1:-}
     ;;
   "ec2-e2e-grind")
+    enforce_pushed_commit
     export DENOISE=1
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2-e2e {}
@@ -93,7 +99,7 @@ case "$cmd" in
   "trigger")
     # Trigger workflow and drop through to start logging.
     # We use this label trick because triggering the workflow direct doesn't associate with the PR.
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -z "$pr_number" ]; then
       echo "No pull request found for branch $BRANCH."
       exit 1
@@ -140,31 +146,31 @@ case "$cmd" in
     exit 0
     ;;
   "shell")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
+    exit 0
     ;;
   "attach")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
-      exit 0
-    ;;
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+    exit 0
+   ;;
   "log")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
+    exit 0
     ;;
   "shell-host")
-      get_ip_for_instance ${1:-}
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-      exit 0
+    get_ip_for_instance ${1:-}
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    exit 0
     ;;
   "draft")
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -n "$pr_number" ]; then
       gh pr ready "$pr_number" --undo
       echo "Pull request #$pr_number has been set to draft."
@@ -174,7 +180,7 @@ case "$cmd" in
     exit 0
     ;;
   "ready")
-    local pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -n "$pr_number" ]; then
       gh pr ready "$pr_number"
       echo "Pull request #$pr_number has been set to ready."
@@ -197,7 +203,6 @@ case "$cmd" in
     exit 0
     ;;
   "gha-url")
-    # TODO(ci3) change over to CI3 once fully enabled.
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
     run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
     if [ -z "$run_url" ]; then
