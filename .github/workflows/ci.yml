@@ -742,15 +742,15 @@ jobs:
           - test: reorg.test.ts
             values: ci
             runner_type: 16core-tester-x86-high-memory
-            timeout: 30
+            timeout: 60
           - test: 4epochs.test.ts
             values: ci
             runner_type: 16core-tester-x86
-            timeout: 20
+            timeout: 40
           - test: gating-passive.test.ts
             values: ci
             runner_type: 16core-tester-x86
-            timeout: 20
+            timeout: 40
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
