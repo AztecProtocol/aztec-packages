@@ -12,7 +12,7 @@ namespace bb {
  * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
  *
  */
-template <typename Curve, typename Transcript, typename CommitmentKey> struct ZKSumcheckData {
+template <typename Curve, typename Transcript = void, typename CommitmentKey = void> struct ZKSumcheckData {
 
     using FF = typename Curve::ScalarField;
 
@@ -148,8 +148,9 @@ template <typename Curve, typename Transcript, typename CommitmentKey> struct ZK
 
     void create_interpolation_domain()
     {
-        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-            interpolation_domain[idx] = subgroup_generator.pow(idx);
+        interpolation_domain[0] = FF{ 1 };
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            interpolation_domain[idx] = interpolation_domain[idx - 1] * subgroup_generator;
         }
     }
 

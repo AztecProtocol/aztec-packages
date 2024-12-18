@@ -403,7 +403,7 @@ polynomials that are sent in clear.
      */
     void update_zk_sumcheck_data(ZKData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
     {
-        constexpr FF one_half = FF(1) / FF(2);
+        static constexpr FF one_half = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed
         if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
             for (auto& univariate : zk_sumcheck_data.libra_univariates) {

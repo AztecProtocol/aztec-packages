@@ -129,8 +129,9 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
     {
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
+    // Getter for test purposes only
+    const Polynomial<FF>& get_batched_polynomial() const { return batched_polynomial; }
 
-    //
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
         std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
