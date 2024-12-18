@@ -98,7 +98,7 @@ runs:
           fi;
           cd ~/run-$RUN_ID;
           .github/ensure-builder/run $DOCKERHUB_PASSWORD '${{ inputs.run }}';
-        "
+        ";
         exit_code=$?;
         if [ $exit_code = 255 ]; then
           echo "Treating ssh termination as spot eviction.";
