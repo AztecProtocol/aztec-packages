@@ -51,8 +51,6 @@ function build {
     echo
     echo -e "${green}Yarn project successfully built!${reset}"
   fi
-  # Kludge: TODO find out why world state napi is sometimes not in the bundle
-  if
   github_endgroup
 }
 
