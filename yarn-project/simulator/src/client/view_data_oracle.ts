@@ -325,4 +325,12 @@ export class ViewDataOracle extends TypedOracle {
 
     await this.db.removeNullifiedNotes(this.contractAddress);
   }
+
+  public override store(key: Fr, values: Fr[]): Promise<void> {
+    return this.db.store(this.contractAddress, key, values);
+  }
+
+  public override load(key: Fr): Promise<Fr[]> {
+    return this.db.load(this.contractAddress, key);
+  }
 }

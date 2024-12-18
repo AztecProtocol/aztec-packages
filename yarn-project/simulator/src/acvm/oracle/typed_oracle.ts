@@ -249,11 +249,11 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('syncNotes');
   }
 
-  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+  store(_key: Fr, _values: Fr[]): Promise<void> {
     throw new OracleMethodNotAvailableError('store');
   }
 
-  load(_contract: AztecAddress, _key: Fr): Promise<Fr[]> {
+  load(_key: Fr): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('load');
   }
 }
