@@ -63,10 +63,10 @@ FUNCTION_ARTIFACT="${ARTIFACT_NAME}-${FUNCTION}.json"
 mkdir -p "$SCRIPT_DIR/../dest"
 
 # At last, generate the flamegraph
-$PROFILER gates-flamegraph --artifact-path "$SCRIPT_DIR/../target/$FUNCTION_ARTIFACT" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --backend-gates-command "gates_mega_honk" --output "$SCRIPT_DIR/../dest"
+$PROFILER gates --artifact-path "$SCRIPT_DIR/../target/$FUNCTION_ARTIFACT" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --backend-gates-command "gates_mega_honk" --output "$SCRIPT_DIR/../dest"
 
 # serve the file over http
-echo "Serving flamegraph at http://0.0.0.0:8000/main_gates.svg"
+echo "Serving flamegraph at http://0.0.0.0:8000/main::gates.svg"
 python3 -m http.server --directory "$SCRIPT_DIR/../dest" 8000
 
 # Clean up before exiting

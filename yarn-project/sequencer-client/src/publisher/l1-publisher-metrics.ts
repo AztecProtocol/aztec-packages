@@ -1,4 +1,4 @@
-import type { L1PublishBlockStats, L1PublishProofStats } from '@aztec/circuit-types/stats';
+import type { L1PublishBlockStats, L1PublishProofStats, L1PublishStats } from '@aztec/circuit-types/stats';
 import {
   Attributes,
   type Histogram,
@@ -10,7 +10,7 @@ import {
 
 import { formatEther } from 'viem/utils';
 
-export type L1TxType = 'submitProof' | 'process';
+export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
 
 export class L1PublisherMetrics {
   private gasPrice: Histogram;
@@ -74,7 +74,11 @@ export class L1PublisherMetrics {
     this.recordTx('process', durationMs, stats);
   }
 
-  private recordTx(txType: L1TxType, durationMs: number, stats: Omit<L1PublishProofStats, 'eventName'>) {
+  recordClaimEpochProofRightTx(durationMs: number, stats: L1PublishStats) {
+    this.recordTx('claimEpochProofRight', durationMs, stats);
+  }
+
+  private recordTx(txType: L1TxType, durationMs: number, stats: L1PublishStats) {
     const attributes = {
       [Attributes.L1_TX_TYPE]: txType,
       [Attributes.L1_SENDER]: stats.sender,

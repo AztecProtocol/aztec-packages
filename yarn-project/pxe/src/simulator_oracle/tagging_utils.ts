@@ -1,5 +1,8 @@
 import { type Fr, IndexedTaggingSecret } from '@aztec/circuits.js';
 
+// Half the size of the window we slide over the tagging secret indexes.
+export const WINDOW_HALF_SIZE = 10;
+
 export function getIndexedTaggingSecretsForTheWindow(
   secretsAndWindows: { appTaggingSecret: Fr; leftMostIndex: number; rightMostIndex: number }[],
 ): IndexedTaggingSecret[] {
