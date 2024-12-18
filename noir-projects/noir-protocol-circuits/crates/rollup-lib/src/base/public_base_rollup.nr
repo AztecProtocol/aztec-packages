@@ -137,23 +137,16 @@ impl PublicBaseRollupInputs {
             combined_constant_data.historical_header,
         );
 
-        let start_snapshots = self.avm_proof_data.public_inputs.start_tree_snapshots;
-        let end_snapshots = self.avm_proof_data.public_inputs.end_tree_snapshots;
-
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants: self.constants,
-            start: PartialStateReference {
-                note_hash_tree: start_snapshots.note_hash_tree,
-                nullifier_tree: start_snapshots.nullifier_tree,
-                public_data_tree: start_snapshots.public_data_tree,
-            },
-            end: PartialStateReference {
-                note_hash_tree: end_snapshots.note_hash_tree,
-                nullifier_tree: end_snapshots.nullifier_tree,
-                public_data_tree: end_snapshots.public_data_tree,
-            },
+            start: self
+                .avm_proof_data
+                .public_inputs
+                .start_tree_snapshots
+                .to_partial_state_reference(),
+            end: self.avm_proof_data.public_inputs.end_tree_snapshots.to_partial_state_reference(),
             start_sponge_blob: self.start_sponge_blob,
             end_sponge_blob,
             out_hash,
