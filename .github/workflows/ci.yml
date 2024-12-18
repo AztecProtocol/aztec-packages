@@ -417,7 +417,7 @@ jobs:
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-full-test:
-    needs: [images-e2e, ci-rest, configure]
+    needs: [images-e2e, configure]
     if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
     strategy:
