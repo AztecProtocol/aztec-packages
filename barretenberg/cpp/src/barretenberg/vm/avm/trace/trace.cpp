@@ -100,7 +100,9 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     auto old_size = main_trace.size();
     for (auto const& clk : custom_clk) {
         if (clk >= old_size) {
-            main_trace.push_back(Row{ .main_clk = FF(clk) });
+            Row row{};
+            row.main_clk = clk;
+            main_trace.push_back(row);
         }
     }
 
@@ -132,7 +134,7 @@ bool check_tag_integral(AvmMemoryTag tag)
     }
 }
 
-bool isCanonical(FF contract_address)
+bool is_canonical(FF contract_address)
 {
     // TODO: constrain this!
     return contract_address == CANONICAL_AUTH_REGISTRY_ADDRESS || contract_address == DEPLOYER_CONTRACT_ADDRESS ||
@@ -166,7 +168,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         });
 
     bool exists = true;
-    if (check_membership && !isCanonical(contract_address)) {
+    if (check_membership && !is_canonical(contract_address)) {
         if (bytecode_membership_cache.find(contract_address) != bytecode_membership_cache.end()) {
             // If we have already seen the contract address, we can skip the membership check and used the cached
             // membership proof
@@ -219,6 +221,19 @@ uint32_t AvmTraceBuilder::get_inserted_note_hashes_count()
            public_inputs.start_tree_snapshots.note_hash_tree.size;
 }
 
+uint32_t AvmTraceBuilder::get_inserted_nullifiers_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().nullifier_tree.size -
+           public_inputs.start_tree_snapshots.nullifier_tree.size;
+}
+
+// Keeping track of the public data writes isn't as simple as comparing sizes
+// because of updates to leaves that were already in the tree and state squashing
+uint32_t AvmTraceBuilder::get_public_data_writes_count()
+{
+    return static_cast<uint32_t>(merkle_tree_trace_builder.get_public_data_unique_writes().size());
+}
+
 void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
                                            const std::vector<FF>& unique_note_hashes)
 {
@@ -259,8 +274,16 @@ void AvmTraceBuilder::pay_fee()
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto tx_fee = (public_inputs.global_variables.gas_fees.fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
-                  (public_inputs.global_variables.gas_fees.fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
+    auto gas_settings = public_inputs.gas_settings;
+    auto gas_fees = public_inputs.global_variables.gas_fees;
+    auto priority_fee_per_da_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_da_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_da_gas - gas_fees.fee_per_da_gas);
+    auto priority_fee_per_l2_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_l2_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_l2_gas - gas_fees.fee_per_l2_gas);
+    auto total_fee_per_da_gas = gas_fees.fee_per_da_gas + priority_fee_per_da_gas;
+    auto total_fee_per_l2_gas = gas_fees.fee_per_l2_gas + priority_fee_per_l2_gas;
+    auto tx_fee = (total_fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
+                  (total_fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
 
     if (public_inputs.fee_payer == 0) {
         vinfo("No one is paying the fee of ", tx_fee);
@@ -297,6 +320,7 @@ void AvmTraceBuilder::pay_fee()
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }
 
+    // TS equivalent:
     // writeStorage(FEE_JUICE_ADDRESS, balance_slot, updated_balance);
     PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
     ASSERT(write_hint.new_leaf_preimage.value == updated_balance);
@@ -310,6 +334,72 @@ void AvmTraceBuilder::pay_fee()
 
     debug("pay fee side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+}
+
+void AvmTraceBuilder::pad_trees()
+{
+    auto current_tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+
+    auto initial_note_hash_snapshot = public_inputs.start_tree_snapshots.note_hash_tree;
+    // sanity check
+    uint32_t padded_note_hash_size = initial_note_hash_snapshot.size + MAX_NOTE_HASHES_PER_TX;
+    ASSERT(current_tree_snapshots.note_hash_tree.size <= padded_note_hash_size);
+    merkle_tree_trace_builder.set_note_hash_tree_size(padded_note_hash_size);
+
+    auto initial_nullifier_snapshot = public_inputs.start_tree_snapshots.nullifier_tree;
+    // sanity check
+    uint32_t padded_nullifier_size = initial_nullifier_snapshot.size + MAX_NULLIFIERS_PER_TX;
+    ASSERT(current_tree_snapshots.nullifier_tree.size <= padded_nullifier_size);
+    merkle_tree_trace_builder.set_nullifier_tree_size(padded_nullifier_size);
+}
+
+void AvmTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
+{
+    gas_trace_builder.allocate_gas_for_call(l2_gas, da_gas);
+}
+
+void AvmTraceBuilder::handle_exceptional_halt()
+{
+    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+    if (is_top_level) {
+        vinfo("Handling exceptional halt in top-level call. Consuming all allocated gas:");
+        // Consume all remaining gas.
+        gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(current_ext_call_ctx.start_l2_gas_left,
+                                                                       current_ext_call_ctx.start_da_gas_left);
+
+        // max out the pc to signify "done"
+        pc = UINT32_MAX;
+    } else {
+        vinfo("Handling exceptional halt in nested call");
+        // before the nested call was made, how much gas does the parent have?
+        const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+        const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
+
+        // Pop the caller/parent's context from the stack to proceed with execution there
+        current_ext_call_ctx = external_call_ctx_stack.top();
+        external_call_ctx_stack.pop();
+
+        // Grab the saved-off gas remaining in the parent from before the nested call
+        // now that we have popped its context from the stack.
+        auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+        auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+        // now modify the last row of the gas trace to return to the parent's latest gas
+        // with the nested call's entire allocation consumed
+        gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true,
+                                                 parent_l2_gas_left,
+                                                 parent_da_gas_left,
+                                                 l2_gas_allocated_to_nested_call,
+                                                 da_gas_allocated_to_nested_call);
+
+        // Update the call_ptr before we write the success flag
+        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+        write_to_memory(
+            current_ext_call_ctx.success_offset, /*success=*/FF::zero(), AvmMemoryTag::U1, /*fix_pc=*/false);
+
+        // Jump back to the parent's last pc
+        pc = current_ext_call_ctx.last_pc;
+    }
 }
 
 /**
@@ -427,13 +517,15 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
     return mem_trace_builder.unconstrained_read(call_ptr, offset);
 }
 
-void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
+void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legally reset the pc.
     auto current_pc = pc;
     op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
-    op_jump(current_pc, true);
+    if (fix_pc) {
+        op_jump(current_pc, true);
+    }
 }
 
 template <typename T>
@@ -551,7 +643,10 @@ AvmError AvmTraceBuilder::op_add(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::ADD_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::ADD_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -634,7 +729,10 @@ AvmError AvmTraceBuilder::op_sub(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SUB_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SUB_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -715,7 +813,10 @@ AvmError AvmTraceBuilder::op_mul(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::MUL_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MUL_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -810,7 +911,10 @@ AvmError AvmTraceBuilder::op_div(
     auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::DIV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::DIV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -902,7 +1006,10 @@ AvmError AvmTraceBuilder::op_fdiv(
         call_ptr, clk, resolved_c, c, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::FDIV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::FDIV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -987,7 +1094,10 @@ AvmError AvmTraceBuilder::op_eq(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EQ_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EQ_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1055,7 +1165,10 @@ AvmError AvmTraceBuilder::op_lt(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LT_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::LT_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1124,7 +1237,10 @@ AvmError AvmTraceBuilder::op_lte(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LTE_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::LTE_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1197,7 +1313,10 @@ AvmError AvmTraceBuilder::op_and(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::AND_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::AND_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1267,7 +1386,10 @@ AvmError AvmTraceBuilder::op_or(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::OR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::OR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1337,7 +1459,10 @@ AvmError AvmTraceBuilder::op_xor(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::XOR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::XOR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1414,7 +1539,10 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NOT_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NOT_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1477,7 +1605,10 @@ AvmError AvmTraceBuilder::op_shl(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHL_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHL_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1544,7 +1675,10 @@ AvmError AvmTraceBuilder::op_shr(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1599,6 +1733,8 @@ AvmError AvmTraceBuilder::op_shr(
 AvmError AvmTraceBuilder::op_cast(
     uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag, OpCode op_code)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_addrs, res_error] =
@@ -1618,7 +1754,10 @@ AvmError AvmTraceBuilder::op_cast(
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, resolved_c, c, memEntry.tag, dst_tag);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CAST_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::CAST_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1709,8 +1848,6 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, 
             .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
         };
 
-        // Constrain gas cost
-        gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
         main_trace.push_back(row);
         return AvmError::ENV_VAR_UNKNOWN;
     } else {
@@ -1772,7 +1909,10 @@ AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1785,7 +1925,10 @@ AvmError AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_sender = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1798,7 +1941,10 @@ AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offs
     row.main_sel_op_transaction_fee = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1811,7 +1957,10 @@ AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offse
     row.main_sel_op_is_static_call = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1828,7 +1977,10 @@ AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_chain_id = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1841,7 +1993,10 @@ AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_version = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1854,7 +2009,10 @@ AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_block_number = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1867,7 +2025,10 @@ AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_timestamp = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1880,7 +2041,10 @@ AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offse
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1893,7 +2057,10 @@ AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offse
     row.main_sel_op_fee_per_da_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1963,7 +2130,10 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CALLDATACOPY, copy_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::CALLDATACOPY, copy_size);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2007,7 +2177,10 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
     write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2050,9 +2223,12 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
-    gas_trace_builder.constrain_gas(clk,
-                                    OpCode::RETURNDATACOPY,
-                                    /*dyn_gas_multiplier=*/copy_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk,
+                                                      OpCode::RETURNDATACOPY,
+                                                      /*dyn_gas_multiplier=*/copy_size);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2085,6 +2261,8 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 // Helper for "gas left" related opcodes
 AvmError AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     ASSERT(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -2094,7 +2272,10 @@ AvmError AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indir
     auto [resolved_dst] = resolved_addrs;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     uint32_t gas_remaining = 0;
 
@@ -2154,11 +2335,16 @@ AvmError AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
  */
 AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Constrain gas cost
     if (!skip_gas) {
-        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
+        bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
+        if (out_of_gas && is_ok(error)) {
+            error = AvmError::OUT_OF_GAS;
+        }
     }
 
     main_trace.push_back(Row{
@@ -2166,13 +2352,14 @@ AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_jump = FF(1),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
@@ -2211,7 +2398,10 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t cond_offset, uint3
     uint32_t next_pc = !id_zero ? jmp_dest : pc + Deserialization::get_pc_increment(OpCode::JUMPI_32);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2248,6 +2438,8 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t cond_offset, uint3
  */
 AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     const auto next_pc = pc + Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // We store the next instruction as the return location
@@ -2255,7 +2447,10 @@ AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
     // We push the next pc onto the internal return stack of the current context
     current_ext_call_ctx.internal_return_ptr_stack.emplace(next_pc);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::INTERNALCALL);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::INTERNALCALL);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2263,13 +2458,14 @@ AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_ia = FF(jmp_dest),
         .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_internal_call = FF(1),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
@@ -2284,6 +2480,8 @@ AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
  */
 AvmError AvmTraceBuilder::op_internal_return()
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // We pop the return location from the internal return stack of the current context
@@ -2291,19 +2489,23 @@ AvmError AvmTraceBuilder::op_internal_return()
     current_ext_call_ctx.internal_return_ptr_stack.pop();
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::INTERNALRETURN);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::INTERNALRETURN);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_ia = next_pc,
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_sel_op_internal_return = FF(1),
     });
 
     pc = next_pc;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**************************************************************************************************
@@ -2345,7 +2547,10 @@ AvmError AvmTraceBuilder::op_set(
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
     if (!skip_gas) {
-        gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+        bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+        if (out_of_gas && is_ok(error)) {
+            error = AvmError::OUT_OF_GAS;
+        }
     }
 
     main_trace.push_back(Row{
@@ -2406,7 +2611,10 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
-    gas_trace_builder.constrain_gas(clk, OpCode::MOV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MOV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2548,10 +2756,10 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
 
 AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t dest_offset)
 {
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ slot_offset, dest_offset }, mem_trace_builder);
     auto [resolved_slot, resolved_dest] = resolved_addrs;
@@ -2609,7 +2817,10 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     // Constrain gas cost
     // TODO: when/if we move this to its own gadget, and we have 1 row only, we should pass the size as
     // n_multiplier here.
-    gas_trace_builder.constrain_gas(clk, OpCode::SLOAD);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SLOAD);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2623,15 +2834,17 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
 
 AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    uint32_t unique_public_data_slot_writes = get_public_data_writes_count();
+    AvmError error = current_ext_call_ctx.is_static_call ? AvmError::STATIC_CALL_ALTERATION
+                     : unique_public_data_slot_writes >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                         ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                         : AvmError::NO_ERROR;
 
-    if (storage_write_counter >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+    if (!is_ok(error)) {
         // NOTE: the circuit constraint for this limit should only be applied
         // for the storage writes performed by this opcode. An exception should before
         // made for the fee juice storage write made after teardown.
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -2639,7 +2852,6 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
             .main_pc = pc,
             .main_sel_op_sstore = FF(1),
         };
-        gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
         main_trace.push_back(row);
         pc += Deserialization::get_pc_increment(OpCode::SSTORE);
         return error;
@@ -2697,7 +2909,10 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     row.main_sel_op_sstore = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2792,7 +3007,10 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NOTEHASHEXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NOTEHASHEXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2805,8 +3023,11 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     uint32_t inserted_note_hashes_count = get_inserted_note_hashes_count();
-    if (inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX) {
-        AvmError error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+    AvmError error = current_ext_call_ctx.is_static_call                    ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                            : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -2814,14 +3035,17 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
             .main_pc = pc,
             .main_sel_op_emit_note_hash = FF(1),
         };
-        gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
         main_trace.push_back(row);
         pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
         return error;
     }
 
-    auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
+    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
@@ -2841,7 +3065,10 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     merkle_tree_trace_builder.perform_note_hash_append(clk, unique_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2939,7 +3166,10 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NULLIFIEREXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NULLIFIEREXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2952,12 +3182,14 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 
 AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    if (nullifier_write_counter >= MAX_NULLIFIERS_PER_TX) {
-        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+    uint32_t inserted_nullifier_count = get_inserted_nullifiers_count();
+    AvmError error = current_ext_call_ctx.is_static_call                 ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_nullifier_count >= MAX_NULLIFIERS_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                         : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
             .main_internal_return_ptr = internal_return_ptr,
@@ -2965,7 +3197,6 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
             .main_pc = pc,
             .main_sel_op_emit_nullifier = FF(1),
         };
-        gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
         main_trace.push_back(row);
         pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
         return error;
@@ -3014,7 +3245,10 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3109,7 +3343,10 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::L1TOL2MSGEXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::L1TOL2MSGEXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3126,7 +3363,10 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (member_enum >= static_cast<int>(ContractInstanceMember::MAX_MEMBER)) {
         // Error, bad enum operand
@@ -3168,7 +3408,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         // Read the contract instance hint
         ContractInstanceHint instance = execution_hints.contract_instance_hints.at(contract_address);
 
-        if (isCanonical(contract_address)) {
+        if (is_canonical(contract_address)) {
             // skip membership check for canonical contracts
             exists = true;
         } else {
@@ -3337,8 +3577,6 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
             .main_pc = pc,
             .main_sel_op_emit_unencrypted_log = FF(1),
         };
-        // Constrain gas cost
-        gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
         main_trace.push_back(row);
         pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
         return error;
@@ -3387,7 +3625,10 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3412,7 +3653,6 @@ AvmError AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipi
             .main_pc = pc,
             .main_sel_op_emit_l2_to_l1_msg = FF(1),
         };
-        gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
         main_trace.push_back(row);
         pc += Deserialization::get_pc_increment(OpCode::SENDL2TOL1MSG);
         return error;
@@ -3433,7 +3673,10 @@ AvmError AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipi
     row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3492,9 +3735,13 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
     // We need to consume the the gas cost of call, and then handle the amount allocated to the call
-    gas_trace_builder.constrain_gas(clk,
-                                    opcode,
-                                    /*dyn_gas_multiplier=*/args_size);
+    // TODO: is cast okay? Should gas be read from memory as u32?
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, opcode, /*dyn_gas_multiplier=*/args_size);
+    // NOTE: we don't run out of gas if the gas specified by user code is > gas left.
+    // In that case we just cap the gas allocation by gas left.
+    if (is_ok(error) && out_of_gas) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3527,9 +3774,16 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     pc += Deserialization::get_pc_increment(opcode);
 
+    // Save the current gas left in the context before pushing it to stack
+    // It will be used on RETURN/REVERT/halt to remember how much gas the caller had left.
+    current_ext_call_ctx.l2_gas_left = gas_trace_builder.get_l2_gas_left();
+    current_ext_call_ctx.da_gas_left = gas_trace_builder.get_da_gas_left();
+
     // We push the current ext call ctx onto the stack and initialize a new one
     current_ext_call_ctx.last_pc = pc;
-    current_ext_call_ctx.success_offset = resolved_success_offset,
+    current_ext_call_ctx.success_offset = resolved_success_offset;
+    current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
+    current_ext_call_ctx.public_data_unique_writes = merkle_tree_trace_builder.get_public_data_unique_writes();
     external_call_ctx_stack.emplace(current_ext_call_ctx);
 
     // Ext Ctx setup
@@ -3538,18 +3792,29 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     set_call_ptr(static_cast<uint8_t>(clk));
 
+    // Don't try allocating more than the gas that is actually left
+    const auto l2_gas_allocated_to_nested_call =
+        std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
+    const auto da_gas_allocated_to_nested_call =
+        std::min(static_cast<uint32_t>(read_gas_da.val), gas_trace_builder.get_da_gas_left());
     current_ext_call_ctx = ExtCallCtx{
         .context_id = static_cast<uint8_t>(clk),
         .parent_id = current_ext_call_ctx.context_id,
+        .is_static_call = opcode == OpCode::STATICCALL,
         .contract_address = read_addr.val,
         .calldata = calldata,
         .nested_returndata = {},
         .last_pc = 0,
         .success_offset = 0,
-        .l2_gas = static_cast<uint32_t>(read_gas_l2.val),
-        .da_gas = static_cast<uint32_t>(read_gas_da.val),
+        .start_l2_gas_left = l2_gas_allocated_to_nested_call,
+        .start_da_gas_left = da_gas_allocated_to_nested_call,
+        .l2_gas_left = l2_gas_allocated_to_nested_call,
+        .da_gas_left = da_gas_allocated_to_nested_call,
         .internal_return_ptr_stack = {},
+        .tree_snapshot = {},
     };
+
+    allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
     set_pc(0);
 
     return error;
@@ -3640,7 +3905,34 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
 
-    bool is_top_level = current_ext_call_ctx.context_id == 0;
+    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+
+    const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::RETURN, ret_size);
+    bool out_of_gas =
+        l2_gas_cost > gas_trace_builder.get_l2_gas_left() || da_gas_cost > gas_trace_builder.get_da_gas_left();
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+    if (!is_ok(error)) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = static_cast<uint32_t>(!is_ok(error)),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+        return ReturnDataError{
+            .return_data = {},
+            .error = error,
+            .is_top_level = is_top_level,
+        };
+    }
+
+    // Charge gas normally. The gas row will be modified later to go back to parent's gas
+    // minus gas consumed by nested call.
+    gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
     if (tag_match) {
         if (is_top_level) {
@@ -3650,22 +3942,37 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
             slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
-
         } else {
+            // before the nested call was made, how much gas does the parent have?
+            const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+            const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
             // We are returning from a nested call
             std::vector<FF> returndata{};
             read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
-            // Pop the stack
+            // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
             current_ext_call_ctx.nested_returndata = returndata;
+
+            // Grab the saved-off gas remaining in the parent from before the nested call
+            // now that we have popped its context from the stack.
+            auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+            auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+            // modify this instruction's gas row (from constrain_gas) to go back to
+            // parent's gas minus gas consumed by nested call.
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
+                                                     parent_l2_gas_left,
+                                                     parent_da_gas_left,
+                                                     l2_gas_allocated_to_nested_call,
+                                                     da_gas_allocated_to_nested_call);
+
             // Update the call_ptr before we write the success flag
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
-            write_to_memory(current_ext_call_ctx.success_offset, FF::one(), AvmMemoryTag::U1);
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
         }
     }
-
-    gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
 
     if (ret_size == 0) {
         main_trace.push_back(Row{
@@ -3737,7 +4044,35 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     const auto ret_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
-    bool is_top_level = current_ext_call_ctx.context_id == 0;
+    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+
+    const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::REVERT_8, ret_size);
+    bool out_of_gas =
+        l2_gas_cost > gas_trace_builder.get_l2_gas_left() || da_gas_cost > gas_trace_builder.get_da_gas_left();
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+    if (!is_ok(error)) {
+        // TODO: fix and set sel_op_revert
+        main_trace.push_back(Row{
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = static_cast<uint32_t>(!is_ok(error)),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+        return ReturnDataError{
+            .return_data = {},
+            .error = error,
+            .is_top_level = is_top_level,
+        };
+    }
+
+    // Charge gas normally. The gas row will be modified later to go back to parent's gas
+    // minus gas consumed by nested call.
+    gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
+
     if (tag_match) {
         if (is_top_level) {
             // The only memory operation performed from the main trace is a possible indirect load for resolving the
@@ -3747,20 +4082,38 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
         } else {
+            // before the nested call was made, how much gas does the parent have?
+            const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+            const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
             // We are returning from a nested call
             std::vector<FF> returndata{};
             read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
-            // Pop the stack
+            // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
             current_ext_call_ctx.nested_returndata = returndata;
+
+            // Grab the saved-off gas remaining in the parent from before the nested call
+            // now that we have popped its context from the stack.
+            auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+            auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+            // modify this instruction's gas row (from constrain_gas) to go back to
+            // parent's gas minus gas consumed by nested call.
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
+                                                     parent_l2_gas_left,
+                                                     parent_da_gas_left,
+                                                     l2_gas_allocated_to_nested_call,
+                                                     da_gas_allocated_to_nested_call);
+
             // Update the call_ptr before we write the success flag
             set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
-            write_to_memory(current_ext_call_ctx.success_offset, FF::one(), AvmMemoryTag::U1);
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
+            merkle_tree_trace_builder.restore_tree_state(current_ext_call_ctx.tree_snapshot,
+                                                         current_ext_call_ctx.public_data_unique_writes);
         }
     }
-
-    gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
 
     // TODO: fix and set sel_op_revert
     if (ret_size == 0) {
@@ -3771,7 +4124,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             .main_internal_return_ptr = FF(internal_return_ptr),
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
-            .main_sel_op_external_return = 1,
+            .main_sel_op_external_revert = 1,
         });
 
         pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
@@ -3801,10 +4154,6 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
     pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
     auto return_data = is_top_level ? returndata : current_ext_call_ctx.nested_returndata;
-
-    if (is_ok(error)) {
-        error = AvmError::REVERT_OPCODE;
-    }
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{
@@ -3842,7 +4191,10 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
                           check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size))) {
@@ -3892,7 +4244,10 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
     // Resolve indirects in the main trace. Do not resolve the value stored in direct addresses.
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     // These read patterns will be refactored - we perform them here instead of in the poseidon gadget trace
     // even though they are "performed" by the gadget.
@@ -4019,11 +4374,11 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     const uint32_t STATE_SIZE = 8;
     const uint32_t INPUTS_SIZE = 16;
 
-    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
+
+    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
@@ -4044,7 +4399,10 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     // Since the above adds mem_reads in the mem_trace_builder at clk, we need to follow up resolving the reads in
     // the main trace at the same clk cycle to preserve the cross-table permutation
@@ -4143,7 +4501,10 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -4227,7 +4588,10 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
         error = AvmError::CHECK_TAG_ERROR;
     }
 
-    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (!is_ok(error)) {
         main_trace.push_back(Row{
@@ -4325,7 +4689,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     // TODO(dbanks12): length needs to fit into u32 here or it will certainly
     // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (!is_ok(error)) {
         main_trace.push_back(Row{
@@ -4412,34 +4779,52 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb
  * < radix.
- * @param num_limbs The number of limbs to the value into.
- * @param output_bits Should the output be U1s instead of U8s?
+ * @param num_limbs_offset Offset pointing to the number of limbs to the value into.
+ * @param output_bits_offset Offset pointing to a boolean telling whether bits (U1) or bytes (U8) are in the output
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  */
-AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
+AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
                                          uint32_t src_offset,
-                                         uint32_t dst_offset,
                                          uint32_t radix_offset,
-                                         uint32_t num_limbs,
-                                         uint8_t output_bits)
+                                         uint32_t num_limbs_offset,
+                                         uint32_t output_bits_offset,
+                                         uint32_t dst_offset)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    auto [resolved_addrs, res_error] =
+        Addressing<5>::fromWire(indirect, call_ptr)
+            .resolve({ src_offset, radix_offset, num_limbs_offset, output_bits_offset, dst_offset }, mem_trace_builder);
+    auto [resolved_src_offset,
+          resolved_radix_offset,
+          resolved_num_limbs_offset,
+          resolved_output_bits_offset,
+          resolved_dst_offset] = resolved_addrs;
+    error = res_error;
+
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset) &&
+        !check_tag(AvmMemoryTag::U32, resolved_num_limbs_offset) &&
+        !check_tag(AvmMemoryTag::U1, resolved_output_bits_offset)) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    const auto num_limbs = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_num_limbs_offset));
+
+    // Constrain gas cost
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+
+    const auto output_bits = static_cast<uint8_t>(unconstrained_read_from_memory(resolved_output_bits_offset));
+
     // write output as bits or bytes
     AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
                                             : AvmMemoryTag::U8;
-
-    auto [resolved_addrs, res_error] = Addressing<3>::fromWire(indirect, call_ptr)
-                                           .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
-    auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] = resolved_addrs;
-    error = res_error;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
@@ -4447,10 +4832,6 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
-
-    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
-        error = AvmError::CHECK_TAG_ERROR;
-    }
 
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 

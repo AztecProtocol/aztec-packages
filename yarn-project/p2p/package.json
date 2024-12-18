@@ -5,7 +5,8 @@
   "exports": {
     ".": "./dest/index.js",
     "./mocks": "./dest/mocks/index.js",
-    "./bootstrap": "./dest/bootstrap/bootstrap.js"
+    "./bootstrap": "./dest/bootstrap/bootstrap.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [

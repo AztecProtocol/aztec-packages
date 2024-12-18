@@ -952,6 +952,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write toml file
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
+// double_verify_honk_proof as well
 template <IsUltraFlavor Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
