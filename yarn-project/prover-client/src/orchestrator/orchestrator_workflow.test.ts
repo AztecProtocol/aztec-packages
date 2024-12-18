@@ -107,7 +107,7 @@ describe('prover/orchestrator', () => {
         orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, []);
         const txs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
-        await context.setEndTreeRoots(txs);
+        await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
