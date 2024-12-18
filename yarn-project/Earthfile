@@ -200,7 +200,7 @@ end-to-end-prod:
     # Now that the web is compiled, we can trim down the image further
     RUN rm -rf \
         ../noir-projects \
-        ../l1-contracts
+        ../l1-contracts \
         ../barretenberg/ts/src \
         ../barretenberg/ts/dest/node-cjs \
         ../barretenberg/ts/dest/browser
