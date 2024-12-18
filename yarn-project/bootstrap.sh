@@ -41,8 +41,9 @@ function build {
 
     # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
     files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    if [[ "$files_to_upload" =~ "world-state/build/" ]]; then
-      # TODO(ci3) this is a kludge - why does this happen?
+    if ! [[ "$files_to_upload" =~ "world-state/build/" ]]; then
+      # This is a canary in the coal mine for something really gone wrong like hidden files in repo root not being copied over.
+      # TODO(AD): this block can be deleted once 2025 hits
       echo "Error: world-state/build/ is not present in the files to upload. Erroring to prevent bad cache."
       exit 1
     fi

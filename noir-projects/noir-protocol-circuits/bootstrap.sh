@@ -10,10 +10,8 @@ export HARDWARE_CONCURRENCY=16
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export AZTEC_CACHE_REBUILD_PATTERNS=../../barretenberg/cpp/.rebuild_patterns
-export BB_HASH=$(cache_content_hash)
-export AZTEC_CACHE_REBUILD_PATTERNS=../../noir/.rebuild_patterns
-export NARGO_HASH=$(cache_content_hash)
+export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
 tmp_dir=./target/tmp
 key_dir=./target/keys
@@ -113,9 +111,7 @@ function test {
   set -eu
   # Whether we run the tests or not is corse grained.
   name=$(basename "$PWD")
-  export REBUILD_PATTERNS="^noir-projects/$name"
-  export AZTEC_CACHE_REBUILD_PATTERNS=$(echo ../../noir/.rebuild_patterns)
-  CIRCUITS_HASH=$(cache_content_hash)
+  CIRCUITS_HASH=$(REBUILD_PATTERNS="^noir-projects/$name" cache_content_hash ../../noir/.rebuild_patterns)
   if ! test_should_run $name-tests-$CIRCUITS_HASH; then
     return
   fi
