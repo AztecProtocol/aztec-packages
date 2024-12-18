@@ -54,7 +54,6 @@ bootstrap:
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
-  RUN false
 
 bootstrap-with-verifier:
   # TODO(ci3) roll this into normal bootstrap
