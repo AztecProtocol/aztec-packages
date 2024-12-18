@@ -2,7 +2,7 @@
 exit_code=254
 ttl=$1
 scripts/run_on_tester "
-  set -eux;
+  set -eu;
   sudo shutdown -P $ttl;
   if ! [ -d ~/run-$RUN_ID ]; then
     mkdir -p ~/run-$RUN_ID;
