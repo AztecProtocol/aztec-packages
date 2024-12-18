@@ -25,4 +25,4 @@ chmod +x ./jq
 sudo mv ./jq /usr/bin/jq
 ci3/dump_fail ci3/earthly_install
 # Run command.
-ci3/aws_handle_evict "set -eu; $INPUT"A
+ci3/aws_handle_evict "set -eu; $2"
