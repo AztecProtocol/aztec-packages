@@ -262,8 +262,7 @@ describe('e2e_fees failures', () => {
     await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
 
     const badGas = GasSettings.from({
-      gasLimits: gasSettings.gasLimits,
-      maxFeesPerGas: gasSettings.maxFeesPerGas,
+      ...gasSettings,
       teardownGasLimits: Gas.empty(),
     });
 

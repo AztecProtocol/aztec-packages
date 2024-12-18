@@ -4,7 +4,8 @@ use crate::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
-            nullifier_tree::nullifier_tree_batch_insert, PrivateTubeDataValidator,
+            nullifier_tree::nullifier_tree_batch_insert,
+            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
             public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
@@ -46,12 +47,6 @@ pub struct PrivateBaseRollupInputs {
 }
 
 impl PrivateBaseRollupInputs {
-    fn compute_transaction_fee(self) -> Field {
-        let gas_fees = self.constants.global_variables.gas_fees;
-        let gas_used = self.tube_data.public_inputs.gas_used;
-        gas_used.compute_fee(gas_fees)
-    }
-
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         // TODO(#10311): There should be an empty base rollup.
         // There's at least 1 nullifier for a tx. So gas_used won't be empty if the previous circuit is private_tail.
@@ -62,8 +57,6 @@ impl PrivateBaseRollupInputs {
         if !is_empty_tube {
             tube_data_validator.validate_with_rollup_data(self.constants);
         }
-
-        let transaction_fee = self.compute_transaction_fee();
 
         validate_combined_constant_data(self.tube_data.public_inputs.constants, self.constants);
 
@@ -96,6 +89,12 @@ impl PrivateBaseRollupInputs {
         // Insert nullifiers:
         let end_nullifier_tree_snapshot =
             self.check_nullifier_tree_non_membership_and_insert_to_tree();
+
+        let transaction_fee = compute_transaction_fee(
+            self.constants.global_variables.gas_fees,
+            self.tube_data.public_inputs.constants.tx_context.gas_settings,
+            self.tube_data.public_inputs.gas_used,
+        );
 
         // Write fee to public data tree
         let fee_public_data_write = self.build_fee_public_data_write(transaction_fee);
