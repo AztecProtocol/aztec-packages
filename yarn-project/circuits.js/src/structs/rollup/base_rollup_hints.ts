@@ -8,7 +8,7 @@ import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
 import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
-import { PrivateBaseStateDiffHints, PublicBaseStateDiffHints } from './state_diff_hints.js';
+import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
 
 export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
 
@@ -94,12 +94,8 @@ export class PrivateBaseRollupHints {
 
 export class PublicBaseRollupHints {
   constructor(
-    /** Partial state reference at the start of the rollup. */
-    public start: PartialStateReference,
     /** Sponge state to absorb blob inputs at the start of the rollup. */
     public startSpongeBlob: SpongeBlob,
-    /** Hints used while proving state diff validity. */
-    public stateDiffHints: PublicBaseStateDiffHints,
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
@@ -115,13 +111,7 @@ export class PublicBaseRollupHints {
   }
 
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
-    return [
-      fields.start,
-      fields.startSpongeBlob,
-      fields.stateDiffHints,
-      fields.archiveRootMembershipWitness,
-      fields.constants,
-    ] as const;
+    return [fields.startSpongeBlob, fields.archiveRootMembershipWitness, fields.constants] as const;
   }
 
   /**
@@ -143,9 +133,7 @@ export class PublicBaseRollupHints {
   static fromBuffer(buffer: Buffer | BufferReader): PublicBaseRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new PublicBaseRollupHints(
-      reader.readObject(PartialStateReference),
       reader.readObject(SpongeBlob),
-      reader.readObject(PublicBaseStateDiffHints),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       reader.readObject(ConstantRollupData),
     );
@@ -157,9 +145,7 @@ export class PublicBaseRollupHints {
 
   static empty() {
     return new PublicBaseRollupHints(
-      PartialStateReference.empty(),
       SpongeBlob.empty(),
-      PublicBaseStateDiffHints.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       ConstantRollupData.empty(),
     );

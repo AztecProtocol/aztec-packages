@@ -149,7 +149,6 @@ import {
   PrivateTubeData,
   PublicBaseRollupHints,
   PublicBaseRollupInputs,
-  PublicBaseStateDiffHints,
   PublicDataWrite,
   PublicTubeData,
   ScopedL2ToL1Message,
@@ -1059,63 +1058,6 @@ export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHin
   );
 }
 
-/**
- * Creates an instance of PublicBaseStateDiffHints with arbitrary values based on the provided seed.
- * @param seed - The seed to use for generating the hints.
- * @returns A PublicBaseStateDiffHints object.
- */
-export function makePublicBaseStateDiffHints(seed = 1): PublicBaseStateDiffHints {
-  const nullifierPredecessorPreimages = makeTuple(
-    MAX_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
-    seed + 0x1000,
-  );
-
-  const nullifierPredecessorMembershipWitnesses = makeTuple(
-    MAX_NULLIFIERS_PER_TX,
-    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
-    seed + 0x2000,
-  );
-
-  const sortedNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x3000);
-
-  const sortedNullifierIndexes = makeTuple(MAX_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
-
-  const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
-
-  const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
-
-  const lowPublicDataWritesPreimages = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    makePublicDataTreeLeafPreimage,
-    seed + 0x7000,
-  );
-
-  const lowPublicDataWritesMembershipWitnesses = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
-    seed + 0x8000,
-  );
-
-  const publicDataTreeSiblingPaths = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, i),
-    seed + 0x9000,
-  );
-
-  return new PublicBaseStateDiffHints(
-    nullifierPredecessorPreimages,
-    nullifierPredecessorMembershipWitnesses,
-    sortedNullifiers,
-    sortedNullifierIndexes,
-    noteHashSubtreeSiblingPath,
-    nullifierSubtreeSiblingPath,
-    lowPublicDataWritesPreimages,
-    lowPublicDataWritesMembershipWitnesses,
-    publicDataTreeSiblingPaths,
-  );
-}
-
 function makeVkWitnessData(seed = 1) {
   return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
@@ -1152,20 +1094,14 @@ function makePrivateBaseRollupHints(seed = 1) {
 }
 
 function makePublicBaseRollupHints(seed = 1) {
-  const start = makePartialStateReference(seed + 0x100);
-
   const startSpongeBlob = makeSpongeBlob(seed + 0x200);
-
-  const stateDiffHints = makePublicBaseStateDiffHints(seed + 0x600);
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
   const constants = makeConstantBaseRollupData(0x100);
 
   return PublicBaseRollupHints.from({
-    start,
     startSpongeBlob,
-    stateDiffHints,
     archiveRootMembershipWitness,
     constants,
   });
