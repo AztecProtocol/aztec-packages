@@ -32,6 +32,7 @@ bootstrap-noir-bb:
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
   ENV CI=1
+  ENV DENOISE=1
   ENV TEST=1
   ENV USE_CACHE=1
   ARG GITHUB_RUN_URL=""
@@ -374,4 +375,4 @@ network-test:
   FROM +bootstrap
   ARG test=./test-transfer.sh
   ARG validators=3
-  RUN scripts/run_native_testnet.sh -i -t $test -val $validators -v
+  RUN ci3/denoise scripts/run_native_testnet.sh -i -t $test -val $validators -v
