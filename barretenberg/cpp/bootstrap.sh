@@ -101,7 +101,11 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast")
+    build
+    ;;
+  "full")
+    rm -rf build*
     build
     ;;
   "test")
