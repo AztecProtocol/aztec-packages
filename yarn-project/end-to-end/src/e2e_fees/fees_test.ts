@@ -60,7 +60,7 @@ export class FeesTest {
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
 
-  public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
+  public fpcAdmin!: AztecAddress;
 
   public gasSettings!: GasSettings;
 
@@ -140,8 +140,8 @@ export class FeesTest {
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
 
-        // We like sequencer so we send him the fees.
-        this.feeRecipient = this.sequencerAddress;
+        // We set Alice as the FPC admin to avoid the need for deployment of another account.
+        this.fpcAdmin = this.aliceAddress;
 
         this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
@@ -223,7 +223,7 @@ export class FeesTest {
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.feeRecipient)
+        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
           .send()
           .deployed();
 

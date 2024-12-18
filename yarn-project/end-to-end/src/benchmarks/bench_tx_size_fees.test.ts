@@ -49,7 +49,10 @@ describe('benchmarks/tx_size_fees', () => {
   beforeAll(async () => {
     feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
-    fpc = await FPCContract.deploy(aliceWallet, token.address, sequencerAddress).send().deployed();
+
+    // We set Alice as the FPC admin to avoid the need for deployment of another account.
+    const fpcAdmin = aliceWallet.getAddress();
+    fpc = await FPCContract.deploy(aliceWallet, token.address, fpcAdmin).send().deployed();
   });
 
   // mint tokens
@@ -91,7 +94,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'public fee',
-      () => new PublicFeePaymentMethod(token.address, fpc.address, aliceWallet),
+      () => new PublicFeePaymentMethod(fpc.address, aliceWallet),
       // DA:
       // non-rev: 1 nullifiers, overhead; rev: 2 note hashes, 1 nullifier, 1168 B enc note logs, 0 B enc logs,0 B unenc logs, teardown
       // L2:
@@ -100,7 +103,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet, sequencerAddress),
+      () => new PrivateFeePaymentMethod(fpc.address, aliceWallet),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:

@@ -69,6 +69,7 @@ const makeMockPools = () => {
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
       deleteAttestationsOlderThan: jest.fn(),
+      deleteAttestationsForSlotAndProposal: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     },
     epochProofQuotePool: {

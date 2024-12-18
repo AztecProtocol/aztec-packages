@@ -202,7 +202,7 @@ template <typename Curve_> class IPA {
         auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
         if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large");
+            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
         }
 
         // Allocate space for L_i and R_i elements
@@ -342,7 +342,7 @@ template <typename Curve_> class IPA {
 
         auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
         if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large");
+            throw_or_abort("IPA log_poly_length is too large " + std::to_string(log_poly_length));
         }
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
@@ -465,7 +465,7 @@ template <typename Curve_> class IPA {
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
         if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large");
+            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
         }
         auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
         std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
@@ -630,7 +630,7 @@ template <typename Curve_> class IPA {
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
         if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large");
+            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
         }
         auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
         std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
@@ -807,7 +807,7 @@ template <typename Curve_> class IPA {
         Fr challenge_poly_eval = 1;
         Fr r_pow = r;
         if (uint32_t(log_poly_length.get_value()) > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large");
+            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(uint32_t(log_poly_length.get_value())));
         }
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!

@@ -142,7 +142,7 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
-    using Flavor = MegaFlavor;
+    using Flavor = UltraFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 

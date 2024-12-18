@@ -55,7 +55,6 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -901,10 +900,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    this.log.info(`Adding contract artifact ${artifact.name} for ${address.toString()} via API`);
-    // TODO: Node should validate the artifact before accepting it
-    return this.contractDataSource.addContractArtifact(address, artifact);
+  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    return this.contractDataSource.registerContractFunctionNames(_address, names);
   }
 
   public flushTxs(): Promise<void> {
