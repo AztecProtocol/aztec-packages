@@ -82,7 +82,7 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
         );
       } else {
         try {
-          await ec2Client.waitForInstanceRunningStatus(instanceId);
+          await ec2Client.waitForInstanceRunningStatus(instanceIdOrError);
         } catch (err) {
           // If this runner has long been terminated this transition will error out
           // Use this fact ot try again
