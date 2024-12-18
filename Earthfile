@@ -18,17 +18,18 @@ bootstrap-base:
 bootstrap-noir-bb:
   FROM +bootstrap-base
   ARG EARTHLY_GIT_HASH
+  LET bootstrap_noir_bb='rm -rf $(ls -A) &&
+    git init >/dev/null 2>&1 &&
+    git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 &&
+    (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) &&
+    git reset --hard FETCH_HEAD >/dev/null 2>&1 &&
+    DENOISE=1 CI=1 ./noir/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast &&
+    mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
   RUN --raw-output --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --mount type=cache,id=bootstrap-noir-bb-$EARTHLY_GIT_HASH,target=/build-volume \
-    rm -rf $(ls -A) && \
-    git init >/dev/null 2>&1 && \
-    git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 && \
-    (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) && \
-    git reset --hard FETCH_HEAD >/dev/null 2>&1 && \
-    DENOISE=1 CI=1 ./noir/bootstrap.sh fast && \
-    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast && \
-    mv $(ls -A) /usr/src
+    bash -c "$bootstrap_noir_bb"
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
   ENV CI=1
@@ -43,16 +44,18 @@ bootstrap:
   FROM +bootstrap-noir-bb
   WORKDIR /build-volume
   ARG EARTHLY_GIT_HASH
+  LET bootstrap='rm -rf $(ls -A) &&
+    mv $(find /usr/src -mindepth 1 -maxdepth 1) . &&
+    DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast &&
+    (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) &&
+    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast &&
+    mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
   # TODO don't retry noir projects. It seems to have been flakey.
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
-    rm -rf $(ls -A) && \
-    mv $(find /usr/src -mindepth 1 -maxdepth 1) . && \
-    DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
-    DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
-    (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) && \
-    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast && \
-    mv $(ls -A) /usr/src
+    bash -c "$bootstrap"
+
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
 
