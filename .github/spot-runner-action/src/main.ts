@@ -12,9 +12,15 @@ require("aws-sdk/lib/maintenance_mode_message").suppress = true;
 async function pollSpotStatus(
   config: ActionConfig,
   ec2Client: Ec2Instance,
-  ghClient: GithubClient
 ): Promise<string | "unusable" | "none"> {
   const instances = await ec2Client.getInstancesForTags("running");
+  let filteredInstances = instances.filter(i => {
+    const ip = await ec2Client.getPublicIpFromInstanceId(i.InstanceId!);
+    return trySsh(ip, config.ec2Key);
+  });
+  if (filteredInstances.length === 0) {
+    filteredInstances = instances;
+  }
   if (instances.length <= 0) {
     // we need to start an instance
     return "none";
@@ -128,8 +134,7 @@ async function startBuilder(config: ActionConfig) {
   }
   // subaction is 'start' or 'restart'estart'
   const ec2Client = new Ec2Instance(config);
-  const ghClient = new GithubClient(config);
-  let spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
+  let spotStatus = await pollSpotStatus(config, ec2Client);
   let instanceId = "";
   let ip = "";
 
@@ -202,23 +207,31 @@ function installSshKey(encodedSshKey: string) {
   fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
   return tempKeyPath;
 }
+
+function trySsh(ip: string, encodedSshKey: string): boolean {
+  const tempKeyPath = installSshKey(encodedSshKey);
+  try {
+    execSync(
+      `ssh -q -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
+    );
+    core.info(`SSH connection with spot at ${ip} established`);
+    return true;
+  } catch {
+    return false;
+  }
+}
 async function establishSshContact(
-  ip: String,
+  ip: string,
   encodedSshKey: string,
 ) {
-  const tempKeyPath = installSshKey(encodedSshKey);
   // Improved SSH connection retry logic
   let attempts = 0;
   const maxAttempts = 60;
   while (attempts < maxAttempts) {
-    try {
-      execSync(
-        `ssh -q -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
-      );
-      core.info(`SSH connection with spot at ${ip} established`);
+    if (trySsh(ip, encodedSshKey)) {
       return true;
-    } catch {
-      if (attempts >= maxAttempts - 1) {
+    }
+    if (attempts >= maxAttempts - 1) {
         core.error(
           `Timeout: SSH could not connect to ${ip} within 60 seconds.`
         );
@@ -321,7 +334,7 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
       startBareSpot(config);
     }
   } catch (error) {
-    terminate();
+    terminate("running");
     assertIsError(error);
     core.error(error);
     core.setFailed(error.message);

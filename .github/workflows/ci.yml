@@ -390,6 +390,26 @@ jobs:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # - test: gating-passive.test.ts
+          #   values: 16-validators
+          #   runner_type: 16core-tester-x86
+          #   timeout: 60
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
