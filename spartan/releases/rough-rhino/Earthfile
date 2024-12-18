@@ -8,9 +8,8 @@ deps:
         curl \
         git \
         make \
-        nodejs \
-        npm \
-        unzip
+        unzip \
+        jq
 
 test-setup:
     FROM +deps
@@ -43,7 +42,8 @@ test-install:
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \
-        -k 0x00
+        -k 0x00 \
+        -n "troll-turtle"
     # Verify docker-compose.yml was created and contains correct values
     RUN test -f .env && \
         test -f docker-compose.yml && \
@@ -73,7 +73,8 @@ test-start-stop:
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \
-        -k 0x00
+        -k 0x00 \
+        -n "troll-turtle"
     # Test start command
     RUN ./aztec-spartan.sh start 2>&1 | grep -q "Starting containers" && \
         echo "✅ Start command test passed" || \
@@ -97,7 +98,8 @@ test-data-dir:
         -p2p 40400 \
         -ip 1.2.3.4 \
         -k 0x00 \
-        -d ./aztec-data
+        -d ./aztec-data \
+        -n "troll-turtle"
     # Verify docker-compose.yml uses bind mount instead of named volume
     RUN grep -q "volumes:" docker-compose.yml && \
         grep -q "./aztec-data:/var/lib/aztec" docker-compose.yml && \
@@ -113,7 +115,8 @@ test-p2p-key:
         -p2p 40400 \
         -ip 1.2.3.4 \
         -k 0x00 \
-        -pk 00000
+        -pk 00000 \
+        -n "troll-turtle"
     # Verify the P2P private key was set in the .env file
     RUN test -f .env && \
         grep -q "PEER_ID_PRIVATE_KEY=00000" .env && \

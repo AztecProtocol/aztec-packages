@@ -21,7 +21,7 @@ PROGRAM=assert_statement
 # the program containing the recursive verifier
 RECURSIVE_PROGRAM=verify_honk_proof
 
-./reset_acir_tests.sh --rebuild-nargo --programs "$PROGRAM"
+./reset_acir_tests.sh --programs "$PROGRAM"
 cd "acir_tests/$PROGRAM"
 
 TOML_DIR=../../../../noir/noir-repo/test_programs/execution_success/"$RECURSIVE_PROGRAM"
@@ -31,7 +31,7 @@ if [ ! -d "$TOML_DIR" ]; then
 fi
 
 echo "Generating recursion inputs and writing to directory $TOML_DIR"
-$BIN write_recursion_inputs_honk $VERBOSE -c $CRS_PATH -b ./target/program.json -o "$TOML_DIR"
+$BIN write_recursion_inputs_honk --recursive $VERBOSE -c $CRS_PATH -b ./target/program.json -o "$TOML_DIR"
 
 cd ../..
 ./reset_acir_tests.sh --programs "$RECURSIVE_PROGRAM"
