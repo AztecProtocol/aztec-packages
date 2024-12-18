@@ -46,7 +46,7 @@ bootstrap:
   # TODO don't retry noir projects. It seems to have been flakey.
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     rm -rf $(ls -A) && \
-    mv $(find /usr/src -mindepth 1 -maxdepth 1 -type d) . && \
+    mv $(find /usr/src -mindepth 1 -maxdepth 1) . && \
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast && \
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast && \
     (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) && \
@@ -54,6 +54,7 @@ bootstrap:
     mv $(ls -A) /usr/src
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
+  RUN false
 
 bootstrap-with-verifier:
   # TODO(ci3) roll this into normal bootstrap
