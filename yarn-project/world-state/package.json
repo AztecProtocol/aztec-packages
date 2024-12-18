@@ -21,7 +21,7 @@
     "clean": "rm -rf ./dest ./build .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "generate": "mkdir -p build && (cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build || true)",
+    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build",
     "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8"
   },
   "inherits": [
