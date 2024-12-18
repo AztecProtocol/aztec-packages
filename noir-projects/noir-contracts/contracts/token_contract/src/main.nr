@@ -637,12 +637,6 @@ contract Token {
             U128::from_integer(max_fee),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        // Emit the change note.
-        storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            user,
-            user,
-        ));
 
         // 3. Prepare the partial note for the refund.
         let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
@@ -652,8 +646,10 @@ contract Token {
         let fee_recipient = context.msg_sender(); // FPC is the fee recipient.
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,Field)") },
-            [fee_recipient.to_field(), user_point_slot, max_fee],
+            comptime {
+                FunctionSelector::from_signature("complete_refund((Field),Field,Field,Field)")
+            },
+            [fee_recipient.to_field(), user_point_slot, max_fee, change.to_field()],
         );
     }
     // docs:end:setup_refund
@@ -681,10 +677,16 @@ contract Token {
     /// flow.
     #[public]
     #[internal]
-    fn complete_refund(fee_recipient: AztecAddress, user_slot: Field, max_fee: Field) {
+    fn complete_refund(
+        fee_recipient: AztecAddress,
+        user_slot: Field,
+        max_fee: Field,
+        change_owed: Field,
+    ) {
         // TODO(#7728): Remove the next line
         let max_fee = U128::from_integer(max_fee);
         let tx_fee = U128::from_integer(context.transaction_fee());
+        let change_owed = U128::from_integer(change_owed);
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#7796): we should try to prevent reverts here
@@ -692,7 +694,7 @@ contract Token {
 
         // 2. We compute the refund amount as the difference between funded amount and the tx fee.
         // TODO(#10805): Introduce a real exchange rate
-        let refund_amount = max_fee - tx_fee;
+        let refund_amount = max_fee - tx_fee + change_owed;
 
         // 3. We send the tx fee to the fee recipient in public.
         _increase_public_balance_inner(fee_recipient, tx_fee.to_field(), storage);
