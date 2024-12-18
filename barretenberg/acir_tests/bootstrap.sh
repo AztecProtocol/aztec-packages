@@ -5,6 +5,7 @@ cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
 function build {
+  set -eu
   if [ ! -d acir_tests ]; then
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
@@ -44,6 +45,7 @@ function hash {
   cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
 }
 function test {
+  set -eu
   github_group "acir_tests testing"
   local hash=$(hash)
   if ! test_should_run barretenberg-acir-tests-$hash; then

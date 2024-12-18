@@ -27,6 +27,7 @@ function build {
 }
 
 function test {
+  set -eu
   local test_flag=l1-contracts-test-$hash
   if test_should_run $test_flag; then
     github_group "l1-contracts test"

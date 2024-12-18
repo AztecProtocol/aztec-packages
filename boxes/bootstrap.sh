@@ -20,6 +20,7 @@ function build {
 
 function test {
   function test_box {
+    set -eu
     BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --force-recreate
   }
   export -f test_box

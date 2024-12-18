@@ -20,6 +20,7 @@ fi
 # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
 # Also doubles up as our formatting check.
 function prep {
+  set -eu
   (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
   for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
     (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)

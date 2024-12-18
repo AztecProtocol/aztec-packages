@@ -22,6 +22,7 @@ pic_preset="clang16-pic"
 hash=$(cache_content_hash .rebuild_patterns)
 
 function build_native {
+  set -eu
   if ! cache_download barretenberg-release-$hash.tar.gz; then
     rm -f build/CMakeCache.txt
     echo "Building with preset: $preset"
@@ -39,7 +40,8 @@ function build_native {
   fi
 }
 
-function build_wasm {
+function build_wasm
+  set -eu{
   if ! cache_download barretenberg-wasm-$hash.tar.gz; then
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
@@ -50,7 +52,8 @@ function build_wasm {
   (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
-function build_wasm_threads {
+function build_wasm_threads
+  set -eu{
   if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
     rm -f build-wasm-threads/CMakeCache.txt
     cmake --preset wasm-threads
@@ -102,13 +105,15 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"fast"|"full")
-    build
+    export preset pic_preset hash
+    export -f build_native build_wasm build_wasm_threads
+    parallel ::: build_native
     ;;
   "test")
     test
     ;;
   "ci")
-    build
+    build_native
     test
     ;;
   "hash")
