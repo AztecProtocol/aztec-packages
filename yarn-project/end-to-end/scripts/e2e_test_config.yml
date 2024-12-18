@@ -97,9 +97,9 @@ tests:
     test_path: 'e2e_p2p/reqresp.test.ts'
   e2e_p2p_reex:
     test_path: 'e2e_p2p/reex.test.ts'
-  flakey_e2e_tests:
-    test_path: './src/flakey'
-    ignore_failures: true
+  # flakey_e2e_tests:
+  #   test_path: './src/flakey'
+  #   ignore_failures: true
   guides_dapp_testing:
     use_compose: true
     test_path: 'guides/dapp_testing.test.ts'
