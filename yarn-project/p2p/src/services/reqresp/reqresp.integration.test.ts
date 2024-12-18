@@ -4,6 +4,7 @@ import {
   type ClientProtocolCircuitVerifier,
   P2PClientType,
   PeerErrorSeverity,
+  Tx,
   type WorldStateSynchronizer,
   mockTx,
 } from '@aztec/circuit-types';
@@ -60,6 +61,8 @@ describe('Req Resp p2p client integration', () => {
     attestationPool = mock<AttestationPool>();
     epochProofQuotePool = mock<EpochProofQuotePool>();
     epochCache = mock<EpochCache>();
+
+    txPool.getAllTxs.mockResolvedValue([] as unknown as Tx[]);
   });
 
   const getPorts = (numberOfPeers: number) => Promise.all(Array.from({ length: numberOfPeers }, () => getPort()));
