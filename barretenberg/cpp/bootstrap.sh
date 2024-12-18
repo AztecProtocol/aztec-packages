@@ -40,8 +40,8 @@ function build_native {
   fi
 }
 
-function build_wasm
-  set -eu{
+function build_wasm {
+  set -eu
   if ! cache_download barretenberg-wasm-$hash.tar.gz; then
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
@@ -52,8 +52,8 @@ function build_wasm
   (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
-function build_wasm_threads
-  set -eu{
+function build_wasm_threads {
+  set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
     rm -f build-wasm-threads/CMakeCache.txt
     cmake --preset wasm-threads
@@ -105,9 +105,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"fast"|"full")
-    export preset pic_preset hash
-    export -f build_native build_wasm build_wasm_threads
-    parallel ::: build_native
+    build
     ;;
   "test")
     test
