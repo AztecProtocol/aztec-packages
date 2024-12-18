@@ -11,26 +11,29 @@ require("aws-sdk/lib/maintenance_mode_message").suppress = true;
 
 async function pollSpotStatus(
   config: ActionConfig,
-  ec2Client: Ec2Instance,
+  ec2Client: Ec2Instance
 ): Promise<string | "unusable" | "none"> {
-  const instances = await ec2Client.getInstancesForTags("running");
-  const ips = await Promise.all(instances.map(i => ec2Client.getPublicIpFromInstanceId(i.InstanceId!)));
-  let filteredInstances = instances.filter((_, i) => {
-    return trySsh(ips[i], config.ec2Key);
-  });
-  if (filteredInstances.length === 0) {
-    filteredInstances = instances;
+  const instances = await ec2Client.getInstancesForTags(["pending", "running"]);
+  if (instances.length === 0) {
+    return "none"
   }
-  if (instances.length <= 0) {
-    // we need to start an instance
-    return "none";
+  for (const instance of instances) {
+    try {
+      // The first runner we can wait to reach 'running' status
+      // This will error out if they are pending termination
+      await ec2Client.waitForInstanceRunningStatus(instance.InstanceId!);
+      const ip = await ec2Client.getPublicIpFromInstanceId(
+        instance.InstanceId!
+      );
+      if (await establishSshContact(ip, config.ec2Key)) {
+        return instance.InstanceId!;
+      }
+    } catch (err) {
+      // TODO stop printing once stable
+      console.error(err);
+    }
   }
-  const ip = await ec2Client.getPublicIpFromInstanceId(instances[0].InstanceId!);
-  if (!(await establishSshContact(ip, config.ec2Key))) {
-    return "unusable";
-  }
-  core.info("Found ec2 instance, returning it.");
-  return instances[0].InstanceId!;
+  return "unusable";
 }
 
 async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
@@ -83,11 +86,6 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
       // wait 10 seconds
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
-      // TODO hacky check but this module is likely going away soon
-      if (config.ec2InstanceTags.includes("Builder")) {
-        core.info("Polling to see if we somehow have an instance up");
-        instanceId = await ec2Client.getInstancesForTags("running")[0]?.instanceId;
-      }
     }
     if (instanceId) {
       core.info("Successfully requested/found instance with ID " + instanceId);
@@ -124,10 +122,10 @@ async function startBareSpot(config: ActionConfig) {
 
 async function startBuilder(config: ActionConfig) {
   if (config.subaction === "stop") {
-    await terminate();
+    await terminate("running");
     return "";
   } else if (config.subaction === "restart") {
-    await terminate();
+    await terminate("running");
     // then we make a fresh instance
   } else if (config.subaction !== "start") {
     throw new Error("Unexpected subaction: " + config.subaction);
@@ -148,7 +146,7 @@ async function startBuilder(config: ActionConfig) {
         "Taking down spot we just started. This seems wrong, erroring out."
       );
     }
-    await terminate();
+    await terminate("running");
     spotStatus = "none";
   }
   if (spotStatus !== "none") {
@@ -248,7 +246,7 @@ async function terminate(instanceStatus?: string, cleanupRunners = true) {
     const config = new ActionConfig();
     const ec2Client = new Ec2Instance(config);
     const ghClient = new GithubClient(config);
-    const instances = await ec2Client.getInstancesForTags(instanceStatus);
+    const instances = await ec2Client.getInstancesForTags(instanceStatus ? [instanceStatus]: []);
     await ec2Client.terminateInstances(instances.map((i) => i.InstanceId!));
     if (cleanupRunners) {
       core.info("Clearing previously installed runners");

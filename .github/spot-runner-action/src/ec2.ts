@@ -312,7 +312,7 @@ export class Ec2Instance {
   }
 
   async getInstancesForTags(
-    instanceStatus?: string
+    instanceStatuses: string[]
   ): Promise<AWS.EC2.Instance[]> {
     const client = await this.getEc2Client();
     const filters: FilterInterface[] = [
@@ -333,10 +333,10 @@ export class Ec2Instance {
       ).Reservations || []) {
         instances = instances.concat(reservation.Instances || []);
       }
-      if (instanceStatus) {
-        // Filter instances that are stopped
-        instances = instances.filter(
-          (instance) => instance?.State?.Name === instanceStatus
+      if (instanceStatuses.length > 0) {
+        // Filter instances by given types
+        instances = instances.filter((instance) =>
+          instanceStatuses.includes(instance?.State?.Name || "")
         );
       }
       return instances;

@@ -45,6 +45,7 @@ def ssh_into_machine(suffix):
     for i in range(10):
         # Command to get the instance information
         cmd = f'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=aztec-packages-{GITHUB_ACTOR}-{suffix}" --output json --region us-east-2'
+        print(cmd)
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
             print("Failed to get AWS instances:", result.stderr)
