@@ -113,22 +113,14 @@ describe('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is propagated to top-level',
     async () => {
-      await proveAndVerifyAvmTestContract(
-        'nested_call_to_nothing',
-        /*calldata=*/ [],
-        /*expectRevert=*/ true,
-      );
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing', /*calldata=*/ [], /*expectRevert=*/ true);
     },
     TIMEOUT,
   );
   it(
     'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is recovered from in caller',
     async () => {
-      await proveAndVerifyAvmTestContract(
-        'nested_call_to_nothing_recovers',
-        /*calldata=*/ [],
-        /*expectRevert=*/ false,
-      );
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing_recovers', /*calldata=*/ [], /*expectRevert=*/ false);
     },
     TIMEOUT,
   );
@@ -146,8 +138,18 @@ describe('AVM WitGen, proof generation and verification', () => {
   );
 });
 
-async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = [], expectRevert = false, skipContractDeployments = false) {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata, expectRevert, skipContractDeployments);
+async function proveAndVerifyAvmTestContract(
+  functionName: string,
+  calldata: Fr[] = [],
+  expectRevert = false,
+  skipContractDeployments = false,
+) {
+  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
+    functionName,
+    calldata,
+    expectRevert,
+    skipContractDeployments,
+  );
 
   const internalLogger = createLogger('bb-prover:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);

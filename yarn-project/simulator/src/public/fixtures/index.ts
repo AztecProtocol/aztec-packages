@@ -60,17 +60,17 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   const contractInstance = contractDataSource.contractInstance;
 
   if (!skipContractDeployments) {
-      const contractAddressNullifier = siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        contractInstance.address.toField(),
-      );
-      await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-      // other contract address used by the bulk test's GETCONTRACTINSTANCE test
-      const otherContractAddressNullifier = siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        contractDataSource.otherContractInstance.address.toField(),
-      );
-      await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
+    const contractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+    // other contract address used by the bulk test's GETCONTRACTINSTANCE test
+    const otherContractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractDataSource.otherContractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
   }
 
   const simulator = new PublicTxSimulator(
