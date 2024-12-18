@@ -8,13 +8,13 @@ bootstrap-base:
   FROM ./build-images+from-registry
   ENV GITHUB_LOG=1
   WORKDIR /build-volume
+  LET bootstrap_aws='mkdir -p $HOME/.aws/ &&
+    echo "[default]" > $HOME/.aws/credentials &&
+    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials &&
+    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials &&
+    chmod 600 $HOME/.aws/credentials'
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    mkdir -p $HOME/.aws/ && \
-    echo "[default]" > $HOME/.aws/credentials && \
-    echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> $HOME/.aws/credentials && \
-    echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> $HOME/.aws/credentials && \
-    chmod 600 $HOME/.aws/credentials
-
+    bash -c "$bootstrap_aws"
 bootstrap-noir-bb:
   FROM +bootstrap-base
   ARG EARTHLY_GIT_HASH
@@ -48,7 +48,7 @@ bootstrap:
     mv $(find /usr/src -mindepth 1 -maxdepth 1) . &&
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast &&
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast &&
-    (DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast || DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast) &&
+    DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast &&
     DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast &&
     mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
