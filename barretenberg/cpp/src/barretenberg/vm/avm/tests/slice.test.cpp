@@ -37,8 +37,10 @@ class AvmSliceTests : public ::testing::Test {
                                                    .nested_returndata = {},
                                                    .last_pc = 0,
                                                    .success_offset = 0,
-                                                   .l2_gas = 0,
-                                                   .da_gas = 0,
+                                                   .start_l2_gas_left = 0,
+                                                   .start_da_gas_left = 0,
+                                                   .l2_gas_left = 0,
+                                                   .da_gas_left = 0,
                                                    .internal_return_ptr_stack = {} });
         trace_builder.current_ext_call_ctx = ext_call_ctx;
         this->calldata = calldata;

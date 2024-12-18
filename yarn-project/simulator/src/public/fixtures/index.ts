@@ -29,7 +29,7 @@ import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -125,7 +125,7 @@ export function createTxForPublicCall(
   }
 
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
-  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
+  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.67.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.67.0...barretenberg.js-v0.67.1) (2024-12-17)
+
+
+### Features
+
+* PXE browser proving ([#10704](https://github.com/AztecProtocol/aztec-packages/issues/10704)) ([46da3cc](https://github.com/AztecProtocol/aztec-packages/commit/46da3cc8a9c1c407a8ad2857695eea794e334efd))
+
+
+### Bug Fixes
+
+* **bb.js:** Use globalThis instead of self ([#10747](https://github.com/AztecProtocol/aztec-packages/issues/10747)) ([309b5f7](https://github.com/AztecProtocol/aztec-packages/commit/309b5f74862089001e3159bdb52cbc8b60c71dc1)), closes [#10741](https://github.com/AztecProtocol/aztec-packages/issues/10741)
+* Casting vk to rawbuffer before wasm so it reads from the correct offset ([#10769](https://github.com/AztecProtocol/aztec-packages/issues/10769)) ([6a5bcfd](https://github.com/AztecProtocol/aztec-packages/commit/6a5bcfd2dc1a2bef6df2b93e9afa137a9b4ea315))
+
 ## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.66.0...barretenberg.js-v0.67.0) (2024-12-13)
 
 

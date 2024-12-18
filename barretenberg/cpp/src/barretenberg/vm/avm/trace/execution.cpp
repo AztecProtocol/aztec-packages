@@ -399,6 +399,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
         trace_builder.pay_fee();
     }
 
+    trace_builder.pad_trees();
+
     auto trace = trace_builder.finalize(apply_e2e_assertions);
 
     returndata = trace_builder.get_all_returndata();
@@ -426,6 +428,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     // These hints help us to set up first call ctx
     uint32_t clk = trace_builder.get_clk();
     auto context_id = static_cast<uint8_t>(clk);
+    uint32_t l2_gas_allocated_to_enqueued_call = trace_builder.get_l2_gas_left();
+    uint32_t da_gas_allocated_to_enqueued_call = trace_builder.get_da_gas_left();
     trace_builder.current_ext_call_ctx = AvmTraceBuilder::ExtCallCtx{
         .context_id = context_id,
         .parent_id = 0,
@@ -434,10 +438,13 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .nested_returndata = {},
         .last_pc = 0,
         .success_offset = 0,
-        .l2_gas = 0,
-        .da_gas = 0,
+        .start_l2_gas_left = l2_gas_allocated_to_enqueued_call,
+        .start_da_gas_left = da_gas_allocated_to_enqueued_call,
+        .l2_gas_left = l2_gas_allocated_to_enqueued_call,
+        .da_gas_left = da_gas_allocated_to_enqueued_call,
         .internal_return_ptr_stack = {},
     };
+    trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode =
         trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
@@ -449,11 +456,13 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
     trace_builder.set_call_ptr(context_id);
-    while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
+    while ((pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
-        error = parse_error;
 
+        // FIXME: properly handle case when an instruction fails parsing
+        // especially first instruction in bytecode
         if (!is_ok(error)) {
+            error = parse_error;
             break;
         }
 
@@ -846,9 +855,10 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                           std::get<uint16_t>(inst.operands.at(3)),
                                           std::get<uint16_t>(inst.operands.at(4)),
                                           std::get<uint16_t>(inst.operands.at(5)));
+            // TODO: what if an error is encountered on return or call which have already modified stack?
             // We hack it in here the logic to change contract address that we are processing
             bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  check_bytecode_membership);
+                                                  /*check_membership=*/false);
             debug_counter_stack.push(counter);
             counter = 0;
             break;
@@ -862,7 +872,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                                  std::get<uint16_t>(inst.operands.at(5)));
             // We hack it in here the logic to change contract address that we are processing
             bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  check_bytecode_membership);
+                                                  /*check_membership=*/false);
             debug_counter_stack.push(counter);
             counter = 0;
             break;
@@ -871,17 +881,18 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint16_t>(inst.operands.at(1)),
                                                std::get<uint16_t>(inst.operands.at(2)));
-            // We hack it in here the logic to change contract address that we are processing
+            // did the return opcode hit an exceptional halt?
+            error = ret.error;
             if (ret.is_top_level) {
-                error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-
-            } else {
+            } else if (is_ok(error)) {
+                // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      check_bytecode_membership);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
+            // on error/exceptional-halt, jumping back to parent code is handled at bottom of execution loop
             break;
         }
         case OpCode::REVERT_8: {
@@ -889,17 +900,19 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint8_t>(inst.operands.at(1)),
                                                std::get<uint8_t>(inst.operands.at(2)));
+            // error is only set here if the revert opcode hit an exceptional halt
+            // revert itself does not trigger "error"
+            error = ret.error;
             if (ret.is_top_level) {
-                error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-            } else {
-                // change to the current ext call ctx
+            } else if (is_ok(error)) {
+                // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      check_bytecode_membership);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
-
+            // on error/exceptional-halt, jumping back to parent code is handled at bottom of execution loop
             break;
         }
         case OpCode::REVERT_16: {
@@ -907,17 +920,19 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint16_t>(inst.operands.at(1)),
                                                std::get<uint16_t>(inst.operands.at(2)));
+            // error is only set here if the revert opcode hit an exceptional halt
+            // revert itself does not trigger "error"
+            error = ret.error;
             if (ret.is_top_level) {
-                error = ret.error;
                 returndata.insert(returndata.end(), ret.return_data.begin(), ret.return_data.end());
-            } else {
-                // change to the current ext call ctx
+            } else if (is_ok(error)) {
+                // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      check_bytecode_membership);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
-
+            // on error/exceptional-halt, jumping back to parent code is handled at bottom of execution loop
             break;
         }
 
@@ -972,12 +987,12 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
 
             // Conversions
         case OpCode::TORADIXBE:
-            error = trace_builder.op_to_radix_be(std::get<uint8_t>(inst.operands.at(0)),
+            error = trace_builder.op_to_radix_be(std::get<uint16_t>(inst.operands.at(0)),
                                                  std::get<uint16_t>(inst.operands.at(1)),
                                                  std::get<uint16_t>(inst.operands.at(2)),
                                                  std::get<uint16_t>(inst.operands.at(3)),
                                                  std::get<uint16_t>(inst.operands.at(4)),
-                                                 std::get<uint8_t>(inst.operands.at(5)));
+                                                 std::get<uint16_t>(inst.operands.at(5)));
             break;
 
         default:
@@ -985,18 +1000,36 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                            ".");
             break;
         }
-    }
-    if (!is_ok(error)) {
-        auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
-        std::string reason_prefix = exceptionally_halted(error) ? "exceptional halt" : "REVERT opcode";
-        info("AVM enqueued call halted due to ",
-             reason_prefix,
-             ". Error: ",
-             to_name(error),
-             " at PC: ",
-             pc,
-             " IC: ",
-             error_ic);
+
+        if (!is_ok(error)) {
+            const bool is_top_level = trace_builder.current_ext_call_ctx.context_id == 0;
+
+            auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
+            std::string call_type = is_top_level ? "enqueued" : "nested";
+            info("AVM ",
+                 call_type,
+                 " call exceptionally halted. Error: ",
+                 to_name(error),
+                 " at PC: ",
+                 pc,
+                 " IC: ",
+                 error_ic);
+
+            trace_builder.handle_exceptional_halt();
+
+            if (is_top_level) {
+                break;
+            }
+            // otherwise, handle exceptional halt and proceed with execution in caller/parent
+            // We hack it in here the logic to change contract address that we are processing
+            bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                  /*check_membership=*/false);
+            counter = debug_counter_stack.top();
+            debug_counter_stack.pop();
+
+            // reset error as we've now returned to caller
+            error = AvmError::NO_ERROR;
+        }
     }
     return error;
 }

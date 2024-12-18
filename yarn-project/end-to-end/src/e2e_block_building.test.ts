@@ -20,7 +20,7 @@ import {
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -287,6 +287,8 @@ describe('e2e_block_building', () => {
       testContract = await TestContract.deploy(owner).send().deployed();
     }, 60_000);
 
+    afterEach(() => teardown());
+
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
@@ -394,14 +396,12 @@ describe('e2e_block_building', () => {
         .send()
         .deployed();
 
-      // We set the maximum number of txs per block to 12 to ensure that the sequencer will start building a block before it receives all the txs
-      // and also to avoid it building
-      logger.info('Updating min txs per block to 4, and max txs per block to 12');
-      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 12 });
+      logger.info('Updating txs per block to 4');
+      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 24; i++) {
         const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
         txs.push(tx.send({ skipPublicSimulation: false }));
       }

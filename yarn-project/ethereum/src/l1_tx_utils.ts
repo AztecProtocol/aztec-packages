@@ -1,3 +1,4 @@
+import { times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
@@ -71,6 +72,11 @@ export interface L1TxUtilsConfig {
    * How long to wait for a tx to be mined before giving up
    */
   txTimeoutMs?: number;
+  /**
+   * How many attempts will be done to get a tx after it was sent?
+   * First attempt is done at 1s, second at 2s, third at 3s, etc.
+   */
+  txPropagationMaxQueryAttempts?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -118,6 +124,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
     env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
     ...numberConfigHelper(300_000), // 5 mins
+  },
+  txPropagationMaxQueryAttempts: {
+    description: 'How many attempts will be done to get a tx after it was sent',
+    env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
+    ...numberConfigHelper(3),
   },
 };
 
@@ -213,12 +224,14 @@ export class L1TxUtils {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
     const blobInputs = _blobInputs || {};
+    const makeGetTransactionBackoff = () =>
+      makeBackoff(times(gasConfig.txPropagationMaxQueryAttempts ?? 3, i => i + 1));
 
     // Retry a few times, in case the tx is not yet propagated.
     const tx = await retry<GetTransactionReturnType>(
       () => this.publicClient.getTransaction({ hash: initialTxHash }),
       `Getting L1 transaction ${initialTxHash}`,
-      makeBackoff([1, 2, 3]),
+      makeGetTransactionBackoff(),
       this.logger,
       true,
     );
@@ -261,7 +274,7 @@ export class L1TxUtils {
         const tx = await retry<GetTransactionReturnType>(
           () => this.publicClient.getTransaction({ hash: currentTxHash }),
           `Getting L1 transaction ${currentTxHash}`,
-          makeBackoff([1, 2, 3]),
+          makeGetTransactionBackoff(),
           this.logger,
           true,
         );

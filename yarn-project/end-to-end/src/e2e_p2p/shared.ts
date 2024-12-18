@@ -3,7 +3,7 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { type Logger, type SentTx } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { type SpamContract } from '@aztec/noir-contracts.js';
+import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
