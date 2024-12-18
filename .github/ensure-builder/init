@@ -19,7 +19,7 @@ while ! systemctl is-active --quiet docker; do
     echo "Docker service not found! Report this."
     exit 1
   fi
-doneA
+done
 set -x
 echo "Docker service is active!"
 [ -x /usr/local/bin/earthly ] || ci3/earthly_install
