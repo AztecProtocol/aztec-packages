@@ -11,7 +11,7 @@ FROM --platform=linux/amd64 aztecprotocol/barretenberg-x86_64-linux-clang as bar
 FROM ubuntu:noble
 # Install Tini as nargo doesn't handle signals properly.
 # Install git as nargo needs it to clone.
-RUN apt-get update && apt-get install -y git tini jq curl && rm -rf /var/lib/apt/lists/* && apt-get clean
+RUN apt-get update && apt-get install -y curl git jq tini && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Copy binaries to /usr/bin
 COPY --from=built-noir /usr/src/noir/noir-repo/target/release/nargo /usr/bin/nargo
