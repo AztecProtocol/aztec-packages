@@ -226,7 +226,7 @@ describe('Simulator oracle', () => {
         return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey, secretKey: new Fr(index) };
       });
       for (const sender of senders) {
-        await database.addContactAddress(sender.completeAddress.address);
+        await database.addSenderAddress(sender.completeAddress.address);
       }
       aztecNode.getLogsByTags.mockReset();
     });

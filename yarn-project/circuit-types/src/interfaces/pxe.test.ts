@@ -123,13 +123,13 @@ describe('PXESchema', () => {
     expect(result).toEqual(address);
   });
 
-  it('getContacts', async () => {
-    const result = await context.client.getContacts();
+  it('getSenders', async () => {
+    const result = await context.client.getSenders();
     expect(result).toEqual([address]);
   });
 
-  it('removeContact', async () => {
-    await context.client.removeContact(address);
+  it('removeSender', async () => {
+    await context.client.removeSender(address);
   });
 
   it('registerContractClass', async () => {
@@ -348,10 +348,10 @@ class MockPXE implements PXE {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.address);
   }
-  getContacts(): Promise<AztecAddress[]> {
+  getSenders(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
-  removeContact(address: AztecAddress): Promise<void> {
+  removeSender(address: AztecAddress): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve();
   }

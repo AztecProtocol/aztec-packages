@@ -167,34 +167,34 @@ export class PXEService implements PXE {
   public async registerSender(address: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(address)) {
-      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
       return address;
     }
 
-    const wasAdded = await this.db.addContactAddress(address);
+    const wasAdded = await this.db.addSenderAddress(address);
 
     if (wasAdded) {
-      this.log.info(`Added contact:\n ${address.toString()}`);
+      this.log.info(`Added sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
     }
 
     return address;
   }
 
-  public getContacts(): Promise<AztecAddress[]> {
-    const contacts = this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    const senders = this.db.getSenderAddresses();
 
-    return Promise.resolve(contacts);
+    return Promise.resolve(senders);
   }
 
-  public async removeContact(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.db.removeContactAddress(address);
+  public async removeSender(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeSenderAddress(address);
 
     if (wasRemoved) {
-      this.log.info(`Removed contact:\n ${address.toString()}`);
+      this.log.info(`Removed sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n not in address book.`);
     }
 
     return Promise.resolve();
