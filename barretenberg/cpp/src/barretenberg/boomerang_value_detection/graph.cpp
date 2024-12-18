@@ -1,4 +1,5 @@
-#include "graph.hpp"
+#include "./graph.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <stack>
 
@@ -232,10 +233,12 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
         auto q_3 = block.q_3()[index];
         auto q_4 = block.q_4()[index];
         auto q_m = block.q_m()[index];
-        auto q_arith = block.q_c()[index];
+        auto q_arith = block.q_arith()[index];
+        auto q_c = block.q_c()[index];
 
         if (q_3 == 1 && q_4 == 1) {
             // bigfield limb accumulation 1
+            ASSERT(q_arith == 0);
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
                                       { block.w_l()[index],
@@ -248,6 +251,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
             }
         }
         if (q_3 == 1 && q_m == 1) {
+            ASSERT(q_arith == 0);
             // bigfield limb accumulation 2
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -260,6 +264,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
             }
         }
         if (q_2 == 1 && (q_3 == 1 || q_4 == 1 || q_m == 1)) {
+            ASSERT(q_arith == 0);
             // bigfield product cases
             if (index < block.size() - 1) {
                 std::vector<uint32_t> limb_subproduct_vars = {
@@ -267,14 +272,14 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                 };
                 if (q_3 == 1) {
                     // bigfield product 1
-                    assert(q_4 == 0 && q_m == 0);
+                    ASSERT(q_4 == 0 && q_m == 0);
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { block.w_o()[index], block.w_4()[index] });
                 }
                 if (q_4 == 1) {
                     // bigfield product 2
-                    assert(q_3 == 0 && q_m == 0);
+                    ASSERT(q_3 == 0 && q_m == 0 && q_arith == 0);
                     std::vector<uint32_t> non_native_field_gate_2 = { block.w_l()[index],
                                                                       block.w_4()[index],
                                                                       block.w_r()[index],
@@ -288,7 +293,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                 }
                 if (q_m == 1) {
                     // bigfield product 3
-                    assert(q_4 == 0 && q_3 == 0);
+                    ASSERT(q_4 == 0 && q_3 == 0);
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(),
@@ -297,11 +302,18 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
             }
         }
         if (q_1 == 1 && q_m == 1) {
+            ASSERT(q_arith == 0);
             // ram/rom access gate
-            gate_variables.insert(gate_variables.end(),
-                                  { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
+            // no we use special function for processing rom tables
+            // may be I will remove this case in the future btw
+            if (q_c != 0) {
+                gate_variables.insert(
+                    gate_variables.end(),
+                    { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
+            }
         }
         if (q_1 == 1 && q_4 == 1) {
+            ASSERT(q_arith == 0);
             // ram timestamp check
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -313,6 +325,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
             }
         }
         if (q_1 == 1 && q_2 == 1) {
+            ASSERT(q_arith == 0);
             // rom constitency check
             if (index < block.size() - 1) {
                 gate_variables.insert(
@@ -337,6 +350,66 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
     return gate_variables;
 }
 
+template <typename FF>
+inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
+    bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RomTranscript& rom_array)
+{
+    std::vector<uint32_t> gate_variables;
+    for (const auto& elem : rom_array.state) {
+        gate_variables.emplace_back(elem[0]);
+        if (elem[1] != ultra_builder.zero_idx) {
+            gate_variables.emplace_back(elem[1]);
+        }
+    }
+    for (const auto& record : rom_array.records) {
+        gate_variables.insert(gate_variables.end(),
+                              { record.index_witness,
+                                record.value_column1_witness,
+                                record.value_column2_witness,
+                                record.record_witness });
+        size_t gate_index = record.gate_index;
+        variables_gates[ultra_builder.real_variable_index[record.index_witness]].emplace_back(gate_index);
+        variables_gates[ultra_builder.real_variable_index[record.value_column1_witness]].emplace_back(gate_index);
+        variables_gates[ultra_builder.real_variable_index[record.value_column2_witness]].emplace_back(gate_index);
+        auto q_1 = ultra_builder.blocks.aux.q_1()[gate_index];
+        auto q_2 = ultra_builder.blocks.aux.q_2()[gate_index];
+        auto q_3 = ultra_builder.blocks.aux.q_3()[gate_index];
+        auto q_4 = ultra_builder.blocks.aux.q_4()[gate_index];
+        auto q_m = ultra_builder.blocks.aux.q_m()[gate_index];
+        auto q_arith = ultra_builder.blocks.aux.q_arith()[gate_index];
+        auto q_c = ultra_builder.blocks.aux.q_c()[gate_index];
+        ASSERT(q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_c == 0 && q_arith == 0);
+    }
+    this->process_gate_variables(ultra_builder, gate_variables);
+    return gate_variables;
+}
+
+template <typename FF>
+inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
+    bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RamTranscript& ram_array)
+{
+    std::vector<uint32_t> gate_variables;
+    for (const auto& record : ram_array.records) {
+        gate_variables.insert(
+            gate_variables.end(),
+            { record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness });
+        size_t gate_index = record.gate_index;
+        variables_gates[ultra_builder.real_variable_index[record.index_witness]].emplace_back(gate_index);
+        variables_gates[ultra_builder.real_variable_index[record.timestamp_witness]].emplace_back(gate_index);
+        variables_gates[ultra_builder.real_variable_index[record.value_witness]].emplace_back(gate_index);
+        auto q_1 = ultra_builder.blocks.aux.q_1()[gate_index];
+        auto q_2 = ultra_builder.blocks.aux.q_2()[gate_index];
+        auto q_3 = ultra_builder.blocks.aux.q_3()[gate_index];
+        auto q_4 = ultra_builder.blocks.aux.q_4()[gate_index];
+        auto q_m = ultra_builder.blocks.aux.q_m()[gate_index];
+        auto q_arith = ultra_builder.blocks.aux.q_arith()[gate_index];
+        auto q_c = ultra_builder.blocks.aux.q_c()[gate_index];
+        ASSERT(q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 0 && (q_c == 0 || q_c == 1));
+    }
+    this->process_gate_variables(ultra_builder, gate_variables);
+    return gate_variables;
+}
+
 /**
  * @brief Construct a new Graph from Ultra Circuit Builder
  * @tparam FF
@@ -347,6 +420,8 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
 {
     this->variables_gate_counts =
         std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
+    this->variables_gates =
+        std::unordered_map<uint32_t, std::vector<size_t>>(ultra_circuit_constructor.real_variable_index.size());
     this->variable_adjacency_lists =
         std::unordered_map<uint32_t, std::vector<uint32_t>>(ultra_circuit_constructor.real_variable_index.size());
     this->variables_degree = std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
@@ -429,6 +504,24 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
         for (size_t i = 0; i < aux_block.size(); i++) {
             std::vector<uint32_t> variable_indices =
                 this->get_auxiliary_gate_connected_component(ultra_circuit_constructor, i);
+            this->connect_all_variables_in_vector(
+                ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
+        }
+    }
+    const auto& rom_arrays = ultra_circuit_constructor.rom_arrays;
+    if (rom_arrays.size() > 0) {
+        for (size_t i = 0; i < rom_arrays.size(); i++) {
+            std::vector<uint32_t> variable_indices =
+                this->get_rom_table_connected_component(ultra_circuit_constructor, rom_arrays[i]);
+            this->connect_all_variables_in_vector(
+                ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
+        }
+    }
+    const auto& ram_arrays = ultra_circuit_constructor.ram_arrays;
+    if (ram_arrays.size() > 0) {
+        for (size_t i = 0; i < ram_arrays.size(); i++) {
+            std::vector<uint32_t> variable_indices =
+                this->get_ram_table_connected_component(ultra_circuit_constructor, ram_arrays[i]);
             this->connect_all_variables_in_vector(
                 ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
@@ -880,11 +973,10 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
 template <typename FF>
 std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder)
 {
-    std::unordered_set<uint32_t> variables_in_one_gate;
     for (const auto& pair : variables_gate_counts) {
         bool is_not_constant_variable = this->check_is_not_constant_variable(ultra_circuit_builder, pair.first);
         if (pair.second == 1 && pair.first != 0 && is_not_constant_variable) {
-            variables_in_one_gate.insert(pair.first);
+            this->variables_in_one_gate.insert(pair.first);
         }
     }
     auto range_lists = ultra_circuit_builder.range_lists;
@@ -898,8 +990,9 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
             }
         }
     }
-    this->remove_unnecessary_decompose_variables(ultra_circuit_builder, variables_in_one_gate, decompose_varialbes);
-    this->remove_unnecessary_plookup_variables(ultra_circuit_builder, variables_in_one_gate);
+    this->remove_unnecessary_decompose_variables(
+        ultra_circuit_builder, this->variables_in_one_gate, decompose_varialbes);
+    this->remove_unnecessary_plookup_variables(ultra_circuit_builder, this->variables_in_one_gate);
     return variables_in_one_gate;
 }
 
@@ -988,6 +1081,18 @@ template <typename FF> void Graph_<FF>::print_variables_edge_counts()
     for (const auto& it : variables_degree) {
         if (it.first != 0) {
             info("variable index = ", it.first, "number of edges for this variable = ", it.second);
+        }
+    }
+}
+
+template <typename FF> void Graph_<FF>::print_variables_in_one_gate()
+{
+    for (const auto& elem : variables_in_one_gate) {
+        ASSERT(variables_gates[elem].size() <= 1);
+        if (variables_gates[elem].size() == 1) {
+            info("for variable with index ", elem, " gate index == ", variables_gates[elem][0]);
+        } else {
+            info("variable's gate with index ", elem, " hasn't processed yet");
         }
     }
 }
