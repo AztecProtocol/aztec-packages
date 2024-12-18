@@ -39,16 +39,16 @@ function build {
 
     denoise 'cd end-to-end && yarn build:web'
 
-    # Find the directories that are not part of git, removing yarn artifacts and .tsbuildinfo
-    files_to_upload=$(git ls-files --others --ignored --directory --exclude-standard | grep -v node_modules | grep -v .tsbuildinfo | grep -v \.yarn)
-    if ! [[ "$files_to_upload" =~ "world-state/build/" ]]; then
-      # This is a canary in the coal mine for something really gone wrong like hidden files in repo root not being copied over.
-      # TODO(AD): this block can be deleted once 2025 hits
-      echo "Error: world-state/build/ is not present in the files to upload. Erroring to prevent bad cache."
-      exit 1
-    fi
+    # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
+    # Then one-off cases. If you've written into src, you need to update this.
+    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+      end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
+      ivc-integration/src/types/ \
+      noir-contracts.js/{codegenCache.json,src/} \
+      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
+      pxe/src/config/package_info.ts \
+      protocol-contracts/src/protocol_contract_data.ts
 
-    cache_upload $tar_file $files_to_upload
     echo
     echo -e "${green}Yarn project successfully built!${reset}"
   fi
