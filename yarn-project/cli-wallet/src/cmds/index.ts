@@ -628,13 +628,13 @@ export function injectCommands(
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
     .action(async (address, options) => {
-      const { registerContact } = await import('./register_contact.js');
+      const { registerSender } = await import('./register_contact.js');
       const { from: parsedFromAddress, rpcUrl, secretKey, alias } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      await registerContact(wallet, address, log);
+      await registerSender(wallet, address, log);
 
       if (db && alias) {
         await db.storeContact(address, alias, log);

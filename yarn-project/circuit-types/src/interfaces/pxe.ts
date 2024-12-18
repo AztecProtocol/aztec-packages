@@ -123,7 +123,7 @@ export interface PXE {
    * @param address - Address of the user to add to the address book
    * @returns The address address of the account.
    */
-  registerContact(address: AztecAddress): Promise<AztecAddress>;
+  registerSender(address: AztecAddress): Promise<AztecAddress>;
 
   /**
    * Retrieves the addresses stored as contacts on this PXE Service.
@@ -467,7 +467,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress)
     .returns(z.union([CompleteAddress.schema, z.undefined()])),
-  registerContact: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
+  registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
   getContacts: z.function().returns(z.array(schemas.AztecAddress)),
   removeContact: z.function().args(schemas.AztecAddress).returns(z.void()),
   registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),

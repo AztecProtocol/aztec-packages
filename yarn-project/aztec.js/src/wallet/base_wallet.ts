@@ -86,8 +86,8 @@ export abstract class BaseWallet implements Wallet {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
-    return this.pxe.registerContact(address);
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerSender(address);
   }
   getContacts(): Promise<AztecAddress[]> {
     return this.pxe.getContacts();

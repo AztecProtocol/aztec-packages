@@ -54,6 +54,17 @@ Also created a public function `pull_funds()` for admin to clawback any money in
 
 Expect more changes in FPC in the coming releases!
 
+## TBD
+
+### PXE.registerContact --> PXE.registerSender
+`registerContact` has been deemed confusing because the name is too similar to `registerContract`.
+For this reason we've decided to rename it:
+
+```diff
+- await pxe.registerContact(address);
++ await pxe.registerSender(address);
+```
+
 ## 0.67.1
 
 ### Noir contracts package no longer exposes artifacts as default export

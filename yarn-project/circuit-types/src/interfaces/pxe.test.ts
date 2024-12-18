@@ -118,8 +118,8 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(CompleteAddress);
   });
 
-  it('registerContact', async () => {
-    const result = await context.client.registerContact(address);
+  it('registerSender', async () => {
+    const result = await context.client.registerSender(address);
     expect(result).toEqual(address);
   });
 
@@ -344,7 +344,7 @@ class MockPXE implements PXE {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(CompleteAddress.random());
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.address);
   }
