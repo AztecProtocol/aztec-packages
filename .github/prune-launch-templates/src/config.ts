@@ -27,7 +27,7 @@ export class ActionConfig implements ConfigInterface {
     this.awsSecretAccessKey = core.getInput("aws_secret_access_key");
     this.awsRegion = core.getInput("aws_region");
     this.awsIamRoleArn = core.getInput("aws_iam_role_arn");
-    this.awsAssumeRole = this.awsIamRoleArn ? true : false;
+    this.awsAssumeRole = Boolean(this.awsIamRoleArn);
 
     this.maxAgeInDays = +core.getInput("max_age_in_days");
     this.dryRun = core.getInput("dry_run") === "true";
