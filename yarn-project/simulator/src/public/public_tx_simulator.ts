@@ -56,6 +56,7 @@ export class PublicTxSimulator {
     telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
+    private enforceFeePayment: boolean = true,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -424,12 +425,18 @@ export class PublicTxSimulator {
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();
 
-    const currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    // We allow to fake the balance of the fee payer to allow transaction simulation
+    // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      throw new Error(
-        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
-      );
+      if (this.enforceFeePayment) {
+        throw new Error(
+          `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+        );
+      } else {
+        currentBalance = txFee;
+      }
     }
 
     const updatedBalance = currentBalance.sub(txFee);
