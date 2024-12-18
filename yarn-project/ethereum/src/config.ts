@@ -26,6 +26,8 @@ export type L1ContractsConfig = {
   governanceProposerQuorum: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
+  /** The version of the rollup. */
+  rollupVersion: number;
 };
 
 export const DefaultL1ContractsConfig = {
@@ -39,6 +41,7 @@ export const DefaultL1ContractsConfig = {
   slashingRoundSize: 10,
   governanceProposerQuorum: 6,
   governanceProposerRoundSize: 10,
+  rollupVersion: 1,
 } satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -91,6 +94,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
     description: 'The governance proposing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
+  rollupVersion: {
+    env: 'ROLLUP_VERSION',
+    description: 'The version of the rollup.',
+    defaultValue: DefaultL1ContractsConfig.rollupVersion,
+    ...numberConfigHelper(DefaultL1ContractsConfig.rollupVersion),
   },
 };
 

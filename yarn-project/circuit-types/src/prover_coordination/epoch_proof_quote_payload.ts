@@ -6,11 +6,10 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import omit from 'lodash.omit';
 import { inspect } from 'util';
-import { encodeAbiParameters, keccak256 } from 'viem';
-import { parseAbiParameters } from 'viem';
+import { encodeAbiParameters, keccak256, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import { Signable } from '../p2p/index.js';
+import { type Signable } from '../p2p/index.js';
 
 // Required so typescript can properly annotate the exported schema
 export { type EthAddress };

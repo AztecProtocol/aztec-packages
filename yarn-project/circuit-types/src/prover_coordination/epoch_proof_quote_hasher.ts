@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 
 import { hashTypedData } from 'viem';
 
-import { EpochProofQuotePayload, EthAddress } from './epoch_proof_quote_payload.js';
+import { type EpochProofQuotePayload, type EthAddress } from './epoch_proof_quote_payload.js';
 
 /**
  * A utility class to hash EpochProofQuotePayloads following the EIP-712 standard.
@@ -22,10 +22,10 @@ export class EpochProofQuoteHasher {
     }[];
   };
 
-  constructor(rollupAddress: EthAddress, chainId: number) {
+  constructor(rollupAddress: EthAddress, version: number, chainId: number) {
     this.domain = {
       name: 'Aztec Rollup',
-      version: '1',
+      version: version.toString(),
       chainId,
       verifyingContract: rollupAddress.toString(),
     };

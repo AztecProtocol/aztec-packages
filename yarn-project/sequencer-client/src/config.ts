@@ -29,8 +29,6 @@ export { SequencerConfig };
 type ChainConfig = {
   /** The chain id of the ethereum host. */
   l1ChainId: number;
-  /** The version of the rollup. */
-  version: number;
 };
 
 /**
@@ -125,11 +123,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   l1ChainId: l1ReaderConfigMappings.l1ChainId,
-  version: {
-    env: 'VERSION',
-    description: 'The version of the rollup.',
-    ...numberConfigHelper(1),
-  },
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {

@@ -7,9 +7,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { Gossipable } from '../p2p/gossipable.js';
-import { getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
-import { EpochProofQuoteHasher } from './epoch_proof_quote_hasher.js';
+import { type EpochProofQuoteHasher } from './epoch_proof_quote_hasher.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
 
 export class EpochProofQuote extends Gossipable {

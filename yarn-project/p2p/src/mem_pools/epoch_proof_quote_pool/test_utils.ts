@@ -16,7 +16,7 @@ export function makeRandomEpochProofQuote(payload?: EpochProofQuotePayload): {
   quote: EpochProofQuote;
   signer: Secp256k1Signer;
 } {
-  const hasher = new EpochProofQuoteHasher(EthAddress.random(), 1);
+  const hasher = new EpochProofQuoteHasher(EthAddress.random(), 1, 1);
   const signer = Secp256k1Signer.random();
 
   return {

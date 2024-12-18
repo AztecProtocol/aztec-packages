@@ -152,7 +152,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   if (config.enableGas) {
     await setupCanonicalL2FeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+      new SignerlessWallet(
+        pxe,
+        new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.rollupVersion),
+      ),
       aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
       undefined,
       logger.info,

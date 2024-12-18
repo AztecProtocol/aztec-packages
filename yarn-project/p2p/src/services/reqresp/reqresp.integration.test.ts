@@ -2,7 +2,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import {
   type ClientProtocolCircuitVerifier,
-  EpochProofQuoteHasher,
+  type EpochProofQuoteHasher,
   P2PClientType,
   PeerErrorSeverity,
   type Tx,

@@ -336,6 +336,8 @@ export const deployL1Contracts = async (
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    rollupVersion: args.rollupVersion,
+    minimumStake: MINIMUM_STAKE,
   };
   const rollupArgs = [
     feeJuicePortalAddress.toString(),

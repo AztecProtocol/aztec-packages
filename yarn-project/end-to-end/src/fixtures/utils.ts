@@ -499,7 +499,7 @@ export async function setup(
   if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
     await setupCanonicalFeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.rollupVersion)),
     );
   }
 

@@ -374,7 +374,7 @@ describe('prover-node', () => {
         epochProofQuotePool: new MemoryEpochProofQuotePool(),
       };
       epochCache = mock<EpochCache>();
-      const epochProofQuoteHasher = new EpochProofQuoteHasher(EthAddress.random(), 1);
+      const epochProofQuoteHasher = new EpochProofQuoteHasher(EthAddress.random(), /*version=*/ 1, /*chainId=*/ 1);
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],

@@ -32,6 +32,7 @@ contract Rollup is RealRollup {
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
+        rollupVersion: TestConstants.ROLLUP_VERSION
       })
     )
   {}

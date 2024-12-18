@@ -3,7 +3,7 @@ import {
   BlockProposal,
   type ClientProtocolCircuitVerifier,
   EpochProofQuote,
-  EpochProofQuoteHasher,
+  type EpochProofQuoteHasher,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,

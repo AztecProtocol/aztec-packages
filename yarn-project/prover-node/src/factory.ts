@@ -52,7 +52,11 @@ export async function createProverNode(
 
   // Dependencies of the p2p client
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
-  const epochProofQuoteHasher = new EpochProofQuoteHasher(config.l1Contracts.rollupAddress, config.l1ChainId);
+  const epochProofQuoteHasher = new EpochProofQuoteHasher(
+    config.l1Contracts.rollupAddress,
+    config.rollupVersion,
+    config.l1ChainId,
+  );
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode

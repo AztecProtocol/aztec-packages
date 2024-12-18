@@ -127,6 +127,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       bytes32(0),
       address(this),
       Config({
+        rollupVersion: "1",
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,

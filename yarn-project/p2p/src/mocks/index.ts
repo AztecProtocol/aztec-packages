@@ -1,6 +1,6 @@
 import {
   type ClientProtocolCircuitVerifier,
-  EpochProofQuoteHasher,
+  type EpochProofQuoteHasher,
   type L2BlockSource,
   type P2PClientType,
   type Tx,

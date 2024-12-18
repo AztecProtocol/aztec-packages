@@ -1,6 +1,6 @@
 import {
   EpochProofQuote,
-  EpochProofQuoteHasher,
+  type EpochProofQuoteHasher,
   EpochProofQuotePayload,
   PeerErrorSeverity,
 } from '@aztec/circuit-types';

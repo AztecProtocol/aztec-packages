@@ -12,4 +12,5 @@ library TestConstants {
   uint256 internal constant AZTEC_MINIMUM_STAKE = 100e18;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
+  string internal constant ROLLUP_VERSION = "1";
 }

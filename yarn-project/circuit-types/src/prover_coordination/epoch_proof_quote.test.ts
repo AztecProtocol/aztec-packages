@@ -2,7 +2,6 @@ import { EthAddress } from '@aztec/circuits.js';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { EpochProofQuote } from './epoch_proof_quote.js';
 import { EpochProofQuoteHasher } from './epoch_proof_quote_hasher.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
@@ -23,7 +22,7 @@ describe('epoch proof quote', () => {
       validUntilSlot: 100n,
     });
 
-    hasher = new EpochProofQuoteHasher(EthAddress.random(), 1);
+    hasher = new EpochProofQuoteHasher(EthAddress.random(), 1, 1);
 
     const digest = hasher.hash(payload);
     const signature = signer.sign(digest);

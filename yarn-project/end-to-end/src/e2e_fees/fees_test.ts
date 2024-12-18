@@ -177,7 +177,7 @@ export class FeesTest {
         await setupCanonicalFeeJuice(
           new SignerlessWallet(
             context.pxe,
-            new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
+            new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.rollupVersion),
           ),
         );
       },
