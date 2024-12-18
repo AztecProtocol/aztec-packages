@@ -1,5 +1,5 @@
 aztec:
-  slotDuration: 16
+  slotDuration: 24
   epochDuration: 4
   epochProofClaimWindow: 2
 
