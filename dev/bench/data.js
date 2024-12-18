@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734517922935,
+  "lastUpdate": 1734523072392,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc54a1e1ef75b29d160a02d03cf9b29e28d3e4ca",
-          "message": "feat: Client IVC API (#10217)\n\n- Establish API in purely virtual class\r\n- This is just a first pass. I will continue to work on this before\r\nshowing dev rel and others to get buy-in.\r\n- Implement some API functions for ClientIVC: prove, verify,\r\nprove_and_verify\r\n- Support for constructing CIVC proof for input a single circuit\r\n  - This is interpreted as a \"compiletime stack\"\r\n- Produces ECCVM and Translator proofs from dummy/empty data; future\r\noptimization could avoid.\r\n- Add `one_circuit` to CIVC to encode whether the MH part of the CIVC\r\nproof should be a hiding circuit (which takes a folding proof) or a\r\nproof for the single circuit.\r\n- Run almost all ACIR tests against ClientIVC\r\n- Previously only ran MegaHonk tests, which are not totally meaningful.\r\n- Four are skipped because they fail. These failures are expected to be\r\nsuperficial (see\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1164 and the\r\nreferences to it in the PR's new code).\r\n- fold_and_verify and mega honk flows go away in bb, but remain until\r\nbb.js alignment.\r\n- Delete large log file that should not be track (accounts for big\r\nnegative diff).",
-          "timestamp": "2024-12-03T09:18:40-05:00",
-          "tree_id": "fd1f89f19c186899ac0b6dff4a4554775b7c33c4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc54a1e1ef75b29d160a02d03cf9b29e28d3e4ca"
-        },
-        "date": 1733237970951,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28037.81463200002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26323.953417999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5009.527340000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4690.045214000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86074.169488,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86074170000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15090.203081,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15090204000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3046228577,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3046228577 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140944710,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140944710 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3054,6 +2994,72 @@ window.BENCHMARK_DATA = {
             "value": 142950195,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142950195 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8480cbf1ecdee5d7228b08d1c9608308acdd624",
+          "message": "feat: move busread and lookup block construction at the top of the trace (#10707)\n\nConstructing the lookup block and lookup table data at the top of the\r\ntrace removes the dependence of active ranges on the dyadic circuit size\r\nwhich was causing problems for the overflow scenario and also reduces\r\nthe number of active rows to be close to the real size (modulo\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1152 which still\r\nneeds investigation).",
+          "timestamp": "2024-12-18T11:15:45Z",
+          "tree_id": "7b9e38e07add526aab7d999bf58d7a83a4e7430b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e8480cbf1ecdee5d7228b08d1c9608308acdd624"
+        },
+        "date": 1734523065330,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 21469.483932999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18921.031903 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24431.404593999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 21786.193354000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4968.941267000019,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4642.270874999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85628.90712,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85628908000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15079.21652,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15079218000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2838666079,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2838666079 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142377178,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142377178 ns\nthreads: 1"
           }
         ]
       }
