@@ -36,10 +36,6 @@ EOF'`,
       "sudo service sshd restart",
       "touch /home/ubuntu/.user-data-finished",
     ];
-    console.log(
-      "Sending: ",
-      cmds.join("\n")
-    );
     return Buffer.from(cmds.join("\n")).toString("base64");
   }
 }
