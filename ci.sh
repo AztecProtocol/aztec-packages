@@ -35,10 +35,12 @@ shift
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
-  echo "Commit $current_commit is not pushed, exiting."
-  exit 1
-fi
+function enforce_pushed_commit {
+  if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
+    echo "Commit $current_commit is not pushed, exiting."
+    exit 1
+  fi
+}
 
 instance_name="${BRANCH//\//_}"
 
@@ -54,25 +56,31 @@ function get_ip_for_instance {
 
 case "$cmd" in
   "ec2")
+    enforce_pushed_commit
     # Spin up ec2 instance and ci bootstrap with shell on failure.
     bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-full")
+    enforce_pushed_commit
     # Spin up ec2 instance and full bootstrap with shell on failure.
     bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
     ;;
   "ec2-full-test")
+    enforce_pushed_commit
     # Spin up ec2 instance and full bootstrap with tests and shell on failure.
     bootstrap_ec2 "USE_CACHE=0 ./bootstrap.sh ci || exec bash" ${1:-}
     ;;
   "ec2-shell")
+    enforce_pushed_commit
     # Spin up ec2 instance and drop into shell.
     bootstrap_ec2 "exec bash"
     ;;
   "ec2-e2e")
+    enforce_pushed_commit
     bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" ${1:-}
     ;;
   "ec2-e2e-grind")
+    enforce_pushed_commit
     export DENOISE=1
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2-e2e {}
