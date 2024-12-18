@@ -180,10 +180,6 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         // nullifier read hint for the contract address
         NullifierReadTreeHint nullifier_read_hint = bytecode_hint.contract_instance.membership_hint;
 
-        vinfo("contract address: ", contract_address);
-        vinfo("contract address nullifier: ", contract_address_nullifier);
-        vinfo("low leaf nullifier: ", nullifier_read_hint.low_leaf_preimage.nullifier);
-        vinfo("low leaf next nullifier: ", nullifier_read_hint.low_leaf_preimage.next_nullifier);
         // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
         // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
         exists = nullifier_read_hint.low_leaf_preimage.nullifier == contract_address_nullifier;
