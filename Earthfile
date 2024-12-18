@@ -168,6 +168,7 @@ ci-rest:
     WAIT
       BUILD ./yarn-project/+format-check
       BUILD ./yarn-project/+test
+      BUILD ./+network-test --test=./test-transfer.sh
     END
     RUN ci3/cache_upload_flag $artifact
   END
@@ -175,13 +176,6 @@ ci-rest:
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./yarn-project/+prover-client-test
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-  SET artifact=network-test-ci-tests-$(./yarn-project/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./+network-test --test=./test-transfer.sh
     END
     RUN ci3/cache_upload_flag $artifact
   END
@@ -208,6 +202,17 @@ ci:
 # Build helpers
 ########################################################################################################################
 docs-with-cache:
+  FROM +bootstrap
+  ENV CI=1
+  ENV USE_CACHE=1
+  LET artifact=docs-ci-deploy-$(./boxes/bootstrap.sh hash)
+  IF ci3/test_should_run $artifact
+    WAIT
+      BUILD --pass-args ./docs/+deploy-preview
+    END
+    RUN ci3/cache_upload_flag $artifact
+  END
+prover-client-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
