@@ -1,13 +1,14 @@
 ---
-title: Testing Contracts in the TXE
+title: Testing Contracts
 tags: [contracts, tests, testing, txe]
 keywords: [tests, testing, txe]
+sidebar_position: 2
 importance: 1
 ---
 
 Aztec contracts can be tested in a variety of ways depending on the needs of a particular application and the complexity of the interactions they must support.
 
-To test individual contract functions, you can use the Testing eXecution Environment (TXE) described below. For more complex interactions that require checking that the protocol rules are enforced, you should [write end-to-end tests using TypeScript](../../js_apps/test.md).
+To test individual contract functions, you can use the Testing eXecution Environment (TXE) described below. For more complex interactions that require checking that the protocol rules are enforced, you should [write end-to-end tests using TypeScript](../js_apps/test.md).
 
 ## Pure Noir tests
 
@@ -27,7 +28,7 @@ TXE is a JSON RPC server much like PXE, but provides an extra set of oracle func
 
 ## TXE vs End-to-end tests
 
-End-to-end tests are written in typescripts and use compiled Aztec contracts and generated Typescript interfaces, a private execution environment (PXE) and a simulated execution environment to process transactions, create blocks and apply state updates. This allows for advanced checks on state updates like generation the of logs, cross-chain messages and checking transaction status and also enforce the rules of the protocol (e.g. checks in our rollup circuits). If you need the rules of the protocol to be enforced or require complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with Typescript](../../js_apps/test.md).
+End-to-end tests are written in typescripts and use compiled Aztec contracts and generated Typescript interfaces, a private execution environment (PXE) and a simulated execution environment to process transactions, create blocks and apply state updates. This allows for advanced checks on state updates like generation the of logs, cross-chain messages and checking transaction status and also enforce the rules of the protocol (e.g. checks in our rollup circuits). If you need the rules of the protocol to be enforced or require complex interactions (such as with L1 contracts), please refer to [Testing Aztec.nr contracts with Typescript](../js_apps/test.md).
 
 The TXE is a super fast framework in Noir to quickly test your smart contract code.
 
@@ -38,7 +39,7 @@ So to summarize:
 
 ### Running TXE
 
-If you have [the sandbox](../../../getting_started.md) installed, you can run TXE tests using:
+If you have [the sandbox](../../getting_started.md) installed, you can run TXE tests using:
 
 `aztec test`
 
@@ -176,7 +177,7 @@ Reading notes:
 
 #### Private
 
-You can add [authwits](../writing_contracts/authwit.md) to the TXE. Here is an example of testing a private token transfer using authwits:
+You can add [authwits](writing_contracts/authwit.md) to the TXE. Here is an example of testing a private token transfer using authwits:
 
 #include_code private_authwit /noir-projects/noir-contracts/contracts/token_contract/src/test/transfer_in_private.nr rust
 
@@ -214,7 +215,7 @@ You can also use the `assert_public_call_fails` or `assert_private_call_fails` m
 
 ### Logging
 
-You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../../../reference/developer_references/debugging.md)
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../../reference/developer_references/debugging.md)
 
 :::warning
 Remember to set the following environment variables to activate debug logging:

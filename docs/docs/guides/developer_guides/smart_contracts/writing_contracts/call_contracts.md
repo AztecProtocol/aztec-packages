@@ -1,5 +1,5 @@
 ---
-title: Calling Other Functions
+title: Calling Other Contracts
 sidebar_position: 4
 tags: [functions, contracts]
 ---

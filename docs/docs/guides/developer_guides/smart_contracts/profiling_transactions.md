@@ -1,10 +1,8 @@
 ---
 title: Profiling Transactions
-sidebar_position: 5
+sidebar_position: 1
 tags: [contracts, profiling]
 ---
-
-# Profiling Transactions
 
 An Aztec transaction typically consists of a private and a public part. The private part is where the user executes contract logic within the PXE and generates a proof of execution, which is then sent to the sequencer.
 
