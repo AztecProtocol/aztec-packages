@@ -69,7 +69,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
-    //instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
