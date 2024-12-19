@@ -13,7 +13,10 @@ scripts/run_on_tester "
     git checkout FETCH_HEAD >/dev/null 2>&1;
   fi;
   cd ~/run-$RUN_ID;
-  .github/ensure-tester/wrapper $DOCKERHUB_PASSWORD '$INPUT';
+  # Install deps.
+  .github/ensure-tester/install $DOCKERHUB_PASSWORD '$INPUT';
+  # Run the test.
+  ci3/aws_handle_evict "set -eu; $2"
 "
 exit_code=$?
 if [ $exit_code = 255 ]; then
