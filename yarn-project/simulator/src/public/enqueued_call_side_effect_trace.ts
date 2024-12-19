@@ -57,6 +57,7 @@ import { strict as assert } from 'assert';
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { UniqueContractCallsLimitReachedError } from './bytecode_errors.js';
+import { ContractBytecodeHints } from './contract_bytecode_hints.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
@@ -130,8 +131,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
      *  otherwise the public kernel can fail to prove because TX limits are breached.
      */
     private readonly previousSideEffectArrayLengths: SideEffectArrayLengths = SideEffectArrayLengths.empty(),
-    /** We need to thread through the previous bytecode hints maps */
-    private readonly previousBytecodeHints: Map<string, AvmContractBytecodeHints> = new Map(),
+    /** We need to track hints in a hierarchical map to deduplicate and enforce limits. */
+    private contractBytecodeHints: ContractBytecodeHints = new ContractBytecodeHints(),
   ) {
     this.log.debug(`Creating trace instance with startSideEffectCounter: ${startSideEffectCounter}`);
     this.sideEffectCounter = startSideEffectCounter;
@@ -149,7 +150,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
         this.previousSideEffectArrayLengths.unencryptedLogs + this.unencryptedLogs.length,
       ),
-      this.avmCircuitHints.contractBytecodeHints,
+      this.contractBytecodeHints.fork(),
     );
   }
 
@@ -176,16 +177,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   private mergeHints(forkedTrace: this) {
+    this.contractBytecodeHints.acceptAndMerge(forkedTrace.contractBytecodeHints);
+
     this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
 
     this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
-    // We want to merge the bytecode hints from forked, but we dont want to overwrite the existing ones (as they
-    // contain already existing membership checks against earlier state roots)
-    for (let [contractClassId, bytecodeHint] of forkedTrace.avmCircuitHints.contractBytecodeHints) {
-      if (!this.avmCircuitHints.contractBytecodeHints.has(contractClassId)) {
-        this.avmCircuitHints.contractBytecodeHints.set(contractClassId, bytecodeHint);
-      }
-    }
 
     this.avmCircuitHints.publicDataReads.items.push(...forkedTrace.avmCircuitHints.publicDataReads.items);
     this.avmCircuitHints.publicDataWrites.items.push(...forkedTrace.avmCircuitHints.publicDataWrites.items);
@@ -416,22 +412,15 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    // We have hinted this bytecode, we do nothing.
-    if (
-      this.previousBytecodeHints.has(contractInstance.contractClassId.toString()) ||
-      this.avmCircuitHints.contractBytecodeHints.has(contractInstance.contractClassId.toString())
-    ) {
+    // We already hinted this bytecode. Do nothing.
+    if (this.contractBytecodeHints.has(contractInstance.contractClassId.toString())) {
       this.log.debug(
         `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
       );
       return;
     }
 
-    // Before adding this hint, check that we won't be exceeding the MAX_UNIQUE_CONTRACTS_PER_TX
-    if (
-      this.previousBytecodeHints.size + this.avmCircuitHints.contractBytecodeHints.size >=
-      AVM_MAX_UNIQUE_CONTRACT_CALLS
-    ) {
+    if (this.contractBytecodeHints.size() >= AVM_MAX_UNIQUE_CONTRACT_CALLS) {
       throw new UniqueContractCallsLimitReachedError(AVM_MAX_UNIQUE_CONTRACT_CALLS);
     }
 
@@ -446,8 +435,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       contractInstance.publicKeys,
       membershipHint,
     );
-    // We need to deduplicate the contract instances based on contract class id
-    this.avmCircuitHints.contractBytecodeHints.set(
+    // We need to deduplicate the contract bytecode hints based on contract class id
+    this.contractBytecodeHints.set(
       contractInstance.contractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
@@ -580,6 +569,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public getAvmCircuitHints() {
+    // The only entry in avmCircuitHints that isn't updated as items are traced is contractBytecodeHints
+    // Update it before returning.
+    this.avmCircuitHints.contractBytecodeHints = this.contractBytecodeHints.getHints();
     return this.avmCircuitHints;
   }
 

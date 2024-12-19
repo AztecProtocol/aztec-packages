@@ -201,7 +201,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     );
 
     const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
-    expect(trace.getAvmCircuitHints().contractBytecodeHints.size).toEqual([
+    expect(Array.from(trace.getAvmCircuitHints().contractBytecodeHints.values())).toEqual([
       {
         bytecode,
         contractInstanceHint: { address, exists, ...instanceWithoutVersion, membershipHint: { ...membershipHint } },
