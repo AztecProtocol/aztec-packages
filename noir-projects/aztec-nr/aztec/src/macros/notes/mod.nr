@@ -21,7 +21,7 @@ pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Q
 
 pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
-/// 
+/// The note type id is set by enumerating the note types.
 comptime fn get_next_note_type_id() -> Field {
     // We assert that the note type id fits within 7 bits
     assert(
