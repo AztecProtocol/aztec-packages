@@ -1055,21 +1055,21 @@ export class TXE implements TypedOracle {
   /**
    * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
    * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to store the data.
+   * @param key - A field element representing the key to store the data under.
    * @param values - An array of field elements representing the data to store.
    */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    return this.txeDatabase.store(contract, key, values);
+  store(key: Fr, values: Fr[]): Promise<void> {
+    return this.txeDatabase.store(this.contractAddress, key, values);
   }
 
   /**
    * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
    * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to load the data.
+   * @param key - A field element representing the key to load the data under.
    * @returns An array of field elements representing the stored data.
    * @throws If the data is not found.
    */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[]> {
-    return this.txeDatabase.load(contract, key);
+  load(key: Fr): Promise<Fr[]> {
+    return this.txeDatabase.load(this.contractAddress, key);
   }
 }
