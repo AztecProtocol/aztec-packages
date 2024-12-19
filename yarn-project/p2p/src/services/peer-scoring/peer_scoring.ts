@@ -4,9 +4,9 @@ import { median } from '@aztec/foundation/collection';
 import { type P2PConfig } from '../../config.js';
 
 const DefaultPeerPenalties = {
-  [PeerErrorSeverity.LowToleranceError]: 2,
+  [PeerErrorSeverity.LowToleranceError]: 50,
   [PeerErrorSeverity.MidToleranceError]: 10,
-  [PeerErrorSeverity.HighToleranceError]: 50,
+  [PeerErrorSeverity.HighToleranceError]: 2,
 };
 
 export class PeerScoring {
