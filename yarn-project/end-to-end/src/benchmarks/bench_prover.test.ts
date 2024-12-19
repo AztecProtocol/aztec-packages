@@ -204,13 +204,12 @@ describe('benchmarks/proving', () => {
 
     const feeFnCall0 = {
       gasSettings,
-      paymentMethod: new PublicFeePaymentMethod(initialTokenContract.address, initialFpContract.address, wallet),
+      paymentMethod: new PublicFeePaymentMethod(initialFpContract.address, wallet),
     };
 
     // const feeFnCall1 = {
     //   gasSettings,
     //   paymentMethod: new PrivateFeePaymentMethod(
-    //     initialTokenContract.address,
     //     initialFpContract.address,
     //     await getWalletOnPxe(1),
     //   ),

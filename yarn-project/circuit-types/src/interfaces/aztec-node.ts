@@ -17,7 +17,6 @@ import {
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
-import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -287,7 +286,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
+  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -387,7 +386,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -534,7 +533,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
+  registerContractFunctionNames: z
+    .function()
+    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
+    .returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
@@ -563,7 +565,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
 
-  simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
+  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
   isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(z.boolean()),
 

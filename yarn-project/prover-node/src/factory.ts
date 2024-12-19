@@ -1,5 +1,6 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
+import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -51,12 +52,15 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
 
+  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
+
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
   const proverCoordination = await createProverCoordination(config, {
     aztecNodeTxProvider: deps.aztecNodeTxProvider,
     worldStateSynchronizer,
     archiver,
+    epochCache,
     telemetry,
   });
 

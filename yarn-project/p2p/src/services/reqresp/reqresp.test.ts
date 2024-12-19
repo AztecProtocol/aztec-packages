@@ -1,4 +1,4 @@
-import { TxHash, mockTx } from '@aztec/circuit-types';
+import { PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -14,7 +14,6 @@ import {
   startNodes,
   stopNodes,
 } from '../../mocks/index.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../peer_manager.js';
 import { PING_PROTOCOL, RequestableBuffer, TX_REQ_PROTOCOL } from './interface.js';
 
