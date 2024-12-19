@@ -65,7 +65,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       || grep 'docker: error during connect:' $OUTPUT_FILE >/dev/null \
       || grep 'docker: failed to write digest data' >/dev/null \
       || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null; then
-      # wait for other docker restarts
+      # try to wait it out
       sleep 20
     fi
     exit $earthly_exit_code
