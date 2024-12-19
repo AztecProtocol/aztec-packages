@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -eu
+# One-time config.
+mkdir -p ~/.ssh
+echo $BUILD_INSTANCE_SSH_KEY | base64 --decode > ~/.ssh/build_instance_key
+chmod 600 ~/.ssh/build_instance_key
+set +x
+# Ensure docker is active.
+echo "Waiting for Docker service to become active..."
+i=0
+set +x
+while ! systemctl is-active --quiet docker; do
+  sleep 2
+  if [ $(( i++ )) -gt 60 ]; then
+    echo "Docker service not found! Report this."
+    exit 1
+  fi
+done
+echo $1 | ci3/dump_fail docker login -u aztecprotocolci --password-stdin
+ci3/dump_fail wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq 2>&1 >/dev/null
+chmod +x ./yq
+sudo mv ./yq /usr/bin/yq
+ci3/dump_fail wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq
+chmod +x ./jq
+sudo mv ./jq /usr/bin/jq
+ci3/dump_fail ci3/earthly_install
+function install_parallel() {
+  sudo apt update && sudo apt install parallel
+}
+export -f install_parallel
+DENOISE=1 ci3/denoise install_parallel
