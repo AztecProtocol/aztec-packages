@@ -41,7 +41,7 @@ fi
 
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
    ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+  echo "Docker images not found."
   exit 1
 fi
 
@@ -53,13 +53,12 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-# STERN_PID=""
+STERN_PID=""
 function copy_stern_to_log() {
-  # TODO(AD) we need to figure out a less resource intensive solution than stern
-  # ulimit -n 4096
-  # stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  ulimit -n 4096
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
   echo "disabled until less resource intensive solution than stern implemented" > $SCRIPT_DIR/network-test.log &
-  # STERN_PID=$!
+  STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
@@ -115,7 +114,7 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $STERN_PID $(jobs -p) &>/dev/null || true
 
   if [ "$CLEANUP_CLUSTER" = "true" ]; then
     kind delete cluster || true

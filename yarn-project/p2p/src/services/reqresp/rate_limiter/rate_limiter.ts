@@ -3,9 +3,10 @@
  * Rationale is that if it was good enough for them, then it should be good enough for us.
  * https://github.com/ChainSafe/lodestar
  */
+import { PeerErrorSeverity } from '@aztec/circuit-types';
+
 import { type PeerId } from '@libp2p/interface';
 
-import { PeerErrorSeverity } from '../../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../../peer_manager.js';
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';

@@ -17,6 +17,11 @@ DEFAULT_KEY="0x0000000000000000000000000000000000000000000000000000000000000001"
 DEFAULT_IP=$(curl -s --connect-timeout 5 https://api.ipify.org?format=json | grep -o '"ip":"[^"]*' | cut -d'"' -f4 || echo "")
 DEFAULT_BIND_MOUNT_DIR="$HOME/aztec-data"
 
+# unset these to avoid conflicts with the host's environment
+ETHEREUM_HOST=
+IMAGE=
+BOOTNODE_URL=
+
 
 # Parse command line arguments
 parse_args() {
@@ -168,7 +173,7 @@ configure_environment() {
     if [ "$NETWORK" = "troll-turtle" ]; then
         BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.213.6:8080}"
         ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.19.127.9:8545}"
-        IMAGE="${IMAGE:-aztecprotocol/aztec:0.67.1}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:troll-turtle}"
     else
         # unknown network
         echo -e "${RED}Unknown network: $NETWORK${NC}"
