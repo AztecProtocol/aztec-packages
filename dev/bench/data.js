@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734614713364,
+  "lastUpdate": 1734622488356,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "427cf594ec9ca4b472ec5d4a249c7b49805c78e2",
-          "message": "chore: parallelise inverse polynomial construction for lookup relations (#10413)\n\nBenchmark were showing that oink is the second most expensive round in\r\nPG after combiner. On top of that one component where we see\r\ndiscrepancies when increasing the ambient trace size is logderivative\r\ninverses construction. A step towards improving this is parallelising\r\nthe construction of inverse polynomials (which is linear). Also the\r\ninverses can be committed to with `commit_sparse` which shows a slight\r\nimprovement as well.\r\nBEFORE\r\n```\r\nCLIENT_IVC_BENCH_STRUCTURE(2^19)\r\n\r\nClientIVCBench/Full/6      29146 ms        27299 ms\r\nProtogalaxyProver::prove(t)            16265    58.29%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    5624    34.58%\r\n\r\n\r\nEXAMPLE_20(2^20)\r\n\r\nClientIVCBench/Full/6      37145 ms        34235 ms\r\nProtogalaxyProver::prove(t)            21283    60.75%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    8818    41.43%\r\nCOMMIT::lookup_inverses(t)        406     9.82%\r\n```\r\n\r\nAFTER\r\n```\r\nCLIENT_IVC_BENCH_STRUCTURE(2^19)\r\n\r\nClientIVCBench/Full/6      27351 ms        25477 ms \r\nProtogalaxyProver::prove(t)            14627    55.72%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    4030    27.55%\r\n\r\n\r\nEXAMPLE_20(2^20)\r\nClientIVCBench/Full/6      33852 ms        30893 ms   \r\nProtogalaxyProver::prove(t)            18250    56.97%\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    5526    30.28%\r\nCOMMIT::lookup_inverses(t)        301     7.43%\r\n```",
-          "timestamp": "2024-12-05T12:15:35Z",
-          "tree_id": "1e148d2fba9c8aea7b0a4ace84927fd45f915316",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/427cf594ec9ca4b472ec5d4a249c7b49805c78e2"
-        },
-        "date": 1733404399309,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25513.040267999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23644.438496 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4582.814206000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4319.2583030000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91484.2179,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91484218000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16490.637163,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16490638000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2819528647,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2819528647 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136637592,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136637592 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3084,6 +3024,72 @@ window.BENCHMARK_DATA = {
             "value": 165826917,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165826917 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "15475f47bdc2ac02ea5157bdc9d1f5172ff6ed09",
+          "message": "feat: added a UnivariateMonomial representation to reduce field ops in protogalaxy+sumcheck (#10401)\n\nSummary:\r\n\r\n`client_ivc_bench.sh` benchmark has been improved by approx 10% (26218ms\r\nvs 29306ms)\r\n\r\nIn both protogalaxy + sumcheck, the basic representation of the edge of\r\nthe boolean hypercube is now a degree-1 monomial instead of a\r\nMAX_RELATION_DEGREE-degree monomial\r\n\r\nThe class UnivariateMonomial can efficiently evaluate low-degree\r\nmonomial relations of up to degree-2. The relations in the `relations`\r\ndirectory have been reworked to perform initial low-degree algebraic\r\ncomputations using UnivariateMonomial, only converting to a full\r\nMonomial object once the UnivariateMonomial would otherwise exceed\r\ndegree-2\r\n\r\nReason why we do all of this:\r\n\r\n1. for MegaFlavor, `extend_edges` was converting every flavour\r\npolynomial into a degree-11 Univariate. This was introducing 9 Fp\r\nadditions * NUM_ALL_ENTITIES per row in the circuit. Given the sparse\r\ntrace structure we are working with, this is a lot of computation that\r\nthis PR makes redundant\r\n2. for each relation, we check if it can be skipped by typically calling\r\n`is_zero` on a selector. The selector poly is in Univariate form\r\n(MegaFlavor = degree-11) which is 11 Fp zero-checks. MegaFlavor has 9\r\nskippable relations which is 99 Fp zero-checks. With the new degree-2\r\nrepresentation this is reduced to only 18 Fp zero-checks\r\n3. The number of raw Fp add and mul operations required to evaluate our\r\nrelations is reduced. For example, in the permutation argument each\r\n`*`/`+` operation in the `accumulate` function was costing us 11 Fp\r\nmuls/adds. It is cheaper to compute low-degree sub-terms in the\r\ncoefficient representation before extend inginto point-evaluation\r\nrepresentation\r\n\r\ne.g. consider (in the protogalaxy case where challenges are degree-1\r\nunivariates) `(w_i + \\beta * S_i + \\gamma)` for `i = 0,1,2,3`. In\r\ncoefficient representation this term can be computed with 8 Fp adds and\r\n3 Fp muls. Extending into a degree-11 point evaluation form costs 18 Fp\r\nadds for a total of 26 Fp adds and 3 Fp muls.\r\n\r\nIn master branch, using Univariate<11> this computation costs us 20 Fp\r\nadds and 10 Fp muls. Assuming an add is 1/3 the cost of a mul, this\r\nmakes the new approach cost 35 Fp add-equivalent operations vs 50 Fp\r\nadd-equivalent\r\n\r\nOverall in the new approach, the number of field operations to compute\r\nthe permutation argument has reduced by 30%",
+          "timestamp": "2024-12-19T15:12:09Z",
+          "tree_id": "16726762d4bf7492bbfa2f371eae794d8b327586",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/15475f47bdc2ac02ea5157bdc9d1f5172ff6ed09"
+        },
+        "date": 1734622480904,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19619.226225000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17172.247299 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21711.567222000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19137.342345 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4174.930159000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3868.259428 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84176.988422,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84176989000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15217.179274000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15217181000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2781235387,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2781235387 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132331442,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132331442 ns\nthreads: 1"
           }
         ]
       }
