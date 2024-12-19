@@ -1,30 +1,51 @@
 #!/usr/bin/env bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cd "$(dirname "$0")"
+cmd=${1:-}
+hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
-CMD=${1:-}
-BUILD_CMD="build"
+function build {
+  github_group "bb.js build"
+  if ! cache_download bb.js-$hash.tar.gz; then
+    denoise yarn install
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  elif [ "$CMD" = "esm" ]; then
-    BUILD_CMD="build:esm"
+    denoise yarn build
+    cache_upload bb.js-$hash.tar.gz dest
   else
-    echo "Unknown command: $CMD"
-    exit 1
+    denoise yarn install
   fi
-fi
+  github_endgroup
+}
 
-# Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+function test {
+  if test_should_run bb.js-tests-$hash; then
+    github_group "bb.js test"
+    denoise yarn test
+    cache_upload_flag bb.js-tests-$hash
+    github_endgroup
+  fi
+}
 
-yarn install --immutable
-echo "Building with command 'yarn $BUILD_CMD'..."
-yarn $BUILD_CMD
-
-# Make bin globally available.
-npm link
-echo "Barretenberg ts build successful"
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  "hash")
+    echo "$hash"
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+esac

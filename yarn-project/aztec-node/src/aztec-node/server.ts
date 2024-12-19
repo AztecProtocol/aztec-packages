@@ -54,6 +54,7 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -166,6 +167,8 @@ export class AztecNodeService implements AztecNode, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
 
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
       P2PClientType.Full,
@@ -173,13 +176,14 @@ export class AztecNodeService implements AztecNode, Traceable {
       archiver,
       proofVerifier,
       worldStateSynchronizer,
+      epochCache,
       telemetry,
     );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const validatorClient = await createValidatorClient(config, rollupAddress, { p2pClient, telemetry, dateProvider });
+    const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -797,7 +801,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
   }))
-  public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -821,7 +825,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
+      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables, enforceFeePayment);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);

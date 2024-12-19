@@ -501,7 +501,12 @@ export class Sequencer {
     const orchestratorFork = await this.worldState.fork();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
+      const processor = this.publicProcessorFactory.create(
+        publicProcessorFork,
+        historicalHeader,
+        newGlobalVariables,
+        true,
+      );
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);

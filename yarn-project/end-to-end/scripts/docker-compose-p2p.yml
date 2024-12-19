@@ -14,7 +14,7 @@ services:
       - '40400:40400/tcp'
       - '40400:40400/udp'
     environment:
-      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
       DEBUG: ${DEBUG:-""}
       P2P_TCP_LISTEN_ADDR: '0.0.0.0:40400'
       P2P_TCP_ANNOUNCE_ADDR: 'p2p-bootstrap:40400'
@@ -25,7 +25,7 @@ services:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: true
-      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
       DEBUG: ${DEBUG:-""}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
