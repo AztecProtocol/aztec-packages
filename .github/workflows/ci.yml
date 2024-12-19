@@ -386,7 +386,7 @@ jobs:
             ci3/bootstrap_ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
           fi
 
-  kind-smoke-test:
+  kind-network-smoke:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
     runs-on: ubuntu-latest
@@ -407,7 +407,7 @@ jobs:
             cd yarn-project/end-to-end
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
-  kind-network-full-test:
+  kind-network-test:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.network-all == 'true'
     runs-on: ubuntu-latest
@@ -639,8 +639,8 @@ jobs:
       - e2e
       - bb-native-tests
       - network-4epochs-test
-      - kind-smoke-test
-      - kind-network-full-test
+      - kind-network-smoke
+      - kind-network-test
       - boxes-test
       - rough-rhino-installer
     if: always()
