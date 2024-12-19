@@ -521,6 +521,23 @@ jobs:
               ./bootstrap.sh test-boxes
             fi
 
+  prover-client-test:
+    needs: [ci-rest, configure]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          username: ${{ needs.configure.outputs.username }}
+          runner_type: builder-x86
+          run: |
+            export CI=1 USE_CACHE=1
+            scripts/earthly-ci +prover-client-with-cache
+
   rough-rhino-installer:
     needs: [bootstrap, configure]
     runs-on: ubuntu-latest
