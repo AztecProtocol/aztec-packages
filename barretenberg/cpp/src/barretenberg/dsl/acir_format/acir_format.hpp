@@ -279,7 +279,8 @@ void process_honk_recursion_constraints(Builder& builder,
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
                                        ClientIVC* ivc,
-                                       bool has_valid_witness_assignments);
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter);
 
 #ifndef DISABLE_AZTEC_VM
 void process_avm_recursion_constraints(Builder& builder,

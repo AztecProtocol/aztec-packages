@@ -62,53 +62,61 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     {
         PROFILE_THIS_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
-        auto w_l = View(in.w_l);
-        auto w_r = View(in.w_r);
-        auto w_o = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto w_l_shift = View(in.w_l_shift);
-        auto w_r_shift = View(in.w_r_shift);
-        auto w_o_shift = View(in.w_o_shift);
-        auto w_4_shift = View(in.w_4_shift);
-        auto q_l = View(in.q_l);
-        auto q_poseidon2_internal = View(in.q_poseidon2_internal);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
+        auto w_l_m = CoefficientAccumulator(in.w_l);
+        auto w_l_shift_m = CoefficientAccumulator(in.w_l_shift);
+        auto w_r_shift_m = CoefficientAccumulator(in.w_r_shift);
+        auto w_o_shift_m = CoefficientAccumulator(in.w_o_shift);
+        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto q_l_m = CoefficientAccumulator(in.q_l);
+        auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
 
         // add round constants
-        auto s1 = w_l + q_l;
+        auto s1 = Accumulator(w_l_m + q_l_m);
 
         // apply s-box round
         auto u1 = s1.sqr();
         u1 = u1.sqr();
         u1 *= s1;
-        auto u2 = w_r;
-        auto u3 = w_o;
-        auto u4 = w_4;
+        auto u2_m = CoefficientAccumulator(in.w_r);
+        auto u3_m = CoefficientAccumulator(in.w_o);
+        auto u4_m = CoefficientAccumulator(in.w_4);
 
+        auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
+        auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
         // matrix mul with v = M_I * u 4 muls and 7 additions
-        auto sum = u1 + u2 + u3 + u4;
+        auto partial_sum = u2_m + u3_m + u4_m;
+        auto scaled_u1 = u1 * q_pos_by_scaling;
 
-        auto q_pos_by_scaling = q_poseidon2_internal * scaling_factor;
+        static const auto diagonal_term = FF(1) + crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+        auto barycentric_term = scaled_u1 * (diagonal_term);
+        auto monomial_term = partial_sum;
+        monomial_term -= w_l_shift_m;
+        barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
+        std::get<0>(evals) += barycentric_term;
 
-        auto v1 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-        v1 += sum;
-        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
-        std::get<0>(evals) += tmp;
+        auto v2_m = u2_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+        v2_m += partial_sum;
+        v2_m -= w_r_shift_m;
+        barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<1>(evals) += barycentric_term;
 
-        auto v2 = u2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-        v2 += sum;
-        tmp = q_pos_by_scaling * (v2 - w_r_shift);
-        std::get<1>(evals) += tmp;
+        auto v3_m = u3_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+        v3_m += partial_sum;
+        v3_m -= w_o_shift_m;
+        barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<2>(evals) += barycentric_term;
 
-        auto v3 = u3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-        v3 += sum;
-        tmp = q_pos_by_scaling * (v3 - w_o_shift);
-        std::get<2>(evals) += tmp;
+        auto v4_m = u4_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+        v4_m += partial_sum;
+        v4_m -= w_4_shift_m;
 
-        auto v4 = u4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-        v4 += sum;
-        tmp = q_pos_by_scaling * (v4 - w_4_shift);
-        std::get<3>(evals) += tmp;
+        barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<3>(evals) += barycentric_term;
     };
 }; // namespace bb
 

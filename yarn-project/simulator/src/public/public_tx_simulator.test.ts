@@ -7,7 +7,9 @@ import {
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
+  AztecAddress,
   BlockHeader,
+  type ContractDataSource,
   Fr,
   Gas,
   GasFees,
@@ -16,6 +18,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
+  PublicDataTreeLeaf,
   PublicDataWrite,
   RevertCode,
   StateReference,
@@ -26,16 +29,18 @@ import { fr } from '@aztec/circuits.js/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
+import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -55,7 +60,7 @@ describe('public_tx_simulator', () => {
   const enqueuedCallGasUsed = new Gas(12, 34);
 
   let db: MerkleTreeWriteOperations;
-  let worldStateDB: MockProxy<WorldStateDB>;
+  let worldStateDB: WorldStateDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
 
@@ -76,10 +81,12 @@ describe('public_tx_simulator', () => {
     numberOfSetupCalls = 0,
     numberOfAppLogicCalls = 0,
     hasPublicTeardownCall = false,
+    feePayer = AztecAddress.ZERO,
   }: {
     numberOfSetupCalls?: number;
     numberOfAppLogicCalls?: number;
     hasPublicTeardownCall?: boolean;
+    feePayer?: AztecAddress;
   }) => {
     // seed with min nullifier to prevent insertion of a nullifier < min
     const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
@@ -104,7 +111,20 @@ describe('public_tx_simulator', () => {
       tx.data.gasUsed = tx.data.gasUsed.add(teardownGasLimits);
     }
 
+    tx.data.feePayer = feePayer;
+
     return tx;
+  };
+
+  const setFeeBalance = async (feePayer: AztecAddress, balance: Fr) => {
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
+    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+    const balancePublicDataTreeLeafSlot = computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
+    await db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
+      0,
+    );
   };
 
   const mockPublicExecutor = (
@@ -179,43 +199,20 @@ describe('public_tx_simulator', () => {
     });
   };
 
-  beforeEach(async () => {
-    const tmp = openTmpStore();
-    const telemetryClient = new NoopTelemetryClient();
-    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
-    worldStateDB = mock<WorldStateDB>();
-
-    treeStore = openTmpStore();
-
-    publicDataTree = await newTree(
-      StandardTree,
-      treeStore,
-      new Poseidon(),
-      'PublicData',
-      Fr,
-      PUBLIC_DATA_TREE_HEIGHT,
-      1, // Add a default low leaf for the public data hints to be proved against.
-    );
-    const snap = new AppendOnlyTreeSnapshot(
-      Fr.fromBuffer(publicDataTree.getRoot(true)),
-      Number(publicDataTree.getNumLeaves(true)),
-    );
-    const header = BlockHeader.empty();
-    const stateReference = new StateReference(
-      header.state.l1ToL2MessageTree,
-      new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
-    );
-    // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
-    header.state = StateReference.fromBuffer(stateReference.toBuffer());
-
-    worldStateDB.getMerkleInterface.mockReturnValue(db);
-
-    simulator = new PublicTxSimulator(
+  const createSimulator = ({
+    doMerkleOperations = true,
+    enforceFeePayment = true,
+  }: {
+    doMerkleOperations?: boolean;
+    enforceFeePayment?: boolean;
+  }) => {
+    const simulator = new PublicTxSimulator(
       db,
       worldStateDB,
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      /*doMerkleOperations=*/ true,
+      doMerkleOperations,
+      enforceFeePayment,
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -241,6 +238,39 @@ describe('public_tx_simulator', () => {
         );
       },
     );
+    return simulator;
+  };
+
+  beforeEach(async () => {
+    const tmp = openTmpStore();
+    const telemetryClient = new NoopTelemetryClient();
+    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
+    worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
+
+    treeStore = openTmpStore();
+
+    publicDataTree = await newTree(
+      StandardTree,
+      treeStore,
+      new Poseidon(),
+      'PublicData',
+      Fr,
+      PUBLIC_DATA_TREE_HEIGHT,
+      1, // Add a default low leaf for the public data hints to be proved against.
+    );
+    const snap = new AppendOnlyTreeSnapshot(
+      Fr.fromBuffer(publicDataTree.getRoot(true)),
+      Number(publicDataTree.getNumLeaves(true)),
+    );
+    const header = BlockHeader.empty();
+    const stateReference = new StateReference(
+      header.state.l1ToL2MessageTree,
+      new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
+    );
+    // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
+    header.state = StateReference.fromBuffer(stateReference.toBuffer());
+
+    simulator = createSimulator({});
   }, 30_000);
 
   afterEach(async () => {
@@ -784,5 +814,52 @@ describe('public_tx_simulator', () => {
     const totalFees = new GasFees(2 + 5, 3 + 7);
     const expectedTxFee = expectedGasUsedForFee.computeFee(totalFees);
     expect(output.transactionFee).toEqual(expectedTxFee);
+  });
+
+  describe('fees', () => {
+    it('deducts fees from the fee payer balance', async () => {
+      const feePayer = AztecAddress.random();
+      await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
+
+      const tx = mockTxWithPublicCalls({
+        numberOfSetupCalls: 1,
+        numberOfAppLogicCalls: 1,
+        hasPublicTeardownCall: true,
+        feePayer,
+      });
+
+      const txResult = await simulator.simulate(tx);
+      expect(txResult.revertCode).toEqual(RevertCode.OK);
+    });
+
+    it('fails if fee payer cant pay for the tx', async () => {
+      const feePayer = AztecAddress.random();
+
+      await expect(
+        simulator.simulate(
+          mockTxWithPublicCalls({
+            numberOfSetupCalls: 1,
+            numberOfAppLogicCalls: 1,
+            hasPublicTeardownCall: true,
+            feePayer,
+          }),
+        ),
+      ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/);
+    });
+
+    it('allows disabling fee balance checks for fee estimation', async () => {
+      simulator = createSimulator({ enforceFeePayment: false });
+      const feePayer = AztecAddress.random();
+
+      const txResult = await simulator.simulate(
+        mockTxWithPublicCalls({
+          numberOfSetupCalls: 1,
+          numberOfAppLogicCalls: 1,
+          hasPublicTeardownCall: true,
+          feePayer,
+        }),
+      );
+      expect(txResult.revertCode).toEqual(RevertCode.OK);
+    });
   });
 });
