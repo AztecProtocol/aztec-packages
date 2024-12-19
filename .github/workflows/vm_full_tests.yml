@@ -35,4 +35,4 @@ jobs:
         with:
           run: |
             sudo shutdown -P 75 # hack until core part of the scripts
-            earthly-ci --no-output ./barretenberg/cpp/+vm-full-test --hardware_concurrency=64  # limit our parallelism to half our cores
+            scripts/earthly-ci --no-output ./barretenberg/cpp/+vm-full-test --hardware_concurrency=64  # limit our parallelism to half our cores
