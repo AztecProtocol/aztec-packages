@@ -12,8 +12,7 @@ source $root/ci3/source
 current_commit=$(git rev-parse HEAD)
 cmd=${1:-"CI=1 ./bootstrap.sh fast"}
 
-interactive_args=""
-docker run $interactive_args --rm \
+docker run --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
