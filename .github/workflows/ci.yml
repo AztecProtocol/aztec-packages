@@ -222,15 +222,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      # - uses: ./.github/ci-setup-action
-      # - name: Determine runner type
-      #   id: runner_type
-      #   run: |
-      #     runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
-      #     echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Test
         timeout-minutes: 40
         run: |
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+          export CI=1 USE_CACHE=1
           artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
@@ -238,20 +234,6 @@ jobs:
             FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
             ci3/cache_upload_flag "$artifact"
           fi
-      # - name: Setup and Test
-      #   timeout-minutes: 40
-      #   uses: ./.github/ensure-tester
-      #   with:
-      #     username: ${{ needs.configure.outputs.username }}
-      #     runner_type: ${{ steps.runner_type.outputs.type }}
-      #     run: |
-      #       artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
-      #       if ci3/test_should_run "$artifact"; then
-      #         docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-      #         docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-      #         FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-      #         ci3/cache_upload_flag "$artifact"
-      #       fi
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -264,34 +246,24 @@ jobs:
         test: ${{ fromJson( needs.configure.outputs.bench-list )}}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-      - name: Determine runner type
-        id: runner_type
+      - name: Test
+        timeout-minutes: 40
         run: |
-          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
-          echo "type=$runner" >> $GITHUB_OUTPUT
-      - name: Setup and Test
-        uses: ./.github/ensure-tester
-        timeout-minutes: 45
-        with:
-          username: ${{ needs.configure.outputs.username }}
-          runner_type: ${{ steps.runner_type.outputs.type }}
-          ttl: 40
-          run: |
-            artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
-            if ci3/test_should_run "$artifact"; then
-              docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              export FORCE_COLOR=1
-              export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-              ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-              export COMMIT_HASH=${{ env.GIT_COMMIT }}
-              export PULL_REQUEST=${{ github.event.pull_request.number }}
-              export BRANCH=${{ github.ref_name }}
-              scripts/logs/upload_logs_to_s3.sh /usr/var/log
-              ci3/cache_upload_flag "$artifact"
-            fi
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+          export CI=1 USE_CACHE=1
+          artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+          if ci3/test_should_run "$artifact"; then
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+            export COMMIT_HASH=${{ env.GIT_COMMIT }}
+            export PULL_REQUEST=${{ github.event.pull_request.number }}
+            export BRANCH=${{ github.ref_name }}
+            scripts/logs/upload_logs_to_s3.sh /usr/var/log
+            ci3/cache_upload_flag "$artifact"
+          fi
 
   acir-bench:
     runs-on: ubuntu-latest
@@ -310,8 +282,7 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            export CI=1
-            export USE_CACHE=1
+            export CI=1 USE_CACHE=1
             if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
               scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
               ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
@@ -442,11 +413,13 @@ jobs:
           spot_strategy: None # use on-demand machines
           ttl: ${{ matrix.config.timeout }}
           run: |
+            export CI=1 USE_CACHE=1
             artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
               ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+              ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
         if: always()
@@ -485,8 +458,7 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
-            export CI=1
-            export USE_CACHE=1
+            export CI=1 USE_CACHE=1
             if ci3/test_should_run bb-bench-$HASH; then
               scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
               ci3/cache_upload_flag bb-bench-$HASH
@@ -522,8 +494,7 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
           run: |
-            export CI=1
-            export USE_CACHE=1
+            export CI=1 USE_CACHE=1
             if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
               ./bootstrap.sh test-boxes
             fi
