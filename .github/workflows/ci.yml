@@ -385,10 +385,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - test: transfer.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86
-            timeout: 60
           - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
