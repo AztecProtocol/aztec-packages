@@ -12,7 +12,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup_artifacts && tsc -b",
     "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",

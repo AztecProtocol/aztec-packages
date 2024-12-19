@@ -19,7 +19,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup_artifacts && tsc -b",
     "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "generate": "yarn generate:data",
     "generate:cleanup_artifacts": "node --no-warnings --loader ts-node/esm src/scripts/cleanup_artifacts.ts",
