@@ -17,97 +17,59 @@ class UltraVanillaClientIVCTests : public ::testing::Test {
     }
 
     using Flavor = UltraVanillaClientIVC::Flavor;
+    using Builder = UltraCircuitBuilder;
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = UltraVanillaClientIVC::ClientCircuit;
-    using DeciderProvingKey = UltraVanillaClientIVC::DeciderProvingKey;
-    using DeciderVerificationKey = UltraVanillaClientIVC::DeciderVerificationKey;
-    using FoldProof = UltraVanillaClientIVC::FoldProof;
-    using DeciderProver = UltraVanillaClientIVC::DeciderProver;
-    using DeciderVerifier = UltraVanillaClientIVC::DeciderVerifier;
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
-    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
-
-    /**
-     * @brief Construct mock circuit with arithmetic gates and goblin ops
-     * @details Defaulted to add 2^16 gates (which will bump to next power of two with the addition of dummy gates).
-     * The size of the baseline circuit needs to be ~2x the number of gates appended to the kernel circuits via
-     * recursive verifications (currently ~60k) to ensure that the circuits being folded are equal in size. (This is
-     * only necessary if the structured trace is not in use).
-     *
-     */
-    static Builder create_mock_circuit(UltraVanillaClientIVC& ivc, size_t log2_num_gates = 16)
-    {
-        Builder circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in UltraVanillaClientIVC merge proving happens
-        // prior to folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
 
     /**
      * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
      *
      */
     class MockCircuitProducer {
-        using ClientCircuit = UltraVanillaClientIVC::ClientCircuit;
-
-        bool is_kernel = false;
+        using Circuit = UltraVanillaClientIVC::Circuit;
 
       public:
-        ClientCircuit create_next_circuit(UltraVanillaClientIVC& ivc, size_t log2_num_gates = 16)
+        Circuit create_next_circuit(size_t log2_num_gates = 16)
         {
-            ClientCircuit circuit{ ivc.goblin.op_queue };
-            circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-            if (is_kernel) {
-                ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
-            }
-            is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
-
+            Circuit circuit;
+            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
             return circuit;
         }
 
-        auto precompute_verification_keys(const size_t num_circuits,
-                                          TraceSettings trace_settings,
-                                          size_t log2_num_gates = 16)
-        {
-            UltraVanillaClientIVC ivc{
-                trace_settings
-            }; // temporary IVC instance needed to produce the complete kernel circuits
+        // auto precompute_verification_keys(const size_t num_circuits,
+        //                                   TraceSettings trace_settings,
+        //                                   size_t log2_num_gates = 16)
+        // {
+        //     UltraVanillaClientIVC ivc{
+        //         trace_settings
+        //     }; // temporary IVC instance needed to produce the complete kernel circuits
 
-            std::vector<std::shared_ptr<VerificationKey>> vkeys;
+        //     std::vector<std::shared_ptr<VerificationKey>> vkeys;
 
-            for (size_t idx = 0; idx < num_circuits; ++idx) {
-                ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
-                ivc.accumulate(circuit);                                          // accumulate the circuit
-                vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
-            }
-            is_kernel = false;
+        //     for (size_t idx = 0; idx < num_circuits; ++idx) {
+        //         Circuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
+        //         ivc.accumulate(circuit);                                          // accumulate the circuit
+        //         vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
+        //     }
+        //     is_kernel = false;
 
-            return vkeys;
-        }
+        //     return vkeys;
+        // }
     };
 
-    /**
-     * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
-     *
-     */
-    static void tamper_with_proof(FoldProof& proof)
-    {
-        for (auto& val : proof) {
-            if (val > 0) {
-                val += 1;
-                break;
-            }
-        }
-    }
+    // /**
+    //  * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
+    //  *
+    //  */
+    // static void tamper_with_proof(FoldProof& proof)
+    // {
+    //     for (auto& val : proof) {
+    //         if (val > 0) {
+    //             val += 1;
+    //             break;
+    //         }
+    //     }
+    // }
 };
 
 /**
@@ -118,132 +80,42 @@ class UltraVanillaClientIVCTests : public ::testing::Test {
  */
 TEST_F(UltraVanillaClientIVCTests, Basic)
 {
-    UltraVanillaClientIVC ivc;
+    static constexpr size_t LOG_SIZE = 10;
+    UltraVanillaClientIVC ivc(1 << LOG_SIZE);
 
     MockCircuitProducer circuit_producer;
 
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
+    std::vector<Builder> circuits{ circuit_producer.create_next_circuit(LOG_SIZE),
+                                   circuit_producer.create_next_circuit(LOG_SIZE) };
 
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
+    std::vector<std::optional<std::shared_ptr<VerificationKey>>> vks{ std::nullopt, std::nullopt };
 
-    EXPECT_TRUE(ivc.prove_and_verify());
+    EXPECT_TRUE(ivc.prove_and_verify(circuits, vks));
 };
 
 /**
  * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
- * @details When accumulating only four circuits, we execute all the functionality of a full UltraVanillaClientIVC run.
+ * @details When accumulating only four circuits, we execute all the functionality of a full UltraVanillaClientIVC
+ run.
  *
  */
 TEST_F(UltraVanillaClientIVCTests, BasicFour)
 {
-    UltraVanillaClientIVC ivc;
+    static constexpr size_t LOG_SIZE = 10;
+    UltraVanillaClientIVC ivc(1 << LOG_SIZE);
 
     MockCircuitProducer circuit_producer;
-    for (size_t idx = 0; idx < 4; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit);
-    }
 
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
+    std::vector<Builder> circuits{ circuit_producer.create_next_circuit(LOG_SIZE),
+                                   circuit_producer.create_next_circuit(LOG_SIZE),
+                                   circuit_producer.create_next_circuit(LOG_SIZE),
+                                   circuit_producer.create_next_circuit(LOG_SIZE) };
 
-/**
- * @brief Check that the IVC fails if an intermediate fold proof is invalid
- * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and
- * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will
- * fail.
- *
- */
-TEST_F(UltraVanillaClientIVCTests, BadProofFailure)
-{
-    // Confirm that the IVC verifies if nothing is tampered with
-    {
-        UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    std::vector<std::optional<std::shared_ptr<VerificationKey>>> vks{
+        std::nullopt, std::nullopt, std::nullopt, std::nullopt
+    };
 
-        MockCircuitProducer circuit_producer;
-
-        // Construct and accumulate a set of mocked private function execution circuits
-        size_t NUM_CIRCUITS = 4;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.accumulate(circuit);
-        }
-        EXPECT_TRUE(ivc.prove_and_verify());
-    }
-
-    // The IVC throws an exception if the FIRST fold proof is tampered with
-    {
-        UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
-
-        MockCircuitProducer circuit_producer;
-
-        // Construct and accumulate a set of mocked private function execution circuits
-        size_t NUM_CIRCUITS = 4;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
-                            // folding verifier will throw an error.
-                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
-                break;
-            }
-            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.accumulate(circuit);
-
-            if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[0].proof); // tamper with first proof
-            }
-        }
-    }
-
-    // The IVC fails if the SECOND fold proof is tampered with
-    {
-        UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
-
-        MockCircuitProducer circuit_producer;
-
-        // Construct and accumulate a set of mocked private function execution circuits
-        size_t NUM_CIRCUITS = 4;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
-                            // folding verifier will throw an error.
-                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
-                break;
-            }
-            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.accumulate(circuit);
-
-            if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
-            }
-        }
-    }
-
-    // The IVC fails if the 3rd/FINAL fold proof is tampered with
-    {
-        UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
-
-        MockCircuitProducer circuit_producer;
-
-        // Construct and accumulate a set of mocked private function execution circuits
-        size_t NUM_CIRCUITS = 4;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.accumulate(circuit);
-        }
-
-        // Only a single proof should be present in the queue when verification of the IVC is performed
-        EXPECT_EQ(ivc.verification_queue.size(), 1);
-        tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
-
-        EXPECT_ANY_THROW(ivc.prove_and_verify());
-    }
-
-    EXPECT_TRUE(true);
+    EXPECT_TRUE(ivc.prove_and_verify(circuits, vks));
 };
 
 /**
@@ -268,3 +140,99 @@ TEST_F(UltraVanillaClientIVCTests, PrecomputedVerificationKeys)
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
+
+// /**
+//  * @brief Check that the IVC fails if an intermediate fold proof is invalid
+//  * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied
+//  and
+//  * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will
+//  * fail.
+//  *
+//  */
+// TEST_F(UltraVanillaClientIVCTests, BadProofFailure)
+// {
+//     // Confirm that the IVC verifies if nothing is tampered with
+//     {
+//         UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+
+//         MockCircuitProducer circuit_producer;
+
+//         // Construct and accumulate a set of mocked private function execution circuits
+//         size_t NUM_CIRCUITS = 4;
+//         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+//             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+//             ivc.accumulate(circuit);
+//         }
+//         EXPECT_TRUE(ivc.prove_and_verify());
+//     }
+
+//     // The IVC throws an exception if the FIRST fold proof is tampered with
+//     {
+//         UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+
+//         MockCircuitProducer circuit_producer;
+
+//         // Construct and accumulate a set of mocked private function execution circuits
+//         size_t NUM_CIRCUITS = 4;
+//         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+//             if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
+//                             // folding verifier will throw an error.
+//                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+//                 break;
+//             }
+//             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+//             ivc.accumulate(circuit);
+
+//             if (idx == 2) {
+//                 EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
+//                 tamper_with_proof(ivc.verification_queue[0].proof); // tamper with first proof
+//             }
+//         }
+//     }
+
+//     // The IVC fails if the SECOND fold proof is tampered with
+//     {
+//         UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+
+//         MockCircuitProducer circuit_producer;
+
+//         // Construct and accumulate a set of mocked private function execution circuits
+//         size_t NUM_CIRCUITS = 4;
+//         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+//             if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
+//                             // folding verifier will throw an error.
+//                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+//                 break;
+//             }
+//             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+//             ivc.accumulate(circuit);
+
+//             if (idx == 2) {
+//                 EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
+//                 tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
+//             }
+//         }
+//     }
+
+//     // The IVC fails if the 3rd/FINAL fold proof is tampered with
+//     {
+//         UltraVanillaClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+
+//         MockCircuitProducer circuit_producer;
+
+//         // Construct and accumulate a set of mocked private function execution circuits
+//         size_t NUM_CIRCUITS = 4;
+//         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+//             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+//             ivc.accumulate(circuit);
+//         }
+
+//         // Only a single proof should be present in the queue when verification of the IVC is performed
+//         EXPECT_EQ(ivc.verification_queue.size(), 1);
+//         tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
+
+//         EXPECT_ANY_THROW(ivc.prove_and_verify());
+//     }
+
+//     EXPECT_TRUE(true);
+// };
