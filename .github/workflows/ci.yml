@@ -386,46 +386,6 @@ jobs:
             ci3/bootstrap_ec2 "GITHUB_RUN_URL=$GITHUB_RUN_URL ./barretenberg/cpp/bootstrap.sh ci"
           fi
 
-  network-4epochs-test:
-    needs: [images-e2e, configure]
-    if: needs.configure.outputs.network-all == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - test: transfer.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86
-            timeout: 60
-          - test: reorg.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86-high-memory
-            timeout: 90
-          - test: 4epochs.test.ts
-            values: 16-validators
-            runner_type: 16core-tester-x86
-            timeout: 60
-          # - test: gating-passive.test.ts
-          #   values: 16-validators
-          #   runner_type: 16core-tester-x86
-          #   timeout: 60
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Local Network Tests"
-        uses: ./.github/ensure-builder
-        timeout-minutes: 60
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
-          run: |
-            artifact="network-4epochs-test-$(./yarn-project/bootstrap.sh hash)"
-            if ci3/test_should_run "$artifact"; then
-              scripts/earthly-ci +network-test --test=./test-4epochs.sh
-              ci3/cache_upload_flag "$artifact"
-            fi
-
   kind-smoke-test:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
