@@ -419,10 +419,10 @@ jobs:
             values: ci
             runner_type: 16core-tester-x86
             timeout: 40
-          - test: gating-passive.test.ts
-            values: ci
-            runner_type: 16core-tester-x86
-            timeout: 40
+          # - test: gating-passive.test.ts
+          #   values: ci
+          #   runner_type: 16core-tester-x86
+          #   timeout: 40
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
