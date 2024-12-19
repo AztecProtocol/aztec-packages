@@ -19,19 +19,19 @@ comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-/// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
-/// and returning it as a `Field`.
-comptime fn compute_note_type_id(name: Quoted) -> Field {
-    let (name_as_str_quote, _) = name.as_str_quote();
+pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
-    unquote!(
-        quote {
-            let bytes = $name_as_str_quote.as_bytes();
-            let hash = protocol_types::hash::poseidon2_hash_bytes(bytes);
-            let hash_bytes = hash.to_be_bytes::<4>();
-            protocol_types::utils::field::field_from_bytes(hash_bytes, true)
-        },
-    )
+/// 
+comptime fn get_next_note_type_id() -> Field {
+    // We assert that the note type id fits within 7 bits
+    assert(
+        NOTE_TYPE_ID_COUNTER < 128 as u32,
+        "A contract can contain at most 128 different note types",
+    );
+
+    let note_type_id = NOTE_TYPE_ID_COUNTER as Field;
+    NOTE_TYPE_ID_COUNTER += 1;
+    note_type_id
 }
 
 /// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as quote along with
@@ -871,7 +871,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
+    let note_type_id = get_next_note_type_id();
     let (setup_payload_impl, setup_payload_name) =
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
@@ -914,7 +914,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
+    let note_type_id = get_next_note_type_id();
     let (note_interface_impl, note_serialized_len) = generate_note_interface(
         s,
         note_type_id,
@@ -944,7 +944,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
+    let note_type_id = get_next_note_type_id();
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(
         quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }
