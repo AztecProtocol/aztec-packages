@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs: {}
 concurrency:
-  group: ci-master-arm
+  group: ci-${{ github.ref_name }}-arm
 env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
