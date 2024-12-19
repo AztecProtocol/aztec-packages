@@ -295,6 +295,7 @@ export class Archiver implements ArchiveSource, Traceable {
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
+      this.instrumentation.processPrune();
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);

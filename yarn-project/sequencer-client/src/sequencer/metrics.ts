@@ -19,6 +19,7 @@ export class SequencerMetrics {
   private stateTransitionBufferDuration: Histogram;
   private currentBlockNumber: Gauge;
   private currentBlockSize: Gauge;
+  private blockBuilderInsertions: Gauge;
 
   private timeToCollectAttestations: Gauge;
 
@@ -49,14 +50,23 @@ export class SequencerMetrics {
 
     this.currentBlockNumber = meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_NUMBER, {
       description: 'Current block number',
+      valueType: ValueType.INT,
     });
 
     this.currentBlockSize = meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_SIZE, {
-      description: 'Current block number',
+      description: 'Current block size',
+      valueType: ValueType.INT,
     });
 
     this.timeToCollectAttestations = meter.createGauge(Metrics.SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS, {
       description: 'The time spent collecting attestations from committee members',
+      valueType: ValueType.INT,
+    });
+
+    this.blockBuilderInsertions = meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
+      description: 'Timer for tree insertions performed by the block builder',
+      unit: 'ms',
+      valueType: ValueType.INT,
     });
 
     this.setCurrentBlock(0, 0);
@@ -73,6 +83,10 @@ export class SequencerMetrics {
 
   recordTimeToCollectAttestations(time: number) {
     this.timeToCollectAttestations.record(time);
+  }
+
+  recordBlockBuilderTreeInsertions(timeMs: number) {
+    this.blockBuilderInsertions.record(timeMs);
   }
 
   recordCancelledBlock() {

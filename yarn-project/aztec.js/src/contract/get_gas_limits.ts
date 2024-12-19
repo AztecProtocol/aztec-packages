@@ -9,5 +9,6 @@ export function getGasLimits(simulationResult: TxSimulationResult, pad = 0.1): G
   return {
     totalGas: simulationResult.gasUsed.totalGas.mul(1 + pad),
     teardownGas: simulationResult.gasUsed.teardownGas.mul(1 + pad),
+    publicGas: simulationResult.gasUsed.publicGas.mul(1 + pad),
   };
 }

@@ -283,6 +283,23 @@ export class PublicTxContext {
   }
 
   /**
+   * Compute the private gas used
+   */
+  getActualPrivateGasUsed(): Gas {
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
+    return this.getActualGasUsed().sub(this.gasUsedByPublic);
+  }
+
+  /**
+   * Compute the public gas used using the actual gas used during teardown instead
+   * of the teardown gas limit.
+   */
+  getActualPublicGasUsed(): Gas {
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
+    return this.getActualGasUsed().sub(this.gasUsedByPrivate);
+  }
+
+  /**
    * Get the transaction fee as is available to the specified phase.
    * Only teardown should have access to the actual transaction fee.
    */

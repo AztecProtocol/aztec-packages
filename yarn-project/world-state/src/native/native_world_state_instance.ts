@@ -20,6 +20,7 @@ import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { cpus } from 'os';
 import { isAnyArrayBuffer } from 'util/types';
 
+import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
   MessageHeader,
   TypedMessage,
@@ -82,7 +83,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, dbMapSizeKb: number, private log = createLogger('world-state:database')) {
+  constructor(
+    dataDir: string,
+    dbMapSizeKb: number,
+    private instrumentation: WorldStateInstrumentation,
+    private log = createLogger('world-state:database'),
+  ) {
     log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
@@ -253,6 +259,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
     if (response.msgType !== messageType) {
       throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
     }
+
+    this.instrumentation.recordRoundTrip(callDuration, messageType);
 
     return response.value;
   }

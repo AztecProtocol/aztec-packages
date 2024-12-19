@@ -12,7 +12,7 @@ import {
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -90,14 +90,16 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
-    await this.insertNonRevertiblesFromPrivate(context);
+    let [duration, _] = await elapsed(this.insertNonRevertiblesFromPrivate(context));
+    this.metrics.recordPrivateEffectsInsertion(duration, 'non-revertible');
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
 
-    await this.insertRevertiblesFromPrivate(context);
+    [duration, _] = await elapsed(this.insertRevertiblesFromPrivate(context));
+    this.metrics.recordPrivateEffectsInsertion(duration, 'revertible');
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
@@ -134,7 +136,11 @@ export class PublicTxSimulator {
 
     return {
       avmProvingRequest,
-      gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
+      gasUsed: {
+        totalGas: context.getActualGasUsed(),
+        teardownGas: context.teardownGasUsed,
+        publicGas: context.getActualPublicGasUsed(),
+      },
       revertCode,
       revertReason: context.revertReason,
       processedPhases: processedPhases,
@@ -344,7 +350,7 @@ export class PublicTxSimulator {
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
 
-    this.log.debug(
+    this.log.verbose(
       result.reverted
         ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
         : `Simulation of enqueued public call ${fnName} completed successfully.`,

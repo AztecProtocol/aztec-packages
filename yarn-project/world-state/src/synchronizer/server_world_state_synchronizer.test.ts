@@ -18,6 +18,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type MerkleTreeAdminDatabase, type WorldStateConfig } from '../index.js';
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { buildEmptyWorldStateStatusFull } from '../native/message.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
@@ -213,7 +214,12 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig, new NoopTelemetryClient());
+    super(
+      merkleTrees,
+      blockAndMessagesSource,
+      worldStateConfig,
+      new WorldStateInstrumentation(new NoopTelemetryClient()),
+    );
   }
 
   protected override createBlockStream(): L2BlockStream {

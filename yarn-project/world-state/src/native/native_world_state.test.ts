@@ -15,12 +15,14 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateStatusSummary } from './message.js';
@@ -56,7 +58,12 @@ describe('NativeWorldState', () => {
     };
 
     beforeAll(async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(1, 2, fork));
       await fork.close();
@@ -66,7 +73,12 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly restores committed state', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
@@ -75,7 +87,12 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the rollup is different', async () => {
       // open ws against the same data dir but a different rollup
-      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      let ws = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       // db should be empty
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
@@ -83,7 +100,12 @@ describe('NativeWorldState', () => {
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
@@ -92,7 +114,12 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the world state version is different', async () => {
       // open ws against the data again
-      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      let ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       // db should be empty
       let emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
@@ -116,7 +143,12 @@ describe('NativeWorldState', () => {
       await modifiedVersion.writeVersionFile(fullPath);
 
       // Open the world state again and it should be empty
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       // db should be empty
       emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
@@ -126,7 +158,12 @@ describe('NativeWorldState', () => {
     it('Fails to sync further blocks if trees are out of sync', async () => {
       // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        1024,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       const initialFork = await ws.fork();
 
       const { block: block1, messages: messages1 } = await mockBlock(1, 8, initialFork);
@@ -164,9 +201,14 @@ describe('NativeWorldState', () => {
 
       // Creating another world state instance should fail
       await ws.close();
-      await expect(NativeWorldStateService.new(rollupAddress, dataDir, 1024)).rejects.toThrow(
-        'World state trees are out of sync',
-      );
+      await expect(
+        NativeWorldStateService.new(
+          rollupAddress,
+          dataDir,
+          1024,
+          new WorldStateInstrumentation(new NoopTelemetryClient()),
+        ),
+      ).rejects.toThrow('World state trees are out of sync');
     });
   });
 
@@ -174,7 +216,12 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      ws = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
     }, 30_000);
 
     afterEach(async () => {
@@ -497,7 +544,12 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -541,7 +593,12 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       const statuses = [];
       const numBlocks = 2;
       const txsPerBlock = 2;
@@ -599,7 +656,12 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports status', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        defaultDBMapSize,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
       const statuses = [];
       for (let i = 0; i < 2; i++) {
         const fork = await ws.fork();
