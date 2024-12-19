@@ -71,7 +71,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo "Generating vk for function: $name..." >&2
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 
