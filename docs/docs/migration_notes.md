@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 ## 0.68.0
-### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead 
+### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
 Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
 when registering contract classes
 
@@ -53,8 +53,6 @@ Rename of args in all of FPC functions as FPC now stores the accepted token addr
 Also created a public function `pull_funds()` for admin to clawback any money in the FPC
 
 Expect more changes in FPC in the coming releases!
-
-## TBD
 
 ### Name change from `contact` to `sender` in PXE API
 `contact` has been deemed confusing because the name is too similar to `contract`.
