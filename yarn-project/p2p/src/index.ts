@@ -5,4 +5,4 @@ export * from './config.js';
 export * from './mem_pools/epoch_proof_quote_pool/index.js';
 export * from './services/index.js';
 export * from './mem_pools/tx_pool/index.js';
-export * from './tx_validator/index.js';
+export * from './msg_validators/index.js';
