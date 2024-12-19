@@ -48,6 +48,7 @@ jobs:
       username: ${{ steps.compute_username.outputs.username }}
       base-images: ${{ steps.filter.outputs.base-images }}
       noir: ${{ steps.filter.outputs.noir }}
+      noir-projects: ${{ steps.filter.outputs.noir-projects }}
       bb: ${{ steps.filter.outputs.bb }}
       yarn-project: ${{ steps.filter.outputs.yarn-project }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
@@ -99,6 +100,8 @@ jobs:
               - 'noir/noir-repo/**'
             bb:
               - 'barretenberg/cpp/**'
+            noir-projects:
+              - 'noir-projects/**'
             yarn-project:
               - 'yarn-project/**'
             non-bb:
@@ -524,6 +527,7 @@ jobs:
   prover-client-test:
     needs: [ci-rest, configure]
     runs-on: ubuntu-latest
+    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
