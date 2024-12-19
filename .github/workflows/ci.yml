@@ -265,6 +265,7 @@ jobs:
             ci3/cache_upload_flag "$artifact"
           fi
 
+  # Only e2e test that can't run on standard github runner
   e2e-prover-full:
     runs-on: ubuntu-latest
     needs: [images-e2e, configure]
@@ -628,6 +629,7 @@ jobs:
       - images-e2e
       - docs
       - e2e
+      - e2e-prover-full
       - bb-native-tests
       - kind-network-smoke
       - kind-network-test
