@@ -11,34 +11,36 @@ import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BlockRootRollupInputs,
   FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
-  MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
-  PreviousRollupData,
-  type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateTubeData,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
-  SpongeBlob,
   TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  BaseOrMergeRollupPublicInputs,
+  BlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  PrivateBaseRollupHints,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
+} from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd, times } from '@aztec/foundation/collection';

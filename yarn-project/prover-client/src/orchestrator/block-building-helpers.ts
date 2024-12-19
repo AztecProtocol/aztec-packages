@@ -9,11 +9,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  type BaseOrMergeRollupPublicInputs,
   BlockHeader,
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
@@ -21,7 +17,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  MergeRollupInputs,
   MerkleTreeCalculator,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -34,22 +29,29 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
+  PublicDataHint,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  type RecursiveProof,
+  StateReference,
+  VK_TREE_HEIGHT,
+  type VerificationKeyAsFields,
+} from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  MergeRollupInputs,
   PreviousRollupBlockData,
   PreviousRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicBaseStateDiffHints,
-  PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-  type RecursiveProof,
   RootRollupInputs,
-  type SpongeBlob,
-  StateReference,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';

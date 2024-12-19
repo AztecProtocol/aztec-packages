@@ -14,9 +14,7 @@ import { type CompiledCircuit, type InputMap, Noir, type WitnessMap } from '@noi
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import { ClientCircuitArtifacts, SimulatedClientCircuitArtifacts } from '../artifacts/client.js';
-import { type PrivateResetArtifact } from '../private_kernel_reset_data.js';
 import {
-  mapFieldToNoir,
   mapPrivateCallDataToNoir,
   mapPrivateCircuitPublicInputsToNoir,
   mapPrivateKernelCircuitPublicInputsFromNoir,
@@ -26,7 +24,9 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
-} from '../type_conversion.js';
+} from '../conversion/client.js';
+import { mapFieldToNoir } from '../conversion/common.js';
+import { type PrivateResetArtifact } from '../private_kernel_reset_data.js';
 import {
   type PrivateKernelInitReturnType,
   type PrivateKernelInnerReturnType,

@@ -1,14 +1,8 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makeEmptyProcessedTx } from '@aztec/circuit-types';
-import {
-  PRIVATE_KERNEL_EMPTY_INDEX,
-  type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateKernelEmptyInputData,
-  PrivateTubeData,
-  SpongeBlob,
-  VkWitnessData,
-} from '@aztec/circuits.js';
+import { PRIVATE_KERNEL_EMPTY_INDEX, PrivateKernelEmptyInputData, VkWitnessData } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { PrivateBaseRollupHints, PrivateBaseRollupInputs, PrivateTubeData } from '@aztec/circuits.js/rollup';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';

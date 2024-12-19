@@ -18,14 +18,8 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  type BaseRollupHints,
-  BlobPublicInputs,
   type BlockHeader,
-  type BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
   FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
@@ -43,6 +37,14 @@ import {
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import { BlobPublicInputs } from '@aztec/circuits.js/blobs';
+import {
+  BaseOrMergeRollupPublicInputs,
+  BaseRollupHints,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';

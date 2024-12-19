@@ -1,20 +1,22 @@
 import {
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
-  type MergeRollupInputs,
   type ParityPublicInputs,
-  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputs,
-  type PublicBaseRollupInputs,
   type RootParityInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+import {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+} from '@aztec/circuits.js/rollup';
 import { pushTestData } from '@aztec/foundation/testing';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
@@ -37,7 +39,7 @@ import {
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
-} from '../type_conversion.js';
+} from '../conversion/server.js';
 import {
   type ParityBaseReturnType,
   type ParityRootReturnType,
