@@ -133,7 +133,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, true);
+    const simulatedTx = await this.wallet.simulateTx(
+      txRequest,
+      true,
+      options?.from,
+      options?.skipTxValidation,
+      undefined,
+      true,
+    );
 
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.PRIVATE
