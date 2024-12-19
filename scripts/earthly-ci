@@ -58,17 +58,19 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
         sleep 20
       fi
     elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null \
-         || grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null || grep 'Error response from daemon: removal of container earthly-buildkitd is already in progress: exit status 1' $OUTPUT_FILE >/dev/null \
+         || grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null \
+         || grep 'Error response from daemon: removal of container earthly-buildkitd is already in progress: exit status 1' $OUTPUT_FILE >/dev/null \
          || grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null \
-         || grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; \
+         || grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null \
          || grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null \
          || grep 'could not start container "earthly-buildkitd"' $OUTPUT_FILE >/dev/null \
+         || grep 'build new buildkitd client:' $OUTPUT_FILE >/dev/null \
          || grep 'could not determine buildkit address - is Docker or Podman running?' $OUTPUT_FILE >/dev/null \
          || grep 'please make sure the URL is valid, and Docker 18.09 or later is installed on the remote host' $OUTPUT_FILE >/dev/null \
          || grep 'docker: failed to register layer' $OUTPUT_FILE >/dev/null \
          || grep 'docker: error during connect:' $OUTPUT_FILE >/dev/null \
          || grep 'docker: failed to write digest data' >/dev/null \
-         || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null ; then
+         || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null; then
       # wait for other docker restarts
       sleep 20
     fi
