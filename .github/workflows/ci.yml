@@ -281,8 +281,9 @@ jobs:
         uses: ./.github/ensure-tester
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
-        timeout-minutes: 30
+        timeout-minutes: 50
         with:
+          ttl: 50
           runner_type: 32core-tester-x86
           run: |
             export CI=1 USE_CACHE=1
