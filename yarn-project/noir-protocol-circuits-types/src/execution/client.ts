@@ -38,8 +38,8 @@ import {
   PrivateKernelTailToPublic as executePrivateKernelTailToPublicWithACVM,
   PrivateKernelTail as executePrivateKernelTailWithACVM,
 } from '../types/index.js';
+import { foreignCallHandler } from '../utils/client/foreign_call_handler.js';
 import { type DecodedInputs } from '../utils/decoded_inputs.js';
-import { foreignCallHandler } from '../utils/foreign_call_handler.js';
 import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset.js';
 
 /* eslint-disable camelcase */
