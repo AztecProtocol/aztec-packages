@@ -2,4 +2,6 @@ global:
     cache_size_pct: 50
     buildkit_max_parallelism: 10
     container_frontend: docker-shell
+    disable_analytics: true
+    disable_log_sharing: true
 buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]
