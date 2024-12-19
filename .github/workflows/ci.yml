@@ -72,12 +72,8 @@ jobs:
             echo "username=$instance_name"
             echo "username=$instance_name" >> $GITHUB_OUTPUT
           else
-            GIT_HASH="${{ github.sha }}"
-            GIT_HASH_LAST8=${GIT_HASH: -8}
-            GIT_HASH_LAST8_DEC=$(printf "%d" 0x$GIT_HASH_LAST8)
-            GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
-            echo "username=master-${GIT_HASH_MODULO_8}"
-            echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
+            echo "username=${{ github.sha }}""
+            echo "username=${{ github.sha }}"" >> $GITHUB_OUTPUT
           fi
       - name: Create Job Lists
         id: e2e_list
