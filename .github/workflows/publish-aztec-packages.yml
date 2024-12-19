@@ -102,13 +102,9 @@ jobs:
       - name: Build & Push Aztec and End-to-End x86_64
         timeout-minutes: 40
         run: |
-          earthly-ci \
-            --no-output \
-            --push \
-            ./yarn-project+export-images-arch \
-            --DIST_TAG=${{ env.GIT_COMMIT }} \
-            --ARCH=x86_64
-
+          ./bootstrap.sh image-aztec
+          docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
+          docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
   build-aztec-arm:
     needs: [configure, setup-arm]
     runs-on: ${{ needs.configure.outputs.username }}-arm
@@ -124,13 +120,9 @@ jobs:
         timeout-minutes: 80
         run: |
           sudo shutdown -P 80
-          earthly-ci \
-            --no-output \
-            --push \
-            ./yarn-project+export-aztec-arch \
-            --DIST_TAG=${{ env.GIT_COMMIT }} \
-            --ARCH=arm64
-
+          ./bootstrap.sh image-aztec
+          docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+          docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
   build-nargo-x86:
     needs: [configure, build-aztec-x86]
     runs-on: ${{ needs.configure.outputs.username }}-x86

@@ -10,11 +10,12 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
-    "playwright": "^1.48.2",
+    "playwright": "^1.49.0",
     "puppeteer": "^22.4.1"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2"
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }

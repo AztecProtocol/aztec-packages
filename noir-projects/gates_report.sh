@@ -31,9 +31,9 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         fi
     done
 
-    # If it's mega honk, we need to use the gates_mega_honk command
+    # If it's mega honk, we need to use the gates_for_ivc command
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates_mega_honk -h 1 -b "$pathname")
+        GATES_INFO=$($BB_BIN gates_for_ivc -h 0 -b "$pathname")
     else
         GATES_INFO=$($BB_BIN gates -h 1 -b "$pathname")
     fi

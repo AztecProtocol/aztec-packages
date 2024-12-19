@@ -150,8 +150,8 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
     info("Test: ", test_name);
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(
         test_name,
-        /*honk_recursion=*/
-        0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): Assumes Flavor is not UltraHonk
+        /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                               // Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program);

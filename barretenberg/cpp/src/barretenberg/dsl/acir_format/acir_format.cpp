@@ -239,7 +239,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
         }
         if (!constraint_system.ivc_recursion_constraints.empty()) {
-            process_ivc_recursion_constraints(builder, constraint_system, metadata.ivc, has_valid_witness_assignments);
+            process_ivc_recursion_constraints(
+                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -451,7 +452,8 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
                                        const std::shared_ptr<ClientIVC>& ivc,
-                                       bool has_valid_witness_assignments)
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
@@ -499,6 +501,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc->complete_kernel_circuit_logic(builder);
+
+    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they are
+    // handled simultaneously in the above function call; instead we track the total contribution
+    gate_counter.track_diff(constraints.gates_per_opcode,
+                            constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
 }
 
 #ifndef DISABLE_AZTEC_VM
