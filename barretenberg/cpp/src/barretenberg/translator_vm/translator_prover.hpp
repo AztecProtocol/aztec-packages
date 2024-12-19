@@ -28,7 +28,7 @@ class TranslatorProver {
     size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
-    explicit TranslatorProver(std::shared_ptr<TranslatorProvingKey>& key,
+    explicit TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
                               const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
