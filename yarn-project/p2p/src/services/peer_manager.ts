@@ -270,6 +270,7 @@ export class PeerManager implements Traceable {
 }
 
 /**
+ * copied from github.com/ChainSafe/lodestar
  * libp2p errors with extremely noisy errors here, which are deeply nested taking 30-50 lines.
  * Some known errors:
  * ```
