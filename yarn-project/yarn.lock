@@ -940,7 +940,7 @@ __metadata:
     "@chainsafe/libp2p-yamux": ^6.0.2
     "@jest/globals": ^29.5.0
     "@libp2p/bootstrap": 10.0.0
-    "@libp2p/crypto": ^4.1.1
+    "@libp2p/crypto": 4.0.3
     "@libp2p/identify": 1.0.18
     "@libp2p/interface": 1.3.1
     "@libp2p/kad-dht": 10.0.4
@@ -2972,6 +2972,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@libp2p/crypto@npm:4.0.3":
+  version: 4.0.3
+  resolution: "@libp2p/crypto@npm:4.0.3"
+  dependencies:
+    "@libp2p/interface": ^1.1.4
+    "@noble/curves": ^1.3.0
+    "@noble/hashes": ^1.3.3
+    asn1js: ^3.0.5
+    multiformats: ^13.1.0
+    protons-runtime: ^5.4.0
+    uint8arraylist: ^2.4.8
+    uint8arrays: ^5.0.2
+  checksum: 5b73a5018a549e5271e2d559074b74789dc7d4e1e52eb6cbc698a4514b8f4ad0b8c45e894b03a3e05f7f1c0f7a6d77004a2d6b17f39c6023c8fdf3899a3e1ca8
+  languageName: node
+  linkType: hard
+
 "@libp2p/crypto@npm:^2.0.3, @libp2p/crypto@npm:^2.0.8":
   version: 2.0.8
   resolution: "@libp2p/crypto@npm:2.0.8"
@@ -3757,6 +3773,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/curves@npm:^1.3.0":
+  version: 1.7.0
+  resolution: "@noble/curves@npm:1.7.0"
+  dependencies:
+    "@noble/hashes": 1.6.0
+  checksum: e220b704f1e516f326fff985e794e840a267f5542e1388737142b08177672ebc41b460b5a5bf636d7622c68e8ae719bc042ccd8aed16dc14311450a94b5f2a05
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.3.2":
   version: 1.3.2
   resolution: "@noble/hashes@npm:1.3.2"
@@ -3775,6 +3800,20 @@ __metadata:
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
   checksum: 8ba816ae26c90764b8c42493eea383716396096c5f7ba6bea559993194f49d80a73c081f315f4c367e51bd2d5891700bcdfa816b421d24ab45b41cb03e4f3342
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.6.0":
+  version: 1.6.0
+  resolution: "@noble/hashes@npm:1.6.0"
+  checksum: 07729b80108d2a9b862eb4e070d4f78ca7ee86b9a9c13a4f7c338ba47a15d4386dd283235da71f21ad515fa9f0b9429fc3da39d2f2b4a50e2442212d14cfd4a9
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:^1.3.3":
+  version: 1.6.1
+  resolution: "@noble/hashes@npm:1.6.1"
+  checksum: 57c62f65ee217c0293b4321b547792aa6d79812bfe70a7d62dc83e0f936cc677b14ed981b4e88cf8fdad37cd6d3a0cbd3bd0908b0728adc9daf066e678be8901
   languageName: node
   linkType: hard
 
