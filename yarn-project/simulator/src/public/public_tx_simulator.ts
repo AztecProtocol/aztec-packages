@@ -426,7 +426,7 @@ export class PublicTxSimulator {
     const stateManager = context.state.getActiveStateManager();
 
     let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
-    // We allow to fake the balance of the fee payer to allow transaction simulation
+    // We allow to fake the balance of the fee payer to allow fee estimation
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
