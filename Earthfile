@@ -219,7 +219,7 @@ prover-client-with-cache:
   LET artifact=prover-client-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
-      BUILD --pass-args ./docs/+deploy-preview
+      BUILD ./yarn-project/+prover-client
     END
     RUN ci3/cache_upload_flag $artifact
   END
