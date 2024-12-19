@@ -3,12 +3,6 @@
 
 namespace bb {
 
-/**
- * @brief Execute one IVC step
- *
- * @param circuit
- * @param precomputed_vk
- */
 void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, const std::shared_ptr<VK>& vk)
 {
     RecursiveVerifier verifier{ &circuit, std::make_shared<RecursiveVK>(&circuit, vk) };
@@ -51,7 +45,6 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool
 bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>& vk)
 {
 
-    // Verify the hiding circuit proof
     UltraVerifier verifer{ vk };
     const bool verified = verifer.verify_proof(proof);
     vinfo("verified: ", verified);
