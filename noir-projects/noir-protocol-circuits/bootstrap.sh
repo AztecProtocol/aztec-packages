@@ -49,18 +49,18 @@ function compile {
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
-  # echo $program_hash_cmd >&2
+  # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
-  echo "Hash preimage: $NARGO_HASH-$program_hash"
+  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
     # TODO: --skip-brillig-constraints-check added temporarily for blobs build time.
     local compile_cmd="$NARGO compile --package $name --silence-warnings --skip-brillig-constraints-check"
-    echo "$compile_cmd"
+    echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
-    echo "Compilation complete for: $name (${SECONDS}s)"
+    echo_stderr "Compilation complete for: $name (${SECONDS}s)"
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
@@ -83,16 +83,16 @@ function compile {
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
-    echo "Generating vk for function: $name..." >&2
+    echo_stderr "Generating vk for function: $name..."
     SECONDS=0
     local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive | xxd -p -c 0"
-    echo $vk_cmd >&2
+    echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-    # echo $vkf_cmd >&2
+    # echo_stderrr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
-    echo "Key output at: $key_path (${SECONDS}s)"
+    echo_stderr "Key output at: $key_path (${SECONDS}s)"
     cache_upload vk-$hash.tar.gz $key_path &> /dev/null
   fi
 }
@@ -150,6 +150,6 @@ case "$CMD" in
     parallel --line-buffered bash -c {} ::: build test
     ;;
   *)
-    echo "Unknown command: $CMD"
+    echo_stderr "Unknown command: $CMD"
     exit 1
 esac
