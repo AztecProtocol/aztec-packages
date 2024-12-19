@@ -6,7 +6,8 @@
     ".": "./dest/index.js",
     "./mocks": "./dest/mocks/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
-    "./config": "./dest/config.js"
+    "./config": "./dest/config.js",
+    "./msg_validators": "./dest/msg_validators/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -21,7 +22,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
   },
@@ -55,9 +56,9 @@
     ],
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],
@@ -69,6 +70,7 @@
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",

@@ -40,7 +40,9 @@ template <typename Flavor> class SumcheckProverRound {
 
   public:
     using FF = typename Flavor::FF;
-    using ExtendedEdges = typename Flavor::ExtendedEdges;
+    using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
+                                             typename Flavor::template ProverUnivariates<2>,
+                                             typename Flavor::ExtendedEdges>;
     using ZKData = ZKSumcheckData<Flavor>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
@@ -113,7 +115,11 @@ template <typename Flavor> class SumcheckProverRound {
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                extended_edge = edge;
+            } else {
+                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            }
         }
     }
 
@@ -160,28 +166,24 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
-        for (auto& accum : thread_univariate_accumulators) {
-            Utils::zero_univariates(accum);
-        }
-
-        // Construct extended edge containers; one per thread
-        std::vector<ExtendedEdges> extended_edges;
-        extended_edges.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
+            // Initialize the thread accumulator to 0
+            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedEdges extended_edges;
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
-
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
+                extend_edges(extended_edges, polynomials, edge_idx);
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
                 // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
                 // \beta_{d-1}^{\ell_{d-1}}\f$.
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges[thread_idx],
+                                                extended_edges,
                                                 relation_parameters,
                                                 gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
             }

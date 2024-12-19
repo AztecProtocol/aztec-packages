@@ -3,7 +3,6 @@ tests:
   bench_prover:
     env:
       HARDWARE_CONCURRENCY: '32'
-      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
       LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
     command: './scripts/e2e_compose_test.sh bench_prover'
   bench_publish_rollup:
@@ -73,6 +72,7 @@ tests:
     test_path: 'e2e_prover/full.test.ts'
     env:
       FAKE_PROOFS: '1'
+  # Ran in CI as standalone
   e2e_prover_full:
     test_path: 'e2e_prover/full.test.ts'
     env:
@@ -98,9 +98,9 @@ tests:
     test_path: 'e2e_p2p/reqresp.test.ts'
   e2e_p2p_reex:
     test_path: 'e2e_p2p/reex.test.ts'
-  flakey_e2e_tests:
-    test_path: './src/flakey'
-    ignore_failures: true
+  # flakey_e2e_tests:
+  #   test_path: './src/flakey'
+  #   ignore_failures: true
   guides_dapp_testing:
     use_compose: true
     test_path: 'guides/dapp_testing.test.ts'

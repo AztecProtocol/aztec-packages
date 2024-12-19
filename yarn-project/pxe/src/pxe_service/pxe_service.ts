@@ -164,37 +164,37 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
-  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+  public async registerSender(address: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(address)) {
-      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
       return address;
     }
 
-    const wasAdded = await this.db.addContactAddress(address);
+    const wasAdded = await this.db.addSenderAddress(address);
 
     if (wasAdded) {
-      this.log.info(`Added contact:\n ${address.toString()}`);
+      this.log.info(`Added sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
     }
 
     return address;
   }
 
-  public getContacts(): Promise<AztecAddress[]> {
-    const contacts = this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    const senders = this.db.getSenderAddresses();
 
-    return Promise.resolve(contacts);
+    return Promise.resolve(senders);
   }
 
-  public async removeContact(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.db.removeContactAddress(address);
+  public async removeSender(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeSenderAddress(address);
 
     if (wasRemoved) {
-      this.log.info(`Removed contact:\n ${address.toString()}`);
+      this.log.info(`Removed sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n not in address book.`);
     }
 
     return Promise.resolve();
@@ -486,6 +486,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    enforceFeePayment: boolean = true,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -523,7 +524,7 @@ export class PXEService implements PXE {
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx);
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
       }
 
       if (!skipTxValidation) {
@@ -780,11 +781,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx) {
+  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx);
+      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
       if (result.revertReason) {
         throw result.revertReason;
       }

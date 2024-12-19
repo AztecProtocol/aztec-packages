@@ -41,7 +41,7 @@ fi
 
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
    ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+  echo "Docker images not found."
   exit 1
 fi
 
@@ -53,13 +53,12 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-# STERN_PID=""
+STERN_PID=""
 function copy_stern_to_log() {
-  # TODO(AD) we need to figure out a less resource intensive solution than stern
-  # ulimit -n 4096
-  # stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  ulimit -n 4096
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
   echo "disabled until less resource intensive solution than stern implemented" > $SCRIPT_DIR/network-test.log &
-  # STERN_PID=$!
+  STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
@@ -115,7 +114,7 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $STERN_PID $(jobs -p) &>/dev/null || true
 
   if [ "$CLEANUP_CLUSTER" = "true" ]; then
     kind delete cluster || true
@@ -129,11 +128,13 @@ if [ -z "${CHAOS_VALUES:-}" ]; then
   kubectl delete networkchaos --all --all-namespaces
 fi
 
+VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
       --create-namespace \
-      --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
+      --values "$VALUES_PATH" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
       --wait \
       --wait-for-jobs=true \
@@ -165,6 +166,14 @@ if ! handle_network_shaping; then
   fi
 fi
 
+# Get the values from the values file
+VALUES=$(cat "$VALUES_PATH")
+ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<< "$VALUES")
+AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<< "$VALUES")
+AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<< "$VALUES")
+AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<< "$VALUES")
+
+
 docker run --rm --network=host \
   -v ~/.kube:/root/.kube \
   -e K8S=local \
@@ -180,5 +189,9 @@ docker run --rm --network=host \
   -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
   -e DEBUG=${DEBUG:-""} \
   -e LOG_JSON=1 \
-  -e LOG_LEVEL=${LOG_LEVEL:-"verbose"} \
+  -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
+  -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
+  -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
+  -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
+  -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
