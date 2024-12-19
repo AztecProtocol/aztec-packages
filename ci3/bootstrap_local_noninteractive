@@ -1,6 +1,6 @@
 #!/bin/bash
 # Launches our CI image locally and runs the bootstrap.
-# This replicates exactly what our CI run experiences.
+# This is used interim while we have CI runners that are not launched with bootstrap_ec2.
 # It uses docker-in-docker as some test flows require it (e.g. e2e).
 # We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
 # We mount in aws credentials to leverage the s3 cache.
