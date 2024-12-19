@@ -47,7 +47,7 @@ const NATIVE_LIBRARY_NAME = 'world_state_napi';
 const NATIVE_CLASS_NAME = 'WorldState';
 
 const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
-const MAX_WORLD_STATE_THREADS = 16;
+const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(messageType: T, body: WorldStateRequest[T]): Promise<WorldStateResponse[T]>;
@@ -89,7 +89,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
     private instrumentation: WorldStateInstrumentation,
     private log = createLogger('world-state:database'),
   ) {
-    log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
+    const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
+    log.info(
+      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
+    );
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
@@ -105,7 +108,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
-      Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
+      threads,
     );
     this.queue.start();
   }

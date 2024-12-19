@@ -5,7 +5,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { Option } from 'commander';
 
 import { type WalletDB } from '../../storage/wallet_db.js';
-import { aliasedAddressParser } from './index.js';
+import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
   estimateGasOnly: boolean;
@@ -135,15 +135,10 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    if (!parsed.feeRecipient) {
-      // Recipient of a fee in the refund flow
-      throw new Error('Missing "feeRecipient" in payment option');
-    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
-    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
+    return [AztecAddress.fromString(parsed.asset), fpc];
   };
 
   return async (sender: AccountWallet) => {
@@ -182,13 +177,13 @@ export function parsePaymentMethod(
         const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PublicFeePaymentMethod(asset, fpc, sender);
+        return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
-        log(`Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient}`);
+        const [asset, fpc] = getFpcOpts(parsed, db);
+        log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
+        return new PrivateFeePaymentMethod(fpc, sender);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');

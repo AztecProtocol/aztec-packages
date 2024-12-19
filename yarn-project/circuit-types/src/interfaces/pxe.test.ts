@@ -151,7 +151,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, false, []);
+    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, true, false, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -164,6 +164,7 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       TxExecutionRequest.random(),
       true,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -381,6 +382,7 @@ class MockPXE implements PXE {
     _simulatePublic: boolean,
     msgSender?: AztecAddress | undefined,
     _skipTxValidation?: boolean | undefined,
+    _enforceFeePayment?: boolean | undefined,
     _profile?: boolean | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {

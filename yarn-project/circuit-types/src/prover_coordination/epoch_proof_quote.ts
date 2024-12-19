@@ -78,6 +78,13 @@ export class EpochProofQuote extends Gossipable {
     };
   }
 
+  toInspect() {
+    return {
+      signature: this.signature.toString(),
+      ...this.payload.toInspect(),
+    };
+  }
+
   /**
    * Get the size of the epoch proof quote in bytes.
    * @returns The size of the epoch proof quote in bytes.

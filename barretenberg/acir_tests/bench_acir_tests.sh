@@ -3,7 +3,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-./clone_test_vectors.sh
+USE_CACHE=1 ./bootstrap.sh full
 
 TEST_NAMES=("$@")
 THREADS=(1 4 16 32 64)

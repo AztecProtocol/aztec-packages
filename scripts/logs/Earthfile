@@ -2,6 +2,7 @@ VERSION 0.8
 FROM ../../build-images/+base-slim-node
 
 pack-base-benchmark:
+  # TODO(ci3): revisit/redo this
   # Copies the base benchmark (ie the master run) into a container and packs it as an artifact,
   # so it can be consumed from bench-comment. Note that we need to download base-benchmark
   # outside of this target beforehand. We cannot run it within an Earthly container because it needs
