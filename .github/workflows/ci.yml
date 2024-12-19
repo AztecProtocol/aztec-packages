@@ -248,6 +248,7 @@ jobs:
         test: ${{ fromJson( needs.configure.outputs.bench-list )}}
     steps:
       - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: Test
         timeout-minutes: 40
         run: |
