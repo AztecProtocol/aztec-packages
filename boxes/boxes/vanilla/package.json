@@ -22,7 +22,7 @@
     "@aztec/builder": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "1.46.1",
+    "@playwright/test": "^1.49.0",
     "@types/node": "^20.11.17",
     "assert": "^2.1.0",
     "copy-webpack-plugin": "^11.0.0",
@@ -35,5 +35,5 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1"
   },
-  "packageManager": "yarn@4.0.2"
+  "packageManager": "yarn@4.5.2"
 }

@@ -1,0 +1,18 @@
+# Source this first in all bootstrap scripts.
+# Usage: source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source $(git rev-parse --show-toplevel)/ci3/source
+
+case "${1:-}" in
+  "ci")
+    export CI=1
+    export USE_CACHE=${USE_CACHE:-1}
+    export TEST=1
+    export DENOISE=${DENOISE:-1}
+    ;;
+  ""|"fast")
+    export USE_CACHE=1
+    ;;
+  "test")
+    export TEST=1
+    ;;
+esac
