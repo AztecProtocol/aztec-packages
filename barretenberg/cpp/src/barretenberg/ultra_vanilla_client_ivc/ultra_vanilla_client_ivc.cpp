@@ -35,7 +35,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool
             UltraProver prover{ proving_key, commitment_key };
             previous_proof = prover.construct_proof();
         } else {
-            // WORKTODO: use ZK here
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraZKProver when it exists
             UltraProver prover{ proving_key, commitment_key };
             previous_proof = prover.construct_proof();
         }
