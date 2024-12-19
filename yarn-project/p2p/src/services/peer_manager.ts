@@ -37,29 +37,12 @@ export class PeerManager implements Traceable {
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
-    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, evt => {
-      const peerId = evt.detail;
-      if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
-      } else {
-        this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
-      }
-    });
-
+    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
     // Handle lost connections
-    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, evt => {
-      const peerId = evt.detail;
-      if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-        this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
-      } else {
-        this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
-      }
-    });
+    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
 
     // Handle Discovered peers
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, async (enr: ENR) => {
-      await this.handleDiscoveredPeer(enr);
-    });
+    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
   }
 
   @trackSpan('PeerManager.heartbeat')
@@ -67,6 +50,32 @@ export class PeerManager implements Traceable {
     this.heartbeatCounter++;
     this.discover();
     this.peerScoring.decayAllScores();
+  }
+
+  /**
+   * Simply logs the type of connected peer.
+   * @param e - The connected peer event.
+   */
+  private async handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
+    const peerId = e.detail;
+    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
+      this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
+    } else {
+      this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
+    }
+  }
+
+  /**
+   * Simply logs the type of disconnected peer.
+   * @param e - The disconnected peer event.
+   */
+  private async handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
+    const peerId = e.detail;
+    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
+      this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
+    } else {
+      this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
+    }
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
@@ -267,6 +276,16 @@ export class PeerManager implements Traceable {
         break;
       }
     }
+  }
+
+  /**
+   * Stops the peer manager.
+   * Removing all event listeners.
+   */
+  public stop() {
+    this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
+    this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
+    this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
   }
 }
 

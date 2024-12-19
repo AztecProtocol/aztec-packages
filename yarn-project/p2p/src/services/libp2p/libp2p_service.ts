@@ -211,6 +211,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     // Remove gossip sub listener
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent);
 
+    // Stop peer manager
+    this.peerManager.stop();
+
     this.logger.debug('Stopping job queue...');
     await this.jobQueue.end();
     this.logger.debug('Stopping running promise...');
