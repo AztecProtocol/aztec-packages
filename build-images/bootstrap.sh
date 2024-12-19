@@ -3,7 +3,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(REBUILD_PATTERNS="^build-images/Earthfile" cache_content_hash)
+hash=$(cache_content_hash "^build-images/Earthfile")
 
 function build {
   github_group "build-images build"
