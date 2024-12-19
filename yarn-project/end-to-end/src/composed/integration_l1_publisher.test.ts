@@ -57,7 +57,6 @@ import {
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { WorldStateInstrumentation } from '../../../world-state/src/instrumentation/instrumentation.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
 
@@ -170,12 +169,7 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(
-      builderDb,
-      blockSource,
-      worldStateConfig,
-      new WorldStateInstrumentation(new NoopTelemetryClient()),
-    );
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     publisher = new L1Publisher(
