@@ -925,7 +925,7 @@ export async function computeGateCountForCircuit(
       pathToBB,
       flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
       ['-b', bytecodePath, '-v'],
-      logHandler
+      logHandler,
     );
     const duration = timer.ms();
 

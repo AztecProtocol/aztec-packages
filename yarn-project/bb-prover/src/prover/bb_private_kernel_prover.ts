@@ -198,10 +198,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
   }
 
-  public async computeGateCountForCircuit(
-    bytecode: Buffer,
-    circuitName: string
-  ): Promise<number> {
+  public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {
     const logFunction = (message: string) => {
       this.log.debug(`$bb gates ${circuitName} - ${message}`);
     };
