@@ -59,9 +59,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Create storage for polynomials
     auto proving_key = std::make_shared<Flavor::ProvingKey>(full_circuit_size);
-    TranslatorProvingKey key;
-    key.proving_key = proving_key;
-    key.mini_circuit_dyadic_size = mini_circuit_size;
+    TranslatorProvingKey key{ proving_key, mini_circuit_size };
     ProverPolynomials& prover_polynomials = proving_key->polynomials;
     // ensure we can shift these
     for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {

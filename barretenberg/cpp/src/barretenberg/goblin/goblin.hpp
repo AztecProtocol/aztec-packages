@@ -22,7 +22,7 @@
 namespace bb {
 
 class GoblinProver {
-    using MegaCircuitBuilder = bb::MegaCircuitBuilder;
+    using MegaCircuitBuilder = MegaCircuitBuilder;
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
@@ -31,18 +31,18 @@ class GoblinProver {
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::ECCVMFlavor;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder;
-    using ECCVMProver = bb::ECCVMProver;
+    using OpQueue = ECCOpQueue;
+    using ECCVMFlavor = ECCVMFlavor;
+    using ECCVMBuilder = ECCVMCircuitBuilder;
+    using ECCVMProver = ECCVMProver;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
-    using TranslatorBuilder = bb::TranslatorCircuitBuilder;
-    using TranslatorProver = bb::TranslatorProver;
-    using TranslatorProvingKey = bb::TranslatorProvingKey;
-    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using TranslatorBuilder = TranslatorCircuitBuilder;
+    using TranslatorProver = TranslatorProver;
+    using TranslatorProvingKey = TranslatorProvingKey;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
-    using MergeProver = bb::MergeProver_<MegaFlavor>;
+    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = std::vector<FF>;
     /**
