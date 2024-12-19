@@ -54,7 +54,6 @@ jobs:
       non-bb: ${{ steps.filter.outputs.non-bb }}
       # Test flags:
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
-      bench-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
       e2e-list: ${{ steps.e2e_list.outputs.e2e-list }}
       bench-list: ${{ steps.e2e_list.outputs.bench-list }}
@@ -257,7 +256,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.bench-all == 'true' || needs.configure.outputs.bench-list != '[]'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.bench-list != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -297,7 +296,7 @@ jobs:
   acir-bench:
     runs-on: ubuntu-latest
     needs: [ci-noir-bb, configure]
-    if: needs.configure.outputs.bench-all == 'true'
+    if: needs.configure.outputs.e2e-all == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -319,7 +318,7 @@ jobs:
             fi
 
   bench-summary:
-    if: needs.configure.outputs.bench-all == 'true'
+    if: needs.configure.outputs.e2e-all == 'true'
     needs:
       - acir-bench
       - bench-e2e
