@@ -15,9 +15,8 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
+import { pushTestData } from '@aztec/foundation/testing';
 
-import TOML from '@iarna/toml';
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
@@ -89,7 +88,7 @@ export function convertPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRo
 
 export function convertSimulatedPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRollupInputs): WitnessMap {
   const mapped = mapPrivateBaseRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-base-private', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-base-private', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PrivateBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -104,7 +103,7 @@ export function convertPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRoll
 
 export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRollupInputs): WitnessMap {
   const mapped = mapPublicBaseRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-base-public', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-base-public', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -118,7 +117,7 @@ export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: Publi
  */
 export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs): WitnessMap {
   const mapped = mapMergeRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-merge', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-merge', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.MergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -130,7 +129,7 @@ export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs):
  */
 export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockRootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -142,7 +141,7 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
  */
 export function convertSimulatedBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -169,7 +168,7 @@ export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlock
  */
 export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRollupInputs): WitnessMap {
   const mapped = mapBlockMergeRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-merge', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-merge', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockMergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -181,7 +180,7 @@ export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRoll
  */
 export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): WitnessMap {
   const mapped = mapRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
