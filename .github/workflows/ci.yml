@@ -168,7 +168,7 @@ jobs:
   ci-rest:
     needs: [bootstrap, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-bb == 'true' && needs.configure.outputs.non-docs == 'true')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
