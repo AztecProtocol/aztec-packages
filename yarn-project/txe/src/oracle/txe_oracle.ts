@@ -1065,7 +1065,7 @@ export class TXE implements TypedOracle {
   /**
    * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
    * to a specific `contract`.
-   * @param key - A field element representing the key to load the data under.
+   * @param key - A field element representing the key under which to load the data..
    * @returns An array of field elements representing the stored data.
    * @throws If the data is not found.
    */

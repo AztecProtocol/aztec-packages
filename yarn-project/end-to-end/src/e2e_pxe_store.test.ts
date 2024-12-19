@@ -7,8 +7,8 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// TODO(#10724): Nuke this once the linked issue is implemented. Made this ugly test to check it works when first
-// implementing this.
+// TODO(#10724): Nuke this once the linked issue is implemented (then the PXE store will be well tested). Made this
+// ugly test to check it works when first implementing this.
 describe('PXE store', () => {
   jest.setTimeout(TIMEOUT);
 
