@@ -581,7 +581,12 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
 
-      if (!this.isFlushing && this.minTxsPerBLock !== undefined && processedTxs.length < this.minTxsPerBLock) {
+      if (
+        !interrupt && // We check for minTxCount only if we are proposing a block, not if we are validating it
+        !this.isFlushing && // And we skip the check when flushing, since we want all pending txs to go out, no matter if too few
+        this.minTxsPerBLock !== undefined &&
+        processedTxs.length < this.minTxsPerBLock
+      ) {
         this.log.warn(
           `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${this.minTxsPerBLock})`,
           { slot, blockNumber, processedTxCount: processedTxs.length },
