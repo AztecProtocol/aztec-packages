@@ -20,7 +20,7 @@ import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -42,13 +42,15 @@ export type ProverNodeOptions = {
  * from a tx source in the p2p network or an external node, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
+export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+
+  public readonly tracer: Tracer;
 
   constructor(
     private readonly prover: EpochProverManager,
@@ -74,6 +76,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    this.tracer = telemetryClient.getTracer('ProverNode');
   }
 
   public getP2P() {
@@ -87,6 +90,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
     if (proofClaim.epochToProve === this.latestEpochWeAreProving) {
       this.log.verbose(`Already proving claim for epoch ${proofClaim.epochToProve}`);
+      return;
+    }
+
+    const provenEpoch = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpoch !== undefined && proofClaim.epochToProve <= provenEpoch) {
+      this.log.verbose(`Claim for epoch ${proofClaim.epochToProve} is already proven`);
       return;
     }
 
@@ -114,12 +123,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       const claim = await this.publisher.getProofClaim();
       if (!claim || claim.epochToProve < epochNumber) {
+        this.log.verbose(`Handling epoch ${epochNumber} completed as initial sync`);
         await this.handleEpochCompleted(epochNumber);
-      } else if (claim && claim.bondProvider.equals(this.publisher.getSenderAddress())) {
-        const lastEpochProven = await this.l2BlockSource.getProvenL2EpochNumber();
-        if (lastEpochProven === undefined || lastEpochProven < claim.epochToProve) {
-          await this.handleClaim(claim);
-        }
       }
     } catch (err) {
       this.log.error(`Error handling initial epoch sync`, err);
@@ -242,6 +247,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     return maxPendingJobs === 0 || this.jobs.size < maxPendingJobs;
   }
 
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async createProvingJob(epochNumber: bigint) {
     if (!this.checkMaximumPendingJobs()) {
       throw new Error(`Maximum pending proving jobs ${this.options.maxPendingJobs} reached. Cannot create new job.`);

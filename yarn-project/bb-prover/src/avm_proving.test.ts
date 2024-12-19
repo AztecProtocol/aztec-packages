@@ -85,10 +85,71 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+  it(
+    'Should prove and verify a top-level exceptional halt',
+    async () => {
+      await proveAndVerifyAvmTestContract('divide_by_zero', /*calldata=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that propagates to top-level',
+    async () => {
+      await proveAndVerifyAvmTestContract('external_call_to_divide_by_zero', /*calldata=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that is recovered from in caller',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'external_call_to_divide_by_zero_recovers',
+        /*calldata=*/ [],
+        /*expectRevert=*/ false,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is propagated to top-level',
+    async () => {
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing', /*calldata=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is recovered from in caller',
+    async () => {
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing_recovers', /*calldata=*/ [], /*expectRevert=*/ false);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a top-level exceptional halt due to a non-existent contract',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'add_args_return',
+        /*calldata=*/ [new Fr(1), new Fr(2)],
+        /*expectRevert=*/ true,
+        /*skipContractDeployments=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
 });
 
-async function proveAndVerifyAvmTestContract(functionName: string, calldata: Fr[] = [], expectRevert = false) {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata, expectRevert);
+async function proveAndVerifyAvmTestContract(
+  functionName: string,
+  calldata: Fr[] = [],
+  expectRevert = false,
+  skipContractDeployments = false,
+) {
+  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
+    functionName,
+    calldata,
+    expectRevert,
+    skipContractDeployments,
+  );
 
   const internalLogger = createLogger('bb-prover:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);

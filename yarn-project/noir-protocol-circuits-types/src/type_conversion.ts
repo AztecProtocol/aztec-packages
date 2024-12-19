@@ -524,6 +524,7 @@ export function mapGasSettingsFromNoir(gasSettings: GasSettingsNoir): GasSetting
     mapGasFromNoir(gasSettings.gas_limits),
     mapGasFromNoir(gasSettings.teardown_gas_limits),
     mapGasFeesFromNoir(gasSettings.max_fees_per_gas),
+    mapGasFeesFromNoir(gasSettings.max_priority_fees_per_gas),
   );
 }
 
@@ -532,6 +533,7 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
     gas_limits: mapGasToNoir(gasSettings.gasLimits),
     teardown_gas_limits: mapGasToNoir(gasSettings.teardownGasLimits),
     max_fees_per_gas: mapGasFeesToNoir(gasSettings.maxFeesPerGas),
+    max_priority_fees_per_gas: mapGasFeesToNoir(gasSettings.maxPriorityFeesPerGas),
   };
 }
 

@@ -67,7 +67,7 @@ export function updateProtocolCircuitSampleInputs(circuitName: string, value: st
 }
 
 function getPathToFile(targetFileFromRepoRoot: string) {
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../');
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../../');
   if (!existsSync(join(repoRoot, 'CODEOWNERS'))) {
     throw new Error(`Path to repo root is incorrect (got ${repoRoot})`);
   }

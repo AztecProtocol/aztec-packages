@@ -69,7 +69,46 @@ const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
-const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
+
+// inspired by https://github.com/pinojs/pino/issues/726#issuecomment-605814879
+const levelToSeverityFormatter = (label: string, level: number): object => {
+  // Severity labels https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+  let severity: string;
+
+  switch (label as pino.Level | keyof typeof customLevels) {
+    case 'trace':
+    case 'debug':
+      severity = 'DEBUG';
+      break;
+    case 'verbose':
+    case 'info':
+      severity = 'INFO';
+      break;
+    case 'warn':
+      severity = 'WARNING';
+      break;
+    case 'error':
+      severity = 'ERROR';
+      break;
+    case 'fatal':
+      severity = 'CRITICAL';
+      break;
+    default:
+      severity = 'DEFAULT';
+      break;
+  }
+
+  return { severity, level };
+};
+
+const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
+  customLevels,
+  useOnlyCustomLevels: false,
+  level: logLevel,
+  formatters: {
+    level: levelToSeverityFormatter,
+  },
+};
 
 export const levels = {
   labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },

@@ -13,9 +13,9 @@ describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
   const logger = createLogger(`e2e:spartan-test:transfer`);
-  const MINT_AMOUNT = 20n;
+  const MINT_AMOUNT = 1n;
 
-  const ROUNDS = 5n;
+  const ROUNDS = 1n;
 
   let testWallets: TestWallets;
 

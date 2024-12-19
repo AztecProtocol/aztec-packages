@@ -4,13 +4,15 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
-import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -44,7 +46,15 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       privateFunctions: [],
       unconstrainedFunctions: [],
     };
-    await store.addContractArtifact(contract.address, contract.artifact);
+
+    const functionNames: Record<string, string> = {};
+    for (const fn of contract.artifact.functions) {
+      if (fn.functionType === FunctionType.PUBLIC) {
+        functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
+      }
+    }
+
+    await store.registerContractFunctionName(contract.address, functionNames);
     const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);

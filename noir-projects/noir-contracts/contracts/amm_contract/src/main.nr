@@ -120,7 +120,7 @@ contract AMM {
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
-        // partial notees.
+        // partial notes.
         AMM::at(context.this_address())
             ._add_liquidity(
                 config,
