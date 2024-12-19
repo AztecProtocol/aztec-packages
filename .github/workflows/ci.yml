@@ -196,7 +196,7 @@ jobs:
           run: ./bootstrap.sh image-e2e
 
   docs:
-    needs: [ci-rest, configure]
+    needs: [bootstrap, configure]
     runs-on: ubuntu-latest
     if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
     steps:
