@@ -283,6 +283,7 @@ export class Sequencer {
     const pendingTxs = await this.p2pClient.getPendingTxs();
 
     if (!this.shouldProposeBlock(historicalHeader, { pendingTxsCount: pendingTxs.length })) {
+      await this.claimEpochProofRightIfAvailable(slot);
       return;
     }
 
@@ -315,6 +316,7 @@ export class Sequencer {
 
     // Bail if we don't have enough valid txs
     if (!this.shouldProposeBlock(historicalHeader, { validTxsCount: validTxs.length })) {
+      await this.claimEpochProofRightIfAvailable(slot);
       return;
     }
 
@@ -428,7 +430,7 @@ export class Sequencer {
     );
 
     // We need to have at least minTxsPerBLock txs.
-    if (args.pendingTxsCount != undefined && args.pendingTxsCount < this.minTxsPerBLock) {
+    if (args.pendingTxsCount !== undefined && args.pendingTxsCount < this.minTxsPerBLock) {
       this.log.verbose(
         `Not creating block because not enough txs in the pool (got ${args.pendingTxsCount} min ${this.minTxsPerBLock})`,
       );
@@ -436,7 +438,7 @@ export class Sequencer {
     }
 
     // Bail if we don't have enough valid txs
-    if (args.validTxsCount != undefined && args.validTxsCount < this.minTxsPerBLock) {
+    if (args.validTxsCount !== undefined && args.validTxsCount < this.minTxsPerBLock) {
       this.log.verbose(
         `Not creating block because not enough valid txs loaded from the pool (got ${args.validTxsCount} min ${this.minTxsPerBLock})`,
       );
@@ -499,7 +501,12 @@ export class Sequencer {
     const orchestratorFork = await this.worldState.fork();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
+      const processor = this.publicProcessorFactory.create(
+        publicProcessorFork,
+        historicalHeader,
+        newGlobalVariables,
+        true,
+      );
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
@@ -701,7 +708,7 @@ export class Sequencer {
       // Find out which epoch we are currently in
       const epochToProve = await this.publisher.getClaimableEpoch();
       if (epochToProve === undefined) {
-        this.log.debug(`No epoch to prove`);
+        this.log.trace(`No epoch to prove at slot ${slotNumber}`);
         return undefined;
       }
 
@@ -714,7 +721,10 @@ export class Sequencer {
       });
       // ensure these quotes are still valid for the slot and have the contract validate them
       const validQuotesPromise = Promise.all(
-        quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
+        quotes
+          .filter(x => x.payload.validUntilSlot >= slotNumber)
+          .filter(x => x.payload.epochToProve === epochToProve)
+          .map(x => this.publisher.validateProofQuote(x)),
       );
 
       const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
@@ -727,7 +737,7 @@ export class Sequencer {
         (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
       );
       const quote = sortedQuotes[0];
-      this.log.info(`Selected proof quote for proof claim`, quote.payload);
+      this.log.info(`Selected proof quote for proof claim`, { quote: quote.toInspect() });
       return quote;
     } catch (err) {
       this.log.error(`Failed to create proof claim for previous epoch`, err, { slotNumber });
@@ -785,6 +795,29 @@ export class Sequencer {
     }
 
     return toReturn;
+  }
+
+  @trackSpan(
+    'Sequencer.claimEpochProofRightIfAvailable',
+    slotNumber => ({ [Attributes.SLOT_NUMBER]: Number(slotNumber) }),
+    epoch => ({ [Attributes.EPOCH_NUMBER]: Number(epoch) }),
+  )
+  /** Collects an epoch proof quote if there is an epoch to prove, and submits it to the L1 contract. */
+  protected async claimEpochProofRightIfAvailable(slotNumber: bigint) {
+    const proofQuote = await this.createProofClaimForPreviousEpoch(slotNumber);
+    if (proofQuote === undefined) {
+      return;
+    }
+
+    const epoch = proofQuote.payload.epochToProve;
+    const ctx = { slotNumber, epoch, quote: proofQuote.toInspect() };
+    this.log.verbose(`Claiming proof right for epoch ${epoch}`, ctx);
+    const success = await this.publisher.claimEpochProofRight(proofQuote);
+    if (!success) {
+      throw new Error(`Failed to claim proof right for epoch ${epoch}`);
+    }
+    this.log.info(`Claimed proof right for epoch ${epoch}`, ctx);
+    return epoch;
   }
 
   /**

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+
+# Ensure REBUILD_PATTERNS or args are set
+if [[ -z "${REBUILD_PATTERNS:-}" &&  "$#" = 0 ]]; then
+    echo "Error: No arguments provided and REBUILD_PATTERNS environment variable is not set."
+    exit 1
+fi
+
+# If too many spurious cache misses: can be customized to pin artifacts to a specific version
+AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
+PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
+# Literal patterns can be provided with REBUILD_PATTERNS
+REBUILD_PATTERNS=${REBUILD_PATTERNS:-}
+if [ "$#" != 0 ]; then
+  REBUILD_PATTERNS+=$'\n'$(cat "$@")
+fi
+
+# Concatenate patterns with '|' and double escape backslashes for AWK
+# filter empty lines
+AWK_PATTERN=$(echo "$REBUILD_PATTERNS" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+
+# use git repo root because that is where our patterns are focused
+cd $(git rev-parse --show-toplevel)
+# Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
+# Sort the hashes and compute the content hash
+CONTENT_HASH=$(git ls-tree -r $AZTEC_CACHE_COMMIT | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | sort | git hash-object --stdin| cut -c1-16)
+
+# Check if file list was empty by comparing against the result of 'echo '' | git hash-object --stdin | cut -c1-16'
+ECHO_BLANK_HASH="8b137891791fe969"
+if [ "$CONTENT_HASH" = "$ECHO_BLANK_HASH" ]; then
+    echo "No files matched the rebuild patterns $REBUILD_PATTERNS."
+    echo "Awk pattern expanded: $AWK_PATTERN."
+    exit 1
+fi
+
+# important: include architecture in content hash because we target x86_64 and arm64
+echo "$CONTENT_HASH-$(echo $PLATFORM_TAG)"

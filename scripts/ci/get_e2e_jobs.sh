@@ -10,7 +10,8 @@ LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {
-  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml
+  # prover full is ran standalone
+  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml | grep -v e2e_prover_full
 }
 
 # Read the full list from the YAML file
