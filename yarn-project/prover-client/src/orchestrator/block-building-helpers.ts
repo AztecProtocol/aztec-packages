@@ -19,7 +19,6 @@ import {
   type GlobalVariables,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   MerkleTreeCalculator,
@@ -39,7 +38,6 @@ import {
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
-  PublicBaseStateDiffHints,
   PublicDataHint,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
@@ -140,39 +138,6 @@ export async function buildBaseRollupHints(
   startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
   if (tx.avmProvingRequest) {
-    // Build public base rollup hints
-    const stateDiffHints = PublicBaseStateDiffHints.from({
-      nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-        i < nullifierWitnessLeaves.length
-          ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-          : NullifierLeafPreimage.empty(),
-      ),
-      nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-        i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
-          ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
-          : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
-      ),
-      sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
-      sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
-      noteHashSubtreeSiblingPath,
-      nullifierSubtreeSiblingPath,
-      lowPublicDataWritesPreimages: padArrayEnd(
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
-        PublicDataTreeLeafPreimage.empty(),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      ),
-      lowPublicDataWritesMembershipWitnesses: padArrayEnd(
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-        MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      ),
-      publicDataTreeSiblingPaths: padArrayEnd(
-        txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths,
-        makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO),
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      ),
-    });
-
     const blockHash = tx.constants.historicalHeader.hash();
     const archiveRootMembershipWitness = await getMembershipWitnessFor(
       blockHash,
@@ -182,9 +147,7 @@ export async function buildBaseRollupHints(
     );
 
     return PublicBaseRollupHints.from({
-      start,
       startSpongeBlob: inputSpongeBlob,
-      stateDiffHints,
       archiveRootMembershipWitness,
       constants,
     });

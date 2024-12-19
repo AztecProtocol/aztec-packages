@@ -15,8 +15,7 @@ use crate::{
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
@@ -164,10 +163,6 @@ impl PrivateBaseRollupInputs {
             self.state_diff_hints.nullifier_predecessor_preimages,
             self.state_diff_hints.nullifier_predecessor_membership_witnesses,
         )
-    }
-
-    fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree_root(leaves.map(|leaf: NullifierLeafPreimage| leaf.hash()))
     }
 
     fn validate_kernel_start_state(self) {

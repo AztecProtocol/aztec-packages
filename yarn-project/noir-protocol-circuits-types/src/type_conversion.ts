@@ -67,7 +67,6 @@ import {
   type NullifierLeafPreimage,
   type NullifierReadRequestHints,
   OptionalNumber,
-  type PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -97,7 +96,6 @@ import {
   type PrivateTubeData,
   PrivateValidationRequests,
   type PublicBaseRollupInputs,
-  type PublicBaseStateDiffHints,
   PublicCallRequest,
   type PublicDataHint,
   type PublicDataTreeLeafPreimage,
@@ -217,7 +215,6 @@ import type {
   PrivateTubeData as PrivateTubeDataNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
-  PublicBaseStateDiffHints as PublicBaseStateDiffHintsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
@@ -2252,31 +2249,6 @@ export function mapPrivateBaseStateDiffHintsToNoir(hints: PrivateBaseStateDiffHi
 }
 
 /**
- * Maps public base state diff hints to a noir state diff hints.
- * @param hints - The state diff hints.
- * @returns The noir state diff hints.
- */
-export function mapPublicBaseStateDiffHintsToNoir(hints: PublicBaseStateDiffHints): PublicBaseStateDiffHintsNoir {
-  return {
-    nullifier_predecessor_preimages: mapTuple(hints.nullifierPredecessorPreimages, mapNullifierLeafPreimageToNoir),
-    nullifier_predecessor_membership_witnesses: mapTuple(
-      hints.nullifierPredecessorMembershipWitnesses,
-      (witness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
-    ),
-    sorted_nullifiers: mapTuple(hints.sortedNullifiers, mapFieldToNoir),
-    sorted_nullifier_indexes: mapTuple(hints.sortedNullifierIndexes, (index: number) => mapNumberToNoir(index)),
-    note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
-    nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
-    low_public_data_writes_preimages: mapTuple(hints.lowPublicDataWritesPreimages, mapPublicDataTreePreimageToNoir),
-    low_public_data_writes_witnesses: mapTuple(
-      hints.lowPublicDataWritesMembershipWitnesses,
-      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
-    ),
-    public_data_tree_sibling_paths: mapTuple(hints.publicDataTreeSiblingPaths, path => mapTuple(path, mapFieldToNoir)),
-  };
-}
-
-/**
  * Maps base parity inputs to noir.
  * @param inputs - The circuits.js base parity inputs.
  * @returns The noir base parity inputs.
@@ -2345,10 +2317,7 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
   return {
     tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
-    start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
-    state_diff_hints: mapPublicBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
-
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };

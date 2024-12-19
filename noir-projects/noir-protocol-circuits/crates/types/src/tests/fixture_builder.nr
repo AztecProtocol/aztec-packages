@@ -31,6 +31,7 @@ use crate::{
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, scoped::Scoped},
+        tree_snapshots::TreeSnapshots,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -161,7 +162,8 @@ pub struct FixtureBuilder {
 
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
-
+    pub start_snapshots: TreeSnapshots,
+    pub end_snapshots: TreeSnapshots,
     // Counters.
     pub min_revertible_side_effect_counter: u32,
     pub counter_start: u32,
@@ -571,6 +573,8 @@ impl FixtureBuilder {
         result.public_inputs.reverted = reverted;
         result.public_inputs.global_variables = self.global_variables;
         result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+        result.public_inputs.start_tree_snapshots = self.start_snapshots;
+        result.public_inputs.end_tree_snapshots = self.end_snapshots;
 
         result
     }
@@ -1138,6 +1142,8 @@ impl Empty for FixtureBuilder {
             protocol_contract_tree_root: 0,
             protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
             archive_tree: AppendOnlyTreeSnapshot::zero(),
+            start_snapshots: TreeSnapshots::empty(),
+            end_snapshots: TreeSnapshots::empty(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,
