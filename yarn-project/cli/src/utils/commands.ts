@@ -1,5 +1,5 @@
 import { FunctionSelector } from '@aztec/aztec.js/abi';
-import { AztecAddress } from '@aztec/aztec.js/aztec_address';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/eth_address';
 import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
