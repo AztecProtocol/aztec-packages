@@ -13,10 +13,9 @@ import {
   AZTEC_MAX_EPOCH_DURATION,
   type BlockHeader,
   EthAddress,
-  type FeeRecipient,
   type Proof,
-  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+import { FeeRecipient, RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
   type L1ContractsConfig,
