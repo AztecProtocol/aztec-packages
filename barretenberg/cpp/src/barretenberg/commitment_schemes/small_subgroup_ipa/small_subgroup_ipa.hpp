@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/constants.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
@@ -71,6 +72,8 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}}
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
 
+    EvaluationDomain<FF> bn_evaluation_domain;
+
     // Monomial coefficients of the concatenated Libra masking polynomial
     Polynomial<FF> concatenated_polynomial;
     // Lagrange coefficeints of the concatenated Libra masking polynomial = constant_term || g_0 || ... || g_{d-1}
@@ -81,6 +84,7 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
 
     Polynomial<FF> challenge_polynomial;
     Polynomial<FF> challenge_polynomial_lagrange;
+    Polynomial<FF> big_sum_polynomial_unmasked;
     Polynomial<FF> big_sum_polynomial;
     std::array<FF, SUBGROUP_SIZE> big_sum_lagrange_coeffs;
 
@@ -99,14 +103,16 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
         , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
         , challenge_polynomial(SUBGROUP_SIZE)
-        , challenge_polynomial_lagrange(SUBGROUP_SIZE)  // public polynomial
+        , challenge_polynomial_lagrange(SUBGROUP_SIZE) // public polynomial
+        , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
         , big_sum_polynomial(SUBGROUP_SIZE + 3)         // includes masking
         , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH) // batched polynomial, input to shplonk prover
         , batched_quotient(QUOTIENT_LENGTH)             // quotient of the batched polynomial by Z_H(X) = X^87 - 1
 
     {
-
-        ASSERT(concatenated_polynomial.size() < SUBGROUP_SIZE + 3);
+        if constexpr (std::is_same_v<Curve, curve::BN254>) {
+            bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);
+        }
 
         compute_challenge_polynomial(multivariate_challenge);
 
@@ -129,8 +135,9 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
     {
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
-    // Getter for test purposes only
+    // Getters for test purposes only
     const Polynomial<FF>& get_batched_polynomial() const { return batched_polynomial; }
+    const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }
 
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
@@ -144,7 +151,14 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
             }
         }
         challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
-        challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
+        if constexpr (!std::is_same_v<Curve, curve::BN254>) {
+            challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
+        } else {
+            std::vector<FF> challenge_polynomial_ifft(SUBGROUP_SIZE);
+            polynomial_arithmetic::ifft(
+                coeffs_lagrange_basis.data(), challenge_polynomial_ifft.data(), bn_evaluation_domain);
+            challenge_polynomial = Polynomial<FF>(challenge_polynomial_ifft);
+        }
     }
 
     void compute_big_sum_polynomial()
@@ -160,8 +174,13 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         };
 
         //  Get the coefficients in the monomial basis
-        auto big_sum_polynomial_unmasked = Polynomial<FF>(interpolation_domain, big_sum_lagrange_coeffs, SUBGROUP_SIZE);
-
+        if constexpr (!std::is_same_v<Curve, curve::BN254>) {
+            big_sum_polynomial_unmasked = Polynomial<FF>(interpolation_domain, big_sum_lagrange_coeffs, SUBGROUP_SIZE);
+        } else {
+            std::vector<FF> big_sum_ifft(SUBGROUP_SIZE);
+            polynomial_arithmetic::ifft(big_sum_lagrange_coeffs.data(), big_sum_ifft.data(), bn_evaluation_domain);
+            big_sum_polynomial_unmasked = Polynomial<FF>(big_sum_ifft);
+        }
         //  Generate random masking_term of degree 2, add Z_H(X) * masking_term
         bb::Univariate<FF, 3> masking_term = bb::Univariate<FF, 3>::get_random();
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
@@ -193,13 +212,27 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
             lagrange_coeffs[idx] = FF(0);
         }
 
-        Polynomial<FF> lagrange_first_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+        Polynomial<FF> lagrange_first_monomial(SUBGROUP_SIZE);
+        if constexpr (!std::is_same_v<Curve, curve::BN254>) {
+            lagrange_first_monomial = Polynomial<FF>(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+        } else {
+            std::vector<FF> lagrange_first_ifft(SUBGROUP_SIZE);
+            polynomial_arithmetic::ifft(lagrange_coeffs.data(), lagrange_first_ifft.data(), bn_evaluation_domain);
+            lagrange_first_monomial = Polynomial<FF>(lagrange_first_ifft);
+        }
 
         // Compute the monomial coefficients of L_{|H|}, the last Lagrange polynomial
         lagrange_coeffs[0] = FF(0);
         lagrange_coeffs[SUBGROUP_SIZE - 1] = FF(1);
 
-        Polynomial<FF> lagrange_last_monomial(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+        Polynomial<FF> lagrange_last_monomial;
+        if constexpr (!std::is_same_v<Curve, curve::BN254>) {
+            lagrange_last_monomial = Polynomial<FF>(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+        } else {
+            std::vector<FF> lagrange_last_ifft(SUBGROUP_SIZE);
+            polynomial_arithmetic::ifft(lagrange_coeffs.data(), lagrange_last_ifft.data(), bn_evaluation_domain);
+            lagrange_last_monomial = Polynomial<FF>(lagrange_last_ifft);
+        }
 
         // Compute -F(X)*G(X), the negated product of challenge_polynomial and libra_concatenated_monomial_form
         // Polynomial<FF> result(BATCHED_POLYNOMIAL_LENGTH);

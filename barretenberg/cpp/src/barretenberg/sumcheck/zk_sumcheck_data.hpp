@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/constants.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
@@ -28,6 +29,8 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
     using ClaimedLibraEvaluations = std::vector<FF>;
 
     FF constant_term;
+
+    EvaluationDomain<FF> bn_evaluation_domain;
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
     // to compute product in lagrange basis
     Polynomial<FF> libra_concatenated_lagrange_form;
@@ -148,6 +151,11 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
 
     void create_interpolation_domain()
     {
+        if constexpr (std::is_same_v<Curve, curve::BN254>) {
+            bn_evaluation_domain = EvaluationDomain<FF>(SUBGROUP_SIZE, SUBGROUP_SIZE);
+            bn_evaluation_domain.compute_lookup_table();
+        }
+
         interpolation_domain[0] = FF{ 1 };
         for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
             interpolation_domain[idx] = interpolation_domain[idx - 1] * subgroup_generator;
@@ -175,8 +183,16 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
 
         bb::Univariate<FF, 2> masking_scalars = bb::Univariate<FF, 2>::get_random();
 
-        auto libra_concatenated_monomial_form_unmasked =
-            Polynomial<FF>(interpolation_domain, coeffs_lagrange_subgroup, SUBGROUP_SIZE);
+        Polynomial<FF> libra_concatenated_monomial_form_unmasked(SUBGROUP_SIZE);
+        if constexpr (!std::is_same_v<Curve, curve::BN254>) {
+            libra_concatenated_monomial_form_unmasked =
+                Polynomial<FF>(interpolation_domain, coeffs_lagrange_subgroup, SUBGROUP_SIZE);
+        } else {
+            std::vector<FF> coeffs_lagrange_subgroup_ifft(SUBGROUP_SIZE);
+            polynomial_arithmetic::ifft(
+                coeffs_lagrange_subgroup.data(), coeffs_lagrange_subgroup_ifft.data(), bn_evaluation_domain);
+            libra_concatenated_monomial_form_unmasked = Polynomial<FF>(coeffs_lagrange_subgroup_ifft);
+        }
 
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             libra_concatenated_monomial_form.at(idx) = libra_concatenated_monomial_form_unmasked.at(idx);
