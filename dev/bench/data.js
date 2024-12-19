@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734610776875,
+  "lastUpdate": 1734614713364,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1e5966ffe98351d848bfa47608a2f22c381acfb",
-          "message": "chore(avm): Fake verification routine for avm recursion in public base rollup (#10382)\n\nResolves #10243",
-          "timestamp": "2024-12-04T15:14:40+01:00",
-          "tree_id": "df55ccdacab4a5a11448ba0c2a7f24f034773e7d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a1e5966ffe98351d848bfa47608a2f22c381acfb"
-        },
-        "date": 1733323524506,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28253.117745999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26532.772844 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5041.187059999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4715.030212000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86911.401326,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86911402000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15144.797168000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15144798000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3151999153,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3151999153 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140944261,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140944261 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3078,6 +3018,72 @@ window.BENCHMARK_DATA = {
             "value": 144576089,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144576089 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ebd6aba915b822711166b4424cc4c81f226ddcfb",
+          "message": "feat: add gate count tracking for ivc constraints (#10772)",
+          "timestamp": "2024-12-19T17:07:29+04:00",
+          "tree_id": "f7976d07836b0f32189891b9f8d041633cf70403",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ebd6aba915b822711166b4424cc4c81f226ddcfb"
+        },
+        "date": 1734614706266,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20489.601304000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17991.324086999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24164.213521000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 21199.935229000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4435.946793999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4157.363215 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 95397.72463900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 95397725000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16469.350387000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16469351000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3643733636,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3643733636 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165826917,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165826917 ns\nthreads: 1"
           }
         ]
       }
