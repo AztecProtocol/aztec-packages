@@ -137,7 +137,6 @@ template <typename Builder> PairingPointAccumulatorIndices init_default_agg_obj_
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
     // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-    // WORKTODO: Add assert that this is a valid initial starting point.
     PairingPointAccumulatorIndices agg_obj_indices = {};
     fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
     fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
