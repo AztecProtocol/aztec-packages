@@ -80,6 +80,28 @@ export class P2PNetworkTest {
     });
   }
 
+  static async create({
+    testName,
+    numberOfNodes,
+    basePort,
+    metricsPort,
+  }: {
+    testName: string;
+    numberOfNodes: number;
+    basePort?: number;
+    metricsPort?: number;
+  }) {
+    const port = basePort || (await getPort());
+
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
+    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+
+    const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
+
+    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
+  }
+
   /**
    * Start a loop to sync the mock system time with the L1 block time
    */
@@ -106,28 +128,6 @@ export class P2PNetworkTest {
     });
     const timestamp = await deployL1ContractsValues.publicClient.getBlock({ blockNumber: receipt.blockNumber });
     dateProvider.setTime(Number(timestamp.timestamp) * 1000);
-  }
-
-  static async create({
-    testName,
-    numberOfNodes,
-    basePort,
-    metricsPort,
-  }: {
-    testName: string;
-    numberOfNodes: number;
-    basePort?: number;
-    metricsPort?: number;
-  }) {
-    const port = basePort || (await getPort());
-
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
-    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
-    const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
-
-    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
   }
 
   async applyBaseSnapshots() {

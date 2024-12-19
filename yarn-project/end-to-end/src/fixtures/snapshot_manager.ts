@@ -34,7 +34,7 @@ import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -281,6 +281,7 @@ async function setupFromFresh(
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
+  aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));

@@ -447,6 +447,7 @@ jobs:
       - name: Copy Network Logs
         if: always()
         run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -490,6 +491,7 @@ jobs:
         run: scripts/copy_from_tester barretenberg/cpp/bench.json bench.json || true
       - name: Store benchmark result
         if: github.ref == 'refs/heads/master'
+        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
