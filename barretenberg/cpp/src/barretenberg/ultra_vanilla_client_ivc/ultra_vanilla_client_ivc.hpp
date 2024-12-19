@@ -9,6 +9,21 @@
 #include <algorithm>
 namespace bb {
 
+template <typename Flavor,
+          typename Builder = typename Flavor::CircuitBuilder,
+          typename VK = typename Flavor::VerificationKey>
+
+class CircuitSource {
+  public:
+    struct Output {
+        Builder circuit;
+        std::shared_ptr<VK> vk;
+    };
+
+    virtual Output next();
+    virtual size_t num_circuits() const;
+};
+
 class UltraVanillaClientIVC {
 
   public:
@@ -32,16 +47,20 @@ class UltraVanillaClientIVC {
     Accumulator accumulator;
     PairingPointAccumulatorIndices accumulator_indices;
 
+    std::vector<std::shared_ptr<VK>> vk_cache;
+
     UltraVanillaClientIVC(const size_t dyadic_size = 1 << 20)
         : commitment_key(std::make_shared<CommitmentKey<curve::BN254>>(dyadic_size))
     {}
 
     void accumulate(Circuit&, const Proof&, const std::shared_ptr<VK>&);
 
-    HonkProof prove(std::vector<Circuit>, std::vector<std::optional<std::shared_ptr<VK>>>);
+    HonkProof prove(CircuitSource<Flavor>& source, const bool cache_vks = false);
 
     static bool verify(const Proof&, const std::shared_ptr<VK>&);
 
-    bool prove_and_verify(std::vector<Circuit>, std::vector<std::optional<std::shared_ptr<VK>>>);
+    bool prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks = false);
+
+    std::vector<std::shared_ptr<VK>> compute_vks(CircuitSource<Flavor>& source);
 };
 } // namespace bb

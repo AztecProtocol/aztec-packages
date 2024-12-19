@@ -19,42 +19,44 @@ class UltraVanillaClientIVCTests : public ::testing::Test {
     using Flavor = UltraVanillaClientIVC::Flavor;
     using Builder = UltraCircuitBuilder;
     using FF = typename Flavor::FF;
-    using VerificationKey = Flavor::VerificationKey;
+    using VK = Flavor::VerificationKey;
+    using PK = DeciderProvingKey_<Flavor>;
 
     /**
      * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
      *
      */
-    class MockCircuitProducer {
-        using Circuit = UltraVanillaClientIVC::Circuit;
+    class MockCircuitSource : public CircuitSource<Flavor> {
+        std::vector<size_t> _sizes;
+        std::vector<std::shared_ptr<VK>> _vks;
+        uint32_t step{ 0 };
 
       public:
-        Circuit create_next_circuit(size_t log2_num_gates = 16)
+        MockCircuitSource(const std::vector<size_t>& sizes)
+            : _sizes(sizes)
         {
-            Circuit circuit;
-            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-            return circuit;
+            std::fill_n(std::back_inserter(_vks), sizes.size(), nullptr);
         }
 
-        // auto precompute_verification_keys(const size_t num_circuits,
-        //                                   TraceSettings trace_settings,
-        //                                   size_t log2_num_gates = 16)
-        // {
-        //     UltraVanillaClientIVC ivc{
-        //         trace_settings
-        //     }; // temporary IVC instance needed to produce the complete kernel circuits
+        MockCircuitSource(const MockCircuitSource& source_without_sizes, std::vector<std::shared_ptr<VK>> vks)
+            : _sizes(source_without_sizes._sizes)
+            , _vks(vks)
+        {}
 
-        //     std::vector<std::shared_ptr<VerificationKey>> vkeys;
+        Output next() override
+        {
+            Builder circuit;
+            MockCircuits::construct_arithmetic_circuit(circuit, _sizes[step]);
+            const auto& vk = _vks[step];
+            ++step;
+            return { circuit, vk };
+        }
 
-        //     for (size_t idx = 0; idx < num_circuits; ++idx) {
-        //         Circuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
-        //         ivc.accumulate(circuit);                                          // accumulate the circuit
-        //         vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
-        //     }
-        //     is_kernel = false;
-
-        //     return vkeys;
-        // }
+        size_t num_circuits() const override
+        {
+            ASSERT(_sizes.size() == _vks.size());
+            return _sizes.size();
+        }
     };
 
     // /**
@@ -82,15 +84,8 @@ TEST_F(UltraVanillaClientIVCTests, Basic)
 {
     static constexpr size_t LOG_SIZE = 10;
     UltraVanillaClientIVC ivc(1 << LOG_SIZE);
-
-    MockCircuitProducer circuit_producer;
-
-    std::vector<Builder> circuits{ circuit_producer.create_next_circuit(LOG_SIZE),
-                                   circuit_producer.create_next_circuit(LOG_SIZE) };
-
-    std::vector<std::optional<std::shared_ptr<VerificationKey>>> vks{ std::nullopt, std::nullopt };
-
-    EXPECT_TRUE(ivc.prove_and_verify(circuits, vks));
+    MockCircuitSource circuit_source{ { LOG_SIZE, LOG_SIZE } };
+    EXPECT_TRUE(ivc.prove_and_verify(circuit_source));
 };
 
 /**
@@ -103,19 +98,8 @@ TEST_F(UltraVanillaClientIVCTests, BasicFour)
 {
     static constexpr size_t LOG_SIZE = 10;
     UltraVanillaClientIVC ivc(1 << LOG_SIZE);
-
-    MockCircuitProducer circuit_producer;
-
-    std::vector<Builder> circuits{ circuit_producer.create_next_circuit(LOG_SIZE),
-                                   circuit_producer.create_next_circuit(LOG_SIZE),
-                                   circuit_producer.create_next_circuit(LOG_SIZE),
-                                   circuit_producer.create_next_circuit(LOG_SIZE) };
-
-    std::vector<std::optional<std::shared_ptr<VerificationKey>>> vks{
-        std::nullopt, std::nullopt, std::nullopt, std::nullopt
-    };
-
-    EXPECT_TRUE(ivc.prove_and_verify(circuits, vks));
+    MockCircuitSource circuit_source{ { LOG_SIZE, LOG_SIZE, LOG_SIZE, LOG_SIZE } };
+    EXPECT_TRUE(ivc.prove_and_verify(circuit_source));
 };
 
 /**
@@ -124,21 +108,14 @@ TEST_F(UltraVanillaClientIVCTests, BasicFour)
  */
 TEST_F(UltraVanillaClientIVCTests, PrecomputedVerificationKeys)
 {
-    UltraVanillaClientIVC ivc;
 
-    size_t NUM_CIRCUITS = 4;
+    static constexpr size_t LOG_SIZE = 10;
 
-    MockCircuitProducer circuit_producer;
-
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
-
-    // Construct and accumulate set of circuits using the precomputed vkeys
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[idx]);
-    }
-
-    EXPECT_TRUE(ivc.prove_and_verify());
+    UltraVanillaClientIVC ivc(1 << LOG_SIZE);
+    MockCircuitSource circuit_source_no_vks{ { LOG_SIZE, LOG_SIZE } };
+    auto vks = ivc.compute_vks(circuit_source_no_vks);
+    MockCircuitSource circuit_source_with_vks{ circuit_source_no_vks, vks };
+    EXPECT_TRUE(ivc.prove_and_verify(circuit_source_with_vks));
 };
 
 // /**
