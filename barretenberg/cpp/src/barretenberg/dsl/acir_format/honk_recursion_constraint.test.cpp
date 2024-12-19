@@ -125,8 +125,14 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        auto builder =
-            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        uint32_t honk_recursion = 0;
+        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+            honk_recursion = 1;
+        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+            honk_recursion = 2;
+        }
+        auto builder = create_circuit(
+            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
         if constexpr (HasIPAAccumulator<Flavor>) {
             using NativeCurve = curve::Grumpkin;
             using Curve = stdlib::grumpkin<Builder>;
@@ -203,8 +209,14 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        uint32_t honk_recursion = 0;
+        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+            honk_recursion = 1;
+        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+            honk_recursion = 2;
+        }
+        auto outer_circuit = create_circuit(
+            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
 
         return outer_circuit;
     }
