@@ -17,11 +17,9 @@ scripts/run_on_builder "
   export RUN_ID GIT_COMMIT
   export -f clone
   flock /var/lock/clone.lock bash -c clone
-  cd ~/run-$RUN_ID;
-  # Install deps.
-  flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD '$INPUT';
-  # Run the test.
-  ci3/aws_handle_evict $DOCKERHUB_PASSWORD \"set -eu; $2\"
+  cd ~/run-$RUN_ID
+  flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD
+  ci3/aws_handle_evict 'set -eu; $INPUT'
 "
 exit_code=$?
 if [ $exit_code = 255 ]; then
