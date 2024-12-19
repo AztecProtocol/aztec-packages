@@ -85,9 +85,17 @@ export class PublicProcessorFactory {
     worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean = false,
+    doMerkleOperations: boolean,
+    enforceFeePayment: boolean,
   ) {
-    return new PublicTxSimulator(db, worldStateDB, telemetryClient, globalVariables, doMerkleOperations);
+    return new PublicTxSimulator(
+      db,
+      worldStateDB,
+      telemetryClient,
+      globalVariables,
+      doMerkleOperations,
+      enforceFeePayment,
+    );
   }
 }
 

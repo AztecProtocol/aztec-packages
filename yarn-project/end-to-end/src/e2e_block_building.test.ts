@@ -593,8 +593,16 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
-    doMerkleOperations?: boolean,
+    doMerkleOperations: boolean,
+    enforceFeePayment: boolean,
   ): PublicTxSimulator {
-    return new TestPublicTxSimulator(db, worldStateDB, telemetryClient, globalVariables, doMerkleOperations);
+    return new TestPublicTxSimulator(
+      db,
+      worldStateDB,
+      telemetryClient,
+      globalVariables,
+      doMerkleOperations,
+      enforceFeePayment,
+    );
   }
 }
