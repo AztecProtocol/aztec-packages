@@ -258,8 +258,10 @@ describe('full_prover', () => {
       'rollup-block-root',
       'rollup-root',
     ].forEach(circuitName => {
-      const [inputs] = getTestData(circuitName);
-      updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(inputs as any));
+      const data = getTestData(circuitName);
+      if (data) {
+        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
+      }
     });
   });
 
