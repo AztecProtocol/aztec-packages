@@ -1,7 +1,9 @@
+import { PeerErrorSeverity } from '@aztec/circuit-types';
+
 import { jest } from '@jest/globals';
 
 import { getP2PDefaultConfig } from '../../config.js';
-import { PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
+import { PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;

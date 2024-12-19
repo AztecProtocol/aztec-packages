@@ -1,0 +1,5 @@
+FROM aztecprotocol/ci:2.0
+COPY /usr/src /usr/src
+WORKDIR /usr/src/boxes
+RUN ls /usr/src/boxes
+RUN /usr/local/share/docker-init.sh &> /dev/null && ./bootstrap.sh test

@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --raw-output 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
 # As those only run if there are changes anyway.
@@ -294,7 +294,8 @@ test:
   IF [ "$HARDWARE_CONCURRENCY" != "" ]
     ENV HARDWARE_CONCURRENCY=$hardware_concurrency
   END
-  RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+  ARG jobs=$(nproc)
+  RUN --raw-output cd build && GTEST_COLOR=1 ctest -j$jobs --output-on-failure
 
 vm-full-test:
   ARG hardware_concurrency=""
