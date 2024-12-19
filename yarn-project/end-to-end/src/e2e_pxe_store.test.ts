@@ -1,6 +1,4 @@
-import {
-    type Wallet
-} from '@aztec/aztec.js';
+import { type Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
@@ -11,7 +9,7 @@ const TIMEOUT = 120_000;
 
 // TODO(#10724): Nuke this once the linked issue is implemented. Made this ugly test to check it works when first
 // implementing this.
-describe('Keys', () => {
+describe('PXE store', () => {
   jest.setTimeout(TIMEOUT);
 
   let teardown: () => Promise<void>;
@@ -26,9 +24,9 @@ describe('Keys', () => {
 
   afterAll(() => teardown());
 
-  describe('using nsk_app to detect nullification', async () => {
+  it('stores and loads data', async () => {
     const key = 6n;
-    const value = [268n, 862n, 268n ];
+    const value = [268n, 862n, 268n];
     await testContract.methods.store_in_pxe_store(key, value).simulate();
     expect(await testContract.methods.load_from_pxe_store(key).simulate()).toEqual(value);
   });

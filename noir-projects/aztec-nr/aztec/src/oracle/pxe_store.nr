@@ -1,9 +1,9 @@
 #[oracle(store)]
-unconstrained fn store_oracle<let N: u32>(key: Field, values: [Field; N]) -> Field {}
+unconstrained fn store_oracle<let N: u32>(key: Field, values: [Field; N]) {}
 
 /// Store an array of values in local PXE database. The data is scoped to the current contract.
 pub unconstrained fn store<let N: u32>(key: Field, values: [Field; N]) {
-    let _ = store_oracle(key, values);
+    store_oracle(key, values);
 }
 
 #[oracle(load)]
