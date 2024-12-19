@@ -225,7 +225,7 @@ export class Ec2Instance {
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string> {
+  async requestMachine(tryNumber: number, useOnDemand: boolean): Promise<string> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     // Launch template name already in use
@@ -241,7 +241,7 @@ export class Ec2Instance {
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
-    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
+    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand +",try=" + tryNumber: undefined;
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
