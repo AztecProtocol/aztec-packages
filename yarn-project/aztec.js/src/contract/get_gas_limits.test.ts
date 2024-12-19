@@ -26,7 +26,6 @@ describe('getGasLimits', () => {
     expect(getGasLimits(txSimulationResult)).toEqual({
       totalGas: Gas.from({ daGas: 111, l2Gas: 221 }),
       teardownGas: Gas.empty(),
-      publicGas: Gas.empty(),
     });
   });
 
@@ -34,7 +33,6 @@ describe('getGasLimits', () => {
     expect(getGasLimits(txSimulationResult)).toEqual({
       totalGas: Gas.from({ daGas: 154, l2Gas: 308 }),
       teardownGas: Gas.from({ daGas: 11, l2Gas: 22 }),
-      publicGas: Gas.empty(),
     });
   });
 
@@ -42,7 +40,6 @@ describe('getGasLimits', () => {
     expect(getGasLimits(txSimulationResult, 1)).toEqual({
       totalGas: Gas.from({ daGas: 280, l2Gas: 560 }),
       teardownGas: Gas.from({ daGas: 20, l2Gas: 40 }),
-      publicGas: Gas.empty(),
     });
   });
 });
