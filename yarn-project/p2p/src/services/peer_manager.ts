@@ -37,12 +37,12 @@ export class PeerManager implements Traceable {
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
-    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
+    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent.bind(this));
     // Handle lost connections
-    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
+    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent.bind(this));
 
     // Handle Discovered peers
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
+    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handleDiscoveredPeer.bind(this));
   }
 
   @trackSpan('PeerManager.heartbeat')

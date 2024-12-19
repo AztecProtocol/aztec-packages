@@ -78,8 +78,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
-    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered);
-    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded);
+    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
+    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
   }
 
   public async start(): Promise<void> {
