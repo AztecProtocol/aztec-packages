@@ -68,7 +68,8 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null; then
       # try to wait it out
       echo sleep 20
+    else
+      exit $earthly_exit_code
     fi
-    exit $earthly_exit_code
   fi
 done
