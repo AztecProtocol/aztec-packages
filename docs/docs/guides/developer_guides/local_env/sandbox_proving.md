@@ -56,7 +56,7 @@ export PXE_PROVER_ENABLED=1
 export BB_WORKING_DIRECTORY=~/bb-temp
 ```
 
-Now send transactions from `aztec-wallet`, and proving will be enabled.
+Now send transactions from `aztec-wallet`, and proving will be enabled. Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet`.
 
 Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for 1 off transactions.
 
