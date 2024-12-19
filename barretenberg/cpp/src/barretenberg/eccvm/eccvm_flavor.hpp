@@ -84,8 +84,10 @@ class ECCVMFlavor {
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    // length = 3.
+    // The degree has to be further increased by 1 because the relation is multiplied by the Row Disabling    //
+    // Polynomial
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // Instantiate the BarycentricData needed to extend each Relation Univariate
@@ -512,10 +514,13 @@ class ECCVMFlavor {
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));
-            const auto [msm_rows, point_table_read_counts] = ECCVMMSMMBuilder::compute_rows(
+            const auto result = ECCVMMSMMBuilder::compute_rows(
                 msms, builder.get_number_of_muls(), builder.op_queue->get_num_msm_rows());
+            const auto& msm_rows = std::get<0>(result);
+            const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() });
+            const size_t num_rows =
+                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             const size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 

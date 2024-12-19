@@ -4,7 +4,7 @@ set -eu
 set -o pipefail
 
 # Usage: run_interleaved.sh [-w "condition command"] <main command> <background commands>...
-# Runs the main command with output logging and background commands without logging.
+# Runs commands in parallel, with interleaved output. See ci3/tmux_split for another approach.
 # Finishes when the main command exits.
 # -w: Optional wait condition command that must succeed before starting next command
 

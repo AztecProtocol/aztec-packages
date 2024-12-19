@@ -102,6 +102,7 @@ validator:
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
+    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -182,6 +183,7 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
+  feePaymentMethod: "none"
   maxErrors: 3
   stopIfUnhealthy: true
   service:

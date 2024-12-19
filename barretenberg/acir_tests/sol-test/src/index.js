@@ -4,8 +4,9 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 
+// Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 447;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -93,6 +94,9 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
+if (output.errors.some((e) => e.type == "Error")) {
+  throw new Error(JSON.stringify(output.errors, null, 2));
+}
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;

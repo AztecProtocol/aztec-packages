@@ -32,6 +32,13 @@ CONTRACTS=(
   "l1-contracts:ExtRollupLib"
 )
 
+# Read the error ABI's once and store it in COMBINED_ERRORS variable
+COMBINED_ERRORS=$(jq -s '
+    .[0].abi + .[1].abi |
+    unique_by({type: .type, name: .name})
+' \
+    ../../l1-contracts/out/Errors.sol/Errors.json \
+    ../../l1-contracts/out/libraries/Errors.sol/Errors.json)
 
 # create target dir if it doesn't exist
 mkdir -p "$target_dir";
@@ -44,7 +51,14 @@ for E in "${CONTRACTS[@]}"; do
     CONTRACT_NAME="${ARR[1]}";
 
     echo -ne "/**\n * $CONTRACT_NAME ABI.\n */\nexport const ${CONTRACT_NAME}Abi = " > "$target_dir/${CONTRACT_NAME}Abi.ts";
-    jq -j '.abi' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+
+    # Merge contract abi and errors abi while removing duplicates based on both type and name
+    # Just merging it into all, it is not the cleanest, but it does the job.
+    jq -j --argjson errors "$COMBINED_ERRORS" '
+        .abi + $errors |
+        unique_by({type: .type, name: .name})
+    ' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+
     echo " as const;" >> "$target_dir/${CONTRACT_NAME}Abi.ts";
 
     echo -ne "/**\n * $CONTRACT_NAME bytecode.\n */\nexport const ${CONTRACT_NAME}Bytecode = \"" > "$target_dir/${CONTRACT_NAME}Bytecode.ts";

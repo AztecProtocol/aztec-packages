@@ -104,7 +104,7 @@ export async function startPortForward({
     // If we don't pipe stderr, then the port forwarding does not work.
     // Log to silent because this doesn't actually report errors,
     // just extremely verbose debug logs.
-    logger.debug(data.toString());
+    logger.silent(data.toString());
   });
 
   // Wait a moment for the port forward to establish
@@ -401,7 +401,7 @@ export async function enableValidatorDynamicBootNode(
       'validator.dynamicBootNode': 'true',
     },
     valuesFile: undefined,
-    timeout: '10m',
+    timeout: '15m',
     reuseValues: true,
   });
 
