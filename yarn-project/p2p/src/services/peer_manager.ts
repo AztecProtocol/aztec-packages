@@ -1,4 +1,4 @@
-import { type PeerInfo } from '@aztec/circuit-types';
+import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -9,7 +9,7 @@ import { inspect } from 'util';
 
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
-import { type PeerErrorSeverity, PeerScoring } from './peer-scoring/peer_scoring.js';
+import { PeerScoring } from './peer-scoring/peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
 
 const MAX_DIAL_ATTEMPTS = 3;

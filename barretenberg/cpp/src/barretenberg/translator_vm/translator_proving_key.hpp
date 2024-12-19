@@ -34,7 +34,9 @@ class TranslatorProvingKey {
         // wires
         // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've
         // commited to
-        for (auto [wire_poly, wire] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+        for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+            auto& wire_poly = wire_poly_;
+            auto& wire = wire_;
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {

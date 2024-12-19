@@ -19,6 +19,7 @@
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "barretenberg/vm/stats.hpp"
+#include "errors.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -444,10 +445,25 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .da_gas_left = da_gas_allocated_to_enqueued_call,
         .internal_return_ptr_stack = {},
     };
-    trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
     // Find the bytecode based on contract address of the public call request
-    std::vector<uint8_t> bytecode =
-        trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
+    std::vector<uint8_t> bytecode;
+    try {
+        bytecode =
+            trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
+    } catch ([[maybe_unused]] const std::runtime_error& e) {
+        info("AVM enqueued call exceptionally halted. Error: No bytecode found for enqueued call");
+        // FIXME: properly handle case when bytecode is not found!
+        // For now, we add a dummy row in main trace to mutate later.
+        // Dummy row in main trace to mutate afterwards.
+        // This error was encountered before any opcodes were executed, but
+        // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
+        trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
+        trace_builder.handle_exceptional_halt();
+        return AvmError::NO_BYTECODE_FOUND;
+        ;
+    }
+
+    trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -456,12 +472,16 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
     trace_builder.set_call_ptr(context_id);
-    while ((pc = trace_builder.get_pc()) < bytecode.size()) {
+    while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
 
-        // FIXME: properly handle case when an instruction fails parsing
-        // especially first instruction in bytecode
         if (!is_ok(error)) {
+            info("AVM failed to deserialize bytecode at pc: ", pc);
+            // FIXME: properly handle case when an instruction fails parsing!
+            // For now, we add a dummy row in main trace to mutate later.
+            // This error was encountered before any opcodes were executed, but
+            // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
+            trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
             error = parse_error;
             break;
         }
@@ -855,12 +875,17 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                           std::get<uint16_t>(inst.operands.at(3)),
                                           std::get<uint16_t>(inst.operands.at(4)),
                                           std::get<uint16_t>(inst.operands.at(5)));
-            // TODO: what if an error is encountered on return or call which have already modified stack?
-            // We hack it in here the logic to change contract address that we are processing
-            bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  /*check_membership=*/false);
-            debug_counter_stack.push(counter);
-            counter = 0;
+            // If opcode errored, nested call won't happen. Don't retrieve bytecode, etc.
+            if (is_ok(error)) {
+                try {
+                    bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                          /*check_membership=*/true);
+                } catch ([[maybe_unused]] const std::runtime_error& e) {
+                    error = AvmError::NO_BYTECODE_FOUND;
+                }
+                debug_counter_stack.push(counter);
+                counter = 0;
+            }
             break;
         }
         case OpCode::STATICCALL: {
@@ -870,11 +895,17 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                                                  std::get<uint16_t>(inst.operands.at(3)),
                                                  std::get<uint16_t>(inst.operands.at(4)),
                                                  std::get<uint16_t>(inst.operands.at(5)));
-            // We hack it in here the logic to change contract address that we are processing
-            bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  /*check_membership=*/false);
-            debug_counter_stack.push(counter);
-            counter = 0;
+            // If opcode errored, nested call won't happen. Don't retrieve bytecode, etc.
+            if (is_ok(error)) {
+                try {
+                    bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
+                                                          /*check_membership=*/true);
+                } catch ([[maybe_unused]] const std::runtime_error& e) {
+                    error = AvmError::NO_BYTECODE_FOUND;
+                }
+                debug_counter_stack.push(counter);
+                counter = 0;
+            }
             break;
         }
         case OpCode::RETURN: {

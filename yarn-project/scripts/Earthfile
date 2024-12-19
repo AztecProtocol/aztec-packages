@@ -1,17 +1,13 @@
 VERSION 0.8
 FROM ../../build-images/+base-slim-node
 
-build:
-  FROM ../+build
-  COPY ../../+scripts/scripts /usr/src/scripts
-  WORKDIR /usr/src
 
 download-logs:
   # Downloads logs for the current PR and saves them as an artifact, to be consumed by bench-aggregate.
   ARG COMMIT_HASH
   ARG PULL_REQUEST
   ARG BRANCH
-  FROM +build
+  FROM ../+bootstrap
   LET LOG_FOLDER=/usr/var/logs
   ENV LOG_FOLDER=$LOG_FOLDER
   ENV COMMIT_HASH=$COMMIT_HASH
@@ -26,7 +22,7 @@ bench-aggregate:
   ARG COMMIT_HASH
   ARG PULL_REQUEST
   ARG BRANCH
-  FROM +build
+  FROM ../+bootstrap
   LET LOG_FOLDER=/usr/var/logs
   LET BENCH_FOLDER=/usr/var/bench
   ENV LOG_FOLDER=$LOG_FOLDER
@@ -47,7 +43,7 @@ bench-comment:
   ARG COMMIT_HASH
   ARG PULL_REQUEST
   ARG BRANCH
-  FROM +build
+  FROM ../+bootstrap
   LET BENCH_FOLDER=/usr/var/bench
   ENV BENCH_FOLDER=$BENCH_FOLDER
   ENV COMMIT_HASH=$COMMIT_HASH

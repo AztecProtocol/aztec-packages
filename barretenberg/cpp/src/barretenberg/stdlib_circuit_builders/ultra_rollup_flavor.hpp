@@ -99,11 +99,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
                         const Commitment& sigma_1,
@@ -135,11 +135,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
             this->sigma_1 = sigma_1;
@@ -173,11 +173,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
