@@ -153,10 +153,11 @@ template <typename Flavor> class SumcheckProver {
     // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
-    using ZKData = ZKSumcheckData<typename Flavor::Curve, Transcript, typename Flavor::CommitmentKey>;
+    using ZKData = ZKSumcheckData<Flavor>;
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
+    ZKData zk_sumcheck_data;
 
     /**
     *
@@ -190,9 +191,11 @@ template <typename Flavor> class SumcheckProver {
                                  const bb::RelationParameters<FF>& relation_parameters,
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges,
-                                 ZKData zk_sumcheck_data = ZKData())
+                                 const ZKData& zk_data = ZKData())
     {
-
+        if constexpr (Flavor::HasZK) {
+            extract_zk_data(zk_data);
+        }
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         std::vector<FF> multivariate_challenge;
@@ -375,6 +378,15 @@ polynomials that are sent in clear.
         };
         return multivariate_evaluations;
     };
+
+    void extract_zk_data(const ZKSumcheckData<Flavor>& zk_data)
+    {
+        zk_sumcheck_data.libra_univariates = std::move(zk_data.libra_univariates);
+        zk_sumcheck_data.constant_term = std::move(zk_data.constant_term);
+        zk_sumcheck_data.libra_running_sum = std::move(zk_data.libra_running_sum);
+        zk_sumcheck_data.libra_challenge = std::move(zk_data.libra_challenge);
+        zk_sumcheck_data.libra_scaling_factor = std::move(zk_data.libra_scaling_factor);
+    }
 
     /**
      * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$

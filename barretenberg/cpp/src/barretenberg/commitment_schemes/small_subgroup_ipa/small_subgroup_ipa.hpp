@@ -56,101 +56,153 @@ namespace bb {
  * After receiveing a random evaluation challenge \f$ r \f$ , the prover sends \f$ G(r), A(g\cdot r), A(r), Q(r) \f$ to
  * the verifier. In our case, \f$ r \f$ is the Gemini evaluation challenge, and this part is taken care of by Shplemini.
  */
-template <typename Curve, typename Transcript, typename CommitmentKey> class SmallSubgroupIPAProver {
+template <typename Flavor> class SmallSubgroupIPAProver {
+    using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
-
+    // The size of a multiplicative subgroup in the ScalarField of a curve
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
-
+    // Size of the polynomial to be divided by Z_H
     static constexpr size_t BATCHED_POLYNOMIAL_LENGTH = 2 * SUBGROUP_SIZE + 2;
-
+    // Size of Q(X)
     static constexpr size_t QUOTIENT_LENGTH = SUBGROUP_SIZE + 2;
-
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
-
+    // The length of a random polynomial to mask Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
+    // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
+    // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
+    // required length from 23 to 3.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
 
-    // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}}
+    // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} used by ECCVM
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
-
+    // We use IFFT over BN254 scalar field
     EvaluationDomain<FF> bn_evaluation_domain;
 
-    // Monomial coefficients of the concatenated Libra masking polynomial
+    // Monomial coefficients of the concatenated Libra masking polynomial extracted from ZKSumcheckData
     Polynomial<FF> concatenated_polynomial;
     // Lagrange coefficeints of the concatenated Libra masking polynomial = constant_term || g_0 || ... || g_{d-1}
     Polynomial<FF> libra_concatenated_lagrange_form;
 
-    // Claimed evaluation s = constant_term + g_0(u_0) + ... + g_{d-1}(u_{d-1})
+    // Claimed evaluation s = constant_term + g_0(u_0) + ... + g_{d-1}(u_{d-1}), where g_i is the i'th Libra masking
+    // univariate
     FF claimed_evaluation;
 
+    // The polynomial obtained by concatenated powers of sumcheck challenges
     Polynomial<FF> challenge_polynomial;
     Polynomial<FF> challenge_polynomial_lagrange;
+
+    // Big sum polynomial A(X)
     Polynomial<FF> big_sum_polynomial_unmasked;
     Polynomial<FF> big_sum_polynomial;
     std::array<FF, SUBGROUP_SIZE> big_sum_lagrange_coeffs;
 
+    // The RHS of the key identity, denoted C(X) in the HackMD
     Polynomial<FF> batched_polynomial;
 
-    // Quotient of the batched polynomial by the subgroup vanishing polynomial X^{|H|} - 1
+    // Quotient of the batched polynomial C(X) by the subgroup vanishing polynomial X^{|H|} - 1
     Polynomial<FF> batched_quotient;
 
   public:
-    SmallSubgroupIPAProver(ZKSumcheckData<Curve, Transcript, CommitmentKey>& zk_sumcheck_data,
+    SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_ipa_eval,
-                           std::shared_ptr<Transcript> transcript,
-                           std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+                           std::shared_ptr<typename Flavor::Transcript> transcript,
+                           std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
         , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
         , challenge_polynomial(SUBGROUP_SIZE)
-        , challenge_polynomial_lagrange(SUBGROUP_SIZE) // public polynomial
+        , challenge_polynomial_lagrange(SUBGROUP_SIZE)
         , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
-        , big_sum_polynomial(SUBGROUP_SIZE + 3)         // includes masking
-        , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH) // batched polynomial, input to shplonk prover
-        , batched_quotient(QUOTIENT_LENGTH)             // quotient of the batched polynomial by Z_H(X) = X^87 - 1
+        , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
+        , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
+        , batched_quotient(QUOTIENT_LENGTH)
 
     {
+        // Extract the evaluation domain computed by ZKSumcheckData
         if constexpr (std::is_same_v<Curve, curve::BN254>) {
             bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);
         }
 
+        // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_challenge_polynomial(multivariate_challenge);
 
+        // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients, and mask it
         compute_big_sum_polynomial();
+
+        // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
         if (commitment_key) {
             transcript->template send_to_verifier("Libra:big_sum_commitment",
                                                   commitment_key->commit(big_sum_polynomial));
         }
 
+        // Compute C(X)
         compute_batched_polynomial(claimed_ipa_eval);
+
+        // Compute Q(X)
         compute_batched_quotient();
 
+        // Send commitment [Q] to the verifier
         if (commitment_key) {
             transcript->template send_to_verifier("Libra:quotient_commitment",
                                                   commitment_key->commit(batched_quotient));
         }
     }
 
+    // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
     std::array<bb::Polynomial<FF>, 4> get_witness_polynomials() const
     {
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
-    // Getters for test purposes only
+    // Getters for test purposes
     const Polynomial<FF>& get_batched_polynomial() const { return batched_polynomial; }
     const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }
 
+    /**
+     * @brief Computes the challenge polynomial F(X) based on the provided multivariate challenges.
+     *
+     * This method generates a polynomial in both Lagrange basis and monomial basis from Sumcheck's
+     * multivariate_challenge vector. The result is stored in `challenge_polynomial_lagrange` and
+     * `challenge_polynomial`. The former is re-used in the computation of the big sum polynomial A(X)
+     *
+     * ### Lagrange Basis
+     * The Lagrange basis polynomial is constructed as follows:
+     * - Initialize the first coefficient as `1`.
+     * - For each challenge index `idx_poly` in the `CONST_PROOF_SIZE_LOG_N` range, compute a sequence of coefficients
+     *   recursively as powers of the corresponding multivariate challenge.
+     * - Store these coefficients in `coeffs_lagrange_basis`.
+     *
+     * ### Monomial Basis
+     * If the curve is not `BN254`, the monomial polynomial is constructed directly using un-optimized Lagrange
+     * interpolation. Otherwise, an IFFT is used to convert the Lagrange basis coefficients into monomial basis
+     * coefficients.
+     *
+     * ### Notes:
+     * - The `LIBRA_UNIVARIATES_LENGTH` determines the number of recursive powers computed per challenge.
+     * - For `BN254`, the polynomial is computed using an IFFT operation to convert from the Lagrange basis to the
+     *   monomial basis.
+     *
+     * @param multivariate_challenge A vector of field elements used to compute the challenge polynomial.
+     */
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
         std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
         coeffs_lagrange_basis[0] = FF(1);
 
-        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
-            for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-                size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly + idx;
-                coeffs_lagrange_basis[current_idx] = multivariate_challenge[idx_poly].pow(idx);
+        for (size_t challenge_idx = 0; challenge_idx < CONST_PROOF_SIZE_LOG_N; challenge_idx++) {
+            // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
+            size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
+            coeffs_lagrange_basis[poly_to_concatenate_start] = FF(1);
+            for (size_t idx = 1; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                // Recursively compute the powers of the challenge
+                coeffs_lagrange_basis[poly_to_concatenate_start + idx] =
+                    coeffs_lagrange_basis[poly_to_concatenate_start + idx - 1] * multivariate_challenge[challenge_idx];
             }
         }
+
         challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
+
+        // Compute monomial coefficients
         if constexpr (!std::is_same_v<Curve, curve::BN254>) {
             challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
         } else {
@@ -161,6 +213,23 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         }
     }
 
+    /**
+     * @brief Computes the big sum polynomial A(X)
+     *
+     * #### Lagrange Basis
+     * - First, we recursively compute the coefficients of the unmasked big sum polynomial, i.e. we set the first
+     * coefficient to `0`.
+     * - For each i, the coefficient is updated as:
+     *   \f$ \texttt{big_sum_lagrange_coeffs} (g^{i}) =
+     *        \texttt{big_sum_lagrange_coeffs} (g^{i-1}) +
+     *        \texttt{challenge_polynomial_lagrange[prev_idx]} (g^{i-1}) \cdot
+     *        \texttt{libra_concatenated_lagrange_form[prev_idx]} (g^{i-1}) \f$
+     * #### Masking Term
+     * - A random polynomial of degree 2 is generated and added to the Big Sum Polynomial.
+     * - The masking term is applied as \f$ Z_H(X) \cdot \texttt{masking_term} \f$, where \f$ Z_H(X) \f$ is the
+     * vanishing polynomial.
+     *
+     */
     void compute_big_sum_polynomial()
     {
         big_sum_lagrange_coeffs[0] = 0;
@@ -205,7 +274,55 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
         for (size_t idx = 0; idx < SUBGROUP_SIZE + 3; idx++) {
             shifted_big_sum.at(idx) = big_sum_polynomial.at(idx) * interpolation_domain[idx % SUBGROUP_SIZE];
         }
-        // Compute the monomial coefficients of L_1, the first Lagrange polynomial
+
+        const auto& [lagrange_first, lagrange_last] =
+            compute_lagrange_polynomials(interpolation_domain, bn_evaluation_domain);
+
+        // Compute -F(X)*G(X), the negated product of challenge_polynomial and libra_concatenated_monomial_form
+        for (size_t i = 0; i < concatenated_polynomial.size(); ++i) {
+            for (size_t j = 0; j < challenge_polynomial.size(); ++j) {
+                batched_polynomial.at(i + j) -= concatenated_polynomial.at(i) * challenge_polynomial.at(j);
+            }
+        }
+
+        // Compute - F(X) * G(X) + A(gX) - A(X)
+        for (size_t idx = 0; idx < shifted_big_sum.size(); idx++) {
+            batched_polynomial.at(idx) += shifted_big_sum.at(idx) - big_sum_polynomial.at(idx);
+        }
+
+        // Mutiply - F(X) * G(X) + A(gX) - A(X) by X-g:
+        // 1. Multiply by X
+        for (size_t idx = batched_polynomial.size() - 1; idx > 0; idx--) {
+            batched_polynomial.at(idx) = batched_polynomial.at(idx - 1);
+        }
+        batched_polynomial.at(0) = FF(0);
+        // 2. Subtract  1/g(A(gX) - A(X) - F(X) * G(X))
+        for (size_t idx = 0; idx < batched_polynomial.size() - 1; idx++) {
+            batched_polynomial.at(idx) -= batched_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
+        }
+
+        // Add (L_1 + L_{|H|}) * A(X) to the result
+        for (size_t i = 0; i < big_sum_polynomial.size(); ++i) {
+            for (size_t j = 0; j < SUBGROUP_SIZE; ++j) {
+                batched_polynomial.at(i + j) += big_sum_polynomial.at(i) * (lagrange_first.at(j) + lagrange_last.at(j));
+            }
+        }
+        // Subtract L_{|H|} * s
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            batched_polynomial.at(idx) -= lagrange_last.at(idx) * claimed_evaluation;
+        }
+    }
+    /**
+     * @brief Compute monomial coefficients of the first and last Lagrange polynomials
+     *
+     * @param interpolation_domain
+     * @param bn_evaluation_domain
+     * @return std::array<Polynomial<FF>, 2>
+     */
+    std::array<Polynomial<FF>, 2> static compute_lagrange_polynomials(
+        const std::array<FF, SUBGROUP_SIZE>& interpolation_domain, const EvaluationDomain<FF>& bn_evaluation_domain)
+    {
+        // Compute the monomial coefficients of L_1
         std::array<FF, SUBGROUP_SIZE> lagrange_coeffs;
         lagrange_coeffs[0] = FF(1);
         for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
@@ -234,46 +351,10 @@ template <typename Curve, typename Transcript, typename CommitmentKey> class Sma
             lagrange_last_monomial = Polynomial<FF>(lagrange_last_ifft);
         }
 
-        // Compute -F(X)*G(X), the negated product of challenge_polynomial and libra_concatenated_monomial_form
-        // Polynomial<FF> result(BATCHED_POLYNOMIAL_LENGTH);
-
-        for (size_t i = 0; i < concatenated_polynomial.size(); ++i) {
-            for (size_t j = 0; j < challenge_polynomial.size(); ++j) {
-                batched_polynomial.at(i + j) -= concatenated_polynomial.at(i) * challenge_polynomial.at(j);
-            }
-        }
-
-        // Compute - F(X) * G(X) + A(gX) - A(X)
-        for (size_t idx = 0; idx < shifted_big_sum.size(); idx++) {
-            batched_polynomial.at(idx) += shifted_big_sum.at(idx) - big_sum_polynomial.at(idx);
-        }
-
-        // Mutiply - F(X) * G(X) + A(gX) - A(X) by X-g:
-        // 1. Multiply by X
-        for (size_t idx = batched_polynomial.size() - 1; idx > 0; idx--) {
-            batched_polynomial.at(idx) = batched_polynomial.at(idx - 1);
-        }
-        batched_polynomial.at(0) = FF(0);
-        // 2. Subtract  1/g(A(gX) - A(X) - F(X) * G(X))
-        for (size_t idx = 0; idx < batched_polynomial.size() - 1; idx++) {
-            batched_polynomial.at(idx) -= batched_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
-        }
-
-        // Add (L_1 + L_{|H|}) * A(X) to the result
-        lagrange_first_monomial += lagrange_last_monomial;
-
-        for (size_t i = 0; i < big_sum_polynomial.size(); ++i) {
-            for (size_t j = 0; j < lagrange_first_monomial.size(); ++j) {
-                batched_polynomial.at(i + j) += big_sum_polynomial.at(i) * lagrange_first_monomial.at(j);
-            }
-        }
-
-        for (size_t idx = 0; idx < lagrange_last_monomial.size(); idx++) {
-            batched_polynomial.at(idx) -= lagrange_last_monomial.at(idx) * claimed_evaluation;
-        }
+        return { lagrange_first_monomial, lagrange_last_monomial };
     }
-
-    // Compute the quotient of batched_polynomial by Z_H = X^{|H|} - 1
+    /** @brief Efficiently compute the quotient of batched_polynomial by Z_H = X ^ { | H | } - 1
+     */
     void compute_batched_quotient()
     {
 
@@ -296,7 +377,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
 
   public:
     /*!
@@ -373,22 +454,20 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      */
     static std::vector<FF> compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
-        ASSERT(LIBRA_UNIVARIATES_LENGTH == 3);
-
         std::vector<FF> challenge_polynomial_lagrange(SUBGROUP_SIZE);
 
         challenge_polynomial_lagrange[0] = FF{ 1 };
-        FF challenge_sqr = FF{ 1 };
 
         // Populate the vector with the powers of the challenges
-        for (size_t poly_idx = 0; poly_idx < CONST_PROOF_SIZE_LOG_N; poly_idx++) {
-            challenge_sqr = multivariate_challenge[poly_idx] * multivariate_challenge[poly_idx];
-
-            challenge_polynomial_lagrange[1 + poly_idx * LIBRA_UNIVARIATES_LENGTH] = FF{ 1 };
-            challenge_polynomial_lagrange[2 + poly_idx * LIBRA_UNIVARIATES_LENGTH] = multivariate_challenge[poly_idx];
-            challenge_polynomial_lagrange[3 + poly_idx * LIBRA_UNIVARIATES_LENGTH] = challenge_sqr;
+        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
+            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly;
+            challenge_polynomial_lagrange[current_idx] = FF(1);
+            for (size_t idx = 1; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+                // Recursively compute the powers of the challenge
+                challenge_polynomial_lagrange[current_idx + idx] =
+                    challenge_polynomial_lagrange[current_idx + idx - 1] * multivariate_challenge[idx_poly];
+            }
         }
-
         return challenge_polynomial_lagrange;
     }
 

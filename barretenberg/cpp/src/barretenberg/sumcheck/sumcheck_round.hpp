@@ -41,7 +41,7 @@ template <typename Flavor> class SumcheckProverRound {
   public:
     using FF = typename Flavor::FF;
     using ExtendedEdges = typename Flavor::ExtendedEdges;
-    using ZKData = ZKSumcheckData<typename Flavor::Curve, typename Flavor::Transcript, typename Flavor::CommitmentKey>;
+    using ZKData = ZKSumcheckData<Flavor>;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -64,6 +64,9 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
+
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
+        (std::is_same_v<typename Flavor::Curve, curve::BN254>) ? BATCHED_RELATION_PARTIAL_LENGTH : 3;
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
@@ -142,7 +145,7 @@ template <typename Flavor> class SumcheckProverRound {
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_sparators,
                                                const RelationSeparator alpha,
-                                               ZKData zk_sumcheck_data, // only populated when Flavor HasZK
+                                               const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
                                                RowDisablingPolynomial<FF> row_disabling_poly)
     {
         PROFILE_THIS_NAME("compute_univariate");
@@ -336,16 +339,20 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static SumcheckRoundUnivariate compute_libra_round_univariate(const ZKData& zk_sumcheck_data, size_t round_idx)
     {
-        bb::Univariate<FF, 3> libra_round_univariate;
+        bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH> libra_round_univariate;
         // select the i'th column of Libra book-keeping table
         const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
-        for (size_t idx = 0; idx < libra_round_univariate.size(); ++idx) {
+        for (size_t idx = 0; idx < LIBRA_UNIVARIATES_LENGTH; ++idx) {
             libra_round_univariate.value_at(idx) =
                 current_column.evaluate(FF(idx)) + zk_sumcheck_data.libra_running_sum;
         };
-        return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        if constexpr (BATCHED_RELATION_PARTIAL_LENGTH == LIBRA_UNIVARIATES_LENGTH) {
+            return libra_round_univariate;
+        } else {
+            return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        }
     }
 
   private:

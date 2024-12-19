@@ -13,8 +13,8 @@ namespace bb {
  * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
  *
  */
-template <typename Curve, typename Transcript = void, typename CommitmentKey = void> struct ZKSumcheckData {
-
+template <typename Flavor> struct ZKSumcheckData {
+    using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
@@ -22,22 +22,23 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
     static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
 
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
-    // Container for the Libra Univariates. Their number depends on the size of the circuit.
-    using LibraUnivariates = std::vector<bb::Polynomial<FF>>;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+
+    static constexpr FF one_half = FF(1) / FF(2);
+
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
 
     FF constant_term;
 
-    EvaluationDomain<FF> bn_evaluation_domain;
+    EvaluationDomain<FF> bn_evaluation_domain = EvaluationDomain<FF>();
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
     // to compute product in lagrange basis
     Polynomial<FF> libra_concatenated_lagrange_form;
     Polynomial<FF> libra_concatenated_monomial_form;
 
-    LibraUnivariates libra_univariates;
-    size_t log_circuit_size;
+    std::vector<Polynomial<FF>> libra_univariates{};
+    size_t log_circuit_size{ 0 };
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
     FF libra_total_sum;
@@ -49,8 +50,8 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
 
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
-                   std::shared_ptr<Transcript> transcript,
-                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+                   std::shared_ptr<typename Flavor::Transcript> transcript,
+                   std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : constant_term(FF::random_element())
         , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
@@ -89,9 +90,9 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
      * independent uniformly random coefficients.
      *
      */
-    static LibraUnivariates generate_libra_univariates(const size_t number_of_polynomials)
+    static std::vector<Polynomial<FF>> generate_libra_univariates(const size_t number_of_polynomials)
     {
-        LibraUnivariates libra_full_polynomials(number_of_polynomials);
+        std::vector<Polynomial<FF>> libra_full_polynomials(number_of_polynomials);
 
         for (auto& libra_polynomial : libra_full_polynomials) {
             libra_polynomial = Polynomial<FF>::random(LIBRA_UNIVARIATES_LENGTH);
@@ -107,12 +108,12 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
      * @param scaling_factor
      * @return FF
      */
-    static FF compute_libra_total_sum(const LibraUnivariates& libra_univariates,
+    static FF compute_libra_total_sum(const std::vector<Polynomial<FF>>& libra_univariates,
                                       FF& scaling_factor,
                                       const FF& free_term)
     {
         FF total_sum = 0;
-        scaling_factor = scaling_factor / 2;
+        scaling_factor *= one_half;
 
         for (auto& univariate : libra_univariates) {
             total_sum += univariate.evaluate(FF(0)) + univariate.evaluate(FF(1));
@@ -146,14 +147,21 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
         };
         // subtract the contribution of the first libra univariate from libra total sum
         libra_running_sum += -libra_univariates[0].evaluate(FF(0)) - libra_univariates[0].evaluate(FF(1));
-        libra_running_sum *= FF(1) / FF(2);
+        libra_running_sum *= one_half;
     }
 
+    /**
+     * @brief Create a interpolation domain object and initialize the evaluation domain in the case of BN254 scalar
+     * field
+     *
+     */
     void create_interpolation_domain()
     {
         if constexpr (std::is_same_v<Curve, curve::BN254>) {
             bn_evaluation_domain = EvaluationDomain<FF>(SUBGROUP_SIZE, SUBGROUP_SIZE);
-            bn_evaluation_domain.compute_lookup_table();
+            if (bn_evaluation_domain.size > 0) {
+                bn_evaluation_domain.compute_lookup_table();
+            }
         }
 
         interpolation_domain[0] = FF{ 1 };
@@ -162,7 +170,10 @@ template <typename Curve, typename Transcript = void, typename CommitmentKey = v
         }
     }
 
-    // compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0 + m_1 X)
+    /** @brief  Compute concatenated libra polynomial in lagrange basis, transform to monomial, add masking term Z_H(m_0
+     * + m_1
+     *
+     */
     void compute_concatenated_libra_polynomial()
     {
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;

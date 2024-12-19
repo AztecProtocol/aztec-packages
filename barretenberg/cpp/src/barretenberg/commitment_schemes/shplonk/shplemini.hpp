@@ -155,7 +155,6 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
-        // info(libra_univariate_evaluation);
         if constexpr (Curve::is_stdlib_type) {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
