@@ -22,6 +22,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool
         }
 
         circuit.add_pairing_point_accumulator(accumulator_indices);
+        accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
 
         auto proving_key = std::make_shared<PK>(circuit);
 
@@ -46,8 +47,13 @@ bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>
 {
 
     UltraVerifier verifer{ vk };
-    const bool verified = verifer.verify_proof(proof);
-    vinfo("verified: ", verified);
+    bool verified = verifer.verify_proof(proof);
+    vinfo("proof verified: ", verified);
+
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    verified &= pcs_verification_key->pairing_check(accumulator_value[0], accumulator_value[1]);
+    vinfo("pairing verified: ", verified);
     return verified;
 }
 
@@ -66,7 +72,7 @@ bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source, cons
     vinfo("time to call UltraVanillaClientIVC::prove: ", diff.count(), " ms.");
 
     start = end;
-    const bool verified = verify(previous_proof, previous_vk);
+    bool verified = verify(previous_proof, previous_vk);
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

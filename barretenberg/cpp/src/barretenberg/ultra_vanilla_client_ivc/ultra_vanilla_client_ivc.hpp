@@ -68,6 +68,7 @@ class UltraVanillaClientIVC {
     Proof previous_proof;
     std::shared_ptr<VK> previous_vk;
     Accumulator accumulator;
+    std::array<curve::BN254::AffineElement, 2> accumulator_value;
     PairingPointAccumulatorIndices accumulator_indices;
     std::vector<std::shared_ptr<VK>> vk_cache;
 
@@ -87,15 +88,15 @@ class UltraVanillaClientIVC {
 
     /**
      * @brief Verify an IVC proof.
-     * @details This is here for a consistent interface, but it's a mere convenience--the function just wraps UltraHonk
-     * verification.
+     * @details This verifies the final proof, including (natively) checking the pairing of the two points in the final
+     * accumulator.
      *
      * @param proof
      * @param vk
      * @return true All circuits provided have been satisfied.
      * @return false Some circuit provided was not satisfied.
      */
-    static bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
+    bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
 
     /**
      * @brief Prove and then verify the proof. This is used for testing.

@@ -81,11 +81,13 @@ TEST_F(UltraVanillaClientIVCTests, PrecomputedVerificationKeys)
 
     static constexpr size_t LOG_SIZE = 10;
 
-    UltraVanillaClientIVC ivc(1 << LOG_SIZE);
+    UltraVanillaClientIVC ivc_1(1 << LOG_SIZE);
     MockCircuitSource circuit_source_no_vks{ { LOG_SIZE, LOG_SIZE } };
-    auto vks = ivc.compute_vks(circuit_source_no_vks);
+    auto vks = ivc_1.compute_vks(circuit_source_no_vks);
+
+    UltraVanillaClientIVC ivc_2(1 << LOG_SIZE); // need to refactor accumulator_value use to reuse ivc_1
     MockCircuitSource circuit_source_with_vks{ circuit_source_no_vks, vks };
-    EXPECT_TRUE(ivc.prove_and_verify(circuit_source_with_vks));
+    EXPECT_TRUE(ivc_2.prove_and_verify(circuit_source_with_vks));
 };
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1177) Implement failure tests
