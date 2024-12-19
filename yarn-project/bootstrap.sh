@@ -42,13 +42,13 @@ function build {
     # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
     # Then one-off cases. If you've written into src, you need to update this.
     cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+      circuit-types/src/test/artifacts \
       end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
       ivc-integration/src/types/ \
       noir-contracts.js/{codegenCache.json,src/} \
       noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
       pxe/src/config/package_info.ts \
       protocol-contracts/src/protocol_contract_data.ts
-
     echo
     echo -e "${green}Yarn project successfully built!${reset}"
   fi

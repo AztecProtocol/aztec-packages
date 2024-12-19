@@ -177,7 +177,7 @@ case "$cmd" in
     exit
   ;;
   "image-e2e")
-    parallel ./bootstrap.sh ::: image-aztec _image-e2e
+    parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
     exit
   ;;
   "image-faucet")

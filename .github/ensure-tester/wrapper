@@ -24,5 +24,10 @@ ci3/dump_fail wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-li
 chmod +x ./jq
 sudo mv ./jq /usr/bin/jq
 ci3/dump_fail ci3/earthly_install
+function install_parallel() {
+  sudo apt update && sudo apt install parallel
+}
+export -f install_parallel
+DENOISE=1 ci3/denoise install_parallel
 # Run command.
 ci3/aws_handle_evict "set -eu; $2"
