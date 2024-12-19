@@ -28,8 +28,6 @@ function install_parallel() {
   sudo apt update && sudo apt install parallel
 }
 export -f install_parallel
-if ! command -v parallel >/dev/null; then
-  DENOISE=1 ci3/denoise install_parallel
-fi
+DENOISE=1 ci3/denoise install_parallel
 # Run command.
 ci3/aws_handle_evict "set -eu; $2"
