@@ -65,7 +65,7 @@ export class PublicProcessorMetrics {
       unit: 'gas',
     });
 
-    this.gasRate = meter.createGauge(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
+    this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
       description: 'L2 gas per second for complete block',
       unit: 'gas/s',
     });
