@@ -72,6 +72,7 @@ tests:
     test_path: 'e2e_prover/full.test.ts'
     env:
       FAKE_PROOFS: '1'
+  # Ran in CI as standalone
   e2e_prover_full:
     test_path: 'e2e_prover/full.test.ts'
     env:
