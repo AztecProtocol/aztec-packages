@@ -663,6 +663,8 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        // address should match yarn-project/simulator/src/public/fixtures/index.ts's
+        // MockedAvmTestContractDataSource.otherContractInstance
         test_get_contract_instance(AztecAddress::from_field(0x4444));
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
