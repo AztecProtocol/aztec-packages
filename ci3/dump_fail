@@ -30,7 +30,7 @@ if [ "$status" -ne 0 ]; then
     cat "$stderr"
   } >&2
 else
-  echo "$output"
+  echo -n "$output"
 fi
 
 exit $status

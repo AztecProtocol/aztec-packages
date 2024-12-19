@@ -7,7 +7,7 @@
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
-# - If you want to echo something, send it to stderr e.g. echo "My debug" >&2
+# - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
 # - Note calls to cache scripts swallow everything with &> /dev/null.
 # - Local assignments with subshells don't propagate errors e.g. local capture=$(false). Declare locals separately.
@@ -58,7 +58,7 @@ function process_function() {
   set +e
   make_vk=$(echo "$func" | jq -e '(.custom_attributes | index("public") == null) and (.is_unconstrained == false)')
   if [ $? -ne 0 ] && [ "$make_vk" != "false" ]; then
-    echo "Failed to check function $name is neither public nor unconstrained." >&2
+    echo_stderr "Failed to check function $name is neither public nor unconstrained."
     exit 1
   fi
   set -e
@@ -70,7 +70,7 @@ function process_function() {
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
-      echo "Generating vk for function: $name..." >&2
+      echo_stderr "Generating vk for function: $name..."
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
@@ -97,8 +97,12 @@ function compile {
   contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  export REBUILD_PATTERNS="^noir-projects/noir-contracts/contracts/$contract/"
-  contract_hash="$(cache_content_hash ../../noir/.rebuild_patterns ../../avm-transpiler/.rebuild_patterns)"
+  contract_hash="$(cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../avm-transpiler/.rebuild_patterns \
+    "^noir-projects/noir-contracts/contracts/$contract/" \
+    "^noir-projects/aztec-nr/" \
+  )"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
     $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
@@ -125,7 +129,7 @@ function build {
     compile $1
   else
     set +e
-    echo "Compiling contracts (bb-hash: $BB_HASH)..."
+    echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
       parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
     code=$?
@@ -143,15 +147,12 @@ case "$cmd" in
     ;;
   "clean-keys")
     for artifact in target/*.json; do
-      echo "Scrubbing vk from $artifact..."
+      echo_stderr "Scrubbing vk from $artifact..."
       jq '.functions |= map(del(.verification_key))' "$artifact" > "${artifact}.tmp"
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"ci")
-    USE_CACHE=1 build
-    ;;
-  "full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "compile")
@@ -163,6 +164,6 @@ case "$cmd" in
     exit 0
     ;;
   *)
-    echo "Unknown command: $cmd"
+    echo_stderr "Unknown command: $cmd"
     exit 1
 esac
