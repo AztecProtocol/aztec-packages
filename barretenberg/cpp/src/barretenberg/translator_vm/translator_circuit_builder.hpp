@@ -18,9 +18,9 @@
 namespace bb {
 /**
  * @brief TranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
- * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and p is the modulus of Fp)
+ * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and q is the modulus of Fq)
  *
- * @details Translator Circuit Builder builds a circuit the purpose of which is to calculate the batched
+ * @details Translator Circuit Builder builds a circuit whose purpose is to calculate the batched
  * evaluation of 5 polynomials in non-native field represented through coefficients in 4 native polynomials (op,
  * x_lo_y_hi, x_hi_z_1, y_lo_z_2):
  *
@@ -33,11 +33,11 @@ namespace bb {
  *
  * Translator calculates the result of evaluation of a polynomial op + P.x⋅v +P.y⋅v² + z1 ⋅ v³ + z2⋅v⁴ at the
  * given challenge x (evaluation_input_x). For this it uses logic similar to the stdlib bigfield class. We operate in Fr
- * while trying to calculate values in Fq. To show that a⋅b=c mod p, we:
+ * while trying to calculate values in Fq. To show that a⋅b=c mod q, we:
  * 1) Compute a⋅b in integers
- * 2) Compute quotient=a⋅b/p
- * 3) Show that a⋅b - quotient⋅p - c = 0 mod 2²⁷²
- * 4) Show that a⋅b - quotient⋅p - c = 0 mod r (scalar field modulus)
+ * 2) Compute quotient=a⋅b/q
+ * 3) Show that a⋅b - quotient⋅q - c = 0 mod 2²⁷²
+ * 4) Show that a⋅b - quotient⋅q - c = 0 mod r (scalar field modulus)
  * This ensures that the logic is sound modulo 2²⁷²⋅r, which means it's correct in integers, if all the values are
  * sufficiently constrained (there is no way to undeflow or overflow)
  *
@@ -59,14 +59,14 @@ namespace bb {
  * modulo 2¹³⁶ again and as a result we get correctness modulo 2²⁷².
  *
  * One big issue are range constraints. In Translator we check ranges by decomposing LIMBS into special other
- * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires). These wires always have the range of
- * 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for example,
- * 68 bits are decomposed into 5 14-bit limbs + 1 shifted limb, which is equal to the highest microlimb multiplied by
- * 4). The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space and because of
- * the proving system requirements we put some of the decomposed values from relation limbs (limbs which compute the
- * result of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y, accumulator and
- * quotient. This is due to the fact that the highest limb in these four is less than 56 bits, which frees up an extra
- * microlimb.
+ * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires) . These wires always have the
+ * range of 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for
+ * example, 68 bits are decomposed into 5 14-bit limbs + 1 shifted limb, which is equal to the highest microlimb
+ * multiplied by 4). The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space
+ * and because of the proving system requirements we put some of the decomposed values from relation limbs (limbs which
+ * compute the result of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y,
+ * accumulator and quotient. This is due to the fact that the highest limb in these four is less than 56 bits, which
+ * frees up an extra microlimb.
  *
  */
 class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
@@ -272,7 +272,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
      *
-     * @details For example, we don't really nead the prime limbs, but they serve to check the correctness of over
+     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of over
      * values. We also don't need the values of x's and v's limbs during circuit construction, since they are added to
      * relations directly, but this allows us to check correctness of the computed accumulator
      */
@@ -459,16 +459,16 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @return false
      */
     bool check_circuit();
+    AccumulationInput generate_witness_values(Fr op_code,
+                                              Fr p_x_lo,
+                                              Fr p_x_hi,
+                                              Fr p_y_lo,
+                                              Fr p_y_hi,
+                                              Fr z1,
+                                              Fr z2,
+                                              Fq previous_accumulator,
+                                              Fq batching_challenge_v,
+                                              Fq evaluation_input_x);
 };
-template <typename Fq, typename Fr>
-TranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_code,
-                                                                    Fr p_x_lo,
-                                                                    Fr p_x_hi,
-                                                                    Fr p_y_lo,
-                                                                    Fr p_y_hi,
-                                                                    Fr z1,
-                                                                    Fr z2,
-                                                                    Fq previous_accumulator,
-                                                                    Fq batching_challenge_v,
-                                                                    Fq evaluation_input_x);
+
 } // namespace bb

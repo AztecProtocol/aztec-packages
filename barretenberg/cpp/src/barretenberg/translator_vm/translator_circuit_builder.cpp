@@ -34,32 +34,17 @@ using ECCVMOperation = ECCOpQueue::ECCVMOperation;
  * @param evaluation_input_x The value at which we evaluate the polynomials
  * @return TranslatorCircuitBuilder::AccumulationInput
  */
-template <typename Fq, typename Fr>
-TranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_code,
-                                                                    Fr p_x_lo,
-                                                                    Fr p_x_hi,
-                                                                    Fr p_y_lo,
-                                                                    Fr p_y_hi,
-                                                                    Fr z1,
-                                                                    Fr z2,
-                                                                    Fq previous_accumulator,
-                                                                    Fq batching_challenge_v,
-                                                                    Fq evaluation_input_x)
+TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_witness_values(Fr op_code,
+                                                                                              Fr p_x_lo,
+                                                                                              Fr p_x_hi,
+                                                                                              Fr p_y_lo,
+                                                                                              Fr p_y_hi,
+                                                                                              Fr z1,
+                                                                                              Fr z2,
+                                                                                              Fq previous_accumulator,
+                                                                                              Fq batching_challenge_v,
+                                                                                              Fq evaluation_input_x)
 {
-    // All parameters are well-described in the header, this is just for convenience
-    constexpr size_t NUM_LIMB_BITS = TranslatorCircuitBuilder::NUM_LIMB_BITS;
-    constexpr size_t NUM_BINARY_LIMBS = TranslatorCircuitBuilder::NUM_BINARY_LIMBS;
-    constexpr size_t NUM_MICRO_LIMBS = TranslatorCircuitBuilder::NUM_MICRO_LIMBS;
-    constexpr size_t NUM_LAST_LIMB_BITS = TranslatorCircuitBuilder::NUM_LAST_LIMB_BITS;
-    constexpr size_t MICRO_LIMB_BITS = TranslatorCircuitBuilder::MICRO_LIMB_BITS;
-    constexpr size_t TOP_STANDARD_MICROLIMB_BITS = NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS;
-    constexpr size_t NUM_Z_BITS = TranslatorCircuitBuilder::NUM_Z_BITS;
-    constexpr size_t TOP_Z_MICROLIMB_BITS = (NUM_Z_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
-    constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS =
-        (TranslatorCircuitBuilder::NUM_QUOTIENT_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
-    constexpr auto shift_1 = TranslatorCircuitBuilder::SHIFT_1;
-    constexpr auto neg_modulus_limbs = TranslatorCircuitBuilder::NEGATIVE_MODULUS_LIMBS;
-    constexpr auto shift_2_inverse = TranslatorCircuitBuilder::SHIFT_2_INVERSE;
 
     /**
      * @brief A small function to transform a native element Fq into its bigfield representation in Fr scalars
@@ -615,8 +600,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
     auto v = batching_challenge_v;
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < raw_ops.size(); i++) {
+    // from the later indices. We need to know the previous accumulator to create the gate. We don't care about the last
+    // value since we'll recompute it during witness generation anyway
+    for (size_t i = 0; i < raw_ops.size() - 1; i++) {
         const auto& ecc_op = raw_ops[raw_ops.size() - 1 - i];
         current_accumulator *= x;
         const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
@@ -624,9 +610,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
             (Fq(ecc_op.get_opcode_value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
         accumulator_trace.push_back(current_accumulator);
     }
-
-    // We don't care about the last value since we'll recompute it during witness generation anyway
-    accumulator_trace.pop_back();
 
     for (const auto& raw_op : raw_ops) {
         Fq previous_accumulator = 0;
@@ -1068,6 +1051,4 @@ bool TranslatorCircuitBuilder::check_circuit()
     }
     return true;
 };
-template TranslatorCircuitBuilder::AccumulationInput generate_witness_values(
-    bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fq, bb::fq, bb::fq);
 } // namespace bb
