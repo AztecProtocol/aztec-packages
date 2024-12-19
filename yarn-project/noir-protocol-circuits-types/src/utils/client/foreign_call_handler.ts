@@ -8,10 +8,6 @@ function fromACVMField(field: string): Fr {
   return Fr.fromBuffer(Buffer.from(field.slice(2), 'hex'));
 }
 
-function toACVMField(field: Fr): string {
-  return `0x${field.toBuffer().toString('hex')}`;
-}
-
 export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
