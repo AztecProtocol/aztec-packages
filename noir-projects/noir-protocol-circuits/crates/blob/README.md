@@ -11,13 +11,13 @@ Current count: 428,240.
 Install bbup: `curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/cpp/installation/install | bash`
 The version of bb compatible with nargo 0.33.0 is `bbup --version 0.48.0`
 
-`time bb gates_mega_honk -b ./target/blob.json`
+`time bb gates_for_ivc -b ./target/blob.json`
 
 ## Generate, then serve a new flamegraph, after compiling:
 
 <!-- `~/packages/noir/noir-repo/target/release/noir-profiler gates-flamegraph --artifact-path ./target/blob.json --backend-path ~/.bb/bb --output ./flamegraph -- -h && python3 -m http.server --directory "./flamegraph" 3000` -->
 
-`~/packages/noir/noir-repo/target/release/noir-profiler gates-flamegraph --artifact-path ./target/blob.json --backend-path ~/.bb/bb --output ./flamegraph --backend-gates-command "gates_mega_honk" -- -h && python3 -m http.server --directory "./flamegraph" 3000`
+`~/packages/noir/noir-repo/target/release/noir-profiler gates-flamegraph --artifact-path ./target/blob.json --backend-path ~/.bb/bb --output ./flamegraph --backend-gates-command "gates_for_ivc" -- -h && python3 -m http.server --directory "./flamegraph" 3000`
 
 ## To serve an existing flamegraph:
 

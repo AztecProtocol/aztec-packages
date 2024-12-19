@@ -24,7 +24,8 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
@@ -42,12 +43,14 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor.
    * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
+   * @param enforceFeePayment - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
+    enforceFeePayment: boolean,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
@@ -58,6 +61,7 @@ export class PublicProcessorFactory {
       this.telemetryClient,
       globalVariables,
       /*doMerkleOperations=*/ true,
+      enforceFeePayment,
     );
 
     return new PublicProcessor(

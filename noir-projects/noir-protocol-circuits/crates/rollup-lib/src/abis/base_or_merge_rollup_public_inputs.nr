@@ -1,6 +1,5 @@
-use crate::abis::constant_rollup_data::ConstantRollupData;
 use dep::types::{
-    abis::sponge_blob::SpongeBlob,
+    abis::{constant_rollup_data::ConstantRollupData, sponge_blob::SpongeBlob},
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
     partial_state_reference::PartialStateReference,
     traits::{Deserialize, Empty, Serialize},

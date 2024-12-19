@@ -118,18 +118,18 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(CompleteAddress);
   });
 
-  it('registerContact', async () => {
-    const result = await context.client.registerContact(address);
+  it('registerSender', async () => {
+    const result = await context.client.registerSender(address);
     expect(result).toEqual(address);
   });
 
-  it('getContacts', async () => {
-    const result = await context.client.getContacts();
+  it('getSenders', async () => {
+    const result = await context.client.getSenders();
     expect(result).toEqual([address]);
   });
 
-  it('removeContact', async () => {
-    await context.client.removeContact(address);
+  it('removeSender', async () => {
+    await context.client.removeSender(address);
   });
 
   it('registerContractClass', async () => {
@@ -151,7 +151,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, false, []);
+    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, true, false, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -164,6 +164,7 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       TxExecutionRequest.random(),
       true,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -343,14 +344,14 @@ class MockPXE implements PXE {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(CompleteAddress.random());
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.address);
   }
-  getContacts(): Promise<AztecAddress[]> {
+  getSenders(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
-  removeContact(address: AztecAddress): Promise<void> {
+  removeSender(address: AztecAddress): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve();
   }
@@ -381,6 +382,7 @@ class MockPXE implements PXE {
     _simulatePublic: boolean,
     msgSender?: AztecAddress | undefined,
     _skipTxValidation?: boolean | undefined,
+    _enforceFeePayment?: boolean | undefined,
     _profile?: boolean | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {

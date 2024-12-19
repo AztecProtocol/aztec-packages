@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 

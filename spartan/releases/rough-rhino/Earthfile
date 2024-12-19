@@ -8,9 +8,8 @@ deps:
         curl \
         git \
         make \
-        nodejs \
-        npm \
-        unzip
+        unzip \
+        jq
 
 test-setup:
     FROM +deps
@@ -43,7 +42,8 @@ test-install:
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \
-        -k 0x00
+        -k 0x00 \
+        -n "troll-turtle"
     # Verify docker-compose.yml was created and contains correct values
     RUN test -f .env && \
         test -f docker-compose.yml && \
@@ -73,7 +73,8 @@ test-start-stop:
         -p 8080 \
         -p2p 40400 \
         -ip 1.2.3.4 \
-        -k 0x00
+        -k 0x00 \
+        -n "troll-turtle"
     # Test start command
     RUN ./aztec-spartan.sh start 2>&1 | grep -q "Starting containers" && \
         echo "✅ Start command test passed" || \
@@ -97,7 +98,8 @@ test-data-dir:
         -p2p 40400 \
         -ip 1.2.3.4 \
         -k 0x00 \
-        -d ./aztec-data
+        -d ./aztec-data \
+        -n "troll-turtle"
     # Verify docker-compose.yml uses bind mount instead of named volume
     RUN grep -q "volumes:" docker-compose.yml && \
         grep -q "./aztec-data:/var/lib/aztec" docker-compose.yml && \
@@ -113,20 +115,49 @@ test-p2p-key:
         -p2p 40400 \
         -ip 1.2.3.4 \
         -k 0x00 \
-        -pk 00000
+        -pk 00000 \
+        -n "troll-turtle"
     # Verify the P2P private key was set in the .env file
     RUN test -f .env && \
         grep -q "PEER_ID_PRIVATE_KEY=00000" .env && \
         echo "✅ P2P private key test passed" || \
         (echo "❌ P2P private key test failed" && exit 1)
 
+test-ethereum-host:
+    FROM +test-setup
+    RUN echo -e "\n\n" | ./aztec-spartan.sh config \
+        -n "troll-turtle" \
+        -e http://foobar:8545 \
+        -p 8080 \
+        -p2p 40400 \
+        -ip 1.2.3.4 \
+        -k 0x00 \
+        -pk 00000
+    RUN test -f .env && \
+        grep -q "ETHEREUM_HOST=http://foobar:8545" .env && \
+        echo "✅ Ethereum host cli test passed" || \
+        (echo "❌ Ethereum host cli test failed" && exit 1)
+
+    # We don't respect the env var here
+    RUN echo -e "\n\n" | ETHEREUM_HOST=http://foobar:8545 ./aztec-spartan.sh config \
+        -n "troll-turtle" \
+        -p 8080 \
+        -p2p 40400 \
+        -ip 1.2.3.4 \
+        -k 0x00 \
+        -pk 00000
+    RUN test -f .env && \
+        grep -q "ETHEREUM_HOST=http://34.19.127.9:8545" .env && \
+        echo "✅ Ethereum host override test passed" || \
+        (echo "❌ Ethereum host override test failed" && exit 1)
+
+
 test-all:
     BUILD +test-help
-    BUILD +test-no-config
     BUILD +test-install
     BUILD +test-docker-check
     BUILD +test-start-stop
     BUILD +test-update
     BUILD +test-data-dir
     BUILD +test-p2p-key
-
+    BUILD +test-ethereum-host
