@@ -527,7 +527,7 @@ jobs:
   prover-client-test:
     needs: [ci-rest, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true' || needs.configure.outputs.noir-projects == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true' || needs.configure.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
