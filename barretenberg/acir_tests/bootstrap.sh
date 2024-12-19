@@ -6,18 +6,18 @@ export CRS_PATH=$HOME/.bb-crs
 
 function build {
   set -eu
-  if [ ! -d acir_tests ]; then
-    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-    rm -rf acir_tests/regression_5045
-  fi
+
+  github_group "acir_tests build"
+
+  rm -rf acir_tests
+  cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+  # Running these requires extra gluecode so they're skipped.
+  rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
+  rm -rf acir_tests/regression_5045
 
   # COMPILE=2 only compiles the test.
-  github_group "acir_tests compiling"
-  parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh $(basename {})' ::: ./acir_tests/*
-  github_endgroup
+  denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
@@ -25,33 +25,37 @@ function build {
   # (cd ./acir_tests/assert_statement && \
   #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
-  github_group "acir_tests updating yarn"
   # Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  (cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn)
-  (cd headless-test && yarn)
-  (cd sol-test && yarn)
+  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn"
+  denoise "cd headless-test && yarn"
+  denoise "cd sol-test && yarn"
   # The md5sum of everything is the same after each yarn call.
   # Yet seemingly yarn's content hash will churn unless we reset timestamps
   find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
-  github_endgroup
 
-  github_group "acir_tests building browser-test-app"
-  (cd browser-test-app && yarn build)
+  denoise "cd browser-test-app && yarn build"
+
   github_endgroup
 }
 
 function hash {
-  cache_content_hash ../../noir/.rebuild_patterns ../../noir/.rebuild_patterns_tests ../../barretenberg/cpp/.rebuild_patterns ../../barretenberg/ts/.rebuild_patterns
+  cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../noir/.rebuild_patterns_tests \
+    ../../barretenberg/cpp/.rebuild_patterns \
+    ../../barretenberg/ts/.rebuild_patterns
 }
+
 function test {
   set -eu
-  github_group "acir_tests testing"
+
   local hash=$(hash)
   if ! test_should_run barretenberg-acir-tests-$hash; then
-    github_endgroup
     return
   fi
+
+  github_group "acir_tests testing"
 
   # TODO: These are some magic numbers that fit our dev/ci environments. They ultimately need to work on lower hardware.
   export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
@@ -59,7 +63,7 @@ function test {
   local jobs=64
 
   # Create temporary file descriptor 3, and redirects anything written to it, to parallels stdin.
-  exec 3> >(parallel -j$jobs --tag --line-buffered --joblog joblog.txt)
+  exec 3> >(denoise parallel -j$jobs --tag --line-buffered --joblog joblog.txt)
   local pid=$!
   trap "kill -SIGTERM $pid 2>/dev/null || true" EXIT
 
@@ -143,17 +147,17 @@ case "$cmd" in
   ""|"fast")
     ;;
   "full")
-    denoise build
+    build
     ;;
   "ci")
-    denoise build
-    denoise test
+    build
+    test
     ;;
   "hash")
     hash
     ;;
   "test")
-    denoise test
+    test
     ;;
   *)
     echo "Unknown command: $cmd"
