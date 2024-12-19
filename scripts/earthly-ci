@@ -67,7 +67,8 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       || grep 'docker: failed to write digest data' >/dev/null \
       || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null; then
       # try to wait it out
-      echo sleep 20
+      echo "earthly-ci: recoverable error, waiting 20 seconds"
+      sleep 20
     else
       exit $earthly_exit_code
     fi
