@@ -216,10 +216,10 @@ prover-client-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=prover-client-$(./yarn-project/bootstrap.sh hash)
+  LET artifact=prover-client-test-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
-      BUILD --pass-args ./docs/+deploy-preview
+      BUILD ./yarn-project/+prover-client-test
     END
     RUN ci3/cache_upload_flag $artifact
   END
@@ -374,4 +374,4 @@ network-test:
   FROM +bootstrap
   ARG test=./test-transfer.sh
   ARG validators=3
-  RUN scripts/run_native_testnet.sh -i -t $test -val $validators -v
+  RUN scripts/run_native_testnet.sh -i -t $test -val $validators

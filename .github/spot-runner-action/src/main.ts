@@ -70,34 +70,39 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
           // we fallback to on-demand
           ec2Strategy.toLocaleLowerCase() === "none",
         );
+      if (instanceIdOrError.startsWith("i-")) {
+        instanceId = instanceIdOrError;
+      }
       // let's exit, only loop on InsufficientInstanceCapacity
       if (
         instanceIdOrError === "RequestLimitExceeded" ||
-        instanceIdOrError === "InsufficientInstanceCapacity"
+        instanceIdOrError === "InsufficientInstanceCapacity" ||
+        instanceIdOrError === "UnfulfillableCapacity"
       ) {
         core.info(
           "Failed to create instance due to " +
-            instanceIdOrError +
-            ", waiting " + 5 * 2 ** backoff + " seconds and trying again."
+          instanceIdOrError +
+          ", waiting " + 5 * 2 ** backoff + " seconds and trying again."
         );
-      } else {
+      }
+      if (instanceId) {
         try {
-          await ec2Client.waitForInstanceRunningStatus(instanceIdOrError);
+          await ec2Client.waitForInstanceRunningStatus(instanceId);
         } catch (err) {
           // If this runner has long been terminated this transition will error out
           // Use this fact ot try again
           console.error(err);
           continue;
         }
-        instanceId = instanceIdOrError;
         break;
       }
       // wait 10 seconds
       await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
       backoff += 1;
     }
-  if (instanceId) {
-    break;
+    if (instanceId) {
+      break;
+    }
   }
   if (instanceId) {
     core.info("Successfully requested/found instance with ID " + instanceId);
