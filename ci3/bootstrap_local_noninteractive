@@ -1,6 +1,6 @@
 #!/bin/bash
 # Launches our CI image locally and runs the bootstrap.
-# This replicates exactly what our CI run experiences.
+# This is used interim while we have CI runners that are not launched with bootstrap_ec2.
 # It uses docker-in-docker as some test flows require it (e.g. e2e).
 # We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
 # We mount in aws credentials to leverage the s3 cache.
@@ -9,24 +9,22 @@
 
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
-cmd=${1:-"./bootstrap.sh ci || exec bash"}
+current_commit=$(git rev-parse HEAD)
+cmd=${1:-"CI=1 ./bootstrap.sh fast"}
 
-if ! git diff --quiet; then
-  echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"
-fi
-
-docker run --name aztec_build -ti --rm \
+docker run --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/root/.aws \
   aztecprotocol/ci:2.0 bash -c "
-  set -e
   /usr/local/share/docker-init.sh &> /dev/null
   git config --global --add safe.directory /aztec-packages-host/.git
-  cd /root
+  mkdir -p /root/aztec-packages && cd /root/aztec-packages
   # Ensure we get a clean clone of the repo.
-  git clone --depth 1 file:///aztec-packages-host aztec-packages
-  cd aztec-packages
+  git init &>/dev/null
+  git remote add origin https://github.com/aztecprotocol/aztec-packages
+  git fetch --depth 1 origin $current_commit 2>/dev/null || (echo 'The commit was not pushed, run aborted.' && exit 1)
+  git checkout FETCH_HEAD &>/dev/null
   $cmd
 "
