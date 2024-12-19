@@ -19,13 +19,12 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
-import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import times from 'lodash.times';
@@ -224,9 +223,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(Object.fromEntries(ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)])));
   });
 
-  it('addContractArtifact', async () => {
-    await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  }, 20_000);
+  it('registerContractFunctionNames', async () => {
+    await context.client.registerContractFunctionNames(AztecAddress.random(), {
+      [FunctionSelector.random().toString()]: 'test_fn',
+    });
+  });
 
   it('getPrivateLogs', async () => {
     const response = await context.client.getPrivateLogs(1, 1);
@@ -505,9 +506,7 @@ class MockAztecNode implements AztecNode {
       ) as ProtocolContractAddresses,
     );
   }
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
-    deepStrictEqual(artifact, this.artifact);
+  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
@@ -556,7 +555,7 @@ class MockAztecNode implements AztecNode {
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
-  simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
+  simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }

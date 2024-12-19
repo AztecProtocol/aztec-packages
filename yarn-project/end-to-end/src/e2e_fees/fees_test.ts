@@ -13,13 +13,11 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
-import {
-  AppSubscriptionContract,
-  TokenContract as BananaCoin,
-  CounterContract,
-  FPCContract,
-  FeeJuiceContract,
-} from '@aztec/noir-contracts.js';
+import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
@@ -62,7 +60,7 @@ export class FeesTest {
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
 
-  public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
+  public fpcAdmin!: AztecAddress;
 
   public gasSettings!: GasSettings;
 
@@ -142,8 +140,8 @@ export class FeesTest {
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
 
-        // We like sequencer so we send him the fees.
-        this.feeRecipient = this.sequencerAddress;
+        // We set Alice as the FPC admin to avoid the need for deployment of another account.
+        this.fpcAdmin = this.aliceAddress;
 
         this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
@@ -225,7 +223,7 @@ export class FeesTest {
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.feeRecipient)
+        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
           .send()
           .deployed();
 

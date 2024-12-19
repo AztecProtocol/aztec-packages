@@ -313,11 +313,8 @@ contract Lending {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset: Asset = storage.assets.at(0).read();
-        let debt = debt_value(
-            U128::from_integer(static_debt),
-            U128::from_integer(asset.interest_accumulator),
-        )
-            .to_integer();
+        let debt =
+            debt_value(U128::from_integer(static_debt), asset.interest_accumulator).to_integer();
         Position { collateral, static_debt, debt }
     }
 

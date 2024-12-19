@@ -1,10 +1,11 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { EthCheatCodes, MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { MINIMUM_STAKE, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { SpamContract } from '@aztec/noir-contracts.js';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
@@ -79,6 +80,28 @@ export class P2PNetworkTest {
     });
   }
 
+  static async create({
+    testName,
+    numberOfNodes,
+    basePort,
+    metricsPort,
+  }: {
+    testName: string;
+    numberOfNodes: number;
+    basePort?: number;
+    metricsPort?: number;
+  }) {
+    const port = basePort || (await getPort());
+
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
+    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+
+    const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
+
+    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
+  }
+
   /**
    * Start a loop to sync the mock system time with the L1 block time
    */
@@ -105,28 +128,6 @@ export class P2PNetworkTest {
     });
     const timestamp = await deployL1ContractsValues.publicClient.getBlock({ blockNumber: receipt.blockNumber });
     dateProvider.setTime(Number(timestamp.timestamp) * 1000);
-  }
-
-  static async create({
-    testName,
-    numberOfNodes,
-    basePort,
-    metricsPort,
-  }: {
-    testName: string;
-    numberOfNodes: number;
-    basePort?: number;
-    metricsPort?: number;
-  }) {
-    const port = basePort || (await getPort());
-
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
-    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
-    const initialValidatorConfig = await createValidatorConfig({} as AztecNodeConfig, bootstrapNodeEnr);
-
-    return new P2PNetworkTest(testName, bootstrapNode, port, numberOfNodes, initialValidatorConfig);
   }
 
   async applyBaseSnapshots() {
@@ -184,7 +185,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.EPOCH_DURATION();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {

@@ -24,7 +24,8 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
-    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+    size_t total_num_gates =
+        MASKING_OFFSET + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -97,8 +98,9 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
 {
     PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
 
-    const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
-    size_t table_offset = dyadic_circuit_size - max_tables_size;
+    size_t table_offset = circuit.blocks.lookup.trace_offset;
+    const size_t max_tables_size =
+        std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
@@ -113,13 +115,15 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
     ZoneScopedN("allocating lookup and databus inverses");
 
-    // Allocate the log derivative lookup argument inverse polynomial
-    const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
-    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
-    const size_t lookup_inverses_end =
-        std::min(dyadic_circuit_size,
-                 std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
-                          table_offset + MAX_LOOKUP_TABLES_SIZE));
+    const size_t lookup_block_end =
+        static_cast<size_t>(circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = circuit.blocks.lookup.trace_offset + max_tables_size;
+
+    // Allocate the lookup_inverses polynomial
+
+    const size_t lookup_inverses_start = table_offset;
+    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
+
     proving_key.polynomials.lookup_inverses =
         Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
 }
@@ -131,8 +135,8 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     PROFILE_THIS_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
     const size_t op_wire_offset = circuit.blocks.ecc_op.trace_offset;
+    const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
     for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
         wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
     }
@@ -324,6 +328,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 }
 
 template class DeciderProvingKey_<UltraFlavor>;
+template class DeciderProvingKey_<UltraFlavorWithZK>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;

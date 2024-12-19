@@ -21,8 +21,3 @@ done
 
 # Join addresses with commas
 VALIDATOR_ADDRESSES=$(IFS=, ; echo "${VALIDATOR_ADDRESSES_LIST[*]}")
-
-# Optionally, if you need the arrays for further use, you can export them:
-export VALIDATOR_PRIVATE_KEYS
-export VALIDATOR_ADDRESSES_LIST
-export VALIDATOR_ADDRESSES

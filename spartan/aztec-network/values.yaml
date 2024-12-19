@@ -45,8 +45,7 @@ bootNode:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: ""
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -90,13 +89,13 @@ validator:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: ""
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
+    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -122,8 +121,7 @@ proverNode:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: ""
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   proverAgent:
     count: 0
     pollIntervalMs: 1000
@@ -141,7 +139,7 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  logLevel: "debug"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
     nodePort: 8081
@@ -159,7 +157,7 @@ pxe:
 bot:
   enabled: true
   nodeUrl: ""
-  logLevel: "debug"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
   txIntervalSeconds: 24
@@ -168,6 +166,7 @@ bot:
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
+  feePaymentMethod: "none"
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -219,7 +218,7 @@ proverAgent:
   proofTypes: ["foo", "bar", "baz"]
   gke:
     spotEnabled: false
-  logLevel: "debug"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
   nodeSelector: {}
@@ -234,9 +233,12 @@ proverBroker:
   pollIntervalMs: 1000
   jobMaxRetries: 3
   dataDirectory: ""
-  logLevel: "debug"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   nodeSelector: {}
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
 
 jobs:
   deployL1Verifier:
