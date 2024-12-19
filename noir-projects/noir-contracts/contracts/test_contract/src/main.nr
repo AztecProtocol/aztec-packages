@@ -32,7 +32,7 @@ contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::random::random,
+        oracle::pxe_store::{load, store},
         utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
@@ -458,14 +458,17 @@ contract Test {
         constant.value
     }
 
+    unconstrained fn store_in_pxe_store(key: Field, values: [Field; 3]) {
+        store(key, values);
+    }
+
+    unconstrained fn load_from_pxe_store(key: Field) -> pub [Field; 3] {
+        load(key)
+    }
+
     #[private]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
-    }
-
-    // Purely exists for testing
-    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * random()
     }
 
     pub struct DummyNote {
