@@ -169,8 +169,6 @@ export class L1FeeJuicePortalManager {
     this.logger.info('Sending L1 Fee Juice to L2 to be claimed publicly');
     const args = [to.toString(), amount, claimSecretHash.toString()] as const;
 
-    await this.contract.simulate.depositToAztecPublic(args);
-
     const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
       to: this.contract.address,
       data: encodeFunctionData({
@@ -264,21 +262,15 @@ export class L1ToL2TokenPortalManager {
 
     this.logger.info('Sending L1 tokens to L2 to be claimed publicly');
     const args = [to.toString(), amount, claimSecretHash.toString()] as const;
-    const { request } = await this.portal.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction(
-      {
-        to: request.address!,
-        data: encodeFunctionData({
-          abi: this.portal.abi,
-          functionName: 'depositToAztecPublic',
-          args,
-        }),
-      },
-      {
-        fixedGas: request.gas,
-      },
-    );
+    const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      to: to.toString()!,
+      data: encodeFunctionData({
+        abi: this.portal.abi,
+        functionName: 'depositToAztecPublic',
+        args,
+      }),
+    });
 
     const log = extractEvent(
       txReceipt.logs,
@@ -409,21 +401,14 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
     ] as const;
     // Call function on L1 contract to consume the message
-    const { request } = await this.portal.simulate.withdraw(withdrawArgs);
-
-    await this.l1TxUtils.sendAndMonitorTransaction(
-      {
-        to: request.address!,
-        data: encodeFunctionData({
-          abi: this.portal.abi,
-          functionName: 'withdraw',
-          args: withdrawArgs,
-        }),
-      },
-      {
-        fixedGas: request.gas,
-      },
-    );
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.portal.address,
+      data: encodeFunctionData({
+        abi: this.portal.abi,
+        functionName: 'withdraw',
+        args: withdrawArgs,
+      }),
+    });
 
     const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
     if (!isConsumedAfter) {

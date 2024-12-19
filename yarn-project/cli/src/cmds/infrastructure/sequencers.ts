@@ -91,19 +91,12 @@ export async function sequencers(opts: {
       }),
     };
 
-    // Send transactions first
-    const [mintTxRes, approveTxRes] = await Promise.all([
-      l1TxUtils.sendTransaction(mintRequest),
-      l1TxUtils.sendTransaction(approveRequest),
-    ]);
-
-    // Monitor transactions in parallel
     await Promise.all([
-      l1TxUtils.monitorTransaction(mintRequest, mintTxRes.txHash, { gasLimit: mintTxRes.gasLimit }),
-      l1TxUtils.monitorTransaction(approveRequest, approveTxRes.txHash, { gasLimit: approveTxRes.gasLimit }),
+      l1TxUtils.sendAndMonitorTransaction(mintRequest),
+      l1TxUtils.sendAndMonitorTransaction(approveRequest),
     ]);
 
-    // Now send and monitor deposit transaction
+    // send and monitor deposit transaction
     const depositReceipt = await l1TxUtils.sendAndMonitorTransaction({
       to: writeableRollup.address,
       data: encodeFunctionData({
