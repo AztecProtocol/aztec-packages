@@ -64,6 +64,7 @@ import {
 } from '../reqresp/interface.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
+import { GossipSubEvent } from '../types.js';
 
 interface MessageValidator {
   validator: {
@@ -179,7 +180,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     // add GossipSub listener
-    this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
+    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, async e => {
       const { msg } = e.detail;
       this.logger.trace(`Received PUBSUB message.`);
 

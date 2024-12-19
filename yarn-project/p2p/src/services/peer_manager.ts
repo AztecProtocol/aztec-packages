@@ -11,6 +11,7 @@ import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
 import { PeerScoring } from './peer-scoring/peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
+import { PeerEvent } from './types.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
@@ -36,7 +37,7 @@ export class PeerManager implements Traceable {
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
-    this.libP2PNode.addEventListener('peer:connect', evt => {
+    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
         this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
@@ -46,7 +47,7 @@ export class PeerManager implements Traceable {
     });
 
     // Handle lost connections
-    this.libP2PNode.addEventListener('peer:disconnect', evt => {
+    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, evt => {
       const peerId = evt.detail;
       if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
         this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
@@ -56,7 +57,7 @@ export class PeerManager implements Traceable {
     });
 
     // Handle Discovered peers
-    this.peerDiscoveryService.on('peer:discovered', async (enr: ENR) => {
+    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, async (enr: ENR) => {
       await this.handleDiscoveredPeer(enr);
     });
   }
