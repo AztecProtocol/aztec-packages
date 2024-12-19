@@ -586,7 +586,7 @@ __metadata:
     lodash.every: "npm:^4.6.0"
     memdown: "npm:^6.1.1"
     process: "npm:^0.11.10"
-    puppeteer: "npm:^22.2"
+    puppeteer-core: "npm:^22.2"
     resolve-typescript-plugin: "npm:^2.0.1"
     solc: "npm:^0.8.27"
     stream-browserify: "npm:^3.0.0"
@@ -16495,7 +16495,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"puppeteer-core@npm:22.15.0":
+"puppeteer-core@npm:22.15.0, puppeteer-core@npm:^22.2":
   version: 22.15.0
   resolution: "puppeteer-core@npm:22.15.0"
   dependencies:
@@ -16522,7 +16522,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"puppeteer@npm:^22.2, puppeteer@npm:^22.4.1":
+"puppeteer@npm:^22.4.1":
   version: 22.15.0
   resolution: "puppeteer@npm:22.15.0"
   dependencies:
