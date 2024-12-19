@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734525448974,
+  "lastUpdate": 1734609532061,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac7c0da38ff05d6f11c4d6a6244c4526ac00232e",
-          "message": "feat: mock IVC state from arbitrary acir IVC recursion constraints (#10314)\n\nGenerating a bberg kernel circuit from a noir kernel program represented\r\nas acir requires an IVC instance containing certain state including a\r\nverifier accumulator and verification queue containing proofs/VKs for\r\ninput to recursive verifiers. In the context of a write_vk flow, this\r\ndata is not known and must be mocked so that the recursive verifiers in\r\nthe kernel can be constructed properly. (Similar to how we construct a\r\ndummy proof to generate a Honk recursive verifier).\r\n\r\nThe main method in this PR is `create_mock_ivc_from_constraints()` which\r\nconstructs an IVC instance with mocked state based on the IVC recursion\r\nconstraints present in the acir data. For example, if there are two PG\r\nrecursive verifications in the constraint system, we must generate two\r\nmocked PG proofs plus some other auxiliary data.\r\n\r\nSo no actual write_vk flow exists but the logic is tested though the\r\n`IvcRecursionConstraintTest` suite which constructs VKs from programs\r\ncontaining each of the 3 different possible combinations of IVC\r\nrecursion constraints that appear in Aztec kernel circuits. (These are:\r\n(a) 1 Oink recursive verification (init kernel), (b) 1 PG recursive\r\nverification (reset or tail kernel), and (c) 2 PG recursive\r\nverifications (inner kernel)).",
-          "timestamp": "2024-12-03T11:50:53-07:00",
-          "tree_id": "9835e31dcba1d81f93920cded826facf31b0cea1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac7c0da38ff05d6f11c4d6a6244c4526ac00232e"
-        },
-        "date": 1733254346529,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 28276.316141999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 26358.961927 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5117.060768000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4738.289079 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86761.711741,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86761713000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15287.610942,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15287611000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3122349811,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3122349811 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143279314,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143279314 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3066,6 +3006,72 @@ window.BENCHMARK_DATA = {
             "value": 142050591,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142050591 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8820bd5f3004fedd6c286e2dbf5f8b24fc767fd2",
+          "message": "fix: handle calls to non-existent contracts in AVM witgen (#10862)\n\nExceptionally halt & consume all gas on a call to a non-existent\ncontract. Should be able to prove.\n\nHacked this to work for top-level/enqueued-calls by adding a dummy row\n(`op_add`) and then raising an exceptional halt.\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10373\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10044\n\nFollow-up work:\n- Add tests for bytecode deserialization failures (sim & witgen)",
+          "timestamp": "2024-12-19T06:36:48-05:00",
+          "tree_id": "895b9543d9e3a2d453c93791371cd2b084e935b1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8820bd5f3004fedd6c286e2dbf5f8b24fc767fd2"
+        },
+        "date": 1734609525000,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 21746.67925900002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19073.500444 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24511.337944000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 21797.343171 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5007.585204999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4645.667925 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84614.78080800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84614782000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15131.664287000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15131665000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2853639406,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2853639406 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141955268,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141955268 ns\nthreads: 1"
           }
         ]
       }
