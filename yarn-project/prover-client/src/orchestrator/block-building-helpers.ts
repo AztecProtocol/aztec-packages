@@ -37,11 +37,11 @@ import {
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { type SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
-  BaseOrMergeRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
   BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
   MergeRollupInputs,
   PreviousRollupBlockData,

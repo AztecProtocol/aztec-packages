@@ -15,7 +15,7 @@ import {
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { SpongeBlob } from '@aztec/circuits.js/blobs';
-import { BaseOrMergeRollupPublicInputs, BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
+import { type BaseOrMergeRollupPublicInputs, type BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type EpochProvingState } from './epoch-proving-state.js';

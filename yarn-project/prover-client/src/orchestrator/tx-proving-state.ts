@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuits.js';
 import {
   AvmProofData,
-  BaseRollupHints,
+  type BaseRollupHints,
   PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,

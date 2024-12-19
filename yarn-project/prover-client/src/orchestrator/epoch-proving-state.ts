@@ -11,7 +11,7 @@ import {
   type RecursiveProof,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { BlockRootOrBlockMergePublicInputs, RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { type BlockRootOrBlockMergePublicInputs, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 

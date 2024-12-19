@@ -31,17 +31,17 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import {
-  BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
-  PublicBaseRollupInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  TubeInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
+  type PublicBaseRollupInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';

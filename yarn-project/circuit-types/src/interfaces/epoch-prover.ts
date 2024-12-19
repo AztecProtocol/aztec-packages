@@ -1,5 +1,5 @@
 import { type BlockHeader, type Fr, type Proof } from '@aztec/circuits.js';
-import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
 import { type L2Block } from '../l2_block.js';
 import { type BlockBuilder } from './block-builder.js';

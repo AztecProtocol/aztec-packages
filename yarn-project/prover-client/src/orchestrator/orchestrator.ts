@@ -39,9 +39,9 @@ import {
 } from '@aztec/circuits.js';
 import { BlobPublicInputs } from '@aztec/circuits.js/blobs';
 import {
-  BaseOrMergeRollupPublicInputs,
-  BaseRollupHints,
-  BlockRootOrBlockMergePublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseRollupHints,
+  type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';

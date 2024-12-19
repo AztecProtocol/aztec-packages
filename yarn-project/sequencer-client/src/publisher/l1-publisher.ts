@@ -15,7 +15,7 @@ import {
   EthAddress,
   type Proof,
 } from '@aztec/circuits.js';
-import { FeeRecipient, RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
   type L1ContractsConfig,

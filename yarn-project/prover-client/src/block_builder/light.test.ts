@@ -33,11 +33,11 @@ import {
 } from '@aztec/circuits.js';
 import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
-  BaseOrMergeRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
   BlockRootRollupInputs,
   MergeRollupInputs,
   PreviousRollupData,
-  PrivateBaseRollupHints,
+  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,
 } from '@aztec/circuits.js/rollup';
