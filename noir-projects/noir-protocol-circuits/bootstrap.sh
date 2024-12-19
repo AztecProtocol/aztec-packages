@@ -79,7 +79,7 @@ function compile {
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
-  else if echo "$name" | grep -qE "${rollup_honk_regex}"; then
+  elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
     local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
