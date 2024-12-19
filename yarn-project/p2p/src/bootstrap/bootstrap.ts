@@ -4,12 +4,12 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { SignableENR } from '@chainsafe/enr';
+import { type ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/discv5/discV5_service.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/types.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 /**
@@ -107,7 +107,7 @@ export class BootstrapNode implements P2PBootstrapApi {
    */
   public getPeerId() {
     this.assertPeerId();
-    return this.peerId;
+    return this.peerId!;
   }
 
   public getENR() {
@@ -122,6 +122,6 @@ export class BootstrapNode implements P2PBootstrapApi {
 
   public getRoutingTable() {
     this.assertNodeStarted();
-    return Promise.resolve(this.node!.kadValues().map(enr => enr.encodeTxt()));
+    return Promise.resolve(this.node!.kadValues().map((enr: ENR) => enr.encodeTxt()));
   }
 }

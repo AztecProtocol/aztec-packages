@@ -26,7 +26,12 @@ import type { AztecKVStore } from '@aztec/kv-store';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
-import { type GossipSub, type GossipSubComponents, GossipsubMessage, gossipsub } from '@chainsafe/libp2p-gossipsub';
+import {
+  type GossipSub,
+  type GossipSubComponents,
+  type GossipsubMessage,
+  gossipsub,
+} from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -212,6 +217,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent);
 
     // Stop peer manager
+    this.logger.debug('Stopping peer manager...');
     this.peerManager.stop();
 
     this.logger.debug('Stopping job queue...');
