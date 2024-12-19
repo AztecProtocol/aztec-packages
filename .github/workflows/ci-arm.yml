@@ -23,7 +23,7 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: master
+      username: ${{ github.ref_name }}
       runner_type: builder-arm
     secrets: inherit
 
@@ -48,7 +48,7 @@ jobs:
   base-images:
     needs: [setup, changes]
     # Note we don't put the 'if' here as that would also apply to dependent jobs, instead we just copy it into each step
-    runs-on: master-arm
+    runs-on: ${{ github.ref_name }}-arm
     steps:
       # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
       - run: sudo chown -R $USER:$USER /home/ubuntu/
@@ -70,7 +70,7 @@ jobs:
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [base-images]
-    runs-on: master-arm
+    runs-on: ${{ github.ref_name }}-arm
     steps:
       # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
       - run: sudo chown -R $USER:$USER /home/ubuntu/
