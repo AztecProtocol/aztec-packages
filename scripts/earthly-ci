@@ -20,14 +20,58 @@ export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/scripts/earthly-ci-config
 # AWS credentials can be blank, however we will not use the S3 cache at all if so.
 EARTHLY_ARGS=""
 
-# We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
-# we do not run with minio in CI
-earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-        --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
-        --secret S3_BUILD_CACHE_MINIO_URL="" \
-        --secret S3_BUILD_CACHE_UPLOAD="true" \
-        --secret S3_BUILD_CACHE_DOWNLOAD="true" \
-        --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
-        $EARTHLY_ARGS \
-        $@ \
-        --GITHUB_RUN_URL="${GITHUB_RUN_URL:-}"
+earthly_exit_code=254
+function run_earthly {
+  set +x
+  # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
+  # we do not run with minio in CI
+  earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+          --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+          --secret S3_BUILD_CACHE_MINIO_URL="" \
+          --secret S3_BUILD_CACHE_UPLOAD="true" \
+          --secret S3_BUILD_CACHE_DOWNLOAD="true" \
+          --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
+          $EARTHLY_ARGS \
+          $@ \
+          --GITHUB_RUN_URL="${GITHUB_RUN_URL:-}"
+  earthly_exit_code=$?
+  exit $earthly_exit_code
+}
+
+# Handle earthly commands and retries
+ATTEMPT_COUNT=0
+while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
+  if run_earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
+    exit 0  # Success, exit the script
+  else
+    # Increment attempt counter
+    ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
+
+    # Check the output for specific errors
+    if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
+      INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
+      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -ge 3 ]; then
+        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Starting again with no cache."
+        EARTHLY_ARGS="--no-cache $EARTHLY_ARGS"
+      else
+        echo "Got 'inconsistent graph state' or 'failed to get state for index'. Retrying once."
+        sleep 20
+      fi
+    elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null \
+         || grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null || grep 'Error response from daemon: removal of container earthly-buildkitd is already in progress: exit status 1' $OUTPUT_FILE >/dev/null \
+         || grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null \
+         || grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; \
+         || grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null \
+         || grep 'could not start container "earthly-buildkitd"' $OUTPUT_FILE >/dev/null \
+         || grep 'could not determine buildkit address - is Docker or Podman running?' $OUTPUT_FILE >/dev/null \
+         || grep 'please make sure the URL is valid, and Docker 18.09 or later is installed on the remote host' $OUTPUT_FILE >/dev/null \
+         || grep 'docker: failed to register layer' $OUTPUT_FILE >/dev/null \
+         || grep 'docker: error during connect:' $OUTPUT_FILE >/dev/null \
+         || grep 'docker: failed to write digest data' >/dev/null \
+         || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null ; then
+      # wait for other docker restarts
+      sleep 20
+    fi
+    exit $earthly_exit_code
+  fi
+done
