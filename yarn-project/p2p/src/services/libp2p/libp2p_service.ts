@@ -26,7 +26,7 @@ import type { AztecKVStore } from '@aztec/kv-store';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
-import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { type GossipSub, type GossipSubComponents, GossipsubMessage, gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -180,12 +180,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     // add GossipSub listener
-    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, async e => {
-      const { msg } = e.detail;
-      this.logger.trace(`Received PUBSUB message.`);
-
-      await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
-    });
+    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
 
     // Start running promise for peer discovery
     this.discoveryRunningPromise = new RunningPromise(
@@ -213,6 +208,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @returns An empty promise.
    */
   public async stop() {
+    // Remove gossip sub listener
+    this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent);
+
     this.logger.debug('Stopping job queue...');
     await this.jobQueue.end();
     this.logger.debug('Stopping running promise...');
@@ -364,6 +362,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
+  }
+
+  private async handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
+    const { msg } = e.detail;
+    this.logger.trace(`Received PUBSUB message.`);
+
+    await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
   }
 
   /**

@@ -78,13 +78,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
-    this.discv5.on(Discv5Event.DISCOVERED, (enr: ENR) => this.onDiscovered(enr));
-    this.discv5.on(Discv5Event.ENR_ADDED, async (enr: ENR) => {
-      const multiAddrTcp = await enr.getFullMultiaddr('tcp');
-      const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
-      this.onDiscovered(enr);
-    });
+    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered);
+    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded);
   }
 
   public async start(): Promise<void> {
@@ -158,8 +153,19 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
+    await this.discv5.off(Discv5Event.DISCOVERED, this.onDiscovered);
+    await this.discv5.off(Discv5Event.ENR_ADDED, this.onEnrAdded);
+
     await this.discv5.stop();
+
     this.currentState = PeerDiscoveryState.STOPPED;
+  }
+
+  private async onEnrAdded(enr: ENR) {
+    const multiAddrTcp = await enr.getFullMultiaddr('tcp');
+    const multiAddrUdp = await enr.getFullMultiaddr('udp');
+    this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+    this.onDiscovered(enr);
   }
 
   private onDiscovered(enr: ENR) {
