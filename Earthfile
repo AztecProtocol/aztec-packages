@@ -374,4 +374,4 @@ network-test:
   FROM +bootstrap
   ARG test=./test-transfer.sh
   ARG validators=3
-  RUN scripts/run_native_testnet.sh -i -t $test -val $validators -v
+  RUN scripts/run_native_testnet.sh -i -t $test -val $validators
