@@ -40,6 +40,9 @@ class ECCVMFlavor {
     using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
 
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = false;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t NUM_WIRES = 85;
