@@ -947,11 +947,6 @@ template <typename Curve_> class IPA {
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
 
-        // Since we know this circuit will not have any more IPA claims to accumulate, add IPA Claim to public inputs of circuit and add the proof to the builder.
-        Builder* builder = r.get_context();
-        builder->add_ipa_claim(output_claim.get_witness_indices());
-        builder->ipa_proof = prover_transcript->proof_data;
-
         return {output_claim, prover_transcript->proof_data};
     }
 };

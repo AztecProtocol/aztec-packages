@@ -19,6 +19,12 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
+template <typename Builder> struct HonkRecursionConstraintsOutput {
+    PairingPointAccumulatorIndices agg_obj_indices;
+    OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
+    HonkProof ipa_proof;
+};
+
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
@@ -239,12 +245,14 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         PairingPointAccumulatorIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-        current_aggregation_object = process_honk_recursion_constraints(builder,
-                                                                        constraint_system,
-                                                                        has_valid_witness_assignments,
-                                                                        gate_counter,
-                                                                        current_aggregation_object,
-                                                                        metadata.honk_recursion);
+        HonkRecursionConstraintsOutput<Builder> output =
+            process_honk_recursion_constraints(builder,
+                                               constraint_system,
+                                               has_valid_witness_assignments,
+                                               gate_counter,
+                                               current_aggregation_object,
+                                               metadata.honk_recursion);
+        current_aggregation_object = output.agg_obj_indices;
 
 #ifndef DISABLE_AZTEC_VM
         current_aggregation_object = process_avm_recursion_constraints(
@@ -260,6 +268,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
+        }
+        ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
+        if (metadata.honk_recursion == 2) {
+            builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
+            builder.ipa_proof = output.ipa_proof;
         }
     }
 }
@@ -350,7 +363,7 @@ void process_plonk_recursion_constraints(Builder& builder,
     }
 }
 
-PairingPointAccumulatorIndices process_honk_recursion_constraints(
+HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     Builder& builder,
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
@@ -358,6 +371,7 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
     PairingPointAccumulatorIndices current_aggregation_object,
     uint32_t honk_recursion)
 {
+    HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
     size_t idx = 0;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
@@ -391,13 +405,15 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
         auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
-        IPA<stdlib::grumpkin<Builder>>::accumulate(
+        auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+        output.ipa_claim = ipa_claim;
+        output.ipa_proof = ipa_proof;
     } else if (nested_ipa_claims.size() == 1) {
-        builder.add_ipa_claim(nested_ipa_claims[0].get_witness_indices());
+        output.ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since its a proof
         // that will be checked anyway.
-        builder.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+        output.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
     } else if (nested_ipa_claims.size() > 2) {
         throw_or_abort("Too many nested IPA claims to accumulate");
     } else {
@@ -423,11 +439,12 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
             auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
             auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
             OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
-            builder.ipa_proof = ipa_transcript->export_proof();
+            output.ipa_claim = stdlib_opening_claim;
+            output.ipa_proof = ipa_transcript->export_proof();
         }
     }
-    return current_aggregation_object;
+    output.agg_obj_indices = current_aggregation_object;
+    return output;
 }
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,

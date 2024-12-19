@@ -74,6 +74,8 @@ barretenberg-acir-tests-bb-ultra-honk:
     RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
+    # Construct and separately verify a UltraRollupHonk proof for a single program that recursively verifies a Honk proof
+    RUN FLOW=prove_then_verify_ultra_rollup_honk ./run_acir_tests.sh verify_rollup_honk_proof
 
 barretenberg-acir-tests-bb-client-ivc:
     FROM ../build-images/+from-registry
