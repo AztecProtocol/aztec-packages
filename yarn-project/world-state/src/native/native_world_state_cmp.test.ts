@@ -17,7 +17,6 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { mockBlock } from '../test/utils.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
@@ -53,12 +52,7 @@ describe('NativeWorldState', () => {
 
   beforeAll(async () => {
     legacyStore = AztecLmdbStore.open(legacyDataDir);
-    nativeWS = await NativeWorldStateService.new(
-      EthAddress.random(),
-      nativeDataDir,
-      1024 * 1024,
-      new WorldStateInstrumentation(new NoopTelemetryClient()),
-    );
+    nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
     legacyWS = await MerkleTrees.new(legacyStore, new NoopTelemetryClient());
   });
 

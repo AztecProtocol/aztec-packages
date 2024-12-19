@@ -260,7 +260,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
     }
 
-    this.instrumentation.recordRoundTrip(callDuration, messageType);
+    this.instrumentation.recordRoundTrip(callDuration * 1000, messageType);
 
     return response.value;
   }
