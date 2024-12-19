@@ -1,4 +1,4 @@
-import { type ContractArtifact, createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
@@ -450,7 +450,7 @@ export class TXENode implements AztecNode {
    * @param aztecAddress
    * @param artifact
    */
-  addContractArtifact(_address: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
     throw new Error('TXE Node method addContractArtifact not implemented');
   }
 
