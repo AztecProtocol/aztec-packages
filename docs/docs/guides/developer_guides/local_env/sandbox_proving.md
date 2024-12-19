@@ -39,7 +39,7 @@ Once everything has been set up, you will see that the PXE is listening on `loca
 
 ## Proving with `aztec-wallet`
 
-Alternatively, you can enable proving for transactions using `aztec-wallet` and not all transactions going to the sandbox.
+Alternatively, you can enable proving on a per-transaction basis using the `aztec-wallet` CLI
 
 Open `~/.aztec/bin/aztec-wallet` and update the `ENV_VARS_TO_INJECT` variable to:
 
