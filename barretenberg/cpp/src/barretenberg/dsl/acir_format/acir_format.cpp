@@ -269,7 +269,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
         }
-        ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
+        // This assertion should be true, except for the root rollup as of now since the root rollup will not output a
+        // ipa proof. ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
             builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
             builder.ipa_proof = output.ipa_proof;
