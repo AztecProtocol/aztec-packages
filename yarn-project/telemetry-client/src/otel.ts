@@ -170,6 +170,21 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
         new View({
           instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'us',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [
+              ...linearBuckets(5, 100, 20), // 20 buckets between 5 and 100us
+              ...linearBuckets(100, 1_000, 20).slice(1), // another 20 buckets between 100us and 1ms. slice(1) to remove duplicate 100
+              ...linearBuckets(1_000, 10_000, 90).slice(1), // 90 buckets between 1ms and 10ms
+              ...linearBuckets(10_000, 100_000, 20).slice(1), // 20 buckets between 10ms and 100ms
+              ...linearBuckets(100_000, 1_000_000, 20).slice(1), // 20 buckets between 100ms and 1s
+              ...linearBuckets(1_000_000, 60_000_000, 20).slice(1), // 20 buckets between 1s and 1m
+            ],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 'By',
           aggregation: new ExplicitBucketHistogramAggregation(
             // 143 buckets between 32 bytes and 2MB

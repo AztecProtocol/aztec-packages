@@ -68,7 +68,7 @@ export class WorldStateInstrumentation {
 
     this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME, {
       description: 'The round trip time of world state requests',
-      unit: 'microseconds',
+      unit: 'us',
       valueType: ValueType.INT,
     });
   }

@@ -3,7 +3,6 @@ import { type Gas } from '@aztec/circuits.js';
 import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,
-  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -23,8 +22,8 @@ export class PublicProcessorMetrics {
   private phaseCount: UpDownCounter;
 
   private bytecodeDeployed: Histogram;
-  private totalGas: Gauge;
-  private gasRate: Gauge;
+  private totalGas: Histogram;
+  private gasRate: Histogram;
 
   private treeInsertionDuration: Histogram;
 

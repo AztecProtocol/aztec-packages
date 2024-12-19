@@ -19,7 +19,7 @@ export class SequencerMetrics {
   private stateTransitionBufferDuration: Histogram;
   private currentBlockNumber: Gauge;
   private currentBlockSize: Gauge;
-  private blockBuilderInsertions: Gauge;
+  private blockBuilderInsertions: Histogram;
 
   private timeToCollectAttestations: Gauge;
 
@@ -63,7 +63,7 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
     });
 
-    this.blockBuilderInsertions = meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
+    this.blockBuilderInsertions = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
       description: 'Timer for tree insertions performed by the block builder',
       unit: 'ms',
       valueType: ValueType.INT,

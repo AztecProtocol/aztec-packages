@@ -206,11 +206,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
-    const timer = new Timer();
+    const start = process.hrtime.bigint();
 
     const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
     const encodedRequest = this.encoder.encode(request);
-    const encodingDuration = timer.ms();
+    const encodingEnd = process.hrtime.bigint();
+    const encodingDuration = Number(encodingEnd - start) / 1_000_000;
 
     let encodedResponse: any;
     try {
@@ -220,7 +221,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
       throw error;
     }
 
-    const callDuration = timer.ms() - encodingDuration;
+    const callEnd = process.hrtime.bigint();
+
+    const callDuration = Number(callEnd - encodingEnd) / 1_000_000;
 
     const buf = Buffer.isBuffer(encodedResponse)
       ? encodedResponse
@@ -244,8 +247,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
     }
 
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
-    const decodingDuration = timer.ms() - callDuration;
-    const totalDuration = timer.ms();
+    const decodingEnd = process.hrtime.bigint();
+    const decodingDuration = Number(decodingEnd - callEnd) / 1_000_000;
+    const totalDuration = Number(decodingEnd - start) / 1_000_000;
     this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
       totalDuration,
       encodingDuration,
@@ -263,7 +267,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
       throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
     }
 
-    this.instrumentation.recordRoundTrip(callDuration * 1000, messageType);
+    const callDurationUs = Number(callEnd - encodingEnd) / 1000;
+    this.instrumentation.recordRoundTrip(callDurationUs, messageType);
 
     return response.value;
   }
