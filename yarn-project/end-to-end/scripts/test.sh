@@ -14,7 +14,8 @@ export TEST=$2
 
 case "$TYPE" in
   "simple"|"simple-flake")
-    name=${TEST//\//_}
+    # Strip leading non alpha numerics and replace / with _ for the container name.
+    name=$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
     trap 'docker kill $name &> /dev/null' SIGINT SIGTERM
     docker run --rm \
       --name $name \
