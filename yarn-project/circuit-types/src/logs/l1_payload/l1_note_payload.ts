@@ -46,12 +46,13 @@ export class L1NotePayload {
   ): L1NotePayload | undefined {
     try {
       const reader = BufferReader.asReader(plaintext);
-      const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
-      const storageSlot = fields[0];
-      const noteTypeId = NoteSelector.fromField(fields[1]);
+      const storageSlot = reader.readObject(Fr);
+      // TODO(#10724): Since `note_type_id` is 7 bits long in the 2 bytes there is a space for a 1 bit partial note
+      // flag.
+      const noteTypeId = new NoteSelector(reader.readUInt16());
 
-      const privateNoteValues = fields.slice(2);
+      const privateNoteValues = reader.readArray(reader.remainingBytes() / Fr.SIZE_IN_BYTES, Fr);
 
       return new L1NotePayload(contractAddress, storageSlot, noteTypeId, privateNoteValues, publicNoteValues);
     } catch (e) {

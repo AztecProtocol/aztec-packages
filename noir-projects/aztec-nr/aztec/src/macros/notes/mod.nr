@@ -38,7 +38,7 @@ comptime fn get_next_note_type_id() -> Field {
 /// the length of the serialized note.
 ///
 /// impl NoteInterface<N> for NoteStruct {
-///     fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 64] {
+///     fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 34] {
 ///         ...
 ///     }
 ///
@@ -117,23 +117,27 @@ comptime fn generate_note_interface(
     (
         quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
-                let serialized_note = self.serialize_content();
-
-                let mut buffer: [u8; $content_len * 32 + 64] = [0; $content_len * 32 + 64];
+            fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 34] {
+                let mut buffer: [u8; $content_len * 32 + 34] = [0; $content_len * 32 + 34];
 
                 let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-                let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
+                // TODO(#10724): Since `note)type_id` is 7 bits long in the 2 bytes there is a space for a 1 bit
+                // partial note flag.
+                let note_type_id_bytes: [u8; 2] = $name::get_note_type_id().to_be_bytes();
+                let serialized_note = self.serialize_content();
 
                 for i in 0..32 {
                     buffer[i] = storage_slot_bytes[i];
+                }
+
+                for i in 0..2 {
                     buffer[32 + i] = note_type_id_bytes[i];
                 }
 
                 for i in 0..serialized_note.len() {
                     let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
                     for j in 0..32 {
-                        buffer[64 + i * 32 + j] = bytes[j];
+                        buffer[34 + i * 32 + j] = bytes[j];
                     }
                 }
                 buffer
@@ -370,18 +374,21 @@ comptime fn generate_multi_scalar_mul(
 ///
 ///         let let storage_slot_bytes = storage_slot.to_be_bytes();
 ///         let let note_type_id_bytes = TokenNote::get_note_type_id().to_be_bytes();
+///         let serialized_note = [npk_m_hash as Field, randomness as Field];
 ///
 ///         for i in 0..32 {
 ///             log_plaintext[i] = storage_slot_bytes[i];
+///         }
+///
+///         for i in 0..2 {
 ///             log_plaintext[32 + i] = note_type_id_bytes[i];
 ///         }
 ///
-///         let serialized_note = [npk_m_hash as Field, randomness as Field];
 ///
 ///         for i in 0..serialized_note.len() {
 ///             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
 ///             for j in 0..32 {
-///                 log_plaintext[64 + i * 32 + j] = bytes[j];
+///                 log_plaintext[34 + i * 32 + j] = bytes[j];
 ///             }
 ///         }
 ///
@@ -430,7 +437,7 @@ comptime fn generate_setup_payload(
         .join(quote {,});
 
     // Then the log plaintext ones
-    let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
+    let log_plaintext_length = indexed_fixed_fields.len() * 32 + 34;
     let setup_log_plaintext =
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
@@ -441,7 +448,7 @@ comptime fn generate_setup_payload(
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
+    // --> we achieve rounding by adding 30 and then dividing without remainder
     let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
 
     (
@@ -519,10 +526,15 @@ comptime fn get_setup_log_plaintext_body(
         let mut log_plaintext: [u8; $log_plaintext_length] = [0; $log_plaintext_length];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
+        // TODO(#10724): Since `note_type_id` is 7 bits long in the 2 bytes there is a space for a 1 bit partial note
+        // flag.
+        let note_type_id_bytes: [u8; 2] = $name::get_note_type_id().to_be_bytes();
 
         for i in 0..32 {
             log_plaintext[i] = storage_slot_bytes[i];
+        }
+
+        for i in 0..2 {
             log_plaintext[32 + i] = note_type_id_bytes[i];
         }
 
@@ -532,7 +544,7 @@ comptime fn get_setup_log_plaintext_body(
         for i in 0..serialized_note.len() {
             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
             for j in 0..32 {
-                log_plaintext[64 + i * 32 + j] = bytes[j];
+                log_plaintext[34 + i * 32 + j] = bytes[j];
             }
         }
     }
@@ -654,14 +666,14 @@ comptime fn generate_finalization_payload(
     let args = args_list.join(quote {,});
 
     // Then we compute values for `encrypt_log(...)` function
-    let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
+    let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 34;
     let setup_log_byte_length = 32 /* tag */
         + OVERHEAD_SIZE
         + setup_log_plaintext_length
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
+    // --> we achieve rounding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
     let public_values_field_length = public_values_length * 32;
     let finalization_log_byte_length =
@@ -893,6 +905,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     );
 
     quote {
+        l
         $note_properties
         $setup_payload_impl
         $finalization_payload_impl
