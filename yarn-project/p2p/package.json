@@ -6,7 +6,8 @@
     ".": "./dest/index.js",
     "./mocks": "./dest/mocks/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
-    "./config": "./dest/config.js"
+    "./config": "./dest/config.js",
+    "./msg_validators": "./dest/msg_validators/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -69,6 +70,7 @@
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
