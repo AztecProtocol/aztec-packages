@@ -16,7 +16,7 @@ scripts/run_on_tester "
   # Install deps.
   .github/ensure-tester/install $DOCKERHUB_PASSWORD '$INPUT';
   # Run the test.
-  ci3/aws_handle_evict "set -eu; $2"
+  ci3/aws_handle_evict $DOCKERHUB_PASSWORD \"set -eu; $2\"
 "
 exit_code=$?
 if [ $exit_code = 255 ]; then

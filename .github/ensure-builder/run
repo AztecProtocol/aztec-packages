@@ -21,14 +21,14 @@ scripts/run_on_builder "
   # Install deps.
   flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD '$INPUT';
   # Run the test.
-  ci3/aws_handle_evict "set -eu; $2"
+  ci3/aws_handle_evict $DOCKERHUB_PASSWORD \"set -eu; $2\"
 "
 exit_code=$?
 if [ $exit_code = 255 ]; then
-  echo "Treating ssh termination as spot eviction.";
+  echo "Treating ssh termination as spot eviction."
   exit_code=155
-fi;
-echo "exit_code=$exit_code" >> $GITHUB_OUTPUT;
+fi
+echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
 if [ $exit_code = 155 ]; then
   echo "Spot eviction detected - retrying with on-demand."
 fi
