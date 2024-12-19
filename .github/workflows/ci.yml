@@ -314,47 +314,48 @@ jobs:
               ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
             fi
 
-  bench-summary:
-    if: needs.configure.outputs.e2e-all == 'true'
-    needs:
-      - acir-bench
-      - bench-e2e
-      - configure
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 100 # Downloading base benchmark from master requires access to history
-          ref: "${{ github.event.pull_request.head.sha }}"
-      - uses: ./.github/ci-setup-action
-      - name: "Build and upload bench aggregate file"
-        uses: ./.github/ensure-builder
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci ./yarn-project/scripts/+bench-aggregate
-      - name: "Download base benchmark and package into earthly"
-        if: github.event_name == 'pull_request'
-        uses: ./.github/run-on-builder
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BENCH_FOLDER: "./scripts/logs/tmp/bench"
-          PULL_REQUEST: "${{ github.event.pull_request.number }}"
-        with:
-          run: |
-            # Download the base benchmark locally (requires AWS creds and .git history)
-            mkdir -p $BENCH_FOLDER
-            ./scripts/logs/download_base_benchmark_from_s3.sh
-            # Package it into an earthly artifact to read from bench-comment
-            scripts/earthly-ci ./scripts/logs+pack-base-benchmark
-      - name: "Generate summary comment if pull request"
-        if: github.event_name == 'pull_request'
-        uses: ./.github/run-on-builder
-        env:
-          AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        with:
-          run: scripts/earthly-ci ./yarn-project/scripts/+bench-comment
+  # TODO(ci3) fix and reinstate
+  # bench-summary:
+  #   if: needs.configure.outputs.e2e-all == 'true'
+  #   needs:
+  #     - acir-bench
+  #     - bench-e2e
+  #     - configure
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 100 # Downloading base benchmark from master requires access to history
+  #         ref: "${{ github.event.pull_request.head.sha }}"
+  #     - uses: ./.github/ci-setup-action
+  #     - name: "Build and upload bench aggregate file"
+  #       uses: ./.github/ensure-builder
+  #       with:
+  #         runner_type: builder-x86
+  #         username: ${{ needs.configure.outputs.username }}
+  #         run: scripts/earthly-ci ./yarn-project/scripts/+bench-aggregate
+  #     - name: "Download base benchmark and package into earthly"
+  #       if: github.event_name == 'pull_request'
+  #       uses: ./.github/run-on-builder
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         BENCH_FOLDER: "./scripts/logs/tmp/bench"
+  #         PULL_REQUEST: "${{ github.event.pull_request.number }}"
+  #       with:
+  #         run: |
+  #           # Download the base benchmark locally (requires AWS creds and .git history)
+  #           mkdir -p $BENCH_FOLDER
+  #           ./scripts/logs/download_base_benchmark_from_s3.sh
+  #           # Package it into an earthly artifact to read from bench-comment
+  #           scripts/earthly-ci ./scripts/logs+pack-base-benchmark
+  #     - name: "Generate summary comment if pull request"
+  #       if: github.event_name == 'pull_request'
+  #       uses: ./.github/run-on-builder
+  #       env:
+  #         AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+  #       with:
+  #         run: scripts/earthly-ci ./yarn-project/scripts/+bench-comment
 
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # ran on own runner for resource reasons (memory x cpu intensive)
