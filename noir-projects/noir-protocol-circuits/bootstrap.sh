@@ -121,10 +121,8 @@ function test {
   if ! test_should_run $name-tests-$CIRCUITS_HASH; then
     return
   fi
-  github_group "$name test"
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
-  github_endgroup
 }
 
 export -f compile test build
@@ -147,7 +145,7 @@ case "$CMD" in
     test
     ;;
   "ci")
-    parallel --line-buffered bash -c {} ::: build test
+    parallel --tag --line-buffered denoise {} ::: build test
     ;;
   *)
     echo_stderr "Unknown command: $CMD"

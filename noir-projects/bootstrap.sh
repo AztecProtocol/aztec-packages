@@ -30,10 +30,10 @@ export -f prep
 
 denoise prep
 
-parallel -v --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
-  "denoise ./mock-protocol-circuits/bootstrap.sh $cmd" \
-  "denoise ./noir-protocol-circuits/bootstrap.sh $cmd" \
-  "denoise ./noir-contracts/bootstrap.sh $cmd"
+parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
+  "./mock-protocol-circuits/bootstrap.sh $cmd" \
+  "./noir-protocol-circuits/bootstrap.sh $cmd" \
+  "./noir-contracts/bootstrap.sh $cmd"
 
 github_endgroup
 
