@@ -4,14 +4,19 @@ ttl=$1
 scripts/run_on_builder "
   set -eu;
   sudo shutdown -P $ttl;
-  if ! [ -d ~/run-$RUN_ID ]; then
-    mkdir -p ~/run-$RUN_ID;
-    cd ~/run-$RUN_ID;
-    git init >/dev/null 2>&1;
-    git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1;
-    git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
-    git checkout FETCH_HEAD >/dev/null 2>&1;
-  fi;
+  function clone {
+    if ! [ -d ~/run-$RUN_ID ]; then
+      mkdir -p ~/run-$RUN_ID;
+      cd ~/run-$RUN_ID;
+      git init >/dev/null 2>&1;
+      git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1;
+      git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
+      git checkout FETCH_HEAD >/dev/null 2>&1;
+    fi;
+  }
+  export RUN_ID GIT_COMMIT
+  export -f clone
+  flock bash -c clone
   cd ~/run-$RUN_ID;
   .github/ensure-builder/wrapper $DOCKERHUB_PASSWORD '$INPUT';
 "
