@@ -644,6 +644,8 @@ export class L1Publisher {
         gasPrice: receipt.effectiveGasPrice,
         gasUsed: receipt.gasUsed,
         transactionHash: receipt.transactionHash,
+        blobDataGas: 0n,
+        blobGasUsed: 0n,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
       };
       this.log.verbose(`Submitted claim epoch proof right to L1 rollup contract`, {
