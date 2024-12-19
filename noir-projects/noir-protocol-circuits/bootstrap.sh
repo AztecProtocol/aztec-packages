@@ -109,7 +109,7 @@ function build {
 
 function test {
   set -eu
-  # Whether we run the tests or not is corse grained.
+  # Whether we run the tests or not is coarse grained.
   name=$(basename "$PWD")
   CIRCUITS_HASH=$(REBUILD_PATTERNS="^noir-projects/$name" cache_content_hash ../../noir/.rebuild_patterns)
   if ! test_should_run $name-tests-$CIRCUITS_HASH; then

@@ -25,6 +25,7 @@ AWK_PATTERN=$(echo "$REBUILD_PATTERNS" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '
 cd $(git rev-parse --show-toplevel)
 # Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
 # Sort the hashes and compute the content hash
+git ls-tree -r $AZTEC_CACHE_COMMIT | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $0}'
 CONTENT_HASH=$(git ls-tree -r $AZTEC_CACHE_COMMIT | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | sort | git hash-object --stdin| cut -c1-16)
 
 # Check if file list was empty by comparing against the result of 'echo '' | git hash-object --stdin | cut -c1-16'
