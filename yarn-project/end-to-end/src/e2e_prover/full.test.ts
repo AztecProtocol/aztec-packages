@@ -257,8 +257,8 @@ describe('full_prover', () => {
       'rollup-merge',
       'rollup-block-root',
       'rollup-root',
-    ].map(circuitName => {
-      const inputs = getTestData(circuitName);
+    ].forEach(circuitName => {
+      const [inputs] = getTestData(circuitName);
       updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(inputs as any));
     });
   });
