@@ -199,12 +199,17 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {
+    const logFunction = (message: string) => {
+      this.log.debug(`$bb gates ${circuitName} - ${message}`);
+    };
+
     const result = await computeGateCountForCircuit(
       this.bbBinaryPath,
       this.bbWorkingDirectory,
       circuitName,
       bytecode,
       'mega_honk',
+      logFunction,
     );
     if (result.status === BB_RESULT.FAILURE) {
       throw new Error(result.reason);

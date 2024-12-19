@@ -91,7 +91,13 @@ export abstract class BaseContractInteraction {
     opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
-    const simulationResult = await this.wallet.simulateTx(txRequest, true);
+    const simulationResult = await this.wallet.simulateTx(
+      txRequest,
+      true /*simulatePublic*/,
+      undefined /* msgSender */,
+      undefined /* skipTxValidation */,
+      false /* enforceFeePayment */,
+    );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
       opts?.fee?.estimatedGasPadding,
@@ -128,7 +134,13 @@ export abstract class BaseContractInteraction {
     if (request.fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
       const txRequest = await this.wallet.createTxExecutionRequest({ ...request, fee: feeForEstimation });
-      const simulationResult = await this.wallet.simulateTx(txRequest, true);
+      const simulationResult = await this.wallet.simulateTx(
+        txRequest,
+        true /*simulatePublic*/,
+        undefined /* msgSender */,
+        undefined /* skipTxValidation */,
+        false /* enforceFeePayment */,
+      );
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
         request.fee?.estimatedGasPadding,
