@@ -43,7 +43,7 @@ fi
 # Optimize image building
 if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" ||
   ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+  echo "Docker images not found."
   exit 1
 fi
 

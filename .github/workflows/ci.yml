@@ -28,7 +28,6 @@ env:
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
   GITHUB_TOKEN: ${{ github.token }}
-  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
@@ -169,7 +168,7 @@ jobs:
   ci-rest:
     needs: [bootstrap, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-bb == 'true' && needs.configure.outputs.non-docs == 'true')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -197,7 +196,7 @@ jobs:
           run: ./bootstrap.sh image-e2e
 
   docs:
-    needs: [ci-rest, configure]
+    needs: [bootstrap, configure]
     runs-on: ubuntu-latest
     if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.non-bb == 'true'
     steps:
@@ -249,6 +248,7 @@ jobs:
         test: ${{ fromJson( needs.configure.outputs.bench-list )}}
     steps:
       - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: Test
         timeout-minutes: 40
         run: |
@@ -532,7 +532,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-      - name: Build Bench Binaries
+      - name: Test
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
