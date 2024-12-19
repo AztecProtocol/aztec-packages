@@ -24,6 +24,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+      GITHUB_RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
       GIT_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -34,4 +35,4 @@ jobs:
         with:
           run: |
             sudo shutdown -P 75 # hack until core part of the scripts
-            earthly-ci --no-output ./barretenberg/cpp/+vm-full-test --hardware_concurrency=64  # limit our parallelism to half our cores
+            scripts/earthly-ci --no-output ./barretenberg/cpp/+vm-full-test --hardware_concurrency=64  # limit our parallelism to half our cores
