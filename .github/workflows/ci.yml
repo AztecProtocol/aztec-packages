@@ -638,7 +638,6 @@ jobs:
       - docs
       - e2e
       - bb-native-tests
-      - network-4epochs-test
       - kind-network-smoke
       - kind-network-test
       - boxes-test
