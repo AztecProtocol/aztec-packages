@@ -26,6 +26,7 @@ docker run $interactive_args --rm \
   -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/root/.aws \
   aztecprotocol/ci:2.0 bash -c "
+  set -e
   /usr/local/share/docker-init.sh &> /dev/null
   git config --global --add safe.directory /aztec-packages-host/.git
   mkdir -p /root/aztec-packages && cd /root/aztec-packages
