@@ -9,7 +9,7 @@
 
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
-cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
+cmd=${1:-"./bootstrap.sh ci || exec bash"}
 
 if ! git diff --quiet; then
   echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"

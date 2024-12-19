@@ -33,7 +33,7 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-[ -f package.json ] && yarn && node ./scripts/generate_variants.js
+[ -f package.json ] && denoise "yarn && node ./scripts/generate_variants.js"
 
 mkdir -p $tmp_dir
 mkdir -p $key_dir
@@ -48,12 +48,18 @@ function compile {
   local filename="$name.json"
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
-  program_hash=$($NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2)
-  hash=$(echo "$NARGO_HASH-$program_hash" | sha256sum | tr -d ' -')
-  if ! cache_download circuit-$hash.tar.gz &> /dev/null; then
+  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  # echo $program_hash_cmd >&2
+  program_hash=$(dump_fail "$program_hash_cmd")
+  echo "Hash preimage: $NARGO_HASH-$program_hash"
+  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
+    rm -f $json_path
     # TODO: --skip-brillig-constraints-check added temporarily for blobs build time.
-    $NARGO compile --package $name --silence-warnings --skip-brillig-constraints-check
+    local compile_cmd="$NARGO compile --package $name --silence-warnings --skip-brillig-constraints-check"
+    echo "$compile_cmd"
+    dump_fail "$compile_cmd"
     echo "Compilation complete for: $name (${SECONDS}s)"
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
@@ -74,8 +80,8 @@ function compile {
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  hash=$(echo "$BB_HASH-$bytecode_hash-$proto" | sha256sum | tr -d ' -')
-  if ! cache_download vk-$hash.tar.gz &> /dev/null; then
+  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
+  if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo "Generating vk for function: $name..." >&2
     SECONDS=0
