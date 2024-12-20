@@ -264,7 +264,7 @@ export class L1ToL2TokenPortalManager {
     const args = [to.toString(), amount, claimSecretHash.toString()] as const;
 
     const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
-      to: to.toString()!,
+      to: this.portal.address,
       data: encodeFunctionData({
         abi: this.portal.abi,
         functionName: 'depositToAztecPublic',
