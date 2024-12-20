@@ -618,9 +618,6 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    if (values.length === 0) {
-      throw new Error('Cannot store an empty array of values in a local contract store');
-    }
     const dataKey = `${contract.toString()}:${key.toString()}`;
     const dataBuffer = Buffer.concat(values.map(value => value.toBuffer()));
     await this.#contractStore.set(dataKey, dataBuffer);

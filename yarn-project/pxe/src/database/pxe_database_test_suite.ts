@@ -444,13 +444,6 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(result).toEqual(newValues);
       });
 
-      it('throws error when storing empty values array', async () => {
-        const key = new Fr(1);
-        const values: Fr[] = [];
-
-        await expect(database.store(contract, key, values)).rejects.toThrow();
-      });
-
       it('stores values for different contracts independently', async () => {
         const anotherContract = AztecAddress.random();
         const key = new Fr(1);
