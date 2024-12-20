@@ -12043,13 +12043,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite-plugin-strip-block@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "vite-plugin-strip-block@npm:1.0.1"
-  checksum: 10c0/4302a035fbcaff8c5cfdffeedfd7c61d9b7198aeac1123cdadc00770db1d4828e7b780ce3a84106c786e771eb47c60289a694283c95702819f6f909c21bc3bbe
-  languageName: node
-  linkType: hard
-
 "vite-plugin-top-level-await@npm:^1.4.4":
   version: 1.4.4
   resolution: "vite-plugin-top-level-await@npm:1.4.4"
@@ -12187,7 +12180,6 @@ __metadata:
     typescript-eslint: "npm:^8.11.0"
     vite: "npm:^6.0.3"
     vite-plugin-node-polyfills: "npm:^0.22.0"
-    vite-plugin-strip-block: "npm:^1.0.1"
     vite-plugin-top-level-await: "npm:^1.4.4"
   languageName: unknown
   linkType: soft

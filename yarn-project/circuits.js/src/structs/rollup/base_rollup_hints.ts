@@ -3,10 +3,10 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { ARCHIVE_HEIGHT } from '../../constants.gen.js';
+import { SpongeBlob } from '../blobs/sponge_blob.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
-import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 import { PrivateBaseStateDiffHints, PublicBaseStateDiffHints } from './state_diff_hints.js';
 
