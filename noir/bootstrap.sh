@@ -19,6 +19,7 @@ function build {
 function test_hash() {
   hash_str $hash-$(cache_content_hash .rebuild_patterns_tests)
 }
+
 function test {
   test_flag=noir-test-$(test_hash)
   test_should_run $test_flag || return 0
@@ -34,6 +35,22 @@ function test {
   github_endgroup
 }
 
+function test_cmds {
+  cd noir-repo
+  RAYON_NUM_THREADS=1 cargo nextest list --workspace --locked --release \
+    -E '!test(hello_world_example) & !test(simple_verifier_codegen)' -Tjson-pretty | \
+      jq -r '
+        .["rust-suites"][] |
+        .testcases as $tests |
+        .["binary-path"] as $binary |
+        $tests |
+        to_entries[] |
+        select(.value.ignored == false and .value["filter-match"].status == "matches") |
+        "RAYON_NUM_THREADS=1 \($binary) --exact \(.key) &>/dev/null"' | \
+      # TODO: These fail. Figure out why.
+      grep -vE "(test_caches_open|requests)"
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -47,6 +64,9 @@ case "$cmd" in
   "ci")
     build
     test
+    ;;
+  "test-cmds")
+    test_cmds
     ;;
   "hash")
     echo $hash

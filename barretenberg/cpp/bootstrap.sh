@@ -125,7 +125,7 @@ case "$cmd" in
     cd build
     for bin in ./bin/*_tests; do
       $bin --gtest_list_tests | \
-        awk -vbin=$bin '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print bin " --gtest_filter=" suite$1 " &>/dev/null"}' | \
+        awk -vbin=$bin -vwd=$PWD '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "cd " wd " && HARDWARE_CONCURRENCY=8 " bin " --gtest_filter=" suite$1 " &>/dev/null"}' | \
         sed 's/\.$//' | grep -v 'DISABLED_'; \
     done
     ;;

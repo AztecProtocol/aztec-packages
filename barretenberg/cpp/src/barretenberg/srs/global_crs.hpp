@@ -4,6 +4,18 @@
 
 namespace bb::srs {
 
+inline std::string get_ignition_srs_path()
+{
+    const char* env_var = std::getenv("IGNITION_SRS_PATH");
+    return env_var != nullptr ? std::string(env_var) : "../srs_db/ignition";
+}
+
+inline std::string get_grumpkin_srs_path()
+{
+    const char* env_var = std::getenv("GRUMPKIN_SRS_PATH");
+    return env_var != nullptr ? std::string(env_var) : "../srs_db/grumpkin";
+}
+
 // Initializes the crs using files
 void init_crs_factory(std::string crs_path);
 void init_grumpkin_crs_factory(std::string crs_path);
