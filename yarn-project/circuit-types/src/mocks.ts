@@ -166,6 +166,7 @@ export const mockSimulatedTx = (seed = 1) => {
     {
       totalGas: makeGas(),
       teardownGas: makeGas(),
+      publicGas: makeGas(),
     },
   );
   return new TxSimulationResult(privateExecutionResult, tx.data, output);

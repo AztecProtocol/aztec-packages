@@ -169,12 +169,7 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(
-      builderDb,
-      blockSource,
-      worldStateConfig,
-      new NoopTelemetryClient(),
-    );
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     publisher = new L1Publisher(
