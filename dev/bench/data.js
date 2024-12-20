@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734622488356,
+  "lastUpdate": 1734699424717,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7ed89aaa9d0968af6334c1c8abf6c06a42754c52",
-          "message": "feat: Integrate verify_proof calls in mock protocol circuits (#9253)\n\nIntegrates `verify_proof` calls into the mock kernels in the IVC\r\nintegration suite. VKs are computed using a new `write_vk_for_ivc` flow.\r\n\r\n---------\r\n\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
-          "timestamp": "2024-12-05T07:29:08-07:00",
-          "tree_id": "797ebc8d7c7d86b831bcdb0f59ce6ee3573716ed",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7ed89aaa9d0968af6334c1c8abf6c06a42754c52"
-        },
-        "date": 1733411987048,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25636.434116000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23776.302220999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4626.7122279999885,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4309.831836 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89467.156511,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89467158000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16541.559909,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16541561000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2841648049,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2841648049 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136619531,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136619531 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3090,6 +3030,72 @@ window.BENCHMARK_DATA = {
             "value": 132331442,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132331442 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef247d4d68ce4aadb4c45b1f75d71a411e7102b6",
+          "message": "chore(avm): extra column information in lookups (#10905)\n\nNeeded for vm2. This helps derive a lookup class from the settings.",
+          "timestamp": "2024-12-20T12:40:40Z",
+          "tree_id": "56999a44a08648832134df54a69c7ecfa7b847e8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ef247d4d68ce4aadb4c45b1f75d71a411e7102b6"
+        },
+        "date": 1734699417335,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20294.08005800002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17774.308369 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21876.17391399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19281.479867 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4655.666172999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4343.510282 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73152.726453,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73152726000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14069.454980000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14069455000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3250698225,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3250698225 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145886537,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145886537 ns\nthreads: 1"
           }
         ]
       }
