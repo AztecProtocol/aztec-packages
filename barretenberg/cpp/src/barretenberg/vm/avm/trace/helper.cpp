@@ -133,6 +133,10 @@ std::string to_name(AvmError error)
         return "DUPLICATE NULLIFIER";
     case AvmError::SIDE_EFFECT_LIMIT_REACHED:
         return "SIDE EFFECT LIMIT REACHED";
+    case AvmError::OUT_OF_GAS:
+        return "OUT OF GAS";
+    case AvmError::NO_BYTECODE_FOUND:
+        return "NO BYTECODE FOUND";
     default:
         throw std::runtime_error("Invalid error type");
         break;

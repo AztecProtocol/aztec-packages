@@ -152,11 +152,22 @@ export class BlockHeader {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 
+  toInspect() {
+    return {
+      lastArchive: this.lastArchive.root.toString(),
+      contentCommitment: this.contentCommitment.toInspect(),
+      state: this.state.toInspect(),
+      globalVariables: this.globalVariables.toInspect(),
+      totalFees: this.totalFees.toBigInt(),
+      totalManaUsed: this.totalManaUsed.toBigInt(),
+    };
+  }
+
   [inspect.custom]() {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},
-  contentCommitment.numTx: ${this.contentCommitment.numTxs.toNumber()},
-  contentCommitment.txsEffectsHash: ${this.contentCommitment.txsEffectsHash.toString('hex')},
+  contentCommitment.numTxs: ${this.contentCommitment.numTxs.toNumber()},
+  contentCommitment.blobsHash: ${this.contentCommitment.blobsHash.toString('hex')},
   contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
   contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},

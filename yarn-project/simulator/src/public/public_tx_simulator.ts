@@ -56,6 +56,7 @@ export class PublicTxSimulator {
     telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
+    private enforceFeePayment: boolean = true,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -69,8 +70,9 @@ export class PublicTxSimulator {
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
    */
-  async simulate(tx: Tx): Promise<PublicTxResult> {
-    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
+  public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const txHash = tx.getTxHash();
+    this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
       this.db,
@@ -207,7 +209,12 @@ export class PublicTxSimulator {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
 
-    this.log.debug(`Beginning processing in phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`);
+    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`, {
+      txHash: context.getTxHash().toString(),
+      phase: TxExecutionPhase[phase],
+      callRequests: callRequests.length,
+      executionRequests: executionRequests.length,
+    });
 
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
@@ -276,8 +283,8 @@ export class PublicTxSimulator {
 
     const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
-    this.log.verbose(
-      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+    this.log.debug(
+      `Simulated enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
@@ -320,8 +327,8 @@ export class PublicTxSimulator {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
 
-    this.log.verbose(
-      `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    this.log.debug(
+      `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
@@ -338,10 +345,10 @@ export class PublicTxSimulator {
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
 
-    this.log.verbose(
-      `[AVM] Simulation of enqueued public call ${fnName} completed. reverted: ${result.reverted}${
-        result.reverted ? ', reason: ' + result.revertReason : ''
-      }.`,
+    this.log.debug(
+      result.reverted
+        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
+        : `Simulation of enqueued public call ${fnName} completed successfully.`,
       {
         eventName: 'avm-simulation',
         appCircuitName: fnName,
@@ -372,6 +379,11 @@ export class PublicTxSimulator {
         );
       }
     }
+    for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
+      if (!noteHash.isEmpty()) {
+        stateManager.writeUniqueNoteHash(noteHash);
+      }
+    }
   }
 
   /**
@@ -391,6 +403,12 @@ export class PublicTxSimulator {
         );
       }
     }
+    for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
+      if (!noteHash.isEmpty()) {
+        // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
+        stateManager.writeSiloedNoteHash(noteHash);
+      }
+    }
   }
 
   private async payFee(context: PublicTxContext) {
@@ -407,12 +425,18 @@ export class PublicTxSimulator {
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();
 
-    const currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    // We allow to fake the balance of the fee payer to allow fee estimation
+    // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      throw new Error(
-        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
-      );
+      if (this.enforceFeePayment) {
+        throw new Error(
+          `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+        );
+      } else {
+        currentBalance = txFee;
+      }
     }
 
     const updatedBalance = currentBalance.sub(txFee);

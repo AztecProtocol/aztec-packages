@@ -1,10 +1,13 @@
-import { InboxLeaf, L2Block } from '@aztec/circuit-types';
+import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
 import { GENESIS_ARCHIVE_ROOT, PrivateLog } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Blob } from '@aztec/foundation/blob';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -24,7 +27,9 @@ import { type ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 interface MockRollupContractRead {
+  /** Given an L2 block number, returns the archive. */
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
+  /** Given an L2 block number, returns provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber, provenEpochNumber. */
   status: (args: readonly [bigint]) => Promise<[bigint, `0x${string}`, bigint, `0x${string}`, `0x${string}`]>;
 }
 
@@ -50,6 +55,7 @@ describe('Archiver', () => {
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let archiverStore: ArchiverDataStore;
   let now: number;
+  let l1Constants: L1RollupConstants;
 
   let rollupRead: MockProxy<MockRollupContractRead>;
   let inboxRead: MockProxy<MockInboxContractRead>;
@@ -59,9 +65,12 @@ describe('Archiver', () => {
   let l2BlockProposedLogs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[];
   let l2MessageSentLogs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageSent'>[];
 
+  let logger: Logger;
+
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT).toString();
 
   beforeEach(() => {
+    logger = createLogger('archiver:test');
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
       // Return a block with a reasonable timestamp
@@ -84,8 +93,16 @@ describe('Archiver', () => {
       }) as any,
     });
 
-    instrumentation = mock({ isEnabled: () => true });
+    const tracer = new NoopTelemetryClient().getTracer();
+    instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     archiverStore = new MemoryArchiverStore(1000);
+    l1Constants = {
+      l1GenesisTime: BigInt(now),
+      l1StartBlock: 0n,
+      epochDuration: 4,
+      slotDuration: 24,
+      ethereumSlotDuration: 12,
+    };
 
     archiver = new Archiver(
       publicClient,
@@ -93,13 +110,7 @@ describe('Archiver', () => {
       archiverStore,
       { pollingIntervalMs: 1000, batchSize: 1000 },
       instrumentation,
-      {
-        l1GenesisTime: BigInt(now),
-        l1StartBlock: 0n,
-        epochDuration: 4,
-        slotDuration: 24,
-        ethereumSlotDuration: 12,
-      },
+      l1Constants,
     );
 
     blocks = blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2));
@@ -366,6 +377,94 @@ describe('Archiver', () => {
     expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
   }, 10_000);
 
+  it('reports an epoch as pending if the current L2 block is not in the last slot of the epoch', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const notLastL2SlotInEpoch = epochDuration - 2;
+    const l1BlockForL2Block = l1StartBlock + BigInt((notLastL2SlotInEpoch * slotDuration) / ethereumSlotDuration);
+    expect(notLastL2SlotInEpoch).toEqual(2);
+
+    logger.info(`Syncing L2 block on slot ${notLastL2SlotInEpoch} mined in L1 block ${l1BlockForL2Block}`);
+    const l2Block = blocks[0];
+    l2Block.header.globalVariables.slotNumber = new Fr(notLastL2SlotInEpoch);
+    blocks = [l2Block];
+
+    const rollupTxs = blocks.map(makeRollupTx);
+    publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
+    rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString());
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    // Epoch should not yet be complete
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+
+    // Wait until block 1 is processed
+    while ((await archiver.getBlockNumber()) !== 1) {
+      await sleep(100);
+    }
+
+    // Epoch should not be complete
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+  });
+
+  it('reports an epoch as complete if the current L2 block is in the last slot of the epoch', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const lastL2SlotInEpoch = epochDuration - 1;
+    const l1BlockForL2Block = l1StartBlock + BigInt((lastL2SlotInEpoch * slotDuration) / ethereumSlotDuration);
+    expect(lastL2SlotInEpoch).toEqual(3);
+
+    logger.info(`Syncing L2 block on slot ${lastL2SlotInEpoch} mined in L1 block ${l1BlockForL2Block}`);
+    const l2Block = blocks[0];
+    l2Block.header.globalVariables.slotNumber = new Fr(lastL2SlotInEpoch);
+    blocks = [l2Block];
+
+    const rollupTxs = blocks.map(makeRollupTx);
+    publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
+    rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString());
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    // Epoch should not yet be complete
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+
+    // Wait until block 1 is processed
+    while ((await archiver.getBlockNumber()) !== 1) {
+      await sleep(100);
+    }
+
+    // Epoch should be complete once block was synced
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
+  it('reports an epoch as pending if the current L1 block is not the last one on the epoch and no L2 block landed', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const notLastL1BlockForEpoch = l1StartBlock + BigInt((epochDuration * slotDuration) / ethereumSlotDuration) - 2n;
+    expect(notLastL1BlockForEpoch).toEqual(6n);
+
+    logger.info(`Syncing archiver to L1 block ${notLastL1BlockForEpoch}`);
+    publicClient.getBlockNumber.mockResolvedValueOnce(notLastL1BlockForEpoch);
+    rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
+
+    await archiver.start(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+  });
+
+  it('reports an epoch as complete if the current L1 block is the last one on the epoch and no L2 block landed', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const lastL1BlockForEpoch = l1StartBlock + BigInt((epochDuration * slotDuration) / ethereumSlotDuration) - 1n;
+    expect(lastL1BlockForEpoch).toEqual(7n);
+
+    logger.info(`Syncing archiver to L1 block ${lastL1BlockForEpoch}`);
+    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
+
+    await archiver.start(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
 
@@ -412,6 +511,7 @@ describe('Archiver', () => {
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
+  const blobInput = Blob.getEthBlobEvaluationInputs(Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex(l2Block.header.hash().toBuffer());
   const input = encodeFunctionData({
@@ -421,6 +521,7 @@ function makeRollupTx(l2Block: L2Block) {
       { header, archive, blockHash, oracleInput: { provingCostModifier: 0n, feeAssetPriceModifier: 0n }, txHashes: [] },
       [],
       body,
+      blobInput,
     ],
   });
   return { input } as Transaction<bigint, number>;

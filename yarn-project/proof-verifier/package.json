@@ -2,7 +2,8 @@
   "name": "@aztec/proof-verifier",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js"
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -10,7 +11,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8"
   },
   "engines": {
     "node": ">=18"
@@ -67,9 +68,9 @@
     },
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],

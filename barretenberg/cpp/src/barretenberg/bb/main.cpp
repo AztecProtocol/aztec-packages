@@ -190,8 +190,6 @@ void prove_tube(const std::string& output_path)
 {
     using namespace stdlib::recursion::honk;
 
-    using GoblinVerifierInput = ClientIVCRecursiveVerifier::GoblinVerifierInput;
-    using VerifierInput = ClientIVCRecursiveVerifier::VerifierInput;
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
@@ -211,8 +209,6 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 
-    GoblinVerifierInput goblin_verifier_input{ vk.eccvm, vk.translator };
-    VerifierInput input{ vk.mega, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
 
     // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
@@ -226,7 +222,7 @@ void prove_tube(const std::string& output_path)
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
-    ClientIVCRecursiveVerifier verifier{ builder, input };
+    ClientIVCRecursiveVerifier verifier{ builder, vk };
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
@@ -352,7 +348,76 @@ void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recurs
                                     gates_per_opcode_str,
                                     "]\n  }");
 
-        // Attach a comma if we still circuit reports to generate
+        // Attach a comma if there are more circuit reports to generate
+        if (i != (constraint_systems.size() - 1)) {
+            result_string = format(result_string, ",");
+        }
+
+        functions_string = format(functions_string, result_string);
+
+        i++;
+    }
+    functions_string = format(functions_string, "\n]}");
+
+    const char* jsonData = functions_string.c_str();
+    size_t length = strlen(jsonData);
+    std::vector<uint8_t> data(jsonData, jsonData + length);
+    writeRawBytesToStdout(data);
+}
+
+/**
+ * @brief Constructs a barretenberg circuit from program bytecode and reports the resulting gate counts
+ * @details IVC circuits utilize the Mega arithmetization and a structured execution trace. This method reports the
+ * number of each gate type present in the circuit vs the fixed max number allowed by the structured trace.
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ */
+void gate_count_for_ivc(const std::string& bytecodePath)
+{
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
+    auto constraint_systems = get_constraint_systems(bytecodePath, /*honk_recursion=*/false);
+
+    // Initialize an SRS to make the ClientIVC constructor happy
+    init_bn254_crs(1 << 20);
+    init_grumpkin_crs(1 << 15);
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+
+    size_t i = 0;
+    for (const auto& constraint_system : constraint_systems) {
+        acir_format::AcirProgram program{ constraint_system };
+        const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+        acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
+                                                                              : create_mock_ivc_from_constraints(
+                                                                                    ivc_constraints, trace_settings),
+                                               .collect_gates_per_opcode = true };
+
+        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        size_t circuit_size = builder.num_gates;
+
+        // Print the details of the gate types within the structured execution trace
+        builder.blocks.set_fixed_block_sizes(trace_settings);
+        builder.blocks.summarize();
+
+        // Build individual circuit report
+        std::string gates_per_opcode_str;
+        for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(program.constraints.gates_per_opcode[j]);
+            if (j != program.constraints.gates_per_opcode.size() - 1) {
+                gates_per_opcode_str += ",";
+            }
+        }
+
+        auto result_string = format("{\n        \"acir_opcodes\": ",
+                                    program.constraints.num_acir_opcodes,
+                                    ",\n        \"circuit_size\": ",
+                                    circuit_size,
+                                    ",\n        \"gates_per_opcode\": [",
+                                    gates_per_opcode_str,
+                                    "]\n  }");
+
+        // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
             result_string = format(result_string, ",");
         }
@@ -887,6 +952,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
  * @param witnessPath Path to the file containing the serialized witness
  * @param outputPath Path to write toml file
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
+// double_verify_honk_proof as well
 template <IsUltraFlavor Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
@@ -1119,8 +1186,7 @@ int main(int argc, char* argv[])
 
         const API::Flags flags = [&args]() {
             return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
-                               .no_auto_verify = flag_present(args, "--no_auto_verify") };
+                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
         }();
 
         const std::string command = args[0];
@@ -1156,6 +1222,12 @@ int main(int argc, char* argv[])
 
             if (command == "prove_and_verify") {
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
+            }
+
+            if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
+                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+                api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
+                return 1;
             }
 
             throw_or_abort("Invalid command passed to execute_command in bb");
@@ -1207,6 +1279,8 @@ int main(int argc, char* argv[])
             gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_mega_honk") {
             gateCount<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+        } else if (command == "gates_for_ivc") {
+            gate_count_for_ivc(bytecode_path);
         } else if (command == "verify") {
             return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {

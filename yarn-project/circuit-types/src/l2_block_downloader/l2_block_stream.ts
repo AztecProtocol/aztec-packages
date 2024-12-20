@@ -8,13 +8,13 @@ import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_sou
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
-
-  private readonly log = createLogger('types:l2_block_stream');
+  private isSyncing = false;
 
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
+    private readonly log = createLogger('types:block_stream'),
     private opts: {
       proven?: boolean;
       pollIntervalMS?: number;
@@ -22,7 +22,7 @@ export class L2BlockStream {
       startingBlock?: number;
     } = {},
   ) {
-    this.runningPromise = new RunningPromise(() => this.work(), this.opts.pollIntervalMS ?? 1000);
+    this.runningPromise = new RunningPromise(() => this.work(), log, this.opts.pollIntervalMS ?? 1000);
   }
 
   public start() {
@@ -38,8 +38,10 @@ export class L2BlockStream {
     return this.runningPromise.isRunning();
   }
 
-  public sync() {
-    return this.runningPromise.trigger();
+  public async sync() {
+    this.isSyncing = true;
+    await this.runningPromise.trigger();
+    this.isSyncing = false;
   }
 
   protected async work() {
@@ -133,7 +135,7 @@ export class L2BlockStream {
       `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.blockNumber})`,
     );
     await this.handler.handleBlockStreamEvent(event);
-    if (!this.isRunning()) {
+    if (!this.isRunning() && !this.isSyncing) {
       throw new AbortError();
     }
   }

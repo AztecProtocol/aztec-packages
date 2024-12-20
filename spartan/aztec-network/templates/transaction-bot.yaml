@@ -75,6 +75,14 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
@@ -93,6 +101,8 @@ spec:
               value: "{{ .Values.bot.followChain }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
+            - name: BOT_FEE_PAYMENT_METHOD
+              value: "{{ .Values.bot.feePaymentMethod }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS

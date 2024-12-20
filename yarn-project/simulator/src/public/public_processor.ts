@@ -4,7 +4,6 @@ import {
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type ProcessedTxHandler,
   Tx,
   TxExecutionPhase,
   type TxValidator,
@@ -25,8 +24,9 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent, ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
@@ -43,12 +43,14 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor.
    * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
+   * @param enforceFeePayment - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
+    enforceFeePayment: boolean,
   ): PublicProcessor {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
@@ -59,6 +61,7 @@ export class PublicProcessorFactory {
       this.telemetryClient,
       globalVariables,
       /*doMerkleOperations=*/ true,
+      enforceFeePayment,
     );
 
     return new PublicProcessor(
@@ -76,7 +79,7 @@ export class PublicProcessorFactory {
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
  * any public function calls in them. Txs with private calls only are unaffected.
  */
-export class PublicProcessor {
+export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
   constructor(
     protected db: MerkleTreeWriteOperations,
@@ -103,7 +106,6 @@ export class PublicProcessor {
   public async process(
     txs: Tx[],
     maxTransactions = txs.length,
-    processedTxHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
@@ -118,66 +120,9 @@ export class PublicProcessor {
         break;
       }
       try {
-        const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? await this.processPrivateOnlyTx(tx)
-          : await this.processTxWithPublicCalls(tx);
-        this.log.debug(`Processed tx`, {
-          txHash: processedTx.hash,
-          historicalHeaderHash: processedTx.constants.historicalHeader.hash(),
-          blockNumber: processedTx.constants.globalVariables.blockNumber,
-          lastArchiveRoot: processedTx.constants.historicalHeader.lastArchive.root,
-        });
-
-        // Commit the state updates from this transaction
-        await this.worldStateDB.commit();
-
-        // Re-validate the transaction
-        if (txValidator) {
-          // Only accept processed transactions that are not double-spends,
-          // public functions emitting nullifiers would pass earlier check but fail here.
-          // Note that we're checking all nullifiers generated in the private execution twice,
-          // we could store the ones already checked and skip them here as an optimization.
-          const [_, invalid] = await txValidator.validateTxs([processedTx]);
-          if (invalid.length) {
-            throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
-          }
-        }
-        // if we were given a handler then send the transaction to it for block building or proving
-        if (processedTxHandler) {
-          await processedTxHandler.addNewTx(processedTx);
-        }
-        // Update the state so that the next tx in the loop has the correct .startState
-        // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
-        // a) had only 1 tx with public calls per block, so this loop had len 1
-        // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
-        // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
-        // The below is taken from buildBaseRollupHints:
-        await this.db.appendLeaves(
-          MerkleTreeId.NOTE_HASH_TREE,
-          padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-        );
-        try {
-          await this.db.batchInsert(
-            MerkleTreeId.NULLIFIER_TREE,
-            padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-            NULLIFIER_SUBTREE_HEIGHT,
-          );
-        } catch (error) {
-          if (txValidator) {
-            // Ideally the validator has already caught this above, but just in case:
-            throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
-          } else {
-            // We have no validator and assume this call should blindly process txs with duplicates being caught later
-            this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
-          }
-        }
-
-        await this.db.sequentialInsert(
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-        );
+        const [processedTx, returnValues] = await this.processTx(tx, txValidator);
         result.push(processedTx);
-        returns = returns.concat(returnValues ?? []);
+        returns = returns.concat(returnValues);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
@@ -191,6 +136,83 @@ export class PublicProcessor {
     }
 
     return [result, failed, returns];
+  }
+
+  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString() }))
+  private async processTx(
+    tx: Tx,
+    txValidator?: TxValidator<ProcessedTx>,
+  ): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+    const [processedTx, returnValues] = !tx.hasPublicCalls()
+      ? await this.processPrivateOnlyTx(tx)
+      : await this.processTxWithPublicCalls(tx);
+
+    this.log.verbose(
+      !tx.hasPublicCalls()
+        ? `Processed tx ${processedTx.hash} with no public calls`
+        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls`,
+      {
+        txHash: processedTx.hash,
+        txFee: processedTx.txEffect.transactionFee.toBigInt(),
+        revertCode: processedTx.txEffect.revertCode.getCode(),
+        revertReason: processedTx.revertReason,
+        gasUsed: processedTx.gasUsed,
+        publicDataWriteCount: processedTx.txEffect.publicDataWrites.length,
+        nullifierCount: processedTx.txEffect.nullifiers.length,
+        noteHashCount: processedTx.txEffect.noteHashes.length,
+        contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
+        unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
+        privateLogCount: processedTx.txEffect.privateLogs.length,
+        l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
+      },
+    );
+
+    // Commit the state updates from this transaction
+    await this.worldStateDB.commit();
+
+    // Re-validate the transaction
+    if (txValidator) {
+      // Only accept processed transactions that are not double-spends,
+      // public functions emitting nullifiers would pass earlier check but fail here.
+      // Note that we're checking all nullifiers generated in the private execution twice,
+      // we could store the ones already checked and skip them here as an optimization.
+      const [_, invalid] = await txValidator.validateTxs([processedTx]);
+      if (invalid.length) {
+        throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
+      }
+    }
+    // Update the state so that the next tx in the loop has the correct .startState
+    // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
+    // a) had only 1 tx with public calls per block, so this loop had len 1
+    // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
+    // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
+    // The below is taken from buildBaseRollupHints:
+    await this.db.appendLeaves(
+      MerkleTreeId.NOTE_HASH_TREE,
+      padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    );
+    try {
+      await this.db.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
+        NULLIFIER_SUBTREE_HEIGHT,
+      );
+    } catch (error) {
+      if (txValidator) {
+        // Ideally the validator has already caught this above, but just in case:
+        throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
+      } else {
+        // We have no validator and assume this call should blindly process txs with duplicates being caught later
+        this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
+      }
+    }
+
+    await this.db.sequentialInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
+    );
+
+    return [processedTx, returnValues ?? []];
   }
 
   /**
@@ -238,6 +260,13 @@ export class PublicProcessor {
       transactionFee,
       feePaymentPublicDataWrite,
       this.globalVariables,
+    );
+
+    this.metrics.recordClassRegistration(
+      ...tx.contractClassLogs
+        .unrollLogs()
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
     return [processedTx];
   }

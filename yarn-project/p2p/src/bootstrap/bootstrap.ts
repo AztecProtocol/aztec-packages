@@ -9,7 +9,7 @@ import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/discv5/discV5_service.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 /**

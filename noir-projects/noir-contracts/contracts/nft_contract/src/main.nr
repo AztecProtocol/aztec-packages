@@ -29,12 +29,12 @@ contract NFT {
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
-    use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+    use std::meta::derive;
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct NFTTransfer {
         from: AztecAddress,
         to: AztecAddress,
@@ -152,7 +152,7 @@ contract NFT {
         // We prepare the private balance increase.
         let hiding_point_slot = _prepare_private_balance_increase(to, &mut context, storage);
 
-        // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
+        // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
         nft._finalize_transfer_to_private_unsafe(from, token_id, hiding_point_slot).enqueue(
             &mut context,

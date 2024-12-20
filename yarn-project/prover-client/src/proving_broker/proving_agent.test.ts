@@ -239,7 +239,7 @@ describe('ProvingAgent', () => {
     const inputs: ProvingJobInputs = { type: ProvingRequestType.BASE_PARITY, inputs: makeBaseParityInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
-      blockNumber: 1,
+      epochNumber: 1,
       type: ProvingRequestType.BASE_PARITY,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };

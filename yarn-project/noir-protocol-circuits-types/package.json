@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./client": "./dest/client.js",
     "./types": "./dest/types/index.js"
   },
   "inherits": [
@@ -21,7 +22,7 @@
     "generate:vk-hashes": "node --no-warnings --loader ts-node/esm src/scripts/generate_vk_hashes.ts",
     "generate:noir-circuits": "node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
     "generate:reset-data": "node --no-warnings --loader ts-node/esm src/scripts/generate_private_kernel_reset_data.ts && run -T prettier -w src/private_kernel_reset_data.ts",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch"
   },
@@ -52,9 +53,9 @@
     },
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],
@@ -67,6 +68,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@iarna/toml": "^2.2.5",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js",
@@ -91,7 +93,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

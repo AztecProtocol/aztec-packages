@@ -43,7 +43,6 @@ import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../t
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
-import { type SyncStatus } from './sync-status.js';
 
 jest.setTimeout(12_000);
 
@@ -119,18 +118,18 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(CompleteAddress);
   });
 
-  it('registerContact', async () => {
-    const result = await context.client.registerContact(address);
+  it('registerSender', async () => {
+    const result = await context.client.registerSender(address);
     expect(result).toEqual(address);
   });
 
-  it('getContacts', async () => {
-    const result = await context.client.getContacts();
+  it('getSenders', async () => {
+    const result = await context.client.getSenders();
     expect(result).toEqual([address]);
   });
 
-  it('removeContact', async () => {
-    await context.client.removeContact(address);
+  it('removeSender', async () => {
+    await context.client.removeSender(address);
   });
 
   it('registerContractClass', async () => {
@@ -152,7 +151,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, false, []);
+    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, true, false, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -165,6 +164,7 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       TxExecutionRequest.random(),
       true,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -258,16 +258,6 @@ describe('PXESchema', () => {
     expect(result).toEqual(await handler.getPXEInfo());
   });
 
-  it('isGlobalStateSynchronized', async () => {
-    const result = await context.client.isGlobalStateSynchronized();
-    expect(result).toBe(true);
-  });
-
-  it('getSyncStatus', async () => {
-    const result = await context.client.getSyncStatus();
-    expect(result).toEqual(await handler.getSyncStatus());
-  });
-
   it('getContractInstance', async () => {
     const result = await context.client.getContractInstance(address);
     expect(result).toEqual(instance);
@@ -354,14 +344,14 @@ class MockPXE implements PXE {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(CompleteAddress.random());
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.address);
   }
-  getContacts(): Promise<AztecAddress[]> {
+  getSenders(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
-  removeContact(address: AztecAddress): Promise<void> {
+  removeSender(address: AztecAddress): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve();
   }
@@ -392,6 +382,7 @@ class MockPXE implements PXE {
     _simulatePublic: boolean,
     msgSender?: AztecAddress | undefined,
     _skipTxValidation?: boolean | undefined,
+    _enforceFeePayment?: boolean | undefined,
     _profile?: boolean | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {
@@ -500,14 +491,6 @@ class MockPXE implements PXE {
         ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
       ) as ProtocolContractAddresses,
       pxeVersion: '1.0',
-    });
-  }
-  isGlobalStateSynchronized(): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return Promise.resolve({
-      blocks: 1,
     });
   }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

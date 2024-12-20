@@ -1,4 +1,4 @@
-import type { L1PublishBlockStats, L1PublishProofStats } from '@aztec/circuit-types/stats';
+import type { L1PublishBlockStats, L1PublishProofStats, L1PublishStats } from '@aztec/circuit-types/stats';
 import {
   Attributes,
   type Histogram,
@@ -10,7 +10,7 @@ import {
 
 import { formatEther } from 'viem/utils';
 
-export type L1TxType = 'submitProof' | 'process';
+export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
 
 export class L1PublisherMetrics {
   private gasPrice: Histogram;
@@ -38,9 +38,6 @@ export class L1PublisherMetrics {
       description: 'The duration of transaction processing',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: [10, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
-      },
     });
 
     this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
@@ -51,11 +48,8 @@ export class L1PublisherMetrics {
 
     this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
       description: 'The size of the calldata in transactions',
-      unit: 'bytes',
+      unit: 'By',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: [0, 100, 200, 500, 1000, 2000, 5000, 10000],
-      },
     });
 
     this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
@@ -80,7 +74,11 @@ export class L1PublisherMetrics {
     this.recordTx('process', durationMs, stats);
   }
 
-  private recordTx(txType: L1TxType, durationMs: number, stats: Omit<L1PublishProofStats, 'eventName'>) {
+  recordClaimEpochProofRightTx(durationMs: number, stats: L1PublishStats) {
+    this.recordTx('claimEpochProofRight', durationMs, stats);
+  }
+
+  private recordTx(txType: L1TxType, durationMs: number, stats: L1PublishStats) {
     const attributes = {
       [Attributes.L1_TX_TYPE]: txType,
       [Attributes.L1_SENDER]: stats.sender,

@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js"
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
   },
   "inherits": [
     "../package.common.json"
@@ -15,7 +16,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8"
   },
   "jest": {
     "moduleNameMapper": {
@@ -44,9 +45,9 @@
     ],
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],
@@ -64,6 +65,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",

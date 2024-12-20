@@ -9,11 +9,12 @@ import {
   type ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -30,29 +31,33 @@ type ProofRequestBrokerConfig = {
   timeoutIntervalMs?: number;
   jobTimeoutMs?: number;
   maxRetries?: number;
+  maxEpochsToKeepResultsFor?: number;
+  maxParallelCleanUps?: number;
 };
+
+type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
 
 /**
  * A broker that manages proof requests and distributes them to workers based on their priority.
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
-export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
+export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
   private queues: ProvingQueues = {
-    [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.MERGE_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
-    [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<ProvingJob>(provingJobComparator),
+    [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -76,23 +81,48 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   // a map of promises that will be resolved when a job is settled
   private promises = new Map<ProvingJobId, PromiseWithResolvers<ProvingJobSettledResult>>();
 
-  private timeoutPromise: RunningPromise;
-  private timeSource = () => Math.floor(Date.now() / 1000);
+  private cleanupPromise: RunningPromise;
+  private msTimeSource = () => Date.now();
   private jobTimeoutMs: number;
   private maxRetries: number;
 
   private instrumentation: ProvingBrokerInstrumentation;
+  public readonly tracer: Tracer;
+
+  private maxParallelCleanUps: number;
+
+  /**
+   * The broker keeps track of the highest epoch its seen.
+   * This information is used for garbage collection: once it reaches the next epoch, it can start pruning the database of old state.
+   * This clean up pass is only done against _settled_ jobs. This pass will not cancel jobs that are in-progress or in-queue.
+   * It is a client responsibility to cancel jobs if they are no longer necessary.
+   * Example:
+   * proving epoch 11 - the broker will wipe all setlled jobs for epochs 9 and lower
+   * finished proving epoch 11 and got first job for epoch 12 -> the broker will wipe all setlled jobs for epochs 10 and lower
+   * reorged back to end of epoch 10 -> epoch 11 is skipped and epoch 12 starts -> the broker will wipe all setlled jobs for epochs 10 and lower
+   */
+  private epochHeight = 0;
+  private maxEpochsToKeepResultsFor = 1;
 
   public constructor(
     private database: ProvingBrokerDatabase,
     client: TelemetryClient,
-    { jobTimeoutMs = 30_000, timeoutIntervalMs = 10_000, maxRetries = 3 }: ProofRequestBrokerConfig = {},
+    {
+      jobTimeoutMs = 30_000,
+      timeoutIntervalMs = 10_000,
+      maxRetries = 3,
+      maxEpochsToKeepResultsFor = 1,
+      maxParallelCleanUps = 20,
+    }: ProofRequestBrokerConfig = {},
     private logger = createLogger('prover-client:proving-broker'),
   ) {
+    this.tracer = client.getTracer('ProvingBroker');
     this.instrumentation = new ProvingBrokerInstrumentation(client);
-    this.timeoutPromise = new RunningPromise(this.timeoutCheck, timeoutIntervalMs);
+    this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, timeoutIntervalMs);
     this.jobTimeoutMs = jobTimeoutMs;
     this.maxRetries = maxRetries;
+    this.maxEpochsToKeepResultsFor = maxEpochsToKeepResultsFor;
+    this.maxParallelCleanUps = maxParallelCleanUps;
   }
 
   private measureQueueDepth: MonitorCallback = (type: ProvingRequestType) => {
@@ -113,7 +143,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
   public start(): Promise<void> {
     for (const [item, result] of this.database.allProvingJobs()) {
-      this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`);
+      this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
+        provingJobId: item.id,
+        status: result ? result.status : 'pending',
+      });
 
       this.jobsCache.set(item.id, item);
       this.promises.set(item.id, promiseWithResolvers());
@@ -122,12 +155,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
         this.promises.get(item.id)!.resolve(result);
         this.resultsCache.set(item.id, result);
       } else {
-        this.logger.debug(`Re-enqueuing proving job id=${item.id}`);
         this.enqueueJobInternal(item);
       }
     }
 
-    this.timeoutPromise.start();
+    this.cleanupPromise.start();
 
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
@@ -135,39 +167,75 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     return Promise.resolve();
   }
 
-  public stop(): Promise<void> {
-    return this.timeoutPromise.stop();
+  public async stop(): Promise<void> {
+    await this.cleanupPromise.stop();
   }
 
   public async enqueueProvingJob(job: ProvingJob): Promise<void> {
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
+      this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
+        provingJobId: job.id,
+      });
       return;
     }
 
-    await this.database.addProvingJob(job);
-    this.jobsCache.set(job.id, job);
-    this.enqueueJobInternal(job);
+    if (this.isJobStale(job)) {
+      this.logger.warn(`Tried enqueueing stale proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+        provingJobId: job.id,
+      });
+      throw new Error(`Epoch too old: job epoch ${job.epochNumber}, current epoch: ${this.epochHeight}`);
+    }
+
+    this.logger.info(`New proving job id=${job.id} epochNumber=${job.epochNumber}`, { provingJobId: job.id });
+    try {
+      // do this first so it acts as a "lock". If this job is enqueued again while we're saving it the if at the top will catch it.
+      this.jobsCache.set(job.id, job);
+      await this.database.addProvingJob(job);
+      this.enqueueJobInternal(job);
+    } catch (err) {
+      this.logger.error(`Failed to save proving job id=${job.id}: ${err}`, err, { provingJobId: job.id });
+      this.jobsCache.delete(job.id);
+      throw err;
+    }
   }
 
   public waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
     const promiseWithResolvers = this.promises.get(id);
     if (!promiseWithResolvers) {
+      this.logger.warn(`Job id=${id} not found`, { provingJobId: id });
       return Promise.resolve({ status: 'rejected', reason: `Job ${id} not found` });
     }
     return promiseWithResolvers.promise;
   }
 
-  public async removeAndCancelProvingJob(id: ProvingJobId): Promise<void> {
-    this.logger.info(`Cancelling job id=${id}`);
-    await this.database.deleteProvingJobAndResult(id);
+  public async cancelProvingJob(id: ProvingJobId): Promise<void> {
+    if (!this.jobsCache.has(id)) {
+      this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
+      return;
+    }
 
     // notify listeners of the cancellation
     if (!this.resultsCache.has(id)) {
-      this.promises.get(id)?.resolve({ status: 'rejected', reason: 'Aborted' });
+      this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+      await this.reportProvingJobError(id, 'Aborted', false);
+    }
+  }
+
+  private async cleanUpProvingJobState(id: ProvingJobId): Promise<void> {
+    if (!this.jobsCache.has(id)) {
+      this.logger.warn(`Can't clean up a job that doesn't exist id=${id}`, { provingJobId: id });
+      return;
     }
 
+    if (!this.resultsCache.has(id)) {
+      this.logger.warn(`Can't cleanup busy proving job: id=${id}`, { provingJobId: id });
+      return;
+    }
+
+    this.logger.debug(`Cleaning up state for job id=${id}`, { provingJobId: id });
+    await this.database.deleteProvingJobAndResult(id);
     this.jobsCache.delete(id);
     this.promises.delete(id);
     this.resultsCache.delete(id);
@@ -184,7 +252,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       const item = this.jobsCache.get(id);
 
       if (!item) {
-        this.logger.warn(`Proving job id=${id} not found`);
+        this.logger.warn(`Proving job id=${id} not found`, { provingJobId: id });
         return Promise.resolve({ status: 'not-found' });
       }
 
@@ -204,14 +272,15 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
 
     for (const proofType of allowedProofs) {
       const queue = this.queues[proofType];
-      let job: ProvingJob | undefined;
+      let enqueuedJob: EnqueuedProvingJob | undefined;
       // exhaust the queue and make sure we're not sending a job that's already in progress
       // or has already been completed
       // this can happen if the broker crashes and restarts
       // it's possible agents will report progress or results for jobs that are in the queue (after the restart)
-      while ((job = queue.getImmediate())) {
-        if (!this.inProgress.has(job.id) && !this.resultsCache.has(job.id)) {
-          const time = this.timeSource();
+      while ((enqueuedJob = queue.getImmediate())) {
+        const job = this.jobsCache.get(enqueuedJob.id);
+        if (job && !this.inProgress.has(enqueuedJob.id) && !this.resultsCache.has(enqueuedJob.id)) {
+          const time = this.msTimeSource();
           this.inProgress.set(job.id, {
             id: job.id,
             startedAt: time,
@@ -236,37 +305,67 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     const retries = this.retries.get(id) ?? 0;
 
     if (!item) {
-      this.logger.warn(`Proving job id=${id} not found`);
+      this.logger.warn(`Can't set error on unknown proving job id=${id} err=${err}`, { provingJoId: id });
       return;
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`);
+      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`, {
+        provingJobId: id,
+      });
     } else {
       this.inProgress.delete(id);
     }
 
-    if (retry && retries + 1 < this.maxRetries) {
-      this.logger.info(`Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1}`);
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} is already settled, ignoring err=${err}`, {
+        provingJobId: id,
+      });
+      return;
+    }
+
+    if (retry && retries + 1 < this.maxRetries && !this.isJobStale(item)) {
+      this.logger.info(
+        `Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1} err=${err}`,
+        {
+          provingJobId: id,
+        },
+      );
       this.retries.set(id, retries + 1);
       this.enqueueJobInternal(item);
       this.instrumentation.incRetriedJobs(item.type);
       return;
     }
 
-    this.logger.debug(
-      `Marking proving job id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1} as failed`,
+    this.logger.info(
+      `Marking proving job as failed id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${
+        retries + 1
+      } err=${err}`,
+      {
+        provingJobId: id,
+      },
     );
 
-    await this.database.setProvingJobError(id, err);
-
+    // save the result to the cache and notify clients of the job status
+    // this should work even if our database breaks because the result is cached in memory
     const result: ProvingJobSettledResult = { status: 'rejected', reason: String(err) };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+
     this.instrumentation.incRejectedJobs(item.type);
     if (info) {
-      const duration = this.timeSource() - info.startedAt;
-      this.instrumentation.recordJobDuration(item.type, duration * 1000);
+      const duration = this.msTimeSource() - info.startedAt;
+      this.instrumentation.recordJobDuration(item.type, duration);
+    }
+
+    try {
+      await this.database.setProvingJobError(id, err);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job error status id=${id} jobErr=${err}`, saveErr, {
+        provingJobId: id,
+      });
+
+      throw saveErr;
     }
   }
 
@@ -277,15 +376,21 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
   ): Promise<{ job: ProvingJob; time: number } | undefined> {
     const job = this.jobsCache.get(id);
     if (!job) {
-      this.logger.warn(`Proving job id=${id} does not exist`);
+      this.logger.warn(`Proving job id=${id} does not exist`, { provingJobId: id });
+      return filter ? this.getProvingJob(filter) : Promise.resolve(undefined);
+    }
+
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} has already been completed`, { provingJobId: id });
       return filter ? this.getProvingJob(filter) : Promise.resolve(undefined);
     }
 
     const metadata = this.inProgress.get(id);
-    const now = this.timeSource();
+    const now = this.msTimeSource();
     if (!metadata) {
       this.logger.warn(
         `Proving job id=${id} type=${ProvingRequestType[job.type]} not found in the in-progress cache, adding it`,
+        { provingJobId: id },
       );
       // the queue will still contain the item at this point!
       // we need to be careful when popping off the queue to make sure we're not sending
@@ -293,16 +398,17 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
       this.inProgress.set(id, {
         id,
         startedAt,
-        lastUpdatedAt: this.timeSource(),
+        lastUpdatedAt: this.msTimeSource(),
       });
       return Promise.resolve(undefined);
     } else if (startedAt <= metadata.startedAt) {
       if (startedAt < metadata.startedAt) {
-        this.logger.debug(
+        this.logger.info(
           `Proving job id=${id} type=${ProvingRequestType[job.type]} startedAt=${startedAt} older agent has taken job`,
+          { provingJobId: id },
         );
       } else {
-        this.logger.debug(`Proving job id=${id} type=${ProvingRequestType[job.type]} heartbeat`);
+        this.logger.debug(`Proving job id=${id} type=${ProvingRequestType[job.type]} heartbeat`, { provingJobId: id });
       }
       metadata.startedAt = startedAt;
       metadata.lastUpdatedAt = now;
@@ -312,6 +418,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
         `Proving job id=${id} type=${
           ProvingRequestType[job.type]
         } already being worked on by another agent. Sending new one`,
+        { provingJobId: id },
       );
       return this.getProvingJob(filter);
     } else {
@@ -324,60 +431,122 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer {
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
     if (!item) {
-      this.logger.warn(`Proving job id=${id} not found`);
+      this.logger.warn(`Proving job id=${id} not found`, { provingJobId: id });
       return;
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`);
+      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`, {
+        provingJobId: id,
+      });
     } else {
       this.inProgress.delete(id);
     }
 
-    this.logger.debug(
+    if (this.resultsCache.has(id)) {
+      this.logger.warn(`Proving job id=${id} already settled, ignoring result`, { provingJobId: id });
+      return;
+    }
+
+    this.logger.info(
       `Proving job complete id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1}`,
+      { provingJobId: id },
     );
 
-    await this.database.setProvingJobResult(id, value);
-
+    // save result to our local cache and notify clients
+    // if save to database fails, that's ok because we have the result in memory
+    // if the broker crashes and needs the result again, we're covered because we can just recompute it
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+
     this.instrumentation.incResolvedJobs(item.type);
+    if (info) {
+      const duration = this.msTimeSource() - info.startedAt;
+      this.instrumentation.recordJobDuration(item.type, duration);
+    }
+
+    try {
+      await this.database.setProvingJobResult(id, value);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job result id=${id}`, saveErr, {
+        provingJobId: id,
+      });
+
+      throw saveErr;
+    }
   }
 
-  private timeoutCheck = () => {
+  @trackSpan('ProvingBroker.cleanupPass')
+  private async cleanupPass() {
+    await this.cleanupStaleJobs();
+    await this.reEnqueueExpiredJobs();
+  }
+
+  private async cleanupStaleJobs() {
+    const jobIds = Array.from(this.jobsCache.keys());
+    const jobsToClean: ProvingJobId[] = [];
+    for (const id of jobIds) {
+      const job = this.jobsCache.get(id)!;
+      const isComplete = this.resultsCache.has(id);
+      if (isComplete && this.isJobStale(job)) {
+        jobsToClean.push(id);
+      }
+    }
+
+    if (jobsToClean.length > 0) {
+      this.logger.info(`Cleaning up jobs=${jobsToClean.length}`);
+      await asyncPool(this.maxParallelCleanUps, jobsToClean, async jobId => {
+        await this.cleanUpProvingJobState(jobId);
+      });
+    }
+  }
+
+  private async reEnqueueExpiredJobs() {
     const inProgressEntries = Array.from(this.inProgress.entries());
     for (const [id, metadata] of inProgressEntries) {
       const item = this.jobsCache.get(id);
       if (!item) {
-        this.logger.warn(`Proving job id=${id} not found. Removing it from the queue.`);
+        this.logger.warn(`Proving job id=${id} not found. Removing it from the queue.`, { provingJobId: id });
         this.inProgress.delete(id);
         continue;
       }
 
-      const msSinceLastUpdate = (this.timeSource() - metadata.lastUpdatedAt) * 1000;
+      const now = this.msTimeSource();
+      const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`);
-        this.inProgress.delete(id);
-        this.enqueueJobInternal(item);
-        this.instrumentation.incTimedOutJobs(item.type);
+        if (this.isJobStale(item)) {
+          // the job has timed out and it's also old, just cancel and move on
+          await this.cancelProvingJob(item.id);
+        } else {
+          this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
+          this.inProgress.delete(id);
+          this.enqueueJobInternal(item);
+          this.instrumentation.incTimedOutJobs(item.type);
+        }
       }
     }
-  };
+  }
 
   private enqueueJobInternal(job: ProvingJob): void {
     if (!this.promises.has(job.id)) {
       this.promises.set(job.id, promiseWithResolvers());
     }
-    this.queues[job.type].put(job);
+    this.queues[job.type].put({
+      epochNumber: job.epochNumber,
+      id: job.id,
+    });
     this.enqueuedAt.set(job.id, new Timer());
-    this.logger.debug(`Enqueued new proving job id=${job.id}`);
+    this.epochHeight = Math.max(this.epochHeight, job.epochNumber);
+  }
+
+  private isJobStale(job: ProvingJob) {
+    return job.epochNumber < this.epochHeight - this.maxEpochsToKeepResultsFor;
   }
 }
 
 type ProvingQueues = {
-  [K in ProvingRequestType]: PriorityMemoryQueue<ProvingJob>;
+  [K in ProvingRequestType]: PriorityMemoryQueue<EnqueuedProvingJob>;
 };
 
 /**
@@ -386,12 +555,10 @@ type ProvingQueues = {
  * @param b - Another proving job
  * @returns A number indicating the relative priority of the two proving jobs
  */
-function provingJobComparator(a: ProvingJob, b: ProvingJob): -1 | 0 | 1 {
-  const aBlockNumber = a.blockNumber ?? 0;
-  const bBlockNumber = b.blockNumber ?? 0;
-  if (aBlockNumber < bBlockNumber) {
+function provingJobComparator(a: EnqueuedProvingJob, b: EnqueuedProvingJob): -1 | 0 | 1 {
+  if (a.epochNumber < b.epochNumber) {
     return -1;
-  } else if (aBlockNumber > bBlockNumber) {
+  } else if (a.epochNumber > b.epochNumber) {
     return 1;
   } else {
     return 0;

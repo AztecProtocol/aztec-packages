@@ -1,5 +1,11 @@
-import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
-import { ClientIvcProof } from '@aztec/circuits.js';
+import {
+  BB_RESULT,
+  executeBbClientIvcProof,
+  readFromOutputDirectory,
+  verifyClientIvcProof,
+  writeToOutputDirectory,
+} from '@aztec/bb-prover';
+import { type ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -40,14 +46,13 @@ describe('Client IVC Integration', () => {
       path.join(bbWorkingDirectory, 'acir.msgpack'),
       path.join(bbWorkingDirectory, 'witnesses.msgpack'),
       logger.info,
-      true,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       throw new Error(provingResult.reason);
     }
 
-    return ClientIvcProof.readFromOutputDirectory(bbWorkingDirectory);
+    return readFromOutputDirectory(bbWorkingDirectory);
   }
 
   // This test will verify a client IVC proof of a simple tx:
@@ -58,7 +63,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
@@ -75,7 +80,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);

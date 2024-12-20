@@ -1,7 +1,6 @@
 import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
-  type ProcessedTxHandler,
   ProvingRequestType,
   SimulationError,
   type TreeInfo,
@@ -33,7 +32,6 @@ describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;
   let worldStateDB: MockProxy<WorldStateDB>;
   let publicTxProcessor: MockProxy<PublicTxSimulator>;
-  let handler: MockProxy<ProcessedTxHandler>;
 
   let root: Buffer;
   let mockedEnqueuedCallsResult: PublicTxResult;
@@ -53,7 +51,6 @@ describe('public_processor', () => {
     db = mock<MerkleTreeWriteOperations>();
     worldStateDB = mock<WorldStateDB>();
     publicTxProcessor = mock();
-    handler = mock<ProcessedTxHandler>();
 
     root = Buffer.alloc(32, 5);
 
@@ -93,20 +90,18 @@ describe('public_processor', () => {
     it('process private-only txs', async function () {
       const tx = mockPrivateOnlyTx();
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('runs a tx with enqueued public calls', async function () {
       const tx = mockTxWithPublicCalls();
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -122,7 +117,7 @@ describe('public_processor', () => {
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
       mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -135,7 +130,7 @@ describe('public_processor', () => {
       publicTxProcessor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTxWithPublicCalls();
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
@@ -143,14 +138,13 @@ describe('public_processor', () => {
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
 
       expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
-      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('does not attempt to overfill a block', async function () {
       const txs = Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed }));
 
       // We are passing 3 txs but only 2 can fit in the block
-      const [processed, failed] = await processor.process(txs, 2, handler);
+      const [processed, failed] = await processor.process(txs, 2);
 
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
@@ -158,9 +152,6 @@ describe('public_processor', () => {
       expect(failed).toEqual([]);
 
       expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[1]);
     });
 
     it('does not send a transaction to the prover if validation fails', async function () {
@@ -169,13 +160,11 @@ describe('public_processor', () => {
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTxs.mockRejectedValue([[], [tx]]);
 
-      const [processed, failed] = await processor.process([tx], 1, handler, txValidator);
+      const [processed, failed] = await processor.process([tx], 1, txValidator);
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
       expect(failed[0].tx).toEqual(tx);
-
-      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
   });
 
@@ -201,7 +190,7 @@ describe('public_processor', () => {
 
       const txFee = privateGasUsed.computeFee(globalVariables.gasFees);
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].data.feePayer).toEqual(feePayer);
@@ -212,8 +201,6 @@ describe('public_processor', () => {
 
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('rejects tx if fee payer has not enough balance', async function () {
@@ -227,7 +214,7 @@ describe('public_processor', () => {
       }
       tx.data.gasUsed = privateGasUsed;
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed).toEqual([]);
       expect(failed).toHaveLength(1);

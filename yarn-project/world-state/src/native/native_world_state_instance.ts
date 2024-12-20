@@ -46,7 +46,7 @@ const NATIVE_LIBRARY_NAME = 'world_state_napi';
 const NATIVE_CLASS_NAME = 'WorldState';
 
 const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
-const MAX_WORLD_STATE_THREADS = 16;
+const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(messageType: T, body: WorldStateRequest[T]): Promise<WorldStateResponse[T]>;
@@ -83,7 +83,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(dataDir: string, dbMapSizeKb: number, private log = createLogger('world-state:database')) {
-    log.info(`Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB`);
+    const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
+    log.info(
+      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
+    );
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
@@ -99,7 +102,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
-      Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
+      threads,
     );
     this.queue.start();
   }
@@ -178,17 +181,6 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
       if ('blockHeaderHash' in body) {
         data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
-      }
-
-      if ('leaf' in body) {
-        if (Buffer.isBuffer(body.leaf)) {
-          data['leaf'] = '0x' + body.leaf.toString('hex');
-        } else if ('slot' in body.leaf) {
-          data['slot'] = '0x' + body.leaf.slot.toString('hex');
-          data['value'] = '0x' + body.leaf.value.toString('hex');
-        } else {
-          data['nullifier'] = '0x' + body.leaf.value.toString('hex');
-        }
       }
 
       if ('leaves' in body) {

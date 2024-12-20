@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     encrypted_logs::header::EncryptedLogHeader,
-    keys::point_to_symmetric_key::point_to_symmetric_key,
+    keys::secret_derivation::derive_aes_secret,
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
@@ -208,7 +208,7 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     eph_sk: Scalar,
     address_point: AddressPoint,
 ) -> [u8] {
-    let full_key = point_to_symmetric_key(eph_sk, address_point.to_point());
+    let full_key = derive_aes_secret(eph_sk, address_point.to_point());
     let mut sym_key = [0; 16];
     let mut iv = [0; 16];
 
@@ -260,7 +260,7 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let _ = OracleMock::mock("getAppTaggingSecretAsSender").returns([69420, 1337]);
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns([69420, 1337]);
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 

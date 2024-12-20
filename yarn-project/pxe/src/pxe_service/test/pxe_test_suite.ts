@@ -115,8 +115,5 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       expect(typeof nodeInfo.l1ChainId).toEqual('number');
       expect(nodeInfo.l1ContractAddresses.rollupAddress.toString()).toMatch(/0x[a-fA-F0-9]+/);
     });
-
-    // Note: Not testing `isGlobalStateSynchronized`, `isAccountStateSynchronized` and `getSyncStatus` as these methods
-    //       only call synchronizer.
   });
 };

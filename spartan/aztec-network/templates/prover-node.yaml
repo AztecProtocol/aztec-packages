@@ -107,6 +107,14 @@ spec:
             - name: config
               mountPath: /shared/config
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: POD_IP
               valueFrom:
                 fieldRef:
@@ -117,8 +125,6 @@ spec:
               value: "{{ .Values.proverNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.proverNode.debug }}"
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_AGENT_COUNT

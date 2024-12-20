@@ -30,6 +30,7 @@ impl TailOutputValidatorBuilder {
             Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
             Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
             GasFees::new(10, 10),
+            GasFees::new(3, 3),
         );
 
         let mut output = FixtureBuilder::new();

@@ -1,46 +1,71 @@
-version: '3'
 services:
   fork:
-    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
-    pull_policy: always
+    image: aztecprotocol/build:2.0
     entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
-    ports:
-      - 8545:8545
+    environment:
+      RAYON_NUM_THREADS: 1
 
   sandbox:
-    image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
-    command: 'start --sandbox'
+    image: aztecprotocol/build:2.0
+    volumes:
+      - ../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
+    working_dir: /root/aztec-packages/yarn-project/aztec
+    command: 'node ./dest/bin start --sandbox'
     environment:
-      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
-      ARCHIVER_POLLING_INTERVAL_MS: 50
-      P2P_BLOCK_CHECK_INTERVAL_MS: 50
-      SEQ_TX_POLLING_INTERVAL_MS: 50
-      WS_BLOCK_CHECK_INTERVAL_MS: 50
-      PXE_BLOCK_POLLING_INTERVAL_MS: 50
+      ARCHIVER_POLLING_INTERVAL_MS: 500
+      P2P_BLOCK_CHECK_INTERVAL_MS: 500
+      SEQ_TX_POLLING_INTERVAL_MS: 500
+      WS_BLOCK_CHECK_INTERVAL_MS: 500
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       ENABLE_GAS: ${ENABLE_GAS:-}
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
-    expose:
-      - '8080'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
+    image: aztecprotocol/build:2.0
+    volumes:
+      - ../../../:/root/aztec-packages
+      - ${HOME}/.bb-crs:/root/.bb-crs
+    tmpfs:
+      - /tmp:rw,size=1g
+      - /tmp-jest:rw,size=512m
+    working_dir: /root/aztec-packages/yarn-project/end-to-end
     environment:
+      JEST_CACHE_DIR: /tmp-jest
       BENCHMARK: 'true'
-      LOG_LEVEL: ${LOG_LEVEL:-'verbose'}
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
       PXE_URL: http://sandbox:8080
       AZTEC_NODE_URL: http://sandbox:8080
+    # Voodoo explanation.
+    # Why do we do all this? To ensure tests can have their own traps for cleanup. Namely up_quick_start...
+    # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.
+    # Better would be just to have no state...
+    #
+    # We wait for the sandbox to become live.
+    # We launch the test in the background and capture it's process id.
+    # We launch it using setsid, which will ensure the test and all subprocesses have their own process group id.
+    # We set a trap to handle SIGTERM (comes from docker-compose when it receives e.g. SIGINT).
+    # For the trap to execute the script needs to have control, hence the test is launched in the background.
+    # We get the "process group id" from the process id.
+    # The trap sends a SIGTERM to the process group, we negate the process group id to let kill know its a group id.
+    # We wait on the entire process group to complete to allow cleanup to happen. (kill -0 just checks for existence).
+    # We wait on the direct test pid, to ensure we propagate the exit code to docker.
+    # There's a lot of doubling of $'s to escape dockers string interpolation.
     entrypoint: >
-      sh -c '
+      bash -c '
         while ! nc -z sandbox 8080; do sleep 1; done;
-        yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
+        setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
+        pid=$$!
+        pgid=$$(($$(ps -o pgid= -p $$pid)))
+        trap "kill -SIGTERM -$$pgid" SIGTERM
+        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
+        wait $$pid
       '
-    volumes:
-      - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:
       - sandbox
       - fork

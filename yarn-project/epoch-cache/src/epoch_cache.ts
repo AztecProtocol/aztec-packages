@@ -7,6 +7,7 @@ import {
 import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { EventEmitter } from 'node:events';
 import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
@@ -40,6 +41,7 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
     initialValidators: EthAddress[] = [],
     initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     super();
     this.committee = initialValidators;
@@ -47,10 +49,14 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
 
     this.log.debug(`Initialized EpochCache with constants and validators`, { l1constants, initialValidators });
 
-    this.cachedEpoch = getEpochNumberAtTimestamp(BigInt(Math.floor(Date.now() / 1000)), this.l1constants);
+    this.cachedEpoch = getEpochNumberAtTimestamp(this.nowInSeconds(), this.l1constants);
   }
 
-  static async create(rollupAddress: EthAddress, config?: EpochCacheConfig) {
+  static async create(
+    rollupAddress: EthAddress,
+    config?: EpochCacheConfig,
+    deps: { dateProvider?: DateProvider } = {},
+  ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -81,16 +87,20 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
       initialValidators.map(v => EthAddress.fromString(v)),
       sampleSeed,
       l1RollupConstants,
+      deps.dateProvider,
     );
   }
 
+  private nowInSeconds(): bigint {
+    return BigInt(Math.floor(this.dateProvider.now() / 1000));
+  }
+
   getEpochAndSlotNow(): EpochAndSlot {
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    return this.getEpochAndSlotAtTimestamp(now);
+    return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
   }
 
   getEpochAndSlotInNextSlot(): EpochAndSlot {
-    const nextSlotTs = BigInt(Math.floor(Date.now() / 1000) + this.l1constants.slotDuration);
+    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 

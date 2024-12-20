@@ -9,7 +9,6 @@ import {
   type TelemetryClient,
   type UpDownCounter,
   ValueType,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 export type MonitorCallback = (proofType: ProvingRequestType) => number;
@@ -55,18 +54,12 @@ export class ProvingBrokerInstrumentation {
       description: 'Records how long a job sits in the queue',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
 
     this.jobDuration = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_DURATION, {
       description: 'Records how long a job takes to complete',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
   }
 
