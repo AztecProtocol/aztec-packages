@@ -8,8 +8,8 @@ unconstrained fn store_oracle<let N: u32>(
     values: [Field; N],
 ) {}
 
-/// Store a value of type T that implements Serialize in local PXE database.
-/// The data is scoped to the current contract.
+/// Store a value of type T that implements Serialize in local PXE database. The data is scoped to the current
+/// contract. If the data under the key already exists, it is overwritten.
 pub unconstrained fn store<T, let N: u32>(contract_address: AztecAddress, key: Field, value: T)
 where
     T: Serialize<N>,
@@ -27,9 +27,8 @@ unconstrained fn load_oracle<let M: u32>(
     num_return_values: u32,
 ) -> [Field; M] {}
 
-/// Load a value of type T that implements Deserialize from local PXE database.
-/// The data is scoped to the current contract.
-/// If the key does not exist, an error is thrown.
+/// Load a value of type T that implements Deserialize from local PXE database. The data is scoped to the current
+/// contract. If the key does not exist, Option::none() is returned.
 pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, key: Field) -> Option<T>
 where
     T: Deserialize<N>,
@@ -53,7 +52,7 @@ mod test {
     };
 
     #[test]
-    unconstrained fn store_and_load_data() {
+    unconstrained fn stores_loads_and_overwrites_data() {
         let env = TestEnvironment::new();
 
         let contract_address = env.contract_address();
@@ -64,6 +63,14 @@ mod test {
         let loaded_value: MockStruct = load(contract_address, key).unwrap();
 
         assert(loaded_value == value, "Stored and loaded values should be equal");
+
+        // Now we test that the value gets overwritten correctly.
+        let new_value = MockStruct::new(7, 8);
+        store(contract_address, key, new_value);
+
+        let loaded_value: MockStruct = load(contract_address, key).unwrap();
+
+        assert(loaded_value == new_value, "Stored and loaded values should be equal");
     }
 
     #[test]
