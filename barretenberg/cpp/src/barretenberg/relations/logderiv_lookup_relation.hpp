@@ -70,18 +70,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto row_has_write = View(in.lookup_read_tags);
-        const auto row_has_read = View(in.q_lookup);
-        return row_has_write + row_has_read - (row_has_write * row_has_read);
+        const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
+        const auto row_has_read = CoefficientAccumulator(in.q_lookup);
+        return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
-        return Accumulator(View(in.lookup_read_counts));
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        return Accumulator(CoefficientAccumulator(in.lookup_read_counts));
     }
 
     // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
@@ -90,20 +90,25 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& eta = ParameterView(params.eta);
-        const auto& eta_two = ParameterView(params.eta_two);
-        const auto& eta_three = ParameterView(params.eta_three);
+        const auto gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto eta = ParameterCoefficientAccumulator(params.eta);
+        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
+        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto table_1 = View(in.table_1);
-        auto table_2 = View(in.table_2);
-        auto table_3 = View(in.table_3);
-        auto table_4 = View(in.table_4);
+        auto table_1 = CoefficientAccumulator(in.table_1);
+        auto table_2 = CoefficientAccumulator(in.table_2);
+        auto table_3 = CoefficientAccumulator(in.table_3);
+        auto table_4 = CoefficientAccumulator(in.table_4);
 
-        return table_1 + gamma + table_2 * eta + table_3 * eta_two + table_4 * eta_three;
+        auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
+        result += table_1;
+        result += gamma;
+        return Accumulator(result);
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
@@ -111,36 +116,40 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& eta = ParameterView(params.eta);
-        const auto& eta_two = ParameterView(params.eta_two);
-        const auto& eta_three = ParameterView(params.eta_three);
+        const auto gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto eta = ParameterCoefficientAccumulator(params.eta);
+        const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
+        const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
+        auto w_1 = CoefficientAccumulator(in.w_l);
+        auto w_2 = CoefficientAccumulator(in.w_r);
+        auto w_3 = CoefficientAccumulator(in.w_o);
 
-        auto w_1_shift = View(in.w_l_shift);
-        auto w_2_shift = View(in.w_r_shift);
-        auto w_3_shift = View(in.w_o_shift);
+        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
+        auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
 
-        auto table_index = View(in.q_o);
-        auto negative_column_1_step_size = View(in.q_r);
-        auto negative_column_2_step_size = View(in.q_m);
-        auto negative_column_3_step_size = View(in.q_c);
+        auto table_index = CoefficientAccumulator(in.q_o);
+        auto negative_column_1_step_size = CoefficientAccumulator(in.q_r);
+        auto negative_column_2_step_size = CoefficientAccumulator(in.q_m);
+        auto negative_column_3_step_size = CoefficientAccumulator(in.q_c);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
         // method get_lookup_accumulators() in  for a detailed explanation.
-        auto derived_table_entry_1 = w_1 + gamma + negative_column_1_step_size * w_1_shift;
-        auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
-        auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
+        auto derived_table_entry_1 = (negative_column_1_step_size * w_1_shift) + (w_1 + gamma);
+        auto derived_table_entry_2 = (negative_column_2_step_size * w_2_shift) + w_2;
+        auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
+        auto table_index_entry = table_index * eta_three;
 
         // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
-        return derived_table_entry_1 + derived_table_entry_2 * eta + derived_table_entry_3 * eta_two +
-               table_index * eta_three;
+        auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
+        result += Accumulator(derived_table_entry_1 + table_index_entry);
+        return result;
     }
 
     /**
@@ -229,31 +238,37 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest
+        using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using ShortView = typename ShortAccumulator::View;
+
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
         // allows to re-use the values accumulated by the accumulator of the size smaller than
         // the size of Accumulator declared above
-        using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
 
-        const auto inverses = View(in.lookup_inverses);                         // Degree 1
-        const auto read_counts = View(in.lookup_read_counts);                   // Degree 1
-        const auto read_selector = View(in.q_lookup);                           // Degree 1
+        const auto inverses_m = CoefficientAccumulator(in.lookup_inverses); // Degree 1
+        const Accumulator inverses(inverses_m);
+        const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
+        const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
+
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
         const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1 (2)
-        const auto write_inverse = inverses * read_term;                        // Degree 3 (4)
-        const auto read_inverse = inverses * write_term;                        // Degree 2 (3)
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
         // Degrees:                     2 (3)       1 (2)        1              1
-        std::get<0>(accumulator) +=
-            ShortView((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
+        const Accumulator logderiv_first_term = (read_term * write_term * inverses - inverse_exists) * scaling_factor;
+        std::get<0>(accumulator) += ShortView(logderiv_first_term); // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
         // Degrees:                       1            2 (3)            1            3 (4)
-        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
+        Accumulator tmp = Accumulator(read_selector_m) * write_term;
+        tmp -= (Accumulator(read_counts_m) * read_term);
+        tmp *= inverses;                 // degree 4(5)
+        std::get<1>(accumulator) += tmp; // Deg 4 (5)
     }
 };
 

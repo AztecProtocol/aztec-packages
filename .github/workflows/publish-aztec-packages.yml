@@ -121,7 +121,7 @@ jobs:
         run: |
           sudo shutdown -P 80
           ./bootstrap.sh image-aztec
-          docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
+          docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
   build-nargo-x86:
     needs: [configure, build-aztec-x86]

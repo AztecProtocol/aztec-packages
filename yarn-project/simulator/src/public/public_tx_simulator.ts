@@ -56,6 +56,7 @@ export class PublicTxSimulator {
     telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
+    private enforceFeePayment: boolean = true,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -90,14 +91,20 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
+    const nonRevertStart = process.hrtime.bigint();
     await this.insertNonRevertiblesFromPrivate(context);
+    const nonRevertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
 
+    const revertStart = process.hrtime.bigint();
     await this.insertRevertiblesFromPrivate(context);
+    const revertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
@@ -134,7 +141,11 @@ export class PublicTxSimulator {
 
     return {
       avmProvingRequest,
-      gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
+      gasUsed: {
+        totalGas: context.getActualGasUsed(),
+        teardownGas: context.teardownGasUsed,
+        publicGas: context.getActualPublicGasUsed(),
+      },
       revertCode,
       revertReason: context.revertReason,
       processedPhases: processedPhases,
@@ -344,7 +355,7 @@ export class PublicTxSimulator {
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
 
-    this.log.debug(
+    this.log.verbose(
       result.reverted
         ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
         : `Simulation of enqueued public call ${fnName} completed successfully.`,
@@ -424,12 +435,18 @@ export class PublicTxSimulator {
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();
 
-    const currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    // We allow to fake the balance of the fee payer to allow fee estimation
+    // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      throw new Error(
-        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
-      );
+      if (this.enforceFeePayment) {
+        throw new Error(
+          `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+        );
+      } else {
+        currentBalance = txFee;
+      }
     }
 
     const updatedBalance = currentBalance.sub(txFee);

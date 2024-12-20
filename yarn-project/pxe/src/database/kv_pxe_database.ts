@@ -538,7 +538,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v));
   }
 
-  async addContactAddress(address: AztecAddress): Promise<boolean> {
+  async addSenderAddress(address: AztecAddress): Promise<boolean> {
     if (await this.#addressBook.hasAsync(address.toString())) {
       return false;
     }
@@ -548,11 +548,11 @@ export class KVPxeDatabase implements PxeDatabase {
     return true;
   }
 
-  async getContactAddresses(): Promise<AztecAddress[]> {
+  async getSenderAddresses(): Promise<AztecAddress[]> {
     return (await toArray(this.#addressBook.entriesAsync())).map(AztecAddress.fromString);
   }
 
-  async removeContactAddress(address: AztecAddress): Promise<boolean> {
+  async removeSenderAddress(address: AztecAddress): Promise<boolean> {
     if (!this.#addressBook.hasAsync(address.toString())) {
       return false;
     }

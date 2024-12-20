@@ -115,7 +115,7 @@ case "$cmd" in
     test
     ;;
   "ci")
-    build_native
+    build
     test
     ;;
   "hash")

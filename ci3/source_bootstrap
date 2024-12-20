@@ -10,7 +10,7 @@ case "${1:-}" in
     export DENOISE=${DENOISE:-1}
     ;;
   ""|"fast")
-    export USE_CACHE=1
+    export USE_CACHE=${USE_CACHE:-1}
     ;;
   "test")
     export TEST=1

@@ -132,11 +132,13 @@ if [ -z "${CHAOS_VALUES:-}" ]; then
   kubectl delete networkchaos --all --all-namespaces
 fi
 
+VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
   --namespace "$NAMESPACE" \
   --create-namespace \
-  --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
+  --values "$VALUES_PATH" \
   --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
   --wait \
   --wait-for-jobs=true \
@@ -168,6 +170,13 @@ if ! handle_network_shaping; then
   fi
 fi
 
+# Get the values from the values file
+VALUES=$(cat "$VALUES_PATH")
+ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<<"$VALUES")
+AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<<"$VALUES")
+AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<<"$VALUES")
+AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<<"$VALUES")
+
 # Run the test if $TEST is not empty
 if [ -n "$TEST" ]; then
   echo "RUNNING TEST: $TEST"
@@ -186,6 +195,10 @@ if [ -n "$TEST" ]; then
     -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
     -e DEBUG=${DEBUG:-""} \
     -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"verbose"} \
+    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
+    -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
+    -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
+    -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
+    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
     aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
 fi

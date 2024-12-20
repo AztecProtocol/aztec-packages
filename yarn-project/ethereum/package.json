@@ -5,7 +5,8 @@
   "exports": {
     ".": "./dest/index.js",
     "./test": "./dest/test/index.js",
-    "./contracts": "./dest/contracts/index.js"
+    "./contracts": "./dest/contracts/index.js",
+    "./l1-contract-addresses": "./dest/l1_contract_addresses.js"
   },
   "typedocOptions": {
     "entryPoints": [

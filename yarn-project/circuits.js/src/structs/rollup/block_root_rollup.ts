@@ -13,7 +13,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
 /**

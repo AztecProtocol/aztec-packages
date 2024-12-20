@@ -63,6 +63,7 @@ describe('public_processor', () => {
       gasUsed: {
         totalGas: Gas.empty(),
         teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
       },
       revertCode: RevertCode.OK,
       processedPhases: [],
