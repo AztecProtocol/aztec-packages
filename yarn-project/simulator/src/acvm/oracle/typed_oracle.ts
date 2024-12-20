@@ -253,7 +253,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('store');
   }
 
-  load(_contract: AztecAddress, _key: Fr): Promise<Fr[]> {
+  load(_contract: AztecAddress, _key: Fr): Promise<Fr[] | null> {
     throw new OracleMethodNotAvailableError('load');
   }
 }

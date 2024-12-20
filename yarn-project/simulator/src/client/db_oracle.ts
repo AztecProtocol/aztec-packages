@@ -262,8 +262,7 @@ export interface DBOracle extends CommitmentsDB {
    * to a specific `contract`.
    * @param contract - An address of a contract that is requesting to load the data.
    * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data.
-   * @throws If the data is not found.
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
    */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[]>;
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null>;
 }

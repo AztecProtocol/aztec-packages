@@ -12,6 +12,7 @@ import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/fo
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
+import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
 import {
   type AztecAsyncArray,
   type AztecAsyncKVStore,
@@ -66,6 +67,8 @@ export class KVPxeDatabase implements PxeDatabase {
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
   #contractStore: AztecAsyncMap<string, Buffer>;
 
+  debug: LogFn;
+
   protected constructor(private db: AztecAsyncKVStore) {
     this.#db = db;
 
@@ -105,6 +108,8 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
 
     this.#contractStore = db.openMap('contract_store');
+
+    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
 
   public static async create(db: AztecAsyncKVStore): Promise<KVPxeDatabase> {
@@ -623,11 +628,12 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#contractStore.set(dataKey, dataBuffer);
   }
 
-  async load(contract: AztecAddress, key: Fr): Promise<Fr[]> {
+  async load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
     const dataKey = `${contract.toString()}:${key.toString()}`;
     const dataBuffer = await this.#contractStore.getAsync(dataKey);
     if (!dataBuffer) {
-      throw new Error(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      return null;
     }
     const values: Fr[] = [];
     for (let i = 0; i < dataBuffer.length; i += Fr.SIZE_IN_BYTES) {

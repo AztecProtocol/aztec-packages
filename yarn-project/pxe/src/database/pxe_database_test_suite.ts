@@ -459,6 +459,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(result1).toEqual(values1);
         expect(result2).toEqual(values2);
       });
+
+      it('returns null for non-existent keys', async () => {
+        const key = Fr.random();
+        const result = await database.load(contract, key);
+        expect(result).toBeNull();
+      });
     });
   });
 }

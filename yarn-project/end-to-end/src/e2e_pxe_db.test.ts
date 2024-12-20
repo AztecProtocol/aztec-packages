@@ -53,4 +53,10 @@ describe('PXE db', () => {
     );
     expect(await testContract.methods.load_from_pxe_db(key).simulate()).toEqual(noteContent);
   });
+
+  it('handles non-existent data', async () => {
+    // In this test we try to load a key from the PXE db that does not exist. We should get an array of zeros.
+    const key = 7n;
+    expect(await testContract.methods.load_from_pxe_db(key).simulate()).toEqual([0n, 0n, 0n]);
+  });
 });

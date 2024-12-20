@@ -464,7 +464,8 @@ contract Test {
 
     unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; VALUE_NOTE_LEN] {
         // ValueNote does not implement the Deserialize trait, so I just get it as an array.
-        pxe_db::load(context.this_address(), key)
+        let maybe_data = pxe_db::load(context.this_address(), key);
+        maybe_data.unwrap_or([0; VALUE_NOTE_LEN])
     }
 
     #[private]

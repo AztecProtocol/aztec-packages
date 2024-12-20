@@ -336,7 +336,7 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.store(this.contractAddress, key, values);
   }
 
-  public override load(contract: AztecAddress, key: Fr): Promise<Fr[]> {
+  public override load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
     if (!contract.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
       throw new Error(

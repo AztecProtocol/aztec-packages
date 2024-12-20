@@ -405,6 +405,14 @@ export class Oracle {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
-    return values.map(toACVMField);
+    if (values === null) {
+      // TODO(benesjan): This results in a brillig error since the return data size is not correct. How to figure out
+      // how many zeros to append?
+      // No data was found so we set the data-found flag to 0 and return it.
+      return [toACVMField(0)];
+    } else {
+      // Data was found so we set the data-found flag to 1 and return it along with the data.
+      return [toACVMField(1), ...values.map(toACVMField)];
+    }
   }
 }
