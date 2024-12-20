@@ -28,4 +28,4 @@ function install_parallel() {
   sudo apt update && sudo apt install parallel
 }
 export -f install_parallel
-DENOISE=1 ci3/denoise install_parallel
+DENOISE=1 ci3/denoise ci3/retry install_parallel
