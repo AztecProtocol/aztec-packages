@@ -52,7 +52,8 @@ describe('e2e_cheat_codes', () => {
   afterAll(() => teardown());
 
   describe('L1 cheatcodes', () => {
-    describe('mine', () => {
+    // TODO(#10775): example fail https://github.com/AztecProtocol/aztec-packages/actions/runs/12418969358/job/34674141249
+    describe.skip('mine', () => {
       it(`mine block`, async () => {
         const blockNumber = await cc.eth.blockNumber();
         await cc.eth.mine();

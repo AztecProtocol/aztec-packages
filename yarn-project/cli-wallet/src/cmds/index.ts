@@ -617,27 +617,27 @@ export function injectCommands(
     });
 
   program
-    .command('register-contact')
+    .command('register-sender')
     .description(
-      "Registers a contact's address in the wallet, so the note synching process will look for notes sent by them",
+      "Registers a sender's address in the wallet, so the note synching process will look for notes sent by them",
     )
-    .argument('[address]', 'The address of the contact to register', address =>
+    .argument('[address]', 'The address of the sender to register', address =>
       aliasedAddressParser('accounts', address, db),
     )
     .addOption(pxeOption)
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
+    .addOption(createAliasOption('Alias for the sender. Used for easy reference in subsequent commands.', !db))
     .action(async (address, options) => {
-      const { registerContact } = await import('./register_contact.js');
+      const { registerSender } = await import('./register_sender.js');
       const { from: parsedFromAddress, rpcUrl, secretKey, alias } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      await registerContact(wallet, address, log);
+      await registerSender(wallet, address, log);
 
       if (db && alias) {
-        await db.storeContact(address, alias, log);
+        await db.storeSender(address, alias, log);
       }
     });
 

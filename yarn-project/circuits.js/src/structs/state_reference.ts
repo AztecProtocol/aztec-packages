@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { PartialStateReference } from './partial_state_reference.js';
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 
 /**
  * Stores snapshots of all the trees but archive.

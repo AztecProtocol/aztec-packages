@@ -123,18 +123,18 @@ export interface PXE {
    * @param address - Address of the user to add to the address book
    * @returns The address address of the account.
    */
-  registerContact(address: AztecAddress): Promise<AztecAddress>;
+  registerSender(address: AztecAddress): Promise<AztecAddress>;
 
   /**
-   * Retrieves the addresses stored as contacts on this PXE Service.
-   * @returns An array of the contacts on this PXE Service.
+   * Retrieves the addresses stored as senders on this PXE Service.
+   * @returns An array of the senders on this PXE Service.
    */
-  getContacts(): Promise<AztecAddress[]>;
+  getSenders(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact in the address book.
+   * Removes a sender in the address book.
    */
-  removeContact(address: AztecAddress): Promise<void>;
+  removeSender(address: AztecAddress): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -467,9 +467,9 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress)
     .returns(z.union([CompleteAddress.schema, z.undefined()])),
-  registerContact: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
-  getContacts: z.function().returns(z.array(schemas.AztecAddress)),
-  removeContact: z.function().args(schemas.AztecAddress).returns(z.void()),
+  registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
+  getSenders: z.function().returns(z.array(schemas.AztecAddress)),
+  removeSender: z.function().args(schemas.AztecAddress).returns(z.void()),
   registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
   registerContract: z
     .function()
