@@ -1,4 +1,4 @@
-import { type P2PClientType } from '@aztec/circuit-types';
+import { P2PClientType } from '@aztec/circuit-types';
 import { TxHash } from '@aztec/circuit-types/tx_hash';
 
 import { type PeerId } from '@libp2p/interface';
