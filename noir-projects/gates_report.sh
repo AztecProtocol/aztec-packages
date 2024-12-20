@@ -38,13 +38,14 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         GATES_INFO=$($BB_BIN gates -h -b "$pathname")
     fi
 
-    MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r '.functions[0] | .name = "main"')
-    echo "{\"package_name\": \"$ARTIFACT_NAME\", \"functions\": [$MAIN_FUNCTION_INFO]" >> gates_report.json
+    GATES_INFO=$($BACKEND gates -b "$artifacts_path/$ARTIFACT_NAME/target/program.json")
+    MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r ".functions[0] | {package_name: "\"$ARTIFACT_NAME\"", functions: [{name: \"main\", opcodes: .acir_opcodes, circuit_size}]}")
+    echo -n $MAIN_FUNCTION_INFO >> gates_report.json
 
     if (($ITER == $NUM_ARTIFACTS)); then
-        echo "}" >> gates_report.json
+        echo "" >> gates_report.json
     else
-        echo "}, " >> gates_report.json
+        echo "," >> gates_report.json
     fi
 
     ITER=$(( $ITER + 1 ))
