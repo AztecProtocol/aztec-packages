@@ -68,11 +68,3 @@ export async function executeTimeout<T>(fn: () => Promise<T>, timeout: number, e
   const task = new TimeoutTask(fn, timeout, errorFn);
   return await task.exec();
 }
-
-export async function executeDeadline<T>(fn: () => Promise<T>, deadline: Date, error: () => any) {
-  const timeout = +deadline - Date.now();
-  if (timeout <= 0) {
-    throw error();
-  }
-  return await executeTimeout(fn, timeout, error);
-}
