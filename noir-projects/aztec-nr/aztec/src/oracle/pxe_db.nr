@@ -39,3 +39,20 @@ where
         Option::none()
     }
 }
+
+mod test {
+    use crate::oracle::{pxe_db::{load, store}, random::random};
+    use dep::protocol_types::address::aztec_address::AztecAddress;
+
+    #[test]
+    unconstrained fn store_and_load_data() {
+        let contract_address = AztecAddress::from_field(random());
+        let key = random();
+        let values = [random(), random(), random(), random()];
+        store(contract_address, key, values);
+
+        let loaded_values: [Field; 4] = load(contract_address, key).unwrap();
+
+        assert(loaded_values == values, "Stored and loaded values should be equal");
+    }
+}
