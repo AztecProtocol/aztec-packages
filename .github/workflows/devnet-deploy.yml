@@ -25,7 +25,6 @@ on:
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
-        type: boolean
         default: "false"
 
 concurrency:
