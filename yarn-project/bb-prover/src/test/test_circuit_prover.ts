@@ -65,7 +65,7 @@ import {
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -78,7 +78,7 @@ import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
  * Simulates circuits using the most efficient method and performs no proving.
  */
 export class TestCircuitProver implements ServerCircuitProver {
-  private wasmSimulator = new WASMSimulator();
+  private wasmSimulator = new WASMSimulatorWithBlobs();
   private instrumentation: ProverInstrumentation;
   private logger = createLogger('bb-prover:test-prover');
 
