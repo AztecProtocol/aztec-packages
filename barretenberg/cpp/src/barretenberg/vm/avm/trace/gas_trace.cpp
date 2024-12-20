@@ -154,6 +154,9 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(bool exceptional_halt,
     halting_entry.is_halt_or_first_row_in_nested_call = true;
 
     gas_opcode_lookup_counter[halting_entry.opcode]--;
+
+    // clear this flag (in case the CALL opcode itself led to an exception)
+    next_row_is_first_in_nested_call = false;
 }
 
 void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(uint32_t l2_gas_allocated,
@@ -172,6 +175,9 @@ void AvmGasTraceBuilder::constrain_gas_for_top_level_exceptional_halt(uint32_t l
     halting_entry.is_halt_or_first_row_in_nested_call = true;
 
     gas_opcode_lookup_counter[halting_entry.opcode]--;
+
+    // clear this flag (in case the CALL opcode itself led to an exception)
+    next_row_is_first_in_nested_call = false;
 }
 
 void AvmGasTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)

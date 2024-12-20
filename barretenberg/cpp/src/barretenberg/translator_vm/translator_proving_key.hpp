@@ -22,19 +22,32 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey() = default;
 
+    TranslatorProvingKey(std::shared_ptr<ProvingKey>& proving_key, size_t mini_circuit_dyadic_size)
+        : mini_circuit_dyadic_size(mini_circuit_dyadic_size)
+        , dyadic_circuit_size(proving_key->circuit_size)
+        , proving_key(proving_key)
+
+    {
+        ASSERT(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE == dyadic_circuit_size);
+    }
+
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-        : mini_circuit_dyadic_size(compute_mini_circuit_dyadic_size(circuit))
-        , dyadic_circuit_size(compute_dyadic_circuit_size(circuit))
-        , proving_key(std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key)))
-        , batching_challenge_v(circuit.batching_challenge_v)
+        : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
         PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
+
+        compute_mini_circuit_dyadic_size(circuit);
+        compute_dyadic_circuit_size();
+        proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key));
+
         // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator
         // wires
         // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've
         // commited to
-        for (auto [wire_poly, wire] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+        for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+            auto& wire_poly = wire_poly_;
+            auto& wire = wire_;
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
@@ -69,26 +82,19 @@ class TranslatorProvingKey {
         compute_translator_range_constraint_ordered_polynomials();
     };
 
-    static inline size_t compute_total_num_gates(const Circuit& circuit)
+    inline void compute_dyadic_circuit_size()
     {
-        return std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
-    }
-
-    static inline size_t compute_dyadic_circuit_size(const Circuit& circuit)
-    {
-        const size_t total_num_gates = compute_total_num_gates(circuit);
-
-        // Next power of 2
-        const size_t mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
 
         // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
         // to bring the degree of relations down, while extending the length.
-        return mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
+        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
     }
 
-    static inline size_t compute_mini_circuit_dyadic_size(const Circuit& circuit)
+    inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
     {
-        return circuit.get_circuit_subgroup_size(compute_total_num_gates(circuit));
+        const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
+        // Next power of 2
+        mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
     }
 
     void compute_lagrange_polynomials();

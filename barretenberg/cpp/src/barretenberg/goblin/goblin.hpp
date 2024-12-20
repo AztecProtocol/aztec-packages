@@ -22,7 +22,7 @@
 namespace bb {
 
 class GoblinProver {
-    using MegaCircuitBuilder = bb::MegaCircuitBuilder;
+    using MegaCircuitBuilder = MegaCircuitBuilder;
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
@@ -31,18 +31,18 @@ class GoblinProver {
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::ECCVMFlavor;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder;
-    using ECCVMProver = bb::ECCVMProver;
+    using OpQueue = ECCOpQueue;
+    using ECCVMFlavor = ECCVMFlavor;
+    using ECCVMBuilder = ECCVMCircuitBuilder;
+    using ECCVMProver = ECCVMProver;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
-    using TranslatorBuilder = bb::TranslatorCircuitBuilder;
-    using TranslatorProver = bb::TranslatorProver;
-    using TranslatorProvingKey = bb::TranslatorProvingKey;
-    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using TranslatorBuilder = TranslatorCircuitBuilder;
+    using TranslatorProver = TranslatorProver;
+    using TranslatorProvingKey = TranslatorProvingKey;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
-    using MergeProver = bb::MergeProver_<MegaFlavor>;
+    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = std::vector<FF>;
     /**
@@ -60,14 +60,17 @@ class GoblinProver {
     bool merge_proof_exists{ false };
 
     std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
-    std::shared_ptr<TranslatorProver::Flavor::ProvingKey> get_translator_proving_key() const { return translator_key; }
+    std::shared_ptr<TranslatorProvingKey::ProvingKey> get_translator_proving_key() const
+    {
+        return translator_key->proving_key;
+    }
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
     std::shared_ptr<ECCVMProvingKey> eccvm_key;
-    std::shared_ptr<TranslatorProver::Flavor::ProvingKey> translator_key;
+    std::shared_ptr<TranslatorProvingKey> translator_key;
 
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
@@ -212,9 +215,8 @@ class GoblinProver {
 
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            auto translator_proving_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
-            translator_key = translator_proving_key->proving_key;
-            auto translator_prover = std::make_unique<TranslatorProver>(translator_proving_key, transcript);
+            translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
+            translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
         }
 
         {

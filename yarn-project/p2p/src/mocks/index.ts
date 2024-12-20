@@ -5,6 +5,7 @@ import {
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -101,6 +102,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   boostrapAddrs: string[] = [],
   l2BlockSource: L2BlockSource,
   worldStateSynchronizer: WorldStateSynchronizer,
+  epochCache: EpochCache,
   mempools: MemPools<T>,
   telemetry: TelemetryClient,
   port: number = 0,
@@ -132,6 +134,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     discoveryService,
     mempools,
     l2BlockSource,
+    epochCache,
     proofVerifier,
     worldStateSynchronizer,
     telemetry,

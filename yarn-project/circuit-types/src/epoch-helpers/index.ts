@@ -14,11 +14,13 @@ export const EmptyL1RollupConstants: L1RollupConstants = {
   ethereumSlotDuration: 1,
 };
 
+// REFACTOR: Merge this type with L1RollupConstants
 export type EpochConstants = {
   l1GenesisBlock: bigint;
   l1GenesisTime: bigint;
   epochDuration: number;
   slotDuration: number;
+  ethereumSlotDuration: number;
 };
 
 /** Returns the slot number for a given timestamp. */
@@ -40,15 +42,21 @@ export function getSlotRangeForEpoch(epochNumber: bigint, constants: Pick<EpochC
   return [startSlot, startSlot + BigInt(constants.epochDuration) - 1n];
 }
 
-/** Returns the range of L1 timestamps (inclusive) for a given epoch number. */
+/**
+ * Returns the range of L1 timestamps (inclusive) for a given epoch number.
+ * Note that the endTimestamp is the start timestamp of the last L1 slot for the epoch.
+ */
 export function getTimestampRangeForEpoch(
   epochNumber: bigint,
-  constants: Pick<EpochConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration'>,
+  constants: Pick<EpochConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration' | 'ethereumSlotDuration'>,
 ) {
   const [startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, constants);
+  const ethereumSlotsPerL2Slot = constants.slotDuration / constants.ethereumSlotDuration;
   return [
     constants.l1GenesisTime + startSlot * BigInt(constants.slotDuration),
-    constants.l1GenesisTime + endSlot * BigInt(constants.slotDuration),
+    constants.l1GenesisTime +
+      endSlot * BigInt(constants.slotDuration) +
+      BigInt((ethereumSlotsPerL2Slot - 1) * constants.ethereumSlotDuration),
   ];
 }
 

@@ -3,9 +3,12 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import {
   type ClientProtocolCircuitVerifier,
   P2PClientType,
+  PeerErrorSeverity,
+  type Tx,
   type WorldStateSynchronizer,
   mockTx,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -16,6 +19,7 @@ import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
 import { multiaddr } from '@multiformats/multiaddr';
 import getPort from 'get-port';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { createP2PClient } from '../../client/index.js';
@@ -27,14 +31,6 @@ import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../discv5/discV5_service.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
-
-/**
- * Mockify helper for testing purposes.
- */
-type Mockify<T> = {
-  [P in keyof T]: ReturnType<typeof jest.fn>;
-};
 
 const TEST_TIMEOUT = 80000;
 
@@ -49,41 +45,11 @@ function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
 
 const NUMBER_OF_PEERS = 2;
 
-// Mock the mempools
-const makeMockPools = () => {
-  return {
-    txPool: {
-      addTxs: jest.fn(() => {}),
-      getTxByHash: jest.fn().mockReturnValue(undefined),
-      deleteTxs: jest.fn(),
-      getAllTxs: jest.fn().mockReturnValue([]),
-      getAllTxHashes: jest.fn().mockReturnValue([]),
-      getMinedTxHashes: jest.fn().mockReturnValue([]),
-      getPendingTxHashes: jest.fn().mockReturnValue([]),
-      getTxStatus: jest.fn().mockReturnValue(undefined),
-      markAsMined: jest.fn(),
-      markMinedAsPending: jest.fn(),
-    },
-    attestationPool: {
-      addAttestations: jest.fn(),
-      deleteAttestations: jest.fn(),
-      deleteAttestationsForSlot: jest.fn(),
-      deleteAttestationsOlderThan: jest.fn(),
-      deleteAttestationsForSlotAndProposal: jest.fn(),
-      getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
-    },
-    epochProofQuotePool: {
-      addQuote: jest.fn(),
-      getQuotes: jest.fn().mockReturnValue([]),
-      deleteQuotesToEpoch: jest.fn(),
-    },
-  };
-};
-
 describe('Req Resp p2p client integration', () => {
-  let txPool: Mockify<TxPool>;
-  let attestationPool: Mockify<AttestationPool>;
-  let epochProofQuotePool: Mockify<EpochProofQuotePool>;
+  let txPool: MockProxy<TxPool>;
+  let attestationPool: MockProxy<AttestationPool>;
+  let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
+  let epochCache: MockProxy<EpochCache>;
   let l2BlockSource: MockL2BlockSource;
   let kvStore: AztecKVStore;
   let worldState: WorldStateSynchronizer;
@@ -91,7 +57,14 @@ describe('Req Resp p2p client integration', () => {
   const logger = createLogger('p2p:test:client-integration');
 
   beforeEach(() => {
-    ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());
+    txPool = mock<TxPool>();
+    attestationPool = mock<AttestationPool>();
+    epochProofQuotePool = mock<EpochProofQuotePool>();
+    epochCache = mock<EpochCache>();
+
+    txPool.getAllTxs.mockImplementation(() => {
+      return [] as Tx[];
+    });
   });
 
   const getPorts = (numberOfPeers: number) => Promise.all(Array.from({ length: numberOfPeers }, () => getPort()));
@@ -160,6 +133,7 @@ describe('Req Resp p2p client integration', () => {
         l2BlockSource,
         proofVerifier,
         worldState,
+        epochCache,
         undefined,
         deps,
       );

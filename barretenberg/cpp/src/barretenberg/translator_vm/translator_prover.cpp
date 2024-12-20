@@ -7,7 +7,7 @@
 
 namespace bb {
 
-TranslatorProver::TranslatorProver(std::shared_ptr<TranslatorProvingKey>& key,
+TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
                                    const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , key(key)
