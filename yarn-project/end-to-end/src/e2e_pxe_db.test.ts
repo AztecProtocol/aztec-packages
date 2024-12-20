@@ -1,4 +1,4 @@
-import { type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
@@ -25,9 +25,30 @@ describe('PXE db', () => {
   afterAll(() => teardown());
 
   it('stores and loads data', async () => {
+    // In this test we feed value note to a test contract, the test contract stores it in the PXE db and then we load
+    // it back.
+    const randomValueNote = {
+      header: {
+        // eslint-disable-next-line camelcase
+        contract_address: AztecAddress.random(),
+        // eslint-disable-next-line camelcase
+        storage_slot: Fr.random(),
+        // eslint-disable-next-line camelcase
+        note_hash_counter: 0,
+        nonce: Fr.random(),
+      },
+      value: Fr.random(),
+      // eslint-disable-next-line camelcase
+      owner: AztecAddress.random(),
+      randomness: Fr.random(),
+    };
+
     const key = 6n;
-    const value = [268n, 862n, 268n];
-    await testContract.methods.store_in_pxe_db(key, value).simulate();
-    expect(await testContract.methods.load_from_pxe_db(key).simulate()).toEqual(value);
+    await testContract.methods.store_in_pxe_db(key, randomValueNote).simulate();
+
+    // Now we try to load the data back from the PXE db. We should get only the note content and not the header because
+    // the Serialize trait impl for ValueNote does it like that.
+    const noteContent = [randomValueNote.value, randomValueNote.owner, randomValueNote.randomness];
+    expect(await testContract.methods.load_from_pxe_db(key).simulate()).toEqual(noteContent);
   });
 });

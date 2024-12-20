@@ -38,7 +38,7 @@ contract Test {
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::value_note::value_note::{VALUE_NOTE_LEN, ValueNote};
     use std::meta::derive;
 
     use crate::test_note::TestNote;
@@ -458,11 +458,12 @@ contract Test {
         constant.value
     }
 
-    unconstrained fn store_in_pxe_db(key: Field, values: [Field; 3]) {
-        pxe_db::store(key, values);
+    unconstrained fn store_in_pxe_db(key: Field, note: ValueNote) {
+        pxe_db::store(key, note);
     }
 
-    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 3] {
+    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; VALUE_NOTE_LEN] {
+        // ValueNote does not implement the Deserialize trait, so I just get it as an array.
         pxe_db::load(key)
     }
 
