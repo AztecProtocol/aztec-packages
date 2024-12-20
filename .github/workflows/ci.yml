@@ -447,7 +447,7 @@ jobs:
       - name: Copy Network Logs
         if: always()
         run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
-        
+
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -580,7 +580,7 @@ jobs:
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
-        uses: vezenovm/noir-gates-diff@510d7da8a7b027510ca0734761dfa9bcf3e8309d
+        uses: noir-lang/noir-gates-diff@e408e131e96c3615b4f820d7d642360fb4d6e2f4
         continue-on-error: true
         timeout-minutes: 1
         with:
@@ -618,7 +618,7 @@ jobs:
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
+        uses: noir-lang/noir-gates-diff@e408e131e96c3615b4f820d7d642360fb4d6e2f4
         continue-on-error: true
         timeout-minutes: 1
         with:
