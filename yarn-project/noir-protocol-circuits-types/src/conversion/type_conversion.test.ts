@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress, Fr, FunctionData, FunctionSelector, Point } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 
+import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
@@ -8,15 +9,13 @@ import {
   mapEthAddressToNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
-  mapFunctionDataFromNoir,
-  mapFunctionDataToNoir,
   mapFunctionSelectorFromNoir,
   mapFunctionSelectorToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
   mapPointFromNoir,
   mapPointToNoir,
-} from './type_conversion.js';
+} from './common.js';
 
 describe('Noir<>Circuits.js type conversion test suite', () => {
   describe('Round trip', () => {

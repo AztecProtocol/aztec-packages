@@ -41,6 +41,7 @@ allow_list=(
   "e2e_prover_fake_proofs"
   "e2e_prover_coordination"
   "e2e_lending_contract"
+  "e2e_p2p_gossip"
   "kind_network_smoke"
   "guides_dapp_testing"
   "guides_sample_dapp"

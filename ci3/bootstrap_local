@@ -9,30 +9,24 @@
 
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
-current_commit=$(git rev-parse HEAD)
-cmd=${1:-"CI=1 ./bootstrap.sh fast || exec bash"}
+cmd=${1:-"./bootstrap.sh ci || exec bash"}
 
 if ! git diff --quiet; then
-  echo "There are local changes to tracked files."
-  exit 1
+  echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"
 fi
 
-interactive_args=""
-# Only add -ti and a name if we are not in CI.
-[ "${CI:-0}" = "0" ] && interactive_args="--name aztec_build -ti"
-docker run $interactive_args --rm \
+docker run --name aztec_build -ti --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/root/.aws \
   aztecprotocol/ci:2.0 bash -c "
+  set -e
   /usr/local/share/docker-init.sh &> /dev/null
   git config --global --add safe.directory /aztec-packages-host/.git
-  mkdir -p /root/aztec-packages && cd /root/aztec-packages
+  cd /root
   # Ensure we get a clean clone of the repo.
-  git init &>/dev/null
-  git remote add origin https://github.com/aztecprotocol/aztec-packages
-  git fetch --depth 1 origin $current_commit 2>/dev/null || (echo 'The commit was not pushed, run aborted.' && exit 1)
-  git checkout FETCH_HEAD &>/dev/null
+  git clone --depth 1 file:///aztec-packages-host aztec-packages
+  cd aztec-packages
   $cmd
 "

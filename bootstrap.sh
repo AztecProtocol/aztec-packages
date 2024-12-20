@@ -132,7 +132,7 @@ case "$cmd" in
     ;;
   "test-boxes")
     github_group "test-boxes"
-    bootstrap_local "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
+    bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
     exit
   ;;
   "image-aztec")
