@@ -32,7 +32,7 @@ if ! command -v jq >/dev/null; then
   sudo mv ./jq /usr/bin/jq
 fi
 function install_parallel() {
-  sudo apt update && sudo apt install parallel
+  sudo apt update && sudo systemctl stop unattended-upgrades && sudo apt install parallel
 }
 export -f install_parallel
 if ! command -v parallel >/dev/null; then
