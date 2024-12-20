@@ -575,15 +575,6 @@ export function mapPartialStateReferenceFromNoir(
   );
 }
 
-// function mapTreeSnapshotsFromNoir(snapshots: TreeSnapshotsNoir) {
-//   return new TreeSnapshots(
-//     mapAppendOnlyTreeSnapshotFromNoir(snapshots.l1_to_l2_message_tree),
-//     mapAppendOnlyTreeSnapshotFromNoir(snapshots.note_hash_tree),
-//     mapAppendOnlyTreeSnapshotFromNoir(snapshots.nullifier_tree),
-//     mapAppendOnlyTreeSnapshotFromNoir(snapshots.public_data_tree),
-//   );
-// }
-
 export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
   const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
   return {
