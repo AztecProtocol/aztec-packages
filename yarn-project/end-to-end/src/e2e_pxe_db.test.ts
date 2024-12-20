@@ -7,8 +7,10 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// TODO(#10724): Nuke this once the linked issue is implemented (then the PXE db will be well tested). Made this
-// ugly test to check it works when first implementing this.
+// TODO(#10724): Nuke this once the linked issue is implemented (then the code will be well-tested). There is also
+// a TXE test in `pxe_db.nr` but I decided to keep this ugly test around as it tests the PXE oracle callback handler
+// (which is not tested by the TXE test). Dont't forget to remove `store_in_pxe_db` and `load_from_pxe_db` from
+// the test contract when removing this test.
 describe('PXE db', () => {
   jest.setTimeout(TIMEOUT);
 
