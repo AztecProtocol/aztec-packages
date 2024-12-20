@@ -116,10 +116,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
-    private epochCache: EpochCache,
+    epochCache: EpochCache,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    private telemetry: TelemetryClient,
+    telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createLogger('p2p:libp2p_service'),
   ) {

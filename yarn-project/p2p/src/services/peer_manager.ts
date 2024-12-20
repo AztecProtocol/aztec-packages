@@ -10,6 +10,7 @@ import { inspect } from 'util';
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
 import { PeerScoreState, PeerScoring } from './peer-scoring/peer_scoring.js';
+import { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { type PeerDiscoveryService } from './service.js';
 import { PeerEvent } from './types.js';
 
@@ -229,8 +230,10 @@ export class PeerManager extends WithTracer {
       switch (score) {
         // TODO: add goodbye and give reasons
         case PeerScoreState.Banned:
+          void this.disconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
+          break;
         case PeerScoreState.Disconnect:
-          void this.disconnectPeer(peer.remotePeer);
+          void this.disconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
           break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
@@ -241,8 +244,9 @@ export class PeerManager extends WithTracer {
   }
 
   // TODO: send a goodbye with a reason to the peer
-  private async disconnectPeer(peer: PeerId) {
-    this.logger.debug(`Disconnecting peer ${peer.toString()}`);
+  private async disconnectPeer(peer: PeerId, reason: GoodByeReason) {
+    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${reason}`);
+
     await this.libP2PNode.hangUp(peer);
   }
 
