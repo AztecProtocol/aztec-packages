@@ -513,12 +513,14 @@ export class Sequencer {
    * @param newGlobalVariables - The global variables for the new block
    * @param historicalHeader - The historical header of the parent
    * @param interrupt - The interrupt callback, used to validate the block for submission and check if we should propose the block
+   * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
   private async buildBlock(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
     historicalHeader?: BlockHeader,
     interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
+    opts: { validateOnly?: boolean } = {},
   ) {
     const blockNumber = newGlobalVariables.blockNumber.toBigInt();
     const slot = newGlobalVariables.slotNumber.toBigInt();
@@ -582,7 +584,7 @@ export class Sequencer {
       }
 
       if (
-        !interrupt && // We check for minTxCount only if we are proposing a block, not if we are validating it
+        !opts.validateOnly && // We check for minTxCount only if we are proposing a block, not if we are validating it
         !this.isFlushing && // And we skip the check when flushing, since we want all pending txs to go out, no matter if too few
         this.minTxsPerBLock !== undefined &&
         processedTxs.length < this.minTxsPerBLock
