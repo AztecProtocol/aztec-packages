@@ -71,7 +71,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // required length from 23 to 3.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
     // Fixed generator of H
-    static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
+    static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} used by ECCVM
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
@@ -411,7 +411,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
                                               const FF& inner_product_eval_claim)
     {
 
-        static const FF subgroup_generator_inverse = FF(1) / Curve::SUBGROUP_GENERATOR;
+        const FF subgroup_generator_inverse = Curve::subgroup_generator_inverse;
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
@@ -498,12 +498,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         denominators[0] = r - one;
         FF work_root = inverse_root_of_unity; // g^{-1}
                                               //
-        // Compute the evaluations of the Lagrange polynomials for H
+        // Compute the denominators of the Lagrange polynomials evaluated at r
         for (size_t i = 1; i < SUBGROUP_SIZE; ++i) {
             denominators[i] = work_root * r;
             denominators[i] -= one; // r * g^{-i} - 1
             work_root *= inverse_root_of_unity;
         }
+
+        // Invert/Batch invert denominators
         if constexpr (Curve::is_stdlib_type) {
             for (FF& denominator : denominators) {
                 denominator = one / denominator;
@@ -512,10 +514,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             FF::batch_invert(&denominators[0], SUBGROUP_SIZE);
         }
         std::array<FF, 3> result;
+
+        // Accumulate the evaluation of the polynomials given by `coeffs` vector
         result[0] = FF{ 0 };
         for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
-            FF temp = coeffs[i] * denominators[i]; // coeffs_i * 1/(r * g^{-i}  - 1)
-            result[0] = result[0] + temp;
+            result[0] += coeffs[i] * denominators[i]; // + coeffs_i * 1/(r * g^{-i}  - 1)
         }
 
         result[0] = result[0] * numerator;       // The evaluation of the polynomials given by its evaluations over H

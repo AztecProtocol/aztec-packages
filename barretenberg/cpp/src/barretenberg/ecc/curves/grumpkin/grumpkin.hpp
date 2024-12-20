@@ -55,10 +55,14 @@ class Grumpkin {
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
 
+    // Required by SmallSubgroupIPA argument
     static constexpr size_t SUBGROUP_SIZE = 87;
-
-    static constexpr ScalarField SUBGROUP_GENERATOR =
+    // To find the generator below, we factored r - 1 into primes, where r is the modulus of the Grumkin scalar field,
+    // sampled a random field element, raised it to (r-1)/(3*29), and ensured that the resulting element is not
+    // generating a smaller subgroup. To avoid inversion in the recursive verifier, we also store its inverse.
+    static constexpr ScalarField subgroup_generator =
         ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
-    ;
+    static constexpr ScalarField subgroup_generator_inverse =
+        ScalarField("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
 };
 } // namespace bb::curve

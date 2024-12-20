@@ -51,7 +51,7 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
 
         if (has_zk) {
-            static constexpr FF subgroup_generator = Curve::SUBGROUP_GENERATOR;
+            static constexpr FF subgroup_generator = Curve::subgroup_generator;
             const auto gemini_r = opening_claims[0].opening_pair.challenge;
 
             std::array<std::string, 4> libra_eval_labels = {
@@ -626,7 +626,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                             const Fr& shplonk_evaluation_challenge)
 
     {
-        const Fr subgroup_generator = Curve::SUBGROUP_GENERATOR;
+        const Fr subgroup_generator = Curve::subgroup_generator;
 
         // compute current power of Shplonk batching challenge taking into account the const proof size
         Fr shplonk_challenge_power = Fr{ 1 };
