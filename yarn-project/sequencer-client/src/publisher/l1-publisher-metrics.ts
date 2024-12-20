@@ -20,6 +20,8 @@ export class L1PublisherMetrics {
   private txGas: Histogram;
   private txCalldataSize: Histogram;
   private txCalldataGas: Histogram;
+  private txBlobDataGasUsed: Histogram;
+  private txBlobDataGasCost: Histogram;
 
   constructor(client: TelemetryClient, name = 'L1Publisher') {
     const meter = client.getMeter(name);
@@ -55,6 +57,18 @@ export class L1PublisherMetrics {
     this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
       description: 'The gas consumed by the calldata in transactions',
       unit: 'gas',
+      valueType: ValueType.INT,
+    });
+
+    this.txBlobDataGasUsed = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED, {
+      description: 'The amount of blob gas used in transactions',
+      unit: 'gas',
+      valueType: ValueType.INT,
+    });
+
+    this.txBlobDataGasCost = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST, {
+      description: 'The gas cost of blobs in transactions',
+      unit: 'gwei',
       valueType: ValueType.INT,
     });
   }
@@ -97,6 +111,9 @@ export class L1PublisherMetrics {
     );
     this.txCalldataGas.record(stats.calldataGas, attributes);
     this.txCalldataSize.record(stats.calldataSize, attributes);
+
+    this.txBlobDataGasCost.record(Number(stats.blobDataGas), attributes);
+    this.txBlobDataGasUsed.record(Number(stats.blobGasUsed), attributes);
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));

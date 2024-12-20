@@ -61,7 +61,7 @@ export class PublicSimulationOutput {
         constants: CombinedConstantData.schema,
         txEffect: TxEffect.schema,
         publicReturnValues: z.array(NestedProcessReturnValues.schema),
-        gasUsed: z.object({ totalGas: Gas.schema, teardownGas: Gas.schema }),
+        gasUsed: z.object({ totalGas: Gas.schema, teardownGas: Gas.schema, publicGas: Gas.schema }),
       })
       .transform(
         fields =>
@@ -81,7 +81,7 @@ export class PublicSimulationOutput {
       CombinedConstantData.empty(),
       TxEffect.empty(),
       times(2, NestedProcessReturnValues.random),
-      { teardownGas: Gas.random(), totalGas: Gas.random() },
+      { teardownGas: Gas.random(), totalGas: Gas.random(), publicGas: Gas.random() },
     );
   }
 }

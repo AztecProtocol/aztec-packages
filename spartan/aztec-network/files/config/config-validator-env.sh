@@ -3,7 +3,7 @@ set -eu
 
 # Pass a PXE url as an argument
 # Ask the PXE's node for l1 contract addresses
-output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $1 --node-url '')
+output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $1)
 
 echo "$output"
 

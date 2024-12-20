@@ -138,23 +138,6 @@ fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
         "Lookup columns lhs must be the same length as rhs"
     );
 
-    // 0.                       The polynomial containing the inverse products -> taken from the attributes
-    // 1.                       The polynomial with the counts!
-    // 2.                       lhs selector
-    // 3.                       rhs selector
-    // 4.. + columns per set.   lhs cols
-    // 4 + columns per set.. .  rhs cols
-    let mut lookup_entities: Vec<String> = [
-        lookup.inverse.clone(),
-        lookup.counts_poly.clone(),
-        lhs_selector.clone(),
-        rhs_selector.clone(),
-    ]
-    .to_vec();
-
-    lookup_entities.extend(lhs_cols);
-    lookup_entities.extend(rhs_cols);
-
     // NOTE: these are hardcoded as 1 for now until more optimizations are required
     let read_terms = 1;
     let write_terms = 1;
@@ -172,6 +155,10 @@ fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
         "lookup_name": lookup.name,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
+        "lhs_cols": lhs_cols,
+        "rhs_cols": rhs_cols,
+        "inverses_col": lookup.inverse.clone(),
+        "counts_col": lookup.counts_poly,
         "read_terms": read_terms,
         "write_terms": write_terms,
         "lookup_tuple_size": lookup_tuple_size,
@@ -180,7 +167,6 @@ fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
         "write_term_degree": write_term_degree,
         "read_term_types": read_term_types,
         "write_term_types": write_term_types,
-        "lookup_entities": lookup_entities,
     })
 }
 

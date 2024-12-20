@@ -5,7 +5,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GlobalVariables } from '../global_variables.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 
 /**
  * Represents inputs of the empty block root rollup circuit.
