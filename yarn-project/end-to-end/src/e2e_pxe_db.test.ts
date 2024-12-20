@@ -48,7 +48,9 @@ describe('PXE db', () => {
 
     // Now we try to load the data back from the PXE db. We should get only the note content and not the header because
     // the Serialize trait impl for ValueNote does it like that.
-    const noteContent = [randomValueNote.value, randomValueNote.owner, randomValueNote.randomness];
+    const noteContent = [randomValueNote.value, randomValueNote.owner, randomValueNote.randomness].map(v =>
+      v.toBigInt(),
+    );
     expect(await testContract.methods.load_from_pxe_db(key).simulate()).toEqual(noteContent);
   });
 });
