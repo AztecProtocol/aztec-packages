@@ -225,7 +225,7 @@ export class PeerManager extends WithTracer {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
-      const score = this.peerScoring.getScore(peer.remotePeer.toString());
+      const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         // TODO: add goodbye and give reasons
         case PeerScoreState.Banned:
@@ -242,6 +242,7 @@ export class PeerManager extends WithTracer {
 
   // TODO: send a goodbye with a reason to the peer
   private async disconnectPeer(peer: PeerId) {
+    this.logger.debug(`Disconnecting peer ${peer.toString()}`);
     await this.libP2PNode.hangUp(peer);
   }
 

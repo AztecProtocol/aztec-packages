@@ -264,6 +264,42 @@ describe('PeerManager', () => {
       expect(peer2?.status).toBe('cached'); // in dial queue
     });
 
+    it('should disconnect from unhealthy peers during heartbeat', async () => {
+      // Create two peers with different states
+      const bannedPeerId = await createSecp256k1PeerId();
+      const disconnectPeerId = await createSecp256k1PeerId();
+      const healthyPeerId = await createSecp256k1PeerId();
+
+      // Mock the connections to return our test peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: bannedPeerId },
+        { remotePeer: disconnectPeerId },
+        { remotePeer: healthyPeerId },
+      ]);
+
+      // Set the peer scores to trigger different states
+      peerManager.penalizePeer(bannedPeerId, PeerErrorSeverity.LowToleranceError); // Will set score below -100
+      peerManager.penalizePeer(bannedPeerId, PeerErrorSeverity.LowToleranceError); // Additional penalty to ensure banned state
+
+      peerManager.penalizePeer(disconnectPeerId, PeerErrorSeverity.LowToleranceError); // Will set score between -100 and -50
+      peerManager.penalizePeer(disconnectPeerId, PeerErrorSeverity.HighToleranceError);
+
+      // Trigger heartbeat which should call pruneUnhealthyPeers
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp was called for both unhealthy peers
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(bannedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
+
+      // Verify that hangUp was not called for the healthy peer
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
+
+      // Verify hangUp was called exactly twice (once for each unhealthy peer)
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
+    });
+
     it('should properly clean up peers on stop', async () => {
       const enr = await createMockENR();
       await discoveredPeerCallback(enr);
