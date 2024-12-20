@@ -51,12 +51,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

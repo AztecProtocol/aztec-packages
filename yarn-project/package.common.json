@@ -39,7 +39,7 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
-    "reporters": [["jest-silent-reporter", { "useDots": true }]],
+    "reporters": ["default"],
     "testTimeout": 30000,
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",

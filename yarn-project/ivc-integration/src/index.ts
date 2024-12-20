@@ -49,7 +49,6 @@ export {
   MockPrivateKernelTailVk,
 };
 
-createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
 /* eslint-disable camelcase */
