@@ -13,6 +13,7 @@ export class ExecutorMetrics {
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
   private manaPerSecond: Histogram;
+  private privateEffectsInsertions: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
     this.tracer = client.getTracer(name);
@@ -31,6 +32,12 @@ export class ExecutorMetrics {
     this.manaPerSecond = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND, {
       description: 'Mana used per second',
       unit: 'mana/s',
+      valueType: ValueType.INT,
+    });
+
+    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
+      description: 'Private effects insertion time',
+      unit: 'us',
       valueType: ValueType.INT,
     });
   }
@@ -53,6 +60,12 @@ export class ExecutorMetrics {
   recordFunctionSimulationFailure() {
     this.fnCount.add(1, {
       [Attributes.OK]: false,
+    });
+  }
+
+  recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
+    this.privateEffectsInsertions.record(Math.ceil(durationUs), {
+      [Attributes.REVERTIBILITY]: type,
     });
   }
 }

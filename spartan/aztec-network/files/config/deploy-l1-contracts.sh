@@ -8,19 +8,31 @@ CHAIN_ID=$2
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=60
-export LOG_LEVEL=debug
 
 for attempt in $(seq 1 $MAX_RETRIES); do
-  # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
-  if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $3 --l1-chain-id $CHAIN_ID --salt $SALT) && break
+  # Construct base command
+  base_cmd="node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts"
+
+  # Add account - use private key if set, otherwise use mnemonic
+  if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
+    base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID --salt $SALT) && break
+    base_cmd="$base_cmd --mnemonic '$MNEMONIC'"
   fi
+
+  # Add validators if INIT_VALIDATORS is true
+  if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
+    output=$(eval $base_cmd --validators $3 --l1-chain-id $CHAIN_ID --salt $SALT) && break
+  else
+    output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
+  fi
+
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
   sleep "$RETRY_DELAY"
-done || { echo "All l1 contract deploy attempts failed."; exit 1; }
-
+done || {
+  echo "All l1 contract deploy attempts failed."
+  exit 1
+}
 
 echo "$output"
 
@@ -38,7 +50,7 @@ governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Addr
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts/contracts.env
+cat <<EOF >/shared/contracts/contracts.env
 export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
 export INBOX_CONTRACT_ADDRESS=$inbox_address

@@ -1,10 +1,10 @@
 import { Blob } from '@aztec/foundation/blob';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { BLOBS_PER_BLOCK, BLOB_PUBLIC_INPUTS } from '../constants.gen.js';
-import { makeBlobPublicInputs, makeBlockBlobPublicInputs } from '../tests/factories.js';
+import { BLOBS_PER_BLOCK, BLOB_PUBLIC_INPUTS } from '../../constants.gen.js';
+import { makeBlobPublicInputs, makeBlockBlobPublicInputs } from '../../tests/factories.js';
+import { Fr } from '../index.js';
 import { BlobPublicInputs, BlockBlobPublicInputs } from './blob_public_inputs.js';
-import { Fr } from './index.js';
 
 describe('BlobPublicInputs', () => {
   let blobPI: BlobPublicInputs;

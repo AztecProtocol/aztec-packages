@@ -41,6 +41,7 @@ export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
 export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
+export const ARCHIVER_PRUNE_COUNT = 'aztec.archiver.prune_count';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
@@ -52,6 +53,7 @@ export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
 export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
 export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
+export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -59,18 +61,26 @@ export const L1_PUBLISHER_TX_DURATION = 'aztec.l1_publisher.tx_duration';
 export const L1_PUBLISHER_TX_GAS = 'aztec.l1_publisher.tx_gas';
 export const L1_PUBLISHER_TX_CALLDATA_SIZE = 'aztec.l1_publisher.tx_calldata_size';
 export const L1_PUBLISHER_TX_CALLDATA_GAS = 'aztec.l1_publisher.tx_calldata_gas';
+export const L1_PUBLISHER_TX_BLOBDATA_GAS_USED = 'aztec.l1_publisher.tx_blobdata_gas_used';
+export const L1_PUBLISHER_TX_BLOBDATA_GAS_COST = 'aztec.l1_publisher.tx_blobdata_gas_cost';
 
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
 export const PUBLIC_PROCESSOR_TX_PHASE_COUNT = 'aztec.public_processor.tx_phase_count';
+export const PUBLIC_PROCESSOR_TX_GAS = 'aztec.public_processor.tx_gas';
 export const PUBLIC_PROCESSOR_PHASE_DURATION = 'aztec.public_processor.phase_duration';
 export const PUBLIC_PROCESSOR_PHASE_COUNT = 'aztec.public_processor.phase_count';
 export const PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE = 'aztec.public_processor.deploy_bytecode_size';
+export const PUBLIC_PROCESSOR_TOTAL_GAS = 'aztec.public_processor.total_gas';
+export const PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM = 'aztec.public_processor.total_gas_histogram';
+export const PUBLIC_PROCESSOR_GAS_RATE = 'aztec.public_processor.gas_rate';
+export const PUBLIC_PROCESSOR_TREE_INSERTION = 'aztec.public_processor.tree_insertion';
 
 export const PUBLIC_EXECUTOR_SIMULATION_COUNT = 'aztec.public_executor.simulation_count';
 export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simulation_duration';
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND = 'aztec.public_executor.simulation_mana_per_second';
 export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
+export const PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
 
 export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
   'aztec.proving_orchestrator.base_rollup.inputs_duration';
@@ -91,6 +101,8 @@ export const PROVING_QUEUE_DB_USED_SIZE = 'aztec.proving_queue.db.used_size';
 export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
 
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
+export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
+export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
 
 export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
@@ -103,6 +115,7 @@ export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height'
 export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
 export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
 export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';
+export const WORLD_STATE_REQUEST_TIME = 'aztec.world_state.request_time';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 

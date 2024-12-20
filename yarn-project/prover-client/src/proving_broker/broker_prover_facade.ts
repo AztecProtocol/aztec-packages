@@ -11,27 +11,29 @@ import {
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  type KernelCircuitPublicInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type ParityPublicInputs,
+  type PrivateKernelEmptyInputData,
+  type RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TUBE_PROOF_LENGTH,
   type TubeInputs,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
