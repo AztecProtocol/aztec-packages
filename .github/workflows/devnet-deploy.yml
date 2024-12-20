@@ -26,7 +26,7 @@ on:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
         type: boolean
-        default: false
+        default: "false"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
