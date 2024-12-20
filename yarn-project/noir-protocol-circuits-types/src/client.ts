@@ -20,5 +20,5 @@ export { ClientCircuitArtifacts, type ClientProtocolArtifact } from './artifacts
 
 export { getPrivateKernelResetArtifactName } from './utils/private_kernel_reset.js';
 export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
-export { foreignCallHandler } from './utils/server/foreign_call_handler.js';
+export { foreignCallHandler } from './utils/client/foreign_call_handler.js';
 export { ClientCircuitVks, getVKIndex, getVKTreeRoot, getVKSiblingPath } from './vks.js';
