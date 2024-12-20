@@ -8,8 +8,11 @@ import { jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { getP2PDefaultConfig } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { PeerScoring } from './peer-scoring/peer_scoring.js';
 import { PeerManager } from './peer_manager.js';
+import { ReqRespSubProtocol } from './reqresp/interface.js';
+import { GoodByeReason } from './reqresp/protocols/index.js';
 import { PeerEvent } from './types.js';
 
 describe('PeerManager', () => {
@@ -33,6 +36,12 @@ describe('PeerManager', () => {
     runRandomNodesQuery: jest.fn(),
   };
 
+  const mockReqResp: any = {
+    sendRequestToPeer: jest.fn(),
+  };
+
+  let peerScoring: PeerScoring;
+
   let peerManager: PeerManager;
   // The function provided to the discovery servive callback will be run here
   let discoveredPeerCallback: (enr: ENR) => Promise<void>;
@@ -53,12 +62,15 @@ describe('PeerManager', () => {
       }
     });
 
+    peerScoring = new PeerScoring({} as P2PConfig);
     peerManager = new PeerManager(
       mockLibP2PNode,
       mockPeerDiscoveryService,
       getP2PDefaultConfig(),
       getTelemetryClient(),
       createLogger('test'),
+      peerScoring,
+      mockReqResp,
     );
   });
 
@@ -289,10 +301,20 @@ describe('PeerManager', () => {
 
       await sleep(100);
 
-      // Verify that hangUp was called for both unhealthy peers
+      // Verify that hangUp and a goodbye was sent for both unhealthy peers
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(bannedPeerId);
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        bannedPeerId,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.BANNED]),
+      );
 
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        disconnectPeerId,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.DISCONNECTED]),
+      );
       // Verify that hangUp was not called for the healthy peer
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
 
@@ -304,11 +326,14 @@ describe('PeerManager', () => {
       const enr = await createMockENR();
       await discoveredPeerCallback(enr);
 
-      peerManager.stop();
+      await peerManager.stop();
 
       expect(mockLibP2PNode.removeEventListener).toHaveBeenCalledWith(PeerEvent.CONNECTED, expect.any(Function));
       expect(mockLibP2PNode.removeEventListener).toHaveBeenCalledWith(PeerEvent.DISCONNECTED, expect.any(Function));
       expect(mockPeerDiscoveryService.off).toHaveBeenCalledWith(PeerEvent.DISCOVERED, expect.any(Function));
+
+      // Verify that goodbyes were sent to all peers
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(2);
     });
   });
 });

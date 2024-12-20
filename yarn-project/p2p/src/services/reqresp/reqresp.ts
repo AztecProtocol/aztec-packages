@@ -14,7 +14,7 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { PeerScoring } from '../peer-scoring/peer_scoring.js';
+import { type PeerScoring } from '../peer-scoring/peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
@@ -339,7 +339,7 @@ export class ReqResp {
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
-            const response = await handler(msg);
+            const response = await handler(connection.remotePeer, msg);
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },

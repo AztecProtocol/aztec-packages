@@ -9,10 +9,10 @@ import { inspect } from 'util';
 
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
-import { PeerScoreState, PeerScoring } from './peer-scoring/peer_scoring.js';
-import { type GoodbyeSender } from './reqresp/goodbye_sender.js';
-import { GoodByeReason } from './reqresp/protocols/goodbye.js';
-import { ReqResp, ReqRespSubProtocol } from './reqresp/reqresp.js';
+import { PeerScoreState, type PeerScoring } from './peer-scoring/peer_scoring.js';
+import { ReqRespSubProtocol } from './reqresp/interface.js';
+import { GoodByeReason, prettyGoodbyeReason } from './reqresp/protocols/goodbye.js';
+import { type ReqResp } from './reqresp/reqresp.js';
 import { type PeerDiscoveryService } from './service.js';
 import { PeerEvent } from './types.js';
 
@@ -116,8 +116,15 @@ export class PeerManager extends WithTracer {
     }
   }
 
+  // TODO: include reason here and add to metrics, but this is fine for now
+  public goodbyeReceived(peerId: PeerId) {
+    this.logger.debug(`Goodbye received from peer ${peerId.toString()}`);
+
+    void this.disconnectPeer(peerId);
+  }
+
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
-    this.peerScoring.penalizePeer(peerId.toString(), penalty);
+    this.peerScoring.penalizePeer(peerId, penalty);
   }
 
   public getPeerScore(peerId: string): number {
@@ -227,12 +234,11 @@ export class PeerManager extends WithTracer {
     for (const peer of connections) {
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
-        // TODO: add goodbye and give reasons
         case PeerScoreState.Banned:
-          void this.disconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
+          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
           break;
         case PeerScoreState.Disconnect:
-          void this.disconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
+          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
           break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
@@ -242,17 +248,24 @@ export class PeerManager extends WithTracer {
     return connectedHealthyPeers;
   }
 
-  // TODO: send a goodbye with a reason to the peer
-  private async disconnectPeer(peer: PeerId, reason: GoodByeReason) {
-    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${reason}`);
+  private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
+    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
     try {
       await this.reqresp.sendRequestToPeer(peer, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
+    } finally {
+      await this.disconnectPeer(peer);
     }
+  }
 
-    await this.libP2PNode.hangUp(peer);
+  private async disconnectPeer(peer: PeerId) {
+    try {
+      await this.libP2PNode.hangUp(peer);
+    } catch (error) {
+      this.logger.debug(`Failed to disconnect peer ${peer.toString()}`, { error: inspect(error) });
+    }
   }
 
   /**
@@ -380,10 +393,15 @@ export class PeerManager extends WithTracer {
    * Stops the peer manager.
    * Removing all event listeners.
    */
-  public stop() {
+  public async stop() {
     this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
     this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
     this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
+
+    // Send goodbyes to all peers
+    await Promise.all(
+      this.libP2PNode.getPeers().map(peer => this.goodbyeAndDisconnectPeer(peer, GoodByeReason.DISCONNECTED)),
+    );
   }
 }
 

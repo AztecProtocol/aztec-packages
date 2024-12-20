@@ -2,7 +2,8 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { type PeerId } from '@libp2p/interface';
 
-import { ReqRespSubProtocol } from '../interface.js';
+import { type PeerManager } from '../../peer_manager.js';
+import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
 import { type ReqResp } from '../reqresp.js';
 
 // TODO: implement fully
@@ -21,6 +22,24 @@ export enum GoodByeReason {
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
   BANNED = 0x4,
+}
+
+/**
+ * Pretty prints the goodbye reason.
+ * @param reason - The goodbye reason.
+ * @returns The pretty printed goodbye reason.
+ */
+export function prettyGoodbyeReason(reason: GoodByeReason): string {
+  switch (reason) {
+    case GoodByeReason.SHUTDOWN:
+      return 'shutdown';
+    case GoodByeReason.DISCONNECTED:
+      return 'disconnected';
+    case GoodByeReason.LOW_SCORE:
+      return 'low score';
+    case GoodByeReason.BANNED:
+      return 'banned';
+  }
 }
 
 /**
@@ -46,6 +65,11 @@ export class GoodbyeProtocolHandler {
  * @param _msg - The goodbye request message.
  * @returns A resolved promise with the goodbye response.
  */
-export function goodbyeHandler(_msg: any): Promise<Buffer> {
-  return Promise.resolve(Buffer.from('goodbye'));
+export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolHandler {
+  return (peerId: PeerId, _msg: Buffer) => {
+    peerManager.goodbyeReceived(peerId);
+
+    // TODO(md): they want to receive some kind of response, but we don't have a response here
+    return Promise.resolve(Buffer.from(''));
+  };
 }

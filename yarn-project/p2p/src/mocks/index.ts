@@ -26,7 +26,7 @@ import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerManager } from '../services/peer_manager.js';
+import { type PeerScoring } from '../services/peer-scoring/peer_scoring.js';
 import { type P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
@@ -168,8 +168,8 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (peerManager: PeerManager, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
+export const createNodes = async (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerScoring)));
 };
 
 export const startNodes = async (
@@ -192,13 +192,13 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerManager: PeerManager): Promise<ReqRespNode> => {
+export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerManager);
+  const req = new ReqResp(config, p2p, peerScoring);
   return {
     p2p,
     req,

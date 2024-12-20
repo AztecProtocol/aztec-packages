@@ -21,7 +21,7 @@ export enum ReqRespSubProtocol {
  * A handler for a sub protocol
  * The message will arrive as a buffer, and the handler must return a buffer
  */
-export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Buffer>;
+export type ReqRespSubProtocolHandler = (peerId: PeerId, msg: Buffer) => Promise<Buffer>;
 
 /**
  * A type mapping from supprotocol to it's rate limits
