@@ -57,17 +57,17 @@ import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
 import { PeerManager } from '../peer_manager.js';
-import { pingHandler, statusHandler } from '../reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  PING_PROTOCOL,
-  type ReqRespSubProtocol,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
-  STATUS_PROTOCOL,
   type SubProtocolMap,
   TX_REQ_PROTOCOL,
 } from '../reqresp/interface.js';
+import { goodbyeHandler } from '../reqresp/protocols/goodbye.js';
+import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
+import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
@@ -199,7 +199,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
     const reqrespSubProtocolValidators = {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [TX_REQ_PROTOCOL]: this.validateRequestedTx.bind(this),
+      [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
     };
     await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
     this.logger.info(`Started P2P service`, {
@@ -337,22 +337,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     });
 
     // Create request response protocol handlers
-    /**
-     * Handler for tx requests
-     * @param msg - the tx request message
-     * @returns the tx response message
-     */
-    const txHandler = (msg: Buffer): Promise<Buffer> => {
-      const txHash = TxHash.fromBuffer(msg);
-      const foundTx = mempools.txPool.getTxByHash(txHash);
-      const buf = foundTx ? foundTx.toBuffer() : Buffer.alloc(0);
-      return Promise.resolve(buf);
-    };
+    const txHandler = reqRespTxHandler(mempools);
 
     const requestResponseHandlers = {
-      [PING_PROTOCOL]: pingHandler,
-      [STATUS_PROTOCOL]: statusHandler,
-      [TX_REQ_PROTOCOL]: txHandler,
+      [ReqRespSubProtocol.PING]: pingHandler,
+      [ReqRespSubProtocol.STATUS]: statusHandler,
+      [ReqRespSubProtocol.TX]: txHandler,
+      [ReqRespSubProtocol.GOODBYE]: goodbyeHandler,
     };
 
     return new LibP2PService(
