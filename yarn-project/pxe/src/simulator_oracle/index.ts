@@ -253,8 +253,8 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public getContacts(): Promise<AztecAddress[]> {
-    return this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    return this.db.getSenderAddresses();
   }
 
   /**
@@ -321,18 +321,19 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address receiving the notes
    * @returns A list of indexed tagging secrets
    */
-  async #getIndexedTaggingSecretsForContacts(
+  async #getIndexedTaggingSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...(await this.db.getContactAddresses()), ...(await this.keyStore.getAccounts())].filter(
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us)
+    const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = contacts.map(contact => {
+    const appTaggingSecrets = senders.map(contact => {
       const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
@@ -434,7 +435,7 @@ export class SimulatorOracle implements DBOracle {
       const logsForRecipient: TxScopedL2Log[] = [];
 
       // Get all the secrets for the recipient and sender pairs (#9365)
-      const secrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
+      const secrets = await this.#getIndexedTaggingSecretsForSenders(contractAddress, recipient);
 
       // We fetch logs for a window of indexes in a range:
       //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
