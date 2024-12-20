@@ -82,9 +82,9 @@ export class WalletDB {
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
-  async storeContact(address: AztecAddress, alias: string, log: LogFn) {
+  async storeSender(address: AztecAddress, alias: string, log: LogFn) {
     await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
-    log(`Account stored in database with alias ${alias} as a contact`);
+    log(`Account stored in database with alias ${alias} as a sender`);
   }
 
   async storeContract(address: AztecAddress, artifactPath: string, log: LogFn, alias?: string) {

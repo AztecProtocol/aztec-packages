@@ -233,6 +233,7 @@ export class PeerManager implements Traceable {
         this.logger.trace(`Failed to dial peer ${id} (attempt ${peer.dialAttempts})`, { error: inspect(error) });
         this.cachedPeers.set(id, peer);
       } else {
+        formatLibp2pDialError(error as Error);
         this.logger.debug(`Failed to dial peer ${id} (dropping)`, { error: inspect(error) });
         this.cachedPeers.delete(id);
       }
@@ -265,5 +266,48 @@ export class PeerManager implements Traceable {
         break;
       }
     }
+  }
+}
+
+/**
+ * copied from github.com/ChainSafe/lodestar
+ * libp2p errors with extremely noisy errors here, which are deeply nested taking 30-50 lines.
+ * Some known errors:
+ * ```
+ * Error: The operation was aborted
+ * Error: stream ended before 1 bytes became available
+ * Error: Error occurred during XX handshake: Error occurred while verifying signed payload: Peer ID doesn't match libp2p public key
+ * ```
+ *
+ * Also the error's message is not properly formatted, where the error message is indented and includes the full stack
+ * ```
+ * {
+ *  emessage: '\n' +
+ *    '    Error: stream ended before 1 bytes became available\n' +
+ *    '        at /home/lion/Code/eth2.0/lodestar/node_modules/it-reader/index.js:37:9\n' +
+ *    '        at runMicrotasks (<anonymous>)\n' +
+ *    '        at decoder (/home/lion/Code/eth2.0/lodestar/node_modules/it-length-prefixed/src/decode.js:113:22)\n' +
+ *    '        at first (/home/lion/Code/eth2.0/lodestar/node_modules/it-first/index.js:11:20)\n' +
+ *    '        at Object.exports.read (/home/lion/Code/eth2.0/lodestar/node_modules/multistream-select/src/multistream.js:31:15)\n' +
+ *    '        at module.exports (/home/lion/Code/eth2.0/lodestar/node_modules/multistream-select/src/select.js:21:19)\n' +
+ *    '        at Upgrader._encryptOutbound (/home/lion/Code/eth2.0/lodestar/node_modules/libp2p/src/upgrader.js:397:36)\n' +
+ *    '        at Upgrader.upgradeOutbound (/home/lion/Code/eth2.0/lodestar/node_modules/libp2p/src/upgrader.js:176:11)\n' +
+ *    '        at ClassIsWrapper.dial (/home/lion/Code/eth2.0/lodestar/node_modules/libp2p-tcp/src/index.js:49:18)'
+ * }
+ * ```
+ *
+ * Tracking issue https://github.com/libp2p/js-libp2p/issues/996
+ */
+function formatLibp2pDialError(e: Error): void {
+  const errorMessage = e.message.trim();
+  const newlineIndex = errorMessage.indexOf('\n');
+  e.message = newlineIndex !== -1 ? errorMessage.slice(0, newlineIndex) : errorMessage;
+
+  if (
+    e.message.includes('The operation was aborted') ||
+    e.message.includes('stream ended before 1 bytes became available') ||
+    e.message.includes('The operation was aborted')
+  ) {
+    e.stack = undefined;
   }
 }
