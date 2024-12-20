@@ -806,14 +806,16 @@ export class AvmExecutionHints {
    */
   static fromBuffer(buff: Buffer | BufferReader): AvmExecutionHints {
     const reader = BufferReader.asReader(buff);
-    const readMap = (reader: BufferReader) => {
+
+    const readMap = (r: BufferReader) => {
       const map = new Map();
-      const values = reader.readVector(AvmContractBytecodeHints);
+      const values = r.readVector(AvmContractBytecodeHints);
       for (const value of values) {
         map.set(value.contractInstanceHint.address.toString(), value);
       }
       return map;
     };
+
     return new AvmExecutionHints(
       reader.readVector(AvmEnqueuedCallHint),
       reader.readVector(AvmContractInstanceHint),

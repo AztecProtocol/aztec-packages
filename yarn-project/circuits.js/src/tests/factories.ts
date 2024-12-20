@@ -1421,7 +1421,14 @@ export function makeAvmExecutionHints(
   return AvmExecutionHints.from({
     enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: makeMap(baseLength + 7, i => [i.toString(), makeAvmBytecodeHints(i)], seed + 0x4900),
+    contractBytecodeHints: makeMap(
+      baseLength + 6,
+      i => {
+        const h = makeAvmBytecodeHints(i);
+        return [h.contractInstanceHint.address.toString(), h];
+      },
+      seed + 0x4900,
+    ),
     publicDataReads: makeVector(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
     publicDataWrites: makeVector(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
     nullifierReads: makeVector(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
