@@ -34,8 +34,7 @@ import {
   type ReqRespSubProtocolValidators,
   noopValidator,
 } from '../services/reqresp/interface.js';
-import { pingHandler } from '../services/reqresp/protocols/ping.js';
-import { statusHandler } from '../services/reqresp/protocols/status.js';
+import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
@@ -153,6 +152,7 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.PING]: pingHandler,
   [ReqRespSubProtocol.STATUS]: statusHandler,
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
 };
 
 // By default, all requests are valid
@@ -161,6 +161,7 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.PING]: noopValidator,
   [ReqRespSubProtocol.STATUS]: noopValidator,
   [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
 };
 
 /**
