@@ -1,6 +1,8 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { TxHash, createCompatibleClient } from '@aztec/aztec.js';
-import { PublicKeys } from '@aztec/circuits.js';
+import { createCompatibleClient } from '@aztec/aztec.js/rpc';
+import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { GasFees } from '@aztec/circuits.js';
+import { PublicKeys } from '@aztec/circuits.js/types';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
@@ -37,6 +39,7 @@ import {
   createProfileOption,
   createTypeOption,
   integerArgParser,
+  parseGasFees,
   parsePaymentMethod,
 } from '../utils/options/index.js';
 import { type PXEWrapper } from '../utils/pxe_wrapper.js';
@@ -579,7 +582,7 @@ export function injectCommands(
 
   program
     .command('cancel-tx')
-    .description('Cancels a peding tx by reusing its nonce with a higher fee and an empty payload')
+    .description('Cancels a pending tx by reusing its nonce with a higher fee and an empty payload')
     .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
     .addOption(pxeOption)
     .addOption(
@@ -587,45 +590,54 @@ export function injectCommands(
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .option(
+      '-i --increased-fees <da=1,l2=1>',
+      'The amounts by which the fees are increased',
+      value => parseGasFees(value),
+      new GasFees(1, 1),
+    )
+    .option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.', value =>
+      parseGasFees(value),
+    )
     .action(async (txHash, options) => {
       const { cancelTx } = await import('./cancel_tx.js');
-      const { from: parsedFromAddress, rpcUrl, secretKey, payment } = options;
+      const { from: parsedFromAddress, rpcUrl, secretKey, payment, increasedFees, maxFeesPerGas } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
       const txData = db?.retrieveTxData(txHash);
-
       if (!txData) {
-        throw new Error('Transaction data not found in the database, cannnot reuse nonce');
+        throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }
+
       const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
 
-      await cancelTx(wallet, txData, paymentMethod, log);
+      await cancelTx(wallet, txData, paymentMethod, increasedFees, maxFeesPerGas, log);
     });
 
   program
-    .command('register-contact')
+    .command('register-sender')
     .description(
-      "Registers a contact's address in the wallet, so the note synching process will look for notes sent by them",
+      "Registers a sender's address in the wallet, so the note synching process will look for notes sent by them",
     )
-    .argument('[address]', 'The address of the contact to register', address =>
+    .argument('[address]', 'The address of the sender to register', address =>
       aliasedAddressParser('accounts', address, db),
     )
     .addOption(pxeOption)
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
+    .addOption(createAliasOption('Alias for the sender. Used for easy reference in subsequent commands.', !db))
     .action(async (address, options) => {
-      const { registerContact } = await import('./register_contact.js');
+      const { registerSender } = await import('./register_sender.js');
       const { from: parsedFromAddress, rpcUrl, secretKey, alias } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      await registerContact(wallet, address, log);
+      await registerSender(wallet, address, log);
 
       if (db && alias) {
-        await db.storeContact(address, alias, log);
+        await db.storeSender(address, alias, log);
       }
     });
 

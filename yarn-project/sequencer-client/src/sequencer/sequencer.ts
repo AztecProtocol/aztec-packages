@@ -38,6 +38,7 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerState, getSecondsIntoSlot, orderAttestations } from './utils.js';
@@ -76,13 +77,11 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
-  private minSecondsBetweenBlocks = 0;
-  private maxSecondsBetweenBlocks = 0;
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = [];
+  private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
@@ -127,10 +126,7 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
-    this.log.info(
-      `Sequencer config set`,
-      omit(pickFromSchema(this.config, SequencerConfigSchema), 'allowedInSetup', 'allowedInTeardown'),
-    );
+    this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
@@ -140,12 +136,6 @@ export class Sequencer {
     }
     if (config.minTxsPerBlock !== undefined) {
       this.minTxsPerBLock = config.minTxsPerBlock;
-    }
-    if (config.minSecondsBetweenBlocks !== undefined) {
-      this.minSecondsBetweenBlocks = config.minSecondsBetweenBlocks;
-    }
-    if (config.maxSecondsBetweenBlocks !== undefined) {
-      this.maxSecondsBetweenBlocks = config.maxSecondsBetweenBlocks;
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
@@ -293,6 +283,7 @@ export class Sequencer {
     const pendingTxs = await this.p2pClient.getPendingTxs();
 
     if (!this.shouldProposeBlock(historicalHeader, { pendingTxsCount: pendingTxs.length })) {
+      await this.claimEpochProofRightIfAvailable(slot);
       return;
     }
 
@@ -325,6 +316,7 @@ export class Sequencer {
 
     // Bail if we don't have enough valid txs
     if (!this.shouldProposeBlock(historicalHeader, { validTxsCount: validTxs.length })) {
+      await this.claimEpochProofRightIfAvailable(slot);
       return;
     }
 
@@ -353,15 +345,6 @@ export class Sequencer {
     } finally {
       this.setState(SequencerState.IDLE, 0n);
     }
-  }
-
-  /** Whether to skip the check of min txs per block if more than maxSecondsBetweenBlocks has passed since the previous block. */
-  private skipMinTxsPerBlockCheck(historicalHeader: BlockHeader | undefined): boolean {
-    const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
-    const currentTime = Math.floor(Date.now() / 1000);
-    const elapsed = currentTime - lastBlockTime;
-
-    return this.maxSecondsBetweenBlocks > 0 && elapsed >= this.maxSecondsBetweenBlocks;
   }
 
   async mayProposeBlock(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint> {
@@ -446,53 +429,29 @@ export class Sequencer {
       `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
     );
 
-    // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-    // Do not go forward with new block if not enough time has passed since last block
-    if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
+    // We need to have at least minTxsPerBLock txs.
+    if (args.pendingTxsCount !== undefined && args.pendingTxsCount < this.minTxsPerBLock) {
       this.log.verbose(
-        `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
+        `Not creating block because not enough txs in the pool (got ${args.pendingTxsCount} min ${this.minTxsPerBLock})`,
       );
       return false;
     }
 
-    const skipCheck = this.skipMinTxsPerBlockCheck(historicalHeader);
-
-    // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-    if (args.pendingTxsCount != undefined) {
-      if (args.pendingTxsCount < this.minTxsPerBLock) {
-        if (skipCheck) {
-          this.log.debug(
-            `Creating block with only ${args.pendingTxsCount} txs as more than ${this.maxSecondsBetweenBlocks}s have passed since last block`,
-          );
-        } else {
-          this.log.verbose(
-            `Not creating block because not enough txs in the pool (got ${args.pendingTxsCount} min ${this.minTxsPerBLock})`,
-          );
-          return false;
-        }
-      }
-    }
-
     // Bail if we don't have enough valid txs
-    if (args.validTxsCount != undefined) {
-      // Bail if we don't have enough valid txs
-      if (!skipCheck && args.validTxsCount < this.minTxsPerBLock) {
-        this.log.verbose(
-          `Not creating block because not enough valid txs loaded from the pool (got ${args.validTxsCount} min ${this.minTxsPerBLock})`,
-        );
-        return false;
-      }
+    if (args.validTxsCount !== undefined && args.validTxsCount < this.minTxsPerBLock) {
+      this.log.verbose(
+        `Not creating block because not enough valid txs loaded from the pool (got ${args.validTxsCount} min ${this.minTxsPerBLock})`,
+      );
+      return false;
     }
 
     // TODO: This check should be processedTxs.length < this.minTxsPerBLock, so we don't publish a block with
     // less txs than the minimum. But that'd cause the entire block to be aborted and retried. Instead, we should
     // go back to the p2p pool and load more txs until we hit our minTxsPerBLock target. Only if there are no txs
     // we should bail.
-    if (args.processedTxsCount != undefined) {
-      if (args.processedTxsCount === 0 && !skipCheck && this.minTxsPerBLock > 0) {
-        this.log.verbose('No txs processed correctly to build block.');
-        return false;
-      }
+    if (args.processedTxsCount === 0 && this.minTxsPerBLock > 0) {
+      this.log.verbose('No txs processed correctly to build block.');
+      return false;
     }
 
     return true;
@@ -542,7 +501,12 @@ export class Sequencer {
     const orchestratorFork = await this.worldState.fork();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
+      const processor = this.publicProcessorFactory.create(
+        publicProcessorFork,
+        historicalHeader,
+        newGlobalVariables,
+        true,
+      );
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
@@ -555,7 +519,12 @@ export class Sequencer {
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+
+      const start = process.hrtime.bigint();
       await blockBuilder.addTxs(processedTxs);
+      const end = process.hrtime.bigint();
+      const duration = Number(end - start) / 1_000;
+      this.metrics.recordBlockBuilderTreeInsertions(duration);
 
       await interrupt?.(processedTxs);
 
@@ -744,7 +713,7 @@ export class Sequencer {
       // Find out which epoch we are currently in
       const epochToProve = await this.publisher.getClaimableEpoch();
       if (epochToProve === undefined) {
-        this.log.debug(`No epoch to prove`);
+        this.log.trace(`No epoch to prove at slot ${slotNumber}`);
         return undefined;
       }
 
@@ -757,7 +726,10 @@ export class Sequencer {
       });
       // ensure these quotes are still valid for the slot and have the contract validate them
       const validQuotesPromise = Promise.all(
-        quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
+        quotes
+          .filter(x => x.payload.validUntilSlot >= slotNumber)
+          .filter(x => x.payload.epochToProve === epochToProve)
+          .map(x => this.publisher.validateProofQuote(x)),
       );
 
       const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
@@ -770,7 +742,7 @@ export class Sequencer {
         (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
       );
       const quote = sortedQuotes[0];
-      this.log.info(`Selected proof quote for proof claim`, quote.payload);
+      this.log.info(`Selected proof quote for proof claim`, { quote: quote.toInspect() });
       return quote;
     } catch (err) {
       this.log.error(`Failed to create proof claim for previous epoch`, err, { slotNumber });
@@ -828,6 +800,29 @@ export class Sequencer {
     }
 
     return toReturn;
+  }
+
+  @trackSpan(
+    'Sequencer.claimEpochProofRightIfAvailable',
+    slotNumber => ({ [Attributes.SLOT_NUMBER]: Number(slotNumber) }),
+    epoch => ({ [Attributes.EPOCH_NUMBER]: Number(epoch) }),
+  )
+  /** Collects an epoch proof quote if there is an epoch to prove, and submits it to the L1 contract. */
+  protected async claimEpochProofRightIfAvailable(slotNumber: bigint) {
+    const proofQuote = await this.createProofClaimForPreviousEpoch(slotNumber);
+    if (proofQuote === undefined) {
+      return;
+    }
+
+    const epoch = proofQuote.payload.epochToProve;
+    const ctx = { slotNumber, epoch, quote: proofQuote.toInspect() };
+    this.log.verbose(`Claiming proof right for epoch ${epoch}`, ctx);
+    const success = await this.publisher.claimEpochProofRight(proofQuote);
+    if (!success) {
+      throw new Error(`Failed to claim proof right for epoch ${epoch}`);
+    }
+    this.log.info(`Claimed proof right for epoch ${epoch}`, ctx);
+    return epoch;
   }
 
   /**

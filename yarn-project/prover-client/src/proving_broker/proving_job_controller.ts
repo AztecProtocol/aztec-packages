@@ -30,6 +30,7 @@ export class ProvingJobController {
   constructor(
     private jobId: ProvingJobId,
     private inputs: ProvingJobInputs,
+    private epochNumber: number,
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: ProvingJobCompletionCallback,
@@ -100,51 +101,51 @@ export class ProvingJobController {
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return await this.circuitProver.getAvmProof(inputs, signal);
+        return await this.circuitProver.getAvmProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
-        return await this.circuitProver.getPrivateBaseRollupProof(inputs, signal);
+        return await this.circuitProver.getPrivateBaseRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PUBLIC_BASE_ROLLUP: {
-        return await this.circuitProver.getPublicBaseRollupProof(inputs, signal);
+        return await this.circuitProver.getPublicBaseRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.MERGE_ROLLUP: {
-        return await this.circuitProver.getMergeRollupProof(inputs, signal);
+        return await this.circuitProver.getMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
-        return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal);
+        return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
-        return await this.circuitProver.getBlockRootRollupProof(inputs, signal);
+        return await this.circuitProver.getBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
-        return await this.circuitProver.getBlockMergeRollupProof(inputs, signal);
+        return await this.circuitProver.getBlockMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.ROOT_ROLLUP: {
-        return await this.circuitProver.getRootRollupProof(inputs, signal);
+        return await this.circuitProver.getRootRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BASE_PARITY: {
-        return await this.circuitProver.getBaseParityProof(inputs, signal);
+        return await this.circuitProver.getBaseParityProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.ROOT_PARITY: {
-        return await this.circuitProver.getRootParityProof(inputs, signal);
+        return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
-        return await this.circuitProver.getEmptyPrivateKernelProof(inputs, signal);
+        return await this.circuitProver.getEmptyPrivateKernelProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.TUBE_PROOF: {
-        return await this.circuitProver.getTubeProof(inputs, signal);
+        return await this.circuitProver.getTubeProof(inputs, signal, this.epochNumber);
       }
 
       default: {

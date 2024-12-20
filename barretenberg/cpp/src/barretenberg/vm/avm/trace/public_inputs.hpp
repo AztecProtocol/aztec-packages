@@ -38,6 +38,7 @@ struct GasSettings {
     Gas gas_limits;
     Gas teardown_gas_limits;
     GasFees max_fees_per_gas;
+    GasFees max_priority_fees_per_gas;
 };
 
 inline void read(uint8_t const*& it, GasSettings& gas_settings)
@@ -46,6 +47,7 @@ inline void read(uint8_t const*& it, GasSettings& gas_settings)
     read(it, gas_settings.gas_limits);
     read(it, gas_settings.teardown_gas_limits);
     read(it, gas_settings.max_fees_per_gas);
+    read(it, gas_settings.max_priority_fees_per_gas);
 }
 
 struct GlobalVariables {

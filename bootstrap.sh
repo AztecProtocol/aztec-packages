@@ -4,27 +4,18 @@
 #   fast: Bootstrap the repo using CI cache where possible to save time building.
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-if [ "$(uname)" == "Darwin" ]; then
-  shopt -s expand_aliases
-  alias clang++-16="clang++"
-fi
+# Enable abbreviated output.
+export DENOISE=1
+# We always want color.
+export FORCE_COLOR=true
 
-cd "$(dirname "$0")"
-
-CMD=${1:-}
-
-YELLOW="\033[93m"
-RED="\033[31m"
-BOLD="\033[1m"
-RESET="\033[0m"
-
-# setup env
-export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
+cmd=${1:-}
 
 function encourage_dev_container {
-  echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
+  echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
 
 # Checks for required utilities, toolchains and their versions.
@@ -39,15 +30,15 @@ function check_toolchains {
     fi
   done
   # Check cmake version.
-  CMAKE_MIN_VERSION="3.24"
-  CMAKE_INSTALLED_VERSION=$(cmake --version | head -n1 | awk '{print $3}')
-  if [[ "$(printf '%s\n' "$CMAKE_MIN_VERSION" "$CMAKE_INSTALLED_VERSION" | sort -V | head -n1)" != "$CMAKE_MIN_VERSION" ]]; then
+  local cmake_min_version="3.24"
+  local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
+  if [[ "$(printf '%s\n' "$cmake_min_version" "$cmake_installed_version" | sort -V | head -n1)" != "$cmake_min_version" ]]; then
     encourage_dev_container
     echo "Minimum cmake version 3.24 not found."
     exit 1
   fi
   # Check clang version.
-  if ! clang++-16 --version > /dev/null; then
+  if ! clang++-16 --version | grep "clang version 16." > /dev/null; then
     encourage_dev_container
     echo "clang 16 not installed."
     echo "Installation: sudo apt install clang-16"
@@ -81,16 +72,16 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  NODE_MIN_VERSION="18.19.0"
-  NODE_INSTALLED_VERSION=$(node --version | cut -d 'v' -f 2)
-  if [[ "$(printf '%s\n' "$NODE_MIN_VERSION" "$NODE_INSTALLED_VERSION" | sort -V | head -n1)" != "$NODE_MIN_VERSION" ]]; then
+  local node_min_version="18.19.0"
+  local node_installed_version=$(node --version | cut -d 'v' -f 2)
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
-    echo "Minimum Node.js version 18.19.0 not found."
-    echo "Installation: nvm install 18"
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
     exit 1
   fi
   # Check for required npm globals.
-  for util in yarn solhint; do
+  for util in corepack solhint; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "$util not found."
@@ -98,68 +89,163 @@ function check_toolchains {
       exit 1
     fi
   done
-}
-
-if [ "$CMD" = "clean" ]; then
-  echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
-  echo -n "Continue? [y/n] "
-  read user_input
-  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
-    echo "Exiting without cleaning"
+  # Check for yarn availability
+  if ! command -v yarn > /dev/null; then
+    encourage_dev_container
+    echo "yarn not found."
+    echo "Installation: corepack enable"
     exit 1
   fi
+  # Check for yarn version
+  local yarn_min_version="4.5.2"
+  local yarn_installed_version=$(yarn --version)
+  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
+    encourage_dev_container
+    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
+    echo "Installation: yarn set version $yarn_min_version; yarn install"
+    exit 1
+  fi
+}
 
-  # Remove hooks and submodules.
-  rm -rf .git/hooks/*
-  rm -rf .git/modules/*
-  for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-    rm -rf $SUBMODULE
-  done
+case "$cmd" in
+  "clean")
+    echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
+    echo -n "Continue? [y/n] "
+    read user_input
+    if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
+      echo "Exiting without cleaning"
+      exit 1
+    fi
 
-  # Remove all untracked files, directories, nested repos, and .gitignore files.
-  git clean -ffdx
+    # Remove hooks and submodules.
+    rm -rf .git/hooks/*
+    rm -rf .git/modules/*
+    for submodule in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+      rm -rf $submodule
+    done
 
-  echo "Cleaning complete"
-  exit 0
-elif [ "$CMD" = "full" ]; then
-  echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-  echo
-elif [ "$CMD" = "fast" ]; then
-  export USE_CACHE=1
-elif [ "$CMD" = "check" ]; then
-  check_toolchains
-  echo "Toolchains look good! 🎉"
-  exit 0
-else
-  echo "usage: $0 <full|fast|check|clean>"
-  exit 1
-fi
+    # Remove all untracked files, directories, nested repos, and .gitignore files.
+    git clean -ffdx
+
+    echo "Cleaning complete"
+    exit 0
+  ;;
+  "check")
+    check_toolchains
+    echo "Toolchains look good! 🎉"
+    exit 0
+  ;;
+  "test-e2e")
+    ./bootstrap.sh image-e2e
+    shift 1
+    yarn-project/end-to-end/scripts/e2e_test.sh $@
+    exit
+  ;;
+  "test-cache")
+    # Test cache by running minio with full and fast bootstraps
+    scripts/tests/bootstrap/test-cache
+    exit
+    ;;
+  "test-boxes")
+    github_group "test-boxes"
+    bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
+    exit
+  ;;
+  "image-aztec")
+    image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
+    if docker_has_image $image; then
+      exit
+    fi
+    github_group "image-aztec"
+    source $ci3/source_tmp
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
+    echo "docker image build:"
+    docker pull aztecprotocol/aztec-base:v1.0-$(arch)
+    docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
+    docker build -f Dockerfile.aztec -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
+    github_endgroup
+    exit
+  ;;
+  "_image-e2e")
+    image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
+    docker pull $image &>/dev/null || true
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
+    fi
+    github_group "image-e2e"
+    source $ci3/source_tmp
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
+    scripts/earthly-ci --artifact +bootstrap-end-to-end/anvil $TMP/anvil
+    echo "docker image build:"
+    docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
+    docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
+    docker build -f Dockerfile.end-to-end -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
+    github_endgroup
+    exit
+  ;;
+  "image-e2e")
+    parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
+    exit
+  ;;
+  "image-faucet")
+    image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
+    if docker_has_image $image; then
+      echo "Image $image already exists." && exit
+    fi
+    github_group "image-faucet"
+    source $ci3/source_tmp
+    mkdir -p $TMP/usr
+    echo "earthly artifact build:"
+    scripts/earthly-ci --artifact +bootstrap-faucet/usr/src $TMP/usr/src
+    echo "docker image build:"
+    docker build -f Dockerfile.aztec-faucet -t $image $TMP
+    if [ "${CI:-0}" = 1 ]; then
+      docker push $image
+    fi
+    github_endgroup
+    exit
+  ;;
+  ""|"fast"|"full"|"test"|"ci")
+    # Drop through. source_bootstrap on script entry has set flags.
+  ;;
+  *)
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
+    exit 1
+  ;;
+esac
 
 # Install pre-commit git hooks.
-HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
-chmod +x $HOOKS_DIR/pre-commit
+hooks_dir=$(git rev-parse --git-path hooks)
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
+echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+chmod +x $hooks_dir/pre-commit
 
-git submodule update --init --recursive
+github_group "pull submodules"
+denoise git submodule update --init --recursive
+github_endgroup
 
 check_toolchains
 
-PROJECTS=(
-  barretenberg
+projects=(
   noir
+  barretenberg
   l1-contracts
   avm-transpiler
   noir-projects
   yarn-project
+  boxes
 )
 
-# Build projects locally
-for project in "${PROJECTS[@]}"; do
-  echo "**************************************"
-  echo -e "\033[1mBootstrapping $project...\033[0m"
-  echo "**************************************"
-  echo
-  (cd $project && ./bootstrap.sh)
-  echo
-  echo
+# Build projects.
+for project in "${projects[@]}"; do
+  $project/bootstrap.sh $cmd
 done

@@ -5,8 +5,8 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
-import { BlockBlobPublicInputs } from '../blob_public_inputs.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { BlockBlobPublicInputs } from '../blobs/blob_public_inputs.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
 

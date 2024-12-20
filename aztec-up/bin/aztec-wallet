@@ -3,8 +3,11 @@ set -euo pipefail
 
 export SKIP_PORT_ASSIGNMENT=1
 export WALLET_DATA_DIRECTORY=$(dirname $0)/wallet-data
-export ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY SSH_AUTH_SOCK"
+export BB_WORKING_DIRECTORY=$(dirname $0)/bb-workdir
+export BB_BINARY_PATH=$(which bb)
+export ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY SSH_AUTH_SOCK PXE_PROVER_ENABLED BB_BINARY_PATH BB_WORKING_DIRECTORY"
 
+mkdir -p $BB_WORKING_DIRECTORY
 mkdir -p $WALLET_DATA_DIRECTORY
 
 $(dirname $0)/.aztec-run aztecprotocol/cli-wallet $@

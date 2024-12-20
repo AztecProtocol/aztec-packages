@@ -5,6 +5,73 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+## 0.68.0
+### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
+Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
+when registering contract classes
+
+Function changes in the Node interface and Contract Data source interface:
+```diff
+- addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
++ registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
+```
+
+So now the PXE registers this when calling `registerContract()`
+```
+await this.node.registerContractFunctionNames(instance.address, functionNames);
+```
+
+Function changes in the Archiver
+```diff
+- addContractArtifact(address: AztecAddress, artifact: ContractArtifact)
+-  getContractArtifact(address: AztecAddress)
++  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>
+```
+
+### [fees, fpc] Changes in setting up FPC as fee payer on AztecJS and method names in FPC
+On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` are now the same. The don't need to specify a sequencer address or which coin to pay in. The coins are set up in the FPC contract!
+
+```diff
+- paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address,bananaFPC.address,aliceWallet,sequencerAddress),
++ paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+
+- paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
++ paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+```
+
+Changes in `FeePaymentMethod` class in AztecJS
+```diff
+- getAsset(): AztecAddress;
++ getAsset(): Promise<AztecAddress>;
+```
+
+Changes in the token contract:
+FPC specific methods, `setup_refund()` and `complete_refund()` have minor args rename.
+
+Changes in FPC contract:
+Rename of args in all of FPC functions as FPC now stores the accepted token address and admin and making it clearer the amounts are corresponding to the accepted token and not fee juice.
+Also created a public function `pull_funds()` for admin to clawback any money in the FPC
+
+Expect more changes in FPC in the coming releases!
+
+### Name change from `contact` to `sender` in PXE API
+`contact` has been deemed confusing because the name is too similar to `contract`.
+For this reason we've decided to rename it:
+
+```diff
+- await pxe.registerContact(address);
++ await pxe.registerSender(address);
+- await pxe.getContacts();
++ await pxe.getSenders();
+- await pxe.removeContact(address);
++ await pxe.removeSender(address);
+```
+
+## 0.67.1
+
+### Noir contracts package no longer exposes artifacts as default export
+
+To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
 
 ## 0.67.0
 
@@ -24,10 +91,11 @@ The `Header` struct has been renamed to `BlockHeader`, and the `get_header()` fa
 ### Outgoing Events removed
 
 Previously, every event which was emitted included:
+
 - Incoming Header (to convey the app contract address to the recipient)
 - Incoming Ciphertext (to convey the note contents to the recipient)
 - Outgoing Header (served as a backup, to convey the app contract address to the "outgoing viewer" - most likely the sender)
-- Outgoing Ciphertext (served as a backup, encrypting the summetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
+- Outgoing Ciphertext (served as a backup, encrypting the symmetric key of the incoming ciphertext to the "outgoing viewer" - most likely the sender)
 
 The latter two have been removed from the `.emit()` functions, so now only an Incoming Header and Incoming Ciphertext will be emitted.
 
@@ -43,6 +111,7 @@ The `getOutgoingNotes` function is removed from the PXE interface.
 Some aztec.nr library methods' arguments are simplified to remove an `outgoing_viewer` parameter. E.g. `ValueNote::increment`, `ValueNote::decrement`, `ValueNote::decrement_by_at_most`, `EasyPrivateUint::add`, `EasyPrivateUint::sub`.
 
 Further changes are planned, so that:
+
 - Outgoing ciphertexts (or any kind of abstract ciphertext) can be emitted by a contract, and on the other side discovered and then processed by the contract.
 - Headers will be removed, due to the new tagging scheme.
 

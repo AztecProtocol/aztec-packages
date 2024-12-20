@@ -99,3 +99,9 @@ export const WS_DB_DATA_TYPE = 'aztec.world_state.db_type';
 
 /** Identifier for component database (e.g. archiver, tx pool) */
 export const DB_DATA_TYPE = 'aztec.db_type';
+
+export const REVERTIBILITY = 'aztec.revertibility';
+
+export const GAS_DIMENSION = 'aztec.gas_dimension';
+
+export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
