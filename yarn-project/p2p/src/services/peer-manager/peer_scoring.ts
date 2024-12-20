@@ -90,7 +90,7 @@ export class PeerScoring {
   public getScoreState(peerId: string): PeerScoreState {
     // TODO(#11329): permanently store banned peers?
     const score = this.getScore(peerId);
-    if (score <= MIN_SCORE_BEFORE_BAN) {
+    if (score < MIN_SCORE_BEFORE_BAN) {
       return PeerScoreState.Banned;
     }
     if (score < MIN_SCORE_BEFORE_DISCONNECT) {
