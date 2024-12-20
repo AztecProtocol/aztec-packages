@@ -73,31 +73,31 @@ function build {
 }
 
 function test {
-  if test_should_run barretenberg-test-$hash; then
-    github_group "bb test"
+  test_should_run barretenberg-test-$hash || return 0
 
-    echo "Check formatting..."
-    ./format.sh check
+  github_group "bb test"
 
-    echo "Building tests..."
-    denoise cmake --preset $preset -Bbuild "&&" cmake --build build
+  echo "Check formatting..."
+  ./format.sh check
 
-    # Download ignition transcripts.
-    # TODO: Use the flattened crs. These old transcripts are a pain.
-    echo "Downloading srs..."
-    denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
-    if [ ! -d ./srs_db/grumpkin ]; then
-      # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-      # If tests require more points, the parameter can be increased here. Note: IPA requires
-      # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
-      cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
-    fi
+  echo "Building tests..."
+  denoise cmake --preset $preset -Bbuild "&&" cmake --build build
 
-    echo "Testing..."
-    (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
-    cache_upload_flag barretenberg-test-$hash
-    github_endgroup
-  fi
+  # Download ignition transcripts.
+  # TODO: Use the flattened crs. These old transcripts are a pain.
+  echo "Downloading srs..."
+  denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
+  # if [ ! -d ./srs_db/grumpkin ]; then
+  #   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
+  #   # If tests require more points, the parameter can be increased here. Note: IPA requires
+  #   # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
+  #   (cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769)
+  # fi
+
+  echo "Testing..."
+  (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
+  cache_upload_flag barretenberg-test-$hash
+  github_endgroup
 }
 
 case "$cmd" in
@@ -120,6 +120,14 @@ case "$cmd" in
     ;;
   "hash")
     echo $hash
+    ;;
+  "test-cmds")
+    cd build
+    for bin in ./bin/*_tests; do
+      $bin --gtest_list_tests | \
+        awk -vbin=$bin '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print bin " --gtest_filter=" suite$1 " &>/dev/null"}' | \
+        sed 's/\.$//' | grep -v 'DISABLED_'; \
+    done
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -115,12 +115,10 @@ function build {
 
 function test {
   set -eu
-  # Whether we run the tests or not is coarse grained.
   name=$(basename "$PWD")
   CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
-  if ! test_should_run $name-tests-$CIRCUITS_HASH; then
-    return
-  fi
+  test_should_run $name-tests-$CIRCUITS_HASH || return 0
+
   RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
 }

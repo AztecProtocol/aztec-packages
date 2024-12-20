@@ -55,20 +55,23 @@ function build {
   github_endgroup
 }
 
-function test {
-  if test_should_run yarn-project-unit-tests-$hash; then
-    github_group "yarn-project test"
-    denoise yarn formatting
-    denoise yarn test
-    cache_upload_flag yarn-project-unit-tests-$hash
-    github_endgroup
-  fi
+function test_unit {
+  test_should_run yarn-project-unit-tests-$hash || return 0
 
+  github_group "yarn-project test"
+  denoise yarn formatting
+  denoise yarn test
+  cache_upload_flag yarn-project-unit-tests-$hash
+  github_endgroup
+}
+
+function test {
+  test_unit
   test_e2e
 }
 
 function test_e2e {
-  test_should_run yarn-project-e2e-tests-$hash || return
+  test_should_run yarn-project-e2e-tests-$hash || return 0
 
   github_group "yarn-project e2e tests"
   cd end-to-end
@@ -234,10 +237,10 @@ case "$cmd" in
     test
     ;;
   "test-e2e")
-    TEST=1 test_e2e
+    test_e2e
     ;;
   "test-e2e-flakes")
-    TEST=1 TEST_FLAKES=1 test_e2e
+    TEST_FLAKES=1 test_e2e
     ;;
   "ci")
     build full

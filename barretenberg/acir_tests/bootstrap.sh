@@ -51,9 +51,7 @@ function test {
   set -eu
 
   local hash=$(hash)
-  if ! test_should_run barretenberg-acir-tests-$hash; then
-    return
-  fi
+  test_should_run barretenberg-acir-tests-$hash || return 0
 
   github_group "acir_tests testing"
 

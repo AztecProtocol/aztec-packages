@@ -19,6 +19,8 @@ function build {
 }
 
 function test {
+  test_should_run "boxes-test-$hash" || return 0
+
   function test_box {
     set -eu
     BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --force-recreate
@@ -26,12 +28,10 @@ function test {
   export -f test_box
 
   github_group "boxes"
-  if test_should_run "boxes-test-$hash"; then
-    # TODO: Move back to build and use cache.
-    denoise 'yarn && echo "Building... " && yarn build'
-    parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
-    cache_upload_flag boxes-test-$hash
-  fi
+  # TODO: Move back to build and use cache.
+  denoise 'yarn && echo "Building... " && yarn build'
+  parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
+  cache_upload_flag boxes-test-$hash
   github_endgroup
 }
 

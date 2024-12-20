@@ -20,12 +20,12 @@ function build {
 }
 
 function test {
-  if test_should_run bb.js-tests-$hash; then
-    github_group "bb.js test"
-    denoise yarn test
-    cache_upload_flag bb.js-tests-$hash
-    github_endgroup
-  fi
+  test_should_run bb.js-tests-$hash || return 0
+
+  github_group "bb.js test"
+  denoise yarn test
+  cache_upload_flag bb.js-tests-$hash
+  github_endgroup
 }
 
 case "$cmd" in
