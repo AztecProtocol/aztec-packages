@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -u
 exit_code=254
 ttl=$1
 scripts/run_on_builder "
@@ -18,6 +19,7 @@ scripts/run_on_builder "
   export -f clone
   flock /var/lock/clone.lock bash -c clone
   cd ~/run-$RUN_ID
+  flock /var/lock/install.lock .github/ensure-builder/chron
   flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD
   ci3/aws_handle_evict 'set -eu; $INPUT'
 "

@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
+set -u
 exit_code=254
 ttl=$1
 scripts/run_on_tester "
   set -eu;
   sudo shutdown -P $ttl;
-  if ! [ -d ~/run-$RUN_ID ]; then
-    mkdir -p ~/run-$RUN_ID;
-    cd ~/run-$RUN_ID;
-    git init >/dev/null 2>&1;
-    git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1;
-    git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
-    git checkout FETCH_HEAD >/dev/null 2>&1;
-  fi;
-  cd ~/run-$RUN_ID;
-  .github/ensure-tester/install $DOCKERHUB_PASSWORD
+  function clone {
+    if ! [ -d ~/run-$RUN_ID ]; then
+      mkdir -p ~/run-$RUN_ID;
+      cd ~/run-$RUN_ID;
+      git init >/dev/null 2>&1;
+      git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1;
+      git fetch --depth 1 origin $GIT_COMMIT >/dev/null 2>&1;
+      git checkout FETCH_HEAD >/dev/null 2>&1;
+    fi;
+  }
+  export RUN_ID GIT_COMMIT
+  export -f clone
+  flock /var/lock/clone.lock bash -c clone
+  cd ~/run-$RUN_ID
+  # reuse script from ensure-builder, but don't set up chron
+  flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD
   ci3/aws_handle_evict 'set -eu; $INPUT'
 "
 exit_code=$?
