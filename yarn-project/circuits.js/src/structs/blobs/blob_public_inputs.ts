@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { BLOBS_PER_BLOCK } from '../constants.gen.js';
+import { BLOBS_PER_BLOCK } from '../../constants.gen.js';
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 // Also defined in yarn-project/foundation/src/blob/index.ts, which can't take in our circuits.js constants

@@ -1,26 +1,28 @@
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  type KernelCircuitPublicInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
+  type PrivateKernelEmptyInputData,
+  type RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TUBE_PROOF_LENGTH,
   type TubeInputs,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 
 import type { Tx } from '../tx/tx.js';
 import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from './proving-job.js';
