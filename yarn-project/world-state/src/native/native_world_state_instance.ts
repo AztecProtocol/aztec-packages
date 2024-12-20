@@ -12,7 +12,6 @@ import {
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { Timer } from '@aztec/foundation/timer';
 
 import assert from 'assert';
 import bindings from 'bindings';
