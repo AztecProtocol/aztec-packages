@@ -412,7 +412,7 @@ export class Oracle {
       return [toACVMField(0)];
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
-      return [toACVMField(1), ...values.map(toACVMField)];
+      return [1, ...values].map(toACVMField);
     }
   }
 }

@@ -598,6 +598,29 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  async store(contract: ForeignCallSingle, key: ForeignCallSingle, values: ForeignCallArray) {
+    const processedContract = AztecAddress.fromField(fromSingle(contract));
+    const processedKey = fromSingle(key);
+    const processedValues = fromArray(values);
+    await this.typedOracle.store(processedContract, processedKey, processedValues);
+    return toForeignCallResult([]);
+  }
+
+  async load(contract: ForeignCallSingle, key: ForeignCallSingle) {
+    const processedContract = AztecAddress.fromField(fromSingle(contract));
+    const processedKey = fromSingle(key);
+    const values = await this.typedOracle.load(processedContract, processedKey);
+    if (values === null) {
+      // TODO(benesjan): This results in a brillig error since the return data size is not correct. How to figure out
+      // how many zeros to append?
+      // No data was found so we set the data-found flag to 0 and return it.
+      return toForeignCallResult(toArray([new Fr(0)]));
+    } else {
+      // Data was found so we set the data-found flag to 1 and return it along with the data.
+      return toForeignCallResult(toArray([new Fr(1), ...values]));
+    }
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
