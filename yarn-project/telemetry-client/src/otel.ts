@@ -198,6 +198,22 @@ export class OpenTelemetryClient implements TelemetryClient {
             true,
           ),
         }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'gas/s',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [...linearBuckets(100_000, 10_000_000, 100), ...linearBuckets(10_000_000, 100_000_000, 100).slice(1)],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'mana/s',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [...linearBuckets(100_000, 10_000_000, 100), ...linearBuckets(10_000_000, 100_000_000, 100).slice(1)],
+            true,
+          ),
+        }),
       ],
     });
 

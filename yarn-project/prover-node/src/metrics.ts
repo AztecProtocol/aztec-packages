@@ -13,11 +13,11 @@ export class ProverNodeMetrics {
       unit: 'ms',
       valueType: ValueType.INT,
     });
-    this.provingJobBlocks = meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
+    this.provingJobBlocks = meter.createHistogram(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
       valueType: ValueType.INT,
     });
-    this.provingJobTransactions = meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
+    this.provingJobTransactions = meter.createHistogram(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
       description: 'Number of transactions in a proven epoch',
       valueType: ValueType.INT,
     });
@@ -26,7 +26,7 @@ export class ProverNodeMetrics {
   public recordProvingJob(timerOrMs: Timer | number, numBlocks: number, numTxs: number) {
     const ms = Math.ceil(typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms());
     this.provingJobDuration.record(ms);
-    this.provingJobBlocks.record(numBlocks);
-    this.provingJobTransactions.record(numTxs);
+    this.provingJobBlocks.record(Math.floor(numBlocks));
+    this.provingJobTransactions.record(Math.floor(numTxs));
   }
 }

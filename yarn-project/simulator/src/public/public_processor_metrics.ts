@@ -3,6 +3,7 @@ import { type Gas } from '@aztec/circuits.js';
 import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,
+  Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -22,7 +23,8 @@ export class PublicProcessorMetrics {
   private phaseCount: UpDownCounter;
 
   private bytecodeDeployed: Histogram;
-  private totalGas: Histogram;
+  private totalGas: Gauge;
+  private totalGasHistogram: Histogram;
   private gasRate: Histogram;
 
   private treeInsertionDuration: Histogram;
@@ -65,6 +67,11 @@ export class PublicProcessorMetrics {
       unit: 'gas',
     });
 
+    this.totalGasHistogram = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM, {
+      description: 'Total gas used in block as histogram',
+      unit: 'gas',
+    });
+
     this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
       description: 'L2 gas per second for complete block',
       unit: 'gas/s',
@@ -72,7 +79,7 @@ export class PublicProcessorMetrics {
 
     this.treeInsertionDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TREE_INSERTION, {
       description: 'How long it takes for tree insertion',
-      unit: 'ms',
+      unit: 'us',
       valueType: ValueType.INT,
     });
   }
@@ -123,7 +130,7 @@ export class PublicProcessorMetrics {
     }
   }
 
-  recordTreeInsertions(durationMs: number) {
-    this.treeInsertionDuration.record(Math.ceil(durationMs));
+  recordTreeInsertions(durationUs: number) {
+    this.treeInsertionDuration.record(Math.ceil(durationUs));
   }
 }

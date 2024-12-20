@@ -37,7 +37,7 @@ export class ExecutorMetrics {
 
     this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
       description: 'Private effects insertion time',
-      unit: 'ms',
+      unit: 'us',
       valueType: ValueType.INT,
     });
   }
@@ -63,8 +63,8 @@ export class ExecutorMetrics {
     });
   }
 
-  recordPrivateEffectsInsertion(durationMs: number, type: 'revertible' | 'non-revertible') {
-    this.privateEffectsInsertions.record(durationMs, {
+  recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
+    this.privateEffectsInsertions.record(Math.ceil(durationUs), {
       [Attributes.REVERTIBILITY]: type,
     });
   }

@@ -71,6 +71,7 @@ export const PUBLIC_PROCESSOR_PHASE_DURATION = 'aztec.public_processor.phase_dur
 export const PUBLIC_PROCESSOR_PHASE_COUNT = 'aztec.public_processor.phase_count';
 export const PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE = 'aztec.public_processor.deploy_bytecode_size';
 export const PUBLIC_PROCESSOR_TOTAL_GAS = 'aztec.public_processor.total_gas';
+export const PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM = 'aztec.public_processor.total_gas_histogram';
 export const PUBLIC_PROCESSOR_GAS_RATE = 'aztec.public_processor.gas_rate';
 export const PUBLIC_PROCESSOR_TREE_INSERTION = 'aztec.public_processor.tree_insertion';
 

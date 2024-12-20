@@ -520,9 +520,11 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
 
-      const timer = new Timer();
+      const start = process.hrtime.bigint();
       await blockBuilder.addTxs(processedTxs);
-      this.metrics.recordBlockBuilderTreeInsertions(timer.ms());
+      const end = process.hrtime.bigint();
+      const duration = Number(end - start) / 1_000;
+      this.metrics.recordBlockBuilderTreeInsertions(duration);
 
       await interrupt?.(processedTxs);
 

@@ -195,7 +195,7 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    const timer = new Timer();
+    const treeInsertionStart = process.hrtime.bigint();
     await this.db.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
@@ -220,7 +220,8 @@ export class PublicProcessor implements Traceable {
       MerkleTreeId.PUBLIC_DATA_TREE,
       processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
     );
-    this.metrics.recordTreeInsertions(timer.ms());
+    const treeInsertionEnd = process.hrtime.bigint();
+    this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
 
     return [processedTx, returnValues ?? []];
   }

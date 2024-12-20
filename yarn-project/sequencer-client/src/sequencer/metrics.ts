@@ -65,7 +65,7 @@ export class SequencerMetrics {
 
     this.blockBuilderInsertions = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
       description: 'Timer for tree insertions performed by the block builder',
-      unit: 'ms',
+      unit: 'us',
       valueType: ValueType.INT,
     });
 
@@ -85,8 +85,8 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(time);
   }
 
-  recordBlockBuilderTreeInsertions(timeMs: number) {
-    this.blockBuilderInsertions.record(timeMs);
+  recordBlockBuilderTreeInsertions(timeUs: number) {
+    this.blockBuilderInsertions.record(Math.ceil(timeUs));
   }
 
   recordCancelledBlock() {

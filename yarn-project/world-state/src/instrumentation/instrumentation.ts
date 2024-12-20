@@ -140,8 +140,8 @@ export class WorldStateInstrumentation {
     );
   }
 
-  public recordRoundTrip(timeMs: number, request: WorldStateMessageType) {
-    this.requestHistogram.record(timeMs, {
+  public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
+    this.requestHistogram.record(Math.ceil(timeUs), {
       [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
     });
   }

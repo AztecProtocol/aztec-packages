@@ -91,16 +91,20 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
-    let [duration, _] = await elapsed(this.insertNonRevertiblesFromPrivate(context));
-    this.metrics.recordPrivateEffectsInsertion(duration, 'non-revertible');
+    const nonRevertStart = process.hrtime.bigint();
+    await this.insertNonRevertiblesFromPrivate(context);
+    const nonRevertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
 
-    [duration, _] = await elapsed(this.insertRevertiblesFromPrivate(context));
-    this.metrics.recordPrivateEffectsInsertion(duration, 'revertible');
+    const revertStart = process.hrtime.bigint();
+    await this.insertRevertiblesFromPrivate(context);
+    const revertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
