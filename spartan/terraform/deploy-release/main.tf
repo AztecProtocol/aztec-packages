@@ -48,7 +48,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.L1_DEPLOYMENT_MNEMONIC != "" ? toset(["iterate"]) : toset([])
+    for_each = var.L1_DEPLOYMENT_MNEMONIC != null && var.L1_DEPLOYMENT_MNEMONIC != "" ? { "mnemonic" = true } : {}
     content {
       name  = "aztec.l1DeploymentMnemonic"
       value = var.L1_DEPLOYMENT_MNEMONIC
@@ -56,7 +56,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.L1_DEPLOYMENT_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    for_each = var.L1_DEPLOYMENT_PRIVATE_KEY != null && var.L1_DEPLOYMENT_PRIVATE_KEY != "" ? { "private_key" = true } : {}
     content {
       name  = "ethereum.deployL1ContractsPrivateKey"
       value = var.L1_DEPLOYMENT_PRIVATE_KEY
@@ -64,7 +64,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != null && var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? { "boot_node_seq_key" = true } : {}
     content {
       name  = "bootNode.seqPublisherPrivateKey"
       value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
@@ -72,7 +72,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != null && var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? { "prover_key" = true } : {}
     content {
       name  = "proverNode.proverPublisherPrivateKey"
       value = var.PROVER_PUBLISHER_PRIVATE_KEY
@@ -80,7 +80,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set_list" {
-    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? toset(["iterate"]) : toset([])
+    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? { "validator_keys" = true } : {}
     content {
       name  = "validator.validatorKeys"
       value = var.VALIDATOR_KEYS
@@ -88,7 +88,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.ETHEREUM_EXTERNAL_HOST != "" ? toset(["iterate"]) : toset([])
+    for_each = var.ETHEREUM_EXTERNAL_HOST != null && var.ETHEREUM_EXTERNAL_HOST != "" ? { "external_host" = true } : {}
     content {
       name  = "ethereum.externalHost"
       value = var.ETHEREUM_EXTERNAL_HOST
