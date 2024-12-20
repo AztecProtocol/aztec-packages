@@ -519,7 +519,12 @@ export class Sequencer {
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
+
+      const start = process.hrtime.bigint();
       await blockBuilder.addTxs(processedTxs);
+      const end = process.hrtime.bigint();
+      const duration = Number(end - start) / 1_000;
+      this.metrics.recordBlockBuilderTreeInsertions(duration);
 
       await interrupt?.(processedTxs);
 

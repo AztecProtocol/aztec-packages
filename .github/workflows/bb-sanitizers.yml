@@ -2,10 +2,10 @@
 # Unlike most jobs uses free 4 core github runners of which we have lots of capacity (of total 1000 concurrency).
 name: BB MSAN
 on:
-  push:
-    branches:
-      - master
-      - "*/bb-sanitizers*"
+#   push:
+#     branches:
+#       - master
+#       - "*/bb-sanitizers*"
   workflow_dispatch:
     inputs:
       branch:

@@ -13,10 +13,9 @@ import {
   AZTEC_MAX_EPOCH_DURATION,
   type BlockHeader,
   EthAddress,
-  type FeeRecipient,
   type Proof,
-  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
   type L1ContractsConfig,
@@ -580,6 +579,8 @@ export class L1Publisher {
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
         gasUsed: receipt.gasUsed,
+        blobGasUsed: receipt.blobGasUsed ?? 0n,
+        blobDataGas: receipt.blobGasPrice ?? 0n,
         transactionHash: receipt.transactionHash,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
@@ -642,6 +643,8 @@ export class L1Publisher {
         gasPrice: receipt.effectiveGasPrice,
         gasUsed: receipt.gasUsed,
         transactionHash: receipt.transactionHash,
+        blobDataGas: 0n,
+        blobGasUsed: 0n,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
       };
       this.log.verbose(`Submitted claim epoch proof right to L1 rollup contract`, {
@@ -758,6 +761,8 @@ export class L1Publisher {
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
+          blobDataGas: 0n,
+          blobGasUsed: 0n,
           eventName: 'proof-published-to-l1',
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });

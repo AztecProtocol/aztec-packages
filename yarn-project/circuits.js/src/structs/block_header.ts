@@ -11,8 +11,8 @@ import { z } from 'zod';
 import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 import { StateReference } from './state_reference.js';
+import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 
 /** A header of an L2 block. */
 export class BlockHeader {
