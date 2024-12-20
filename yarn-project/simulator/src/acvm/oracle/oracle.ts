@@ -398,7 +398,6 @@ export class Oracle {
     const processedValues = values.map(fromACVMField);
     const processedKey = fromACVMField(key);
     await this.typedOracle.store(processedKey, processedValues);
-    return toACVMField(0);
   }
 
   async load([key]: ACVMField[]): Promise<ACVMField[]> {
