@@ -323,8 +323,7 @@ describe('PeerManager', () => {
     });
 
     it('should properly clean up peers on stop', async () => {
-      const enr = await createMockENR();
-      await discoveredPeerCallback(enr);
+      mockLibP2PNode.getPeers.mockReturnValue([await createSecp256k1PeerId(), await createSecp256k1PeerId()]);
 
       await peerManager.stop();
 
