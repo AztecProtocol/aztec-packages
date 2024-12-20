@@ -56,6 +56,7 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
+import { PeerScoring } from '../peer-scoring/peer_scoring.js';
 import { PeerManager } from '../peer_manager.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
@@ -65,6 +66,8 @@ import {
   type SubProtocolMap,
 } from '../reqresp/interface.js';
 import { goodbyeHandler } from '../reqresp/protocols/goodbye.js';
+import { GoodByeReason } from '../reqresp/protocols/goodbye.js';
+import { GoodbyeProtocolHandler } from '../reqresp/protocols/goodbye_protocol.js';
 import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -125,12 +128,18 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, telemetry, logger);
-    this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
-      return this.peerManager.getPeerScore(peerId);
-    };
-    this.node.services.pubsub.score.params.appSpecificWeight = 10;
-    this.reqresp = new ReqResp(config, node, this.peerManager);
+    const peerScoring = new PeerScoring(config);
+    this.reqresp = new ReqResp(config, node, peerScoring);
+
+    this.peerManager = new PeerManager(
+      node,
+      peerDiscoveryService,
+      config,
+      telemetry,
+      logger,
+      peerScoring,
+      this.reqresp,
+    );
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);

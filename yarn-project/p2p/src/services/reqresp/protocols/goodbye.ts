@@ -1,3 +1,10 @@
+import { createLogger } from '@aztec/foundation/log';
+
+import { type PeerId } from '@libp2p/interface';
+
+import { ReqRespSubProtocol } from '../interface.js';
+import { type ReqResp } from '../reqresp.js';
+
 // TODO: implement fully
 
 /**
@@ -14,6 +21,24 @@ export enum GoodByeReason {
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
   BANNED = 0x4,
+}
+
+/**
+ * Handles a goodbye message request
+ */
+export class GoodbyeProtocolHandler {
+  private logger = createLogger('p2p:goodbye-protocol');
+
+  constructor(private reqresp: ReqResp) {}
+
+  public async sendGoodbye(peerId: PeerId, reason: GoodByeReason): Promise<void> {
+    try {
+      await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
+      this.logger.debug(`Sent goodbye to peer ${peerId.toString()} with reason ${reason}`);
+    } catch (error) {
+      this.logger.debug(`Failed to send goodbye to peer ${peerId.toString()}: ${error}`);
+    }
+  }
 }
 
 /**
