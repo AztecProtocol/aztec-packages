@@ -1,40 +1,52 @@
 import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { TelemetryClient, type Traceable, type Tracer, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
-import { type PeerId } from '@libp2p/interface';
+import { Connection, type PeerId } from '@libp2p/interface';
 import { type Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
-import { PeerScoring } from './peer-scoring/peer_scoring.js';
+import { PeerScoreState, PeerScoring } from './peer-scoring/peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
 import { PeerEvent } from './types.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
+const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
+const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 
 type CachedPeer = {
   peerId: PeerId;
   enr: ENR;
   multiaddrTcp: Multiaddr;
   dialAttempts: number;
+  addedUnixMs: number;
 };
 
-export class PeerManager implements Traceable {
+type TimedOutPeer = {
+  peerId: string;
+  timeoutUntilMs: number;
+};
+
+export class PeerManager extends WithTracer {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private peerScoring: PeerScoring;
   private heartbeatCounter: number = 0;
+  private displayPeerCountsPeerHeartbeat: number = 0;
+  private timedOutPeers: Map<string, TimedOutPeer> = new Map();
 
   constructor(
     private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
-    public readonly tracer: Tracer,
+    private telemetryClient: TelemetryClient,
     private logger = createLogger('p2p:peer-manager'),
   ) {
+    super(telemetryClient, 'PeerManager');
+
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
     this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent.bind(this));
@@ -43,13 +55,36 @@ export class PeerManager implements Traceable {
 
     // Handle Discovered peers
     this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handleDiscoveredPeer.bind(this));
+
+    // Display peer counts every 60 seconds
+    this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
   }
 
   @trackSpan('PeerManager.heartbeat')
   public heartbeat() {
     this.heartbeatCounter++;
-    this.discover();
     this.peerScoring.decayAllScores();
+
+    this.cleanupExpiredTimeouts();
+
+    this.discover();
+  }
+
+  /**
+   * Cleans up expired timeouts.
+   *
+   * When peers fail to dial after a number of retries, they are temporarily timed out.
+   * This function removes any peers that have been in the timed out state for too long.
+   * To give them a chance to reconnect.
+   */
+  private cleanupExpiredTimeouts() {
+    // Clean up expired timeouts
+    const now = Date.now();
+    for (const [peerId, timedOutPeer] of this.timedOutPeers.entries()) {
+      if (now >= timedOutPeer.timeoutUntilMs) {
+        this.timedOutPeers.delete(peerId);
+      }
+    }
   }
 
   /**
@@ -126,13 +161,14 @@ export class PeerManager implements Traceable {
    * Discovers peers.
    */
   private discover() {
-    // Get current connections
     const connections = this.libP2PNode.getConnections();
 
-    // Calculate how many connections we're looking to make
-    const peersToConnect = this.config.maxPeerCount - connections.length;
+    const healthyConnections = this.pruneUnhealthyPeers(connections);
 
-    const logLevel = this.heartbeatCounter % 60 === 0 ? 'info' : 'debug';
+    // Calculate how many connections we're looking to make
+    const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
+
+    const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
     this.logger[logLevel](`Connected to ${connections.length} peers`, {
       connections: connections.length,
       maxPeerCount: this.config.maxPeerCount,
@@ -147,6 +183,8 @@ export class PeerManager implements Traceable {
 
     const cachedPeersToDial: CachedPeer[] = [];
 
+    console.log('cachedPeers', this.cachedPeers);
+
     const pendingDials = new Set(
       this.libP2PNode
         .getDialQueue()
@@ -156,7 +194,12 @@ export class PeerManager implements Traceable {
 
     for (const [id, peerData] of this.cachedPeers.entries()) {
       // if already dialling or connected to, remove from cache
-      if (pendingDials.has(id) || connections.some(conn => conn.remotePeer.equals(peerData.peerId))) {
+      if (
+        pendingDials.has(id) ||
+        healthyConnections.some(conn => conn.remotePeer.equals(peerData.peerId)) ||
+        // if peer has been in cache for the max cache age, remove from cache
+        Date.now() - peerData.addedUnixMs > MAX_CACHED_PEER_AGE_MS
+      ) {
         this.cachedPeers.delete(id);
       } else {
         // cachedPeersToDial.set(id, enr);
@@ -168,6 +211,7 @@ export class PeerManager implements Traceable {
     cachedPeersToDial.reverse();
 
     for (const peer of cachedPeersToDial) {
+      // We remove from the cache before, as dialling will add it back if it fails
       this.cachedPeers.delete(peer.peerId.toString());
       void this.dialPeer(peer);
     }
@@ -179,35 +223,72 @@ export class PeerManager implements Traceable {
     }
   }
 
+  private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
+    const connectedHealthyPeers: Connection[] = [];
+
+    for (const peer of connections) {
+      const score = this.peerScoring.getScore(peer.remotePeer.toString());
+      switch (score) {
+        // TODO: add goodbye and give reasons
+        case PeerScoreState.Banned:
+        case PeerScoreState.Disconnect:
+          void this.disconnectPeer(peer.remotePeer);
+        case PeerScoreState.Healthy:
+          connectedHealthyPeers.push(peer);
+      }
+    }
+
+    return connectedHealthyPeers;
+  }
+
+  // TODO: send a goodbye with a reason to the peer
+  private async disconnectPeer(peer: PeerId) {
+    await this.libP2PNode.hangUp(peer);
+  }
+
   /**
    *  Handles a discovered peer.
    * @param enr - The discovered peer's ENR.
    */
   private async handleDiscoveredPeer(enr: ENR) {
-    // TODO: Will be handling peer scoring here
+    // Check that the peer has not already been banned
+    const peerId = await enr.peerId();
+    const peerIdString = peerId.toString();
 
-    // check if peer is already connected
-    const [peerId, multiaddrTcp] = await Promise.all([enr.peerId(), enr.getFullMultiaddr('tcp')]);
+    // Check if peer is temporarily timed out
+    const timedOutPeer = this.timedOutPeers.get(peerIdString);
+    if (timedOutPeer) {
+      if (Date.now() < timedOutPeer.timeoutUntilMs) {
+        this.logger.trace(`Skipping timed out peer ${peerId}`);
+        return;
+      }
+      // Timeout period expired, remove from timed out peers
+      this.timedOutPeers.delete(peerIdString);
+    }
 
-    this.logger.trace(
-      `Handling discovered peer ${peerId.toString()} at ${multiaddrTcp?.toString() ?? 'undefined address'}`,
-    );
+    if (this.peerScoring.getScoreState(peerIdString) != PeerScoreState.Healthy) {
+      return;
+    }
 
-    // throw if no tcp addr in multiaddr
+    const [multiaddrTcp] = await Promise.all([enr.getFullMultiaddr('tcp')]);
+
+    this.logger.trace(`Handling discovered peer ${peerId} at ${multiaddrTcp?.toString() ?? 'undefined address'}`);
+
+    // stop if no tcp addr in multiaddr
     if (!multiaddrTcp) {
       this.logger.debug(`No TCP address in discovered node's multiaddr ${enr.encodeTxt()}`);
       return;
     }
+    // check if peer is already connected
     const connections = this.libP2PNode.getConnections();
     if (connections.some(conn => conn.remotePeer.equals(peerId))) {
-      this.logger.trace(`Already connected to peer ${peerId.toString()}`);
+      this.logger.trace(`Already connected to peer ${peerId}`);
       return;
     }
 
     // check if peer is already in cache
-    const id = peerId.toString();
-    if (this.cachedPeers.has(id)) {
-      this.logger.trace(`Peer already in cache ${id}`);
+    if (this.cachedPeers.has(peerIdString)) {
+      this.logger.trace(`Peer already in cache ${peerIdString}`);
       return;
     }
 
@@ -217,14 +298,15 @@ export class PeerManager implements Traceable {
       enr,
       multiaddrTcp,
       dialAttempts: 0,
+      addedUnixMs: Date.now(),
     };
 
     // Determine if we should dial immediately or not
     if (this.shouldDialPeer()) {
       void this.dialPeer(cachedPeer);
     } else {
-      this.logger.trace(`Caching peer ${id}`);
-      this.cachedPeers.set(id, cachedPeer);
+      this.logger.trace(`Caching peer ${peerIdString}`);
+      this.cachedPeers.set(peerIdString, cachedPeer);
       // Prune set of cached peers
       this.pruneCachedPeers();
     }
@@ -236,17 +318,28 @@ export class PeerManager implements Traceable {
 
     this.logger.trace(`Dialing peer ${id}`);
     try {
+      console.log('dialing peer', peer.multiaddrTcp);
       await this.libP2PNode.dial(peer.multiaddrTcp);
     } catch (error) {
+      console.log('error', error);
       peer.dialAttempts++;
       if (peer.dialAttempts < MAX_DIAL_ATTEMPTS) {
         this.logger.trace(`Failed to dial peer ${id} (attempt ${peer.dialAttempts})`, { error: inspect(error) });
+        console.log('failed to dial peer, adding to cache');
         this.cachedPeers.set(id, peer);
+        console.log('cachedPeers', this.cachedPeers);
       } else {
         formatLibp2pDialError(error as Error);
         this.logger.debug(`Failed to dial peer ${id} (dropping)`, { error: inspect(error) });
         this.cachedPeers.delete(id);
+        // Add to timed out peers
+        this.timedOutPeers.set(id, {
+          peerId: id,
+          timeoutUntilMs: Date.now() + FAILED_PEER_BAN_TIME_MS,
+        });
       }
+    } finally {
+      console.log('dialed peer', peer.multiaddrTcp);
     }
   }
 
