@@ -1,9 +1,9 @@
 import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import { TelemetryClient, type Traceable, type Tracer, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
-import { Connection, type PeerId } from '@libp2p/interface';
+import { type Connection, type PeerId } from '@libp2p/interface';
 import { type Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
@@ -42,7 +42,7 @@ export class PeerManager extends WithTracer {
     private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
-    private telemetryClient: TelemetryClient,
+    telemetryClient: TelemetryClient,
     private logger = createLogger('p2p:peer-manager'),
   ) {
     super(telemetryClient, 'PeerManager');
@@ -91,7 +91,7 @@ export class PeerManager extends WithTracer {
    * Simply logs the type of connected peer.
    * @param e - The connected peer event.
    */
-  private async handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
+  private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
@@ -104,7 +104,7 @@ export class PeerManager extends WithTracer {
    * Simply logs the type of disconnected peer.
    * @param e - The disconnected peer event.
    */
-  private async handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
+  private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
@@ -183,8 +183,6 @@ export class PeerManager extends WithTracer {
 
     const cachedPeersToDial: CachedPeer[] = [];
 
-    console.log('cachedPeers', this.cachedPeers);
-
     const pendingDials = new Set(
       this.libP2PNode
         .getDialQueue()
@@ -233,6 +231,7 @@ export class PeerManager extends WithTracer {
         case PeerScoreState.Banned:
         case PeerScoreState.Disconnect:
           void this.disconnectPeer(peer.remotePeer);
+          break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
       }
@@ -314,20 +313,18 @@ export class PeerManager extends WithTracer {
 
   private async dialPeer(peer: CachedPeer) {
     const id = peer.peerId.toString();
+
+    // Add to the address book before dialing
     await this.libP2PNode.peerStore.merge(peer.peerId, { multiaddrs: [peer.multiaddrTcp] });
 
     this.logger.trace(`Dialing peer ${id}`);
     try {
-      console.log('dialing peer', peer.multiaddrTcp);
       await this.libP2PNode.dial(peer.multiaddrTcp);
     } catch (error) {
-      console.log('error', error);
       peer.dialAttempts++;
       if (peer.dialAttempts < MAX_DIAL_ATTEMPTS) {
         this.logger.trace(`Failed to dial peer ${id} (attempt ${peer.dialAttempts})`, { error: inspect(error) });
-        console.log('failed to dial peer, adding to cache');
         this.cachedPeers.set(id, peer);
-        console.log('cachedPeers', this.cachedPeers);
       } else {
         formatLibp2pDialError(error as Error);
         this.logger.debug(`Failed to dial peer ${id} (dropping)`, { error: inspect(error) });
@@ -338,8 +335,6 @@ export class PeerManager extends WithTracer {
           timeoutUntilMs: Date.now() + FAILED_PEER_BAN_TIME_MS,
         });
       }
-    } finally {
-      console.log('dialed peer', peer.multiaddrTcp);
     }
   }
 

@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { ENR, SignableENR } from '@chainsafe/enr';
+import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
@@ -37,9 +37,7 @@ describe('PeerManager', () => {
   // The function provided to the discovery servive callback will be run here
   let discoveredPeerCallback: (enr: ENR) => Promise<void>;
 
-  beforeEach(async () => {
-    jest.useFakeTimers();
-
+  beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
 
@@ -108,9 +106,8 @@ describe('PeerManager', () => {
 
       peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
 
-      const peers = peerManager.getPeers();
-      const penalizedPeer = peers.find(p => p.id === peerId.toString());
-      //   expect(penalizedPeer?.score).toBeLessThan(0);
+      const score = peerManager.getPeerScore(peerId.toString());
+      expect(score).toBeLessThan(0);
     });
 
     it('should handle heartbeat', () => {
@@ -134,7 +131,6 @@ describe('PeerManager', () => {
     });
 
     it('should retry failed dials up to MAX_DIAL_ATTEMPTS', async () => {
-      jest.useRealTimers();
       const enr = await createMockENR();
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
@@ -149,9 +145,15 @@ describe('PeerManager', () => {
       await (peerManager as any).discover();
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(2);
 
+      // dial peer happens asynchronously, so we need to wait
+      await sleep(100);
+
       // Third attempt
       await (peerManager as any).discover();
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(3);
+
+      // dial peer happens asynchronously, so we need to wait
+      await sleep(100);
 
       // After the third attempt, the peer should be removed from
       // the cache, and placed in timeout
@@ -159,15 +161,27 @@ describe('PeerManager', () => {
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(3);
     });
 
+    const triggerTimeout = async (enr: ENR) => {
+      // First attempt - adds it to the cache
+      await discoveredPeerCallback(enr);
+      await sleep(100);
+      // Second attempt - on heartbeat
+      await (peerManager as any).discover();
+      await sleep(100);
+      // Third attempt - on heartbeat
+      await (peerManager as any).discover();
+    };
+
     it('should timeout a peer after max dial attempts and ignore it for the timeout period', async () => {
       const enr = await createMockENR();
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail three times to trigger timeout
-      for (let i = 0; i < 3; i++) {
-        await discoveredPeerCallback(enr);
-      }
+      await triggerTimeout(enr);
+
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(3);
+
+      jest.useFakeTimers();
 
       // Try to dial immediately after timeout - should be ignored
       mockLibP2PNode.dial.mockClear();
@@ -190,14 +204,14 @@ describe('PeerManager', () => {
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail three times to trigger timeout
-      for (let i = 0; i < 3; i++) {
-        await discoveredPeerCallback(enr);
-      }
+      await triggerTimeout(enr);
 
       // Verify peer is timed out
       mockLibP2PNode.dial.mockClear();
       await discoveredPeerCallback(enr);
       expect(mockLibP2PNode.dial).not.toHaveBeenCalled();
+
+      jest.useFakeTimers();
 
       // Advance time past timeout period and trigger heartbeat
       jest.advanceTimersByTime(5 * 60 * 1000);
@@ -238,6 +252,7 @@ describe('PeerManager', () => {
 
       // Try peer2 once
       await discoveredPeerCallback(enr2);
+      await sleep(100);
 
       const peers = peerManager.getPeers(true);
       expect(peers).toHaveLength(2);
