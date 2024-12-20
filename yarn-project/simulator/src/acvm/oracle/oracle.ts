@@ -401,15 +401,14 @@ export class Oracle {
     await this.typedOracle.store(processedContract, processedKey, processedValues);
   }
 
-  async load([contract]: ACVMField[], [key]: ACVMField[]): Promise<ACVMField[]> {
+  async load([contract]: ACVMField[], [key]: ACVMField[], [numReturnValues]: ACVMField[]): Promise<ACVMField[]> {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
     if (values === null) {
-      // TODO(benesjan): This results in a brillig error since the return data size is not correct. How to figure out
-      // how many zeros to append?
-      // No data was found so we set the data-found flag to 0 and return it.
-      return [toACVMField(0)];
+      // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
+      const processedNumReturnValues = frToNumber(fromACVMField(numReturnValues));
+      return [0, ...Array(processedNumReturnValues).fill(0)].map(toACVMField);
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
       return [1, ...values].map(toACVMField);

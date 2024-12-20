@@ -18,8 +18,10 @@ where
     store_oracle(contract_address, key, serialized);
 }
 
+/// Load M values from local PXE database. We pass in M as a parameter to have the information of how many fields
+/// we need to pad if the key does not exist.
 #[oracle(load)]
-unconstrained fn load_oracle<let M: u32>(contract_address: AztecAddress, key: Field) -> [Field; M] {}
+unconstrained fn load_oracle<let M: u32>(contract_address: AztecAddress, key: Field, num_return_values: u32) -> [Field; M] {}
 
 /// Load a value of type T that implements Deserialize from local PXE database.
 /// The data is scoped to the current contract.
@@ -28,7 +30,7 @@ pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, key: Fi
 where
     T: Deserialize<N>,
 {
-    let fields: [Field; N + 1] = load_oracle(contract_address, key);
+    let fields: [Field; N + 1] = load_oracle(contract_address, key, N);
     // First field is a flag indicating if the key exists.
     if fields[0] == 0 {
         Option::none()
