@@ -49,8 +49,8 @@ describe('e2e_2_pxes', () => {
      What is a more robust solution? */
     await sleep(5000);
 
-    await walletA.registerContact(walletB.getAddress());
-    await walletB.registerContact(walletA.getAddress());
+    await walletA.registerSender(walletB.getAddress());
+    await walletB.registerSender(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -182,13 +182,13 @@ describe('e2e_2_pxes', () => {
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
 
-    await sharedWalletOnA.registerContact(walletA.getAddress());
+    await sharedWalletOnA.registerSender(walletA.getAddress());
 
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
-    await sharedWalletOnB.registerContact(sharedWalletOnA.getAddress());
+    await sharedWalletOnB.registerSender(sharedWalletOnA.getAddress());
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);

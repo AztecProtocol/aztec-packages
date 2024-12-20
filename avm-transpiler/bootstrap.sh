@@ -17,8 +17,8 @@ function build {
 }
 
 function test {
-  cargo fmt --check
-  cargo clippy
+  denoise cargo fmt --check
+  denoise cargo clippy
 }
 
 case "$cmd" in

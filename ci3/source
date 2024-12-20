@@ -18,6 +18,11 @@ function hash_str {
   set -eu
   echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
 }
-export -f hash_str
+
+function echo_stderr {
+  echo $@ >&2
+}
+
+export -f hash_str echo_stderr
 
 source $ci3/source_color

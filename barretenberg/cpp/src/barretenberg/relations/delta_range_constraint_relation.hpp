@@ -57,49 +57,46 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
     {
         PROFILE_THIS_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto w_1_shift = View(in.w_l_shift);
-        auto q_delta_range = View(in.q_delta_range);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        static const FF minus_one = FF(-1);
-        static const FF minus_two = FF(-2);
+        auto w_1 = CoefficientAccumulator(in.w_l);
+        auto w_2 = CoefficientAccumulator(in.w_r);
+        auto w_3 = CoefficientAccumulator(in.w_o);
+        auto w_4 = CoefficientAccumulator(in.w_4);
+        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        auto q_delta_range_m = CoefficientAccumulator(in.q_delta_range);
+
+        auto q_delta_range_scaled_m = q_delta_range_m * scaling_factor;
+        Accumulator q_delta_range_scaled(q_delta_range_scaled_m);
 
         // Compute wire differences
-        auto delta_1 = w_2 - w_1;
-        auto delta_2 = w_3 - w_2;
-        auto delta_3 = w_4 - w_3;
-        auto delta_4 = w_1_shift - w_4;
+        auto delta_1 = Accumulator(w_2 - w_1);
+        auto delta_2 = Accumulator(w_3 - w_2);
+        auto delta_3 = Accumulator(w_4 - w_3);
+        auto delta_4 = Accumulator(w_1_shift - w_4);
 
         // Contribution (1)
-        auto tmp_1 = (delta_1 + minus_one).sqr() + minus_one;
-        tmp_1 *= (delta_1 + minus_two).sqr() + minus_one;
-        tmp_1 *= q_delta_range;
-        tmp_1 *= scaling_factor;
+        auto tmp_1 = (delta_1 - FF(3)) * delta_1;
+        tmp_1 *= (tmp_1 + FF(2));
+        tmp_1 *= q_delta_range_scaled;
         std::get<0>(accumulators) += tmp_1;
 
         // Contribution (2)
-        auto tmp_2 = (delta_2 + minus_one).sqr() + minus_one;
-        tmp_2 *= (delta_2 + minus_two).sqr() + minus_one;
-        tmp_2 *= q_delta_range;
-        tmp_2 *= scaling_factor;
+        auto tmp_2 = (delta_2 - FF(3)) * delta_2;
+        tmp_2 *= (tmp_2 + FF(2));
+        tmp_2 *= q_delta_range_scaled;
         std::get<1>(accumulators) += tmp_2;
 
         // Contribution (3)
-        auto tmp_3 = (delta_3 + minus_one).sqr() + minus_one;
-        tmp_3 *= (delta_3 + minus_two).sqr() + minus_one;
-        tmp_3 *= q_delta_range;
-        tmp_3 *= scaling_factor;
+        auto tmp_3 = (delta_3 - FF(3)) * delta_3;
+        tmp_3 *= (tmp_3 + FF(2));
+        tmp_3 *= q_delta_range_scaled;
         std::get<2>(accumulators) += tmp_3;
 
         // Contribution (4)
-        auto tmp_4 = (delta_4 + minus_one).sqr() + minus_one;
-        tmp_4 *= (delta_4 + minus_two).sqr() + minus_one;
-        tmp_4 *= q_delta_range;
-        tmp_4 *= scaling_factor;
+        auto tmp_4 = (delta_4 - FF(3)) * delta_4;
+        tmp_4 *= (tmp_4 + FF(2));
+        tmp_4 *= q_delta_range_scaled;
         std::get<3>(accumulators) += tmp_4;
     };
 };
