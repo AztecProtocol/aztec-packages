@@ -214,6 +214,22 @@ export class OpenTelemetryClient implements TelemetryClient {
             true,
           ),
         }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'gas/block',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [...linearBuckets(100_000, 10_000_000, 100), ...linearBuckets(10_000_000, 50_000_000, 50).slice(1)],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'gas/tx',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [...linearBuckets(50_000, 1_000_000, 20), ...linearBuckets(1_000_000, 10_000_000, 100).slice(1)],
+            true,
+          ),
+        }),
       ],
     });
 

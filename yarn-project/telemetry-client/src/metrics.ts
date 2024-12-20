@@ -67,6 +67,7 @@ export const L1_PUBLISHER_TX_BLOBDATA_GAS_COST = 'aztec.l1_publisher.tx_blobdata
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
 export const PUBLIC_PROCESSOR_TX_PHASE_COUNT = 'aztec.public_processor.tx_phase_count';
+export const PUBLIC_PROCESSOR_TX_GAS = 'aztec.public_processor.tx_gas';
 export const PUBLIC_PROCESSOR_PHASE_DURATION = 'aztec.public_processor.phase_duration';
 export const PUBLIC_PROCESSOR_PHASE_COUNT = 'aztec.public_processor.phase_count';
 export const PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE = 'aztec.public_processor.deploy_bytecode_size';

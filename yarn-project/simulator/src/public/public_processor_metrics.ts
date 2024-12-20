@@ -26,6 +26,7 @@ export class PublicProcessorMetrics {
   private totalGas: Gauge;
   private totalGasHistogram: Histogram;
   private gasRate: Histogram;
+  private txGas: Histogram;
 
   private treeInsertionDuration: Histogram;
 
@@ -69,7 +70,12 @@ export class PublicProcessorMetrics {
 
     this.totalGasHistogram = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM, {
       description: 'Total gas used in block as histogram',
-      unit: 'gas',
+      unit: 'gas/block',
+    });
+
+    this.txGas = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_GAS, {
+      description: 'Gas used in transaction',
+      unit: 'gas/tx',
     });
 
     this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
@@ -89,11 +95,17 @@ export class PublicProcessorMetrics {
     this.phaseDuration.record(Math.ceil(durationMs), { [Attributes.TX_PHASE_NAME]: phaseName });
   }
 
-  recordTx(phaseCount: number, durationMs: number) {
+  recordTx(phaseCount: number, durationMs: number, gasUsed: Gas) {
     this.txPhaseCount.add(phaseCount);
     this.txDuration.record(Math.ceil(durationMs));
     this.txCount.add(1, {
       [Attributes.OK]: true,
+    });
+    this.txGas.record(gasUsed.daGas, {
+      [Attributes.GAS_DIMENSION]: 'DA',
+    });
+    this.txGas.record(gasUsed.l2Gas, {
+      [Attributes.GAS_DIMENSION]: 'L2',
     });
   }
 
@@ -105,6 +117,12 @@ export class PublicProcessorMetrics {
       [Attributes.GAS_DIMENSION]: 'L2',
     });
     this.gasRate.record(gasRate, {
+      [Attributes.GAS_DIMENSION]: 'L2',
+    });
+    this.totalGasHistogram.record(totalGas.daGas, {
+      [Attributes.GAS_DIMENSION]: 'DA',
+    });
+    this.totalGasHistogram.record(totalGas.l2Gas, {
       [Attributes.GAS_DIMENSION]: 'L2',
     });
   }

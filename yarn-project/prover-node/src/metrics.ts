@@ -1,10 +1,10 @@
 import { type Timer } from '@aztec/foundation/timer';
-import { type Gauge, type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 export class ProverNodeMetrics {
   provingJobDuration: Histogram;
-  provingJobBlocks: Gauge;
-  provingJobTransactions: Gauge;
+  provingJobBlocks: Histogram;
+  provingJobTransactions: Histogram;
 
   constructor(public readonly client: TelemetryClient, name = 'ProverNode') {
     const meter = client.getMeter(name);
