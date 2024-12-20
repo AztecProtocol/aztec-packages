@@ -243,7 +243,6 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
             return result;
         }
 
-        ASSERT(is_point_at_infinity().is_constant() == true);
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     } else {
         auto x1 = x.get_value();
@@ -347,7 +346,6 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         if (lhs_constant && rhs_constant) {
             return cycle_group(x3, y3, false);
         }
-        ASSERT(is_point_at_infinity().is_constant() == true);
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), false);
     } else {
         const auto p1 = get_value();
