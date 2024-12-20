@@ -25,8 +25,10 @@ function test {
     github_group "noir test"
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     export PATH="$PWD/noir-repo/target/release/:$PATH"
-    parallel --tag --line-buffered --timeout 5m --halt now,fail=1 \
-      denoise ::: ./scripts/test_native.sh ./scripts/test_js_packages.sh
+    # parallel --tag --line-buffered --timeout 5m --halt now,fail=1 \
+    #   denoise ::: ./scripts/test_native.sh ./scripts/test_js_packages.sh
+    ./scripts/test_native.sh
+    ./scripts/test_js_packages.sh
     cache_upload_flag $test_flag
     github_endgroup
   fi
