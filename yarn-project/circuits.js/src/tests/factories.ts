@@ -20,17 +20,14 @@ import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   AvmContractInstanceHint,
   AvmExecutionHints,
   BLOBS_PER_BLOCK,
-  BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
-  ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FIELDS_PER_BLOB,
@@ -63,7 +60,6 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   MembershipWitness,
-  MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -81,7 +77,6 @@ import {
   PartialPrivateTailPublicInputsForRollup,
   PartialStateReference,
   Point,
-  PreviousRollupData,
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -99,8 +94,6 @@ import {
   RollupTypes,
   RootParityInput,
   RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
   ScopedLogHash,
   StateReference,
   TUBE_PROOF_LENGTH,
@@ -116,6 +109,8 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
+import { BlobPublicInputs, BlockBlobPublicInputs } from '../structs/blobs/blob_public_inputs.js';
+import { Poseidon2Sponge, SpongeBlob } from '../structs/blobs/sponge_blob.js';
 import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -130,44 +125,44 @@ import {
   AvmEnqueuedCallHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
-  AvmProofData,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  BlobPublicInputs,
-  BlockBlobPublicInputs,
   CountedPublicCallRequest,
-  Poseidon2Sponge,
-  PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateBaseStateDiffHints,
   PrivateLog,
   PrivateLogData,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
-  PrivateTubeData,
-  PublicBaseRollupHints,
-  PublicBaseRollupInputs,
-  PublicBaseStateDiffHints,
   PublicDataWrite,
-  PublicTubeData,
   ScopedL2ToL1Message,
-  SpongeBlob,
   TreeSnapshots,
   TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
+import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
+import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
 import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
 import {
   BlockRootOrBlockMergePublicInputs,
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
 import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import { ConstantRollupData } from '../structs/rollup/constant_rollup_data.js';
 import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
+import { MergeRollupInputs } from '../structs/rollup/merge_rollup.js';
 import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
+import { PreviousRollupData } from '../structs/rollup/previous_rollup_data.js';
+import { PrivateBaseRollupInputs } from '../structs/rollup/private_base_rollup_inputs.js';
+import { PrivateTubeData } from '../structs/rollup/private_tube_data.js';
+import { PublicBaseRollupInputs } from '../structs/rollup/public_base_rollup_inputs.js';
+import { PublicTubeData } from '../structs/rollup/public_tube_data.js';
+import { RootRollupInputs, RootRollupPublicInputs } from '../structs/rollup/root_rollup.js';
+import { PrivateBaseStateDiffHints, PublicBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
+import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapshot.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.

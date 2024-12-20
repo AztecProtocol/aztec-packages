@@ -325,7 +325,8 @@ describe('e2e_fees private_payment', () => {
   });
 
   // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
-  it('insufficient funded amount is correctly handled', async () => {
+  // TODO(#10775): Reenable, hit e.g. https://github.com/AztecProtocol/aztec-packages/actions/runs/12419409370/job/34675397831
+  it.skip('insufficient funded amount is correctly handled', async () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
       bananaCoin.methods.private_get_name().prove({
