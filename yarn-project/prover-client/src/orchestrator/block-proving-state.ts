@@ -2,8 +2,6 @@ import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
-  type BaseOrMergeRollupPublicInputs,
-  type BlockRootOrBlockMergePublicInputs,
   type Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -14,9 +12,10 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
-  SpongeBlob,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { type BaseOrMergeRollupPublicInputs, type BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type EpochProvingState } from './epoch-proving-state.js';

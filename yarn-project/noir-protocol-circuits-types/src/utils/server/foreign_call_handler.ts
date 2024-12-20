@@ -1,4 +1,5 @@
-import { BlockBlobPublicInputs, Fr, SpongeBlob } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { BlockBlobPublicInputs, SpongeBlob } from '@aztec/circuits.js/blobs';
 import { Blob } from '@aztec/foundation/blob';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 

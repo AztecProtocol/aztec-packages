@@ -33,6 +33,7 @@ jobs:
         uses: ./.github/ensure-tester
         timeout-minutes: 75
         with:
+          ttl: 75
+          runner_type: 128core-tester-x86
           run: |
-            sudo shutdown -P 75 # hack until core part of the scripts
             scripts/earthly-ci --no-output ./barretenberg/cpp/+vm-full-test --hardware_concurrency=64  # limit our parallelism to half our cores
