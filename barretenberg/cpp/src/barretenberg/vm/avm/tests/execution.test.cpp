@@ -49,7 +49,7 @@ class AvmExecutionTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         public_inputs.gas_settings.gas_limits.l2_gas = DEFAULT_INITIAL_L2_GAS;
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
         public_inputs.start_gas_used.l2_gas = 0;

@@ -124,8 +124,9 @@ case "$cmd" in
   "test-cmds")
     cd build
     for bin in ./bin/*_tests; do
+      bin_path=$(realpath --relative-to=$root $bin)
       $bin --gtest_list_tests | \
-        awk -vbin=$bin -vwd=$PWD '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "cd " wd " && HARDWARE_CONCURRENCY=8 " bin " --gtest_filter=" suite$1 " &>/dev/null"}' | \
+        awk -vbin=$bin_path '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print bin " --gtest_filter=" suite$1}' | \
         sed 's/\.$//' | grep -v 'DISABLED_'; \
     done
     ;;

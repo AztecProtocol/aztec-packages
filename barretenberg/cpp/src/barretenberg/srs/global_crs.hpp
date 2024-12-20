@@ -1,18 +1,19 @@
+#pragma once
 #include "./factories/crs_factory.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace bb::srs {
 
-inline std::string get_ignition_srs_path()
+inline std::string get_ignition_crs_path()
 {
-    const char* env_var = std::getenv("IGNITION_SRS_PATH");
+    const char* env_var = std::getenv("IGNITION_CRS_PATH");
     return env_var != nullptr ? std::string(env_var) : "../srs_db/ignition";
 }
 
-inline std::string get_grumpkin_srs_path()
+inline std::string get_grumpkin_crs_path()
 {
-    const char* env_var = std::getenv("GRUMPKIN_SRS_PATH");
+    const char* env_var = std::getenv("GRUMPKIN_CRS_PATH");
     return env_var != nullptr ? std::string(env_var) : "../srs_db/grumpkin";
 }
 
