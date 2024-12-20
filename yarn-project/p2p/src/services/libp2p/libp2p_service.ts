@@ -64,6 +64,7 @@ import {
   type ReqRespSubProtocolHandlers,
   type SubProtocolMap,
 } from '../reqresp/interface.js';
+import { goodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -341,6 +342,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler,
       [ReqRespSubProtocol.TX]: txHandler,
+      [ReqRespSubProtocol.GOODBYE]: goodbyeHandler,
     };
 
     return new LibP2PService(

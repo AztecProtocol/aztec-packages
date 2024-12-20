@@ -5,14 +5,16 @@ import { type PeerId } from '@libp2p/interface';
 /*
  * Request Response Sub Protocols
  */
-const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
-const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
-const TX_PROTOCOL = '/aztec/req/tx/0.1.0';
+export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
+export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
+export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/0.1.0';
+export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
 
 export enum ReqRespSubProtocol {
   PING = PING_PROTOCOL,
   STATUS = STATUS_PROTOCOL,
-  TX = TX_PROTOCOL,
+  GOODBYE = GOODBYE_PROTOCOL,
+  TX = TX_REQ_PROTOCOL,
 }
 
 /**
@@ -72,6 +74,7 @@ export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.PING]: noopValidator,
   [ReqRespSubProtocol.STATUS]: noopValidator,
   [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
 };
 
 /**
@@ -97,6 +100,7 @@ export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.PING]: defaultHandler,
   [ReqRespSubProtocol.STATUS]: defaultHandler,
   [ReqRespSubProtocol.TX]: defaultHandler,
+  [ReqRespSubProtocol.GOODBYE]: defaultHandler,
 };
 
 /**
@@ -149,5 +153,9 @@ export const subProtocolMap: SubProtocolMap = {
   [ReqRespSubProtocol.TX]: {
     request: TxHash,
     response: Tx,
+  },
+  [ReqRespSubProtocol.GOODBYE]: {
+    request: RequestableBuffer,
+    response: RequestableBuffer,
   },
 };
