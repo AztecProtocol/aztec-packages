@@ -10,7 +10,6 @@ import {
   type PXEInfo,
   type PrivateExecutionResult,
   type SiblingPath,
-  type SyncStatus,
   type Tx,
   type TxExecutionRequest,
   type TxHash,
@@ -87,14 +86,14 @@ export abstract class BaseWallet implements Wallet {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
-    return this.pxe.registerContact(address);
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerSender(address);
   }
-  getContacts(): Promise<AztecAddress[]> {
-    return this.pxe.getContacts();
+  getSenders(): Promise<AztecAddress[]> {
+    return this.pxe.getSenders();
   }
-  async removeContact(address: AztecAddress): Promise<void> {
-    await this.pxe.removeContact(address);
+  async removeSender(address: AztecAddress): Promise<void> {
+    await this.pxe.removeSender(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -116,9 +115,18 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, profile, this.scopes);
+    return this.pxe.simulateTx(
+      txRequest,
+      simulatePublic,
+      msgSender,
+      skipTxValidation,
+      enforceFeePayment,
+      profile,
+      this.scopes,
+    );
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -169,12 +177,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
-  }
-  isGlobalStateSynchronized() {
-    return this.pxe.isGlobalStateSynchronized();
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return this.pxe.getSyncStatus();
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);

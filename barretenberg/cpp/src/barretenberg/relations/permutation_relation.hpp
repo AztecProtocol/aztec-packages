@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
-
 namespace bb {
 /**
  * @brief Ultra Permutation Relation
@@ -131,34 +130,81 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         PROFILE_THIS_NAME("Permutation::accumulate");
         // Contribution (1)
-        [&]() {
-            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            using ParameterView = GetParameterView<Parameters, View>;
-            const auto public_input_delta = ParameterView(params.public_input_delta);
-            const auto z_perm = View(in.z_perm);
-            const auto z_perm_shift = View(in.z_perm_shift);
-            const auto lagrange_first = View(in.lagrange_first);
-            const auto lagrange_last = View(in.lagrange_last);
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
-            // witness degree: deg 5 - deg 5 = deg 5
-            // total degree: deg 9 - deg 10 = deg 10
-            std::get<0>(accumulators) +=
-                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
-                 ((z_perm_shift + lagrange_last * public_input_delta) *
-                  compute_grand_product_denominator<Accumulator>(in, params))) *
-                scaling_factor;
-        }();
+        const CoefficientAccumulator w_1_m(in.w_l);
+        const CoefficientAccumulator w_2_m(in.w_r);
+        const CoefficientAccumulator w_3_m(in.w_o);
+        const CoefficientAccumulator w_4_m(in.w_4);
+        const CoefficientAccumulator id_1_m(in.id_1);
+        const CoefficientAccumulator id_2_m(in.id_2);
+        const CoefficientAccumulator id_3_m(in.id_3);
+        const CoefficientAccumulator id_4_m(in.id_4);
+        const CoefficientAccumulator sigma_1_m(in.sigma_1);
+        const CoefficientAccumulator sigma_2_m(in.sigma_2);
+        const CoefficientAccumulator sigma_3_m(in.sigma_3);
+        const CoefficientAccumulator sigma_4_m(in.sigma_4);
+
+        const ParameterCoefficientAccumulator gamma_m(params.gamma);
+        const ParameterCoefficientAccumulator beta_m(params.beta);
+
+        const auto w_1_plus_gamma = w_1_m + gamma_m;
+        const auto w_2_plus_gamma = w_2_m + gamma_m;
+        const auto w_3_plus_gamma = w_3_m + gamma_m;
+        const auto w_4_plus_gamma = w_4_m + gamma_m;
+
+        auto t1 = (id_1_m * beta_m);
+        t1 += w_1_plus_gamma;
+        t1 *= scaling_factor;
+        auto t2 = id_2_m * beta_m;
+        t2 += w_2_plus_gamma;
+        auto t3 = id_3_m * beta_m;
+        t3 += w_3_plus_gamma;
+        auto t4 = id_4_m * beta_m;
+        t4 += w_4_plus_gamma;
+
+        auto t5 = sigma_1_m * beta_m;
+        t5 += w_1_plus_gamma;
+        t5 *= scaling_factor;
+        auto t6 = sigma_2_m * beta_m;
+        t6 += w_2_plus_gamma;
+        auto t7 = sigma_3_m * beta_m;
+        t7 += w_3_plus_gamma;
+        auto t8 = sigma_4_m * beta_m;
+        t8 += w_4_plus_gamma;
+
+        Accumulator numerator(t1);
+        numerator *= Accumulator(t2);
+        numerator *= Accumulator(t3);
+        numerator *= Accumulator(t4);
+
+        Accumulator denominator(t5);
+        denominator *= Accumulator(t6);
+        denominator *= Accumulator(t7);
+        denominator *= Accumulator(t8);
+
+        const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
+        const auto z_perm_m = CoefficientAccumulator(in.z_perm);
+        const auto z_perm_shift_m = CoefficientAccumulator(in.z_perm_shift);
+        const auto lagrange_first_m = CoefficientAccumulator(in.lagrange_first);
+        const auto lagrange_last_m = CoefficientAccumulator(in.lagrange_last);
+
+        auto public_input_term_m = lagrange_last_m * public_input_delta_m;
+        public_input_term_m += z_perm_shift_m;
+        const Accumulator public_input_term(public_input_term_m);
+        // witness degree: deg 5 - deg 5 = deg 5
+        // total degree: deg 9 - deg 10 = deg 10
+        std::get<0>(accumulators) +=
+            ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
         // Contribution (2)
-        [&]() {
-            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            auto z_perm_shift = View(in.z_perm_shift);
-            auto lagrange_last = View(in.lagrange_last);
+        using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
-            std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
-        }();
+        std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
     };
 };
 

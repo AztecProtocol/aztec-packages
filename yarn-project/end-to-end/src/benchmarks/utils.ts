@@ -1,5 +1,5 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUntil, sleep } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
@@ -90,13 +90,13 @@ export async function sendTxs(
 }
 
 /**
- * Creates a new PXE and awaits until it's synced with the node.
+ * Creates a new PXE
  * @param node - Node to connect the pxe to.
  * @param contract - Benchmark contract to add to the pxe.
  * @param startingBlock - First l2 block to process.
  * @returns The new PXE.
  */
-export async function waitNewPXESynced(
+export async function createNewPXE(
   node: AztecNode,
   contract: BenchmarkingContract,
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
@@ -111,6 +111,5 @@ export async function waitNewPXESynced(
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);
-  await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
 }

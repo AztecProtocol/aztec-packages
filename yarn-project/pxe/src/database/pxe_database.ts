@@ -119,24 +119,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   setHeader(header: BlockHeader): Promise<void>;
 
   /**
-   * Adds contact address to the database.
+   * Adds sender address to the database.
    * @param address - The address to add to the address book.
    * @returns A promise resolving to true if the address was added, false if it already exists.
    */
-  addContactAddress(address: AztecAddress): Promise<boolean>;
+  addSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Retrieves the list of contact addresses in the address book.
+   * Retrieves the list of sender addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): Promise<AztecAddress[]>;
+  getSenderAddresses(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact address from the database.
+   * Removes a sender address from the database.
    * @param address - The address to remove from the address book.
    * @returns A promise resolving to true if the address was removed, false if it does not exist.
    */
-  removeContactAddress(address: AztecAddress): Promise<boolean>;
+  removeSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
    * Adds complete address to the database.
@@ -159,19 +159,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
   getCompleteAddresses(): Promise<CompleteAddress[]>;
-
-  /**
-   * Updates up to which block number we have processed notes for a given public key.
-   * @param account - The account to set the synched block number for.
-   * @param blockNumber - The block number to set.
-   */
-  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void>;
-
-  /**
-   * Get the synched block number for a given public key.
-   * @param account - The account to get the synched block number for.
-   */
-  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined>;
 
   /**
    * Returns the estimated size in bytes of this db.

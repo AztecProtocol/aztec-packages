@@ -29,3 +29,6 @@ terraform.tfstate*
 # tmux
 tmux-client-*.log
 .supermavenignore
+
+# parallel
+joblog.txt

@@ -8,7 +8,8 @@
     "./broker": "./dest/proving_broker/index.js",
     "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
-    "./helpers": "./dest/orchestrator/block-building-helpers.js"
+    "./helpers": "./dest/orchestrator/block-building-helpers.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -28,7 +29,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit",
     "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity"
   },
   "jest": {
@@ -58,9 +59,9 @@
     ],
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
     ],

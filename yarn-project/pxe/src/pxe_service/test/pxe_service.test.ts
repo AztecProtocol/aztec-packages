@@ -1,6 +1,6 @@
 import { type AztecNode, type PXE, TxEffect, mockTx, randomInBlock } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -22,7 +22,6 @@ async function createPXEService(): Promise<PXE> {
   const db = await KVPxeDatabase.create(kvStore);
   const tips = new L2TipsStore(kvStore, 'pxe');
   const config: PXEServiceConfig = {
-    l2BlockPollingIntervalMS: 100,
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
@@ -67,7 +66,6 @@ describe('PXEService', () => {
     tips = new L2TipsStore(kvStore, 'pxe');
     db = await KVPxeDatabase.create(kvStore);
     config = {
-      l2BlockPollingIntervalMS: 100,
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,
       proverEnabled: false,
       dataDirectory: undefined,

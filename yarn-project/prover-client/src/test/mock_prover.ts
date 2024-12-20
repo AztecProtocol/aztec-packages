@@ -14,27 +14,29 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
-  type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
-  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
-  type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
+  type PublicBaseRollupInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+} from '@aztec/circuits.js/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
@@ -58,8 +60,12 @@ export class TestBroker implements ProvingJobProducer {
     agentCount: number,
     prover: ServerCircuitProver,
     private proofStore: ProofStore = new InlineProofStore(),
+    agentPollInterval = 100,
   ) {
-    this.agents = times(agentCount, () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient()));
+    this.agents = times(
+      agentCount,
+      () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), undefined, agentPollInterval),
+    );
   }
 
   public async start() {
@@ -81,9 +87,6 @@ export class TestBroker implements ProvingJobProducer {
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     return this.broker.getProvingJobStatus(id);
-  }
-  cleanUpProvingJobState(id: ProvingJobId): Promise<void> {
-    return this.broker.cleanUpProvingJobState(id);
   }
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);

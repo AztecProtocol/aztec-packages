@@ -82,17 +82,13 @@ struct InputElements {
     FF& sorted_accum = std::get<31>(_data);
     FF& z_perm = std::get<32>(_data);
     FF& z_lookup = std::get<33>(_data);
-    FF& table_1_shift = std::get<34>(_data);
-    FF& table_2_shift = std::get<35>(_data);
-    FF& table_3_shift = std::get<36>(_data);
-    FF& table_4_shift = std::get<37>(_data);
-    FF& w_l_shift = std::get<38>(_data);
-    FF& w_r_shift = std::get<39>(_data);
-    FF& w_o_shift = std::get<40>(_data);
-    FF& w_4_shift = std::get<41>(_data);
-    FF& sorted_accum_shift = std::get<42>(_data);
-    FF& z_perm_shift = std::get<43>(_data);
-    FF& z_lookup_shift = std::get<44>(_data);
+    FF& w_l_shift = std::get<34>(_data);
+    FF& w_r_shift = std::get<35>(_data);
+    FF& w_o_shift = std::get<36>(_data);
+    FF& w_4_shift = std::get<37>(_data);
+    FF& sorted_accum_shift = std::get<38>(_data);
+    FF& z_perm_shift = std::get<39>(_data);
+    FF& z_lookup_shift = std::get<40>(_data);
 };
 
 class UltraRelationConsistency : public testing::Test {

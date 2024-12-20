@@ -10,7 +10,7 @@ export async function dripFaucet(
   json: boolean,
   log: LogFn,
 ): Promise<void> {
-  const url = new URL(`${faucetUrl}/drip/${account.toString()}`);
+  const url = new URL(`/drip/${account.toString()}`, faucetUrl);
   url.searchParams.set('asset', asset);
   const res = await fetch(url);
   if (res.status === 200) {

@@ -10,6 +10,7 @@ unconstrained fn main(
     protocol_contract_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
     app_public_inputs: PrivateCircuitPublicInputs,
+    is_private_only: bool,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
         tx_request,
@@ -17,6 +18,7 @@ unconstrained fn main(
         protocol_contract_tree_root,
         private_call,
         app_public_inputs,
+        is_private_only,
     );
     private_inputs.execute()
 }

@@ -27,11 +27,19 @@ impl PreviousKernelValidator {
     }
 
     pub fn validate_for_private_tail(self) {
+        assert(
+            self.previous_kernel.public_inputs.is_private_only,
+            "Must be private only to be processed in tail",
+        );
         self.validate_common();
         self.validate_empty_data();
     }
 
     pub fn validate_for_private_tail_to_public(self) {
+        assert(
+            !self.previous_kernel.public_inputs.is_private_only,
+            "Must not be private only to be processed in tail to public",
+        );
         self.validate_common();
         self.validate_non_empty_data();
     }

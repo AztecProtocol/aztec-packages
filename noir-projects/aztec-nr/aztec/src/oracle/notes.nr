@@ -205,25 +205,25 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
-/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+/// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
 pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
-    get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
+    get_indexed_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
 }
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
 /// Includes the last known index used to send a note tagged with this secret.
-/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For this to work, PXE must know the ivsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret_as_sender(
+pub unconstrained fn get_indexed_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_as_sender_oracle(sender, recipient);
+    let result = get_indexed_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecretAsSender)]
-unconstrained fn get_app_tagging_secret_as_sender_oracle(
+#[oracle(getIndexedTaggingSecretAsSender)]
+unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}

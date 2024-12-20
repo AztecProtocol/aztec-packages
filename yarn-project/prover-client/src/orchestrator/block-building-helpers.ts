@@ -9,11 +9,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  type BaseOrMergeRollupPublicInputs,
   BlockHeader,
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
@@ -21,7 +17,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  MergeRollupInputs,
   MerkleTreeCalculator,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -34,26 +29,35 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
+  PublicDataHint,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  type RecursiveProof,
+  StateReference,
+  VK_TREE_HEIGHT,
+  type VerificationKeyAsFields,
+} from '@aztec/circuits.js';
+import { type SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  MergeRollupInputs,
   PreviousRollupBlockData,
   PreviousRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicBaseStateDiffHints,
-  PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-  type RecursiveProof,
   RootRollupInputs,
-  StateReference,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
-import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -76,6 +80,7 @@ export async function buildBaseRollupHints(
   tx: ProcessedTx,
   globalVariables: GlobalVariables,
   db: MerkleTreeWriteOperations,
+  startSpongeBlob: SpongeBlob,
 ) {
   // Get trees info before any changes hit
   const constants = await getConstantRollupData(globalVariables, db);
@@ -132,6 +137,10 @@ export async function buildBaseRollupHints(
     i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
 
+  // Append new data to startSpongeBlob
+  const inputSpongeBlob = startSpongeBlob.clone();
+  startSpongeBlob.absorb(tx.txEffect.toBlobFields());
+
   if (tx.avmProvingRequest) {
     // Build public base rollup hints
     const stateDiffHints = PublicBaseStateDiffHints.from({
@@ -176,6 +185,7 @@ export async function buildBaseRollupHints(
 
     return PublicBaseRollupHints.from({
       start,
+      startSpongeBlob: inputSpongeBlob,
       stateDiffHints,
       archiveRootMembershipWitness,
       constants,
@@ -235,6 +245,7 @@ export async function buildBaseRollupHints(
 
     return PrivateBaseRollupHints.from({
       start,
+      startSpongeBlob: inputSpongeBlob,
       stateDiffHints,
       feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
       archiveRootMembershipWitness,
@@ -300,11 +311,10 @@ export function buildHeaderFromCircuitOutputs(
   updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
   logger?: Logger,
 ) {
+  const blobsHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-    sha256Trunc(
-      Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
-    ),
+    blobsHash,
     parityPublicInputs.shaRoot.toBuffer(),
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
@@ -359,10 +369,11 @@ export async function buildHeaderAndBodyFromTxs(
   const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
+  const blobsHash = getBlobsHashFromBlobs(Blob.getBlobs(body.toBlobFields()));
 
   const contentCommitment = new ContentCommitment(
     new Fr(body.numberOfTxsIncludingPadded),
-    body.getTxsEffectsHash(),
+    blobsHash,
     parityShaRoot,
     outHash,
   );
@@ -373,6 +384,11 @@ export async function buildHeaderAndBodyFromTxs(
   const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 
   return { header, body };
+}
+
+export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
+  const blobHashes = serializeToBuffer(inputs.map(b => b.getEthVersionedBlobHash()));
+  return sha256Trunc(serializeToBuffer(blobHashes));
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -547,7 +563,7 @@ export async function getMembershipWitnessFor<N extends number>(
     return makeEmptyMembershipWitness(height);
   }
 
-  const index = await db.findLeafIndex(treeId, value.toBuffer());
+  const index = (await db.findLeafIndices(treeId, [value.toBuffer()]))[0];
   if (index === undefined) {
     throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
   }

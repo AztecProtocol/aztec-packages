@@ -1,5 +1,6 @@
 import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
-import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
+import { AvmInitializerTestContract } from '@aztec/noir-contracts.js/AvmInitializerTest';
+import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 

@@ -41,7 +41,7 @@ import EmptyBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_empt
 import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
 import TubeVkJson from '../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
-import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
+import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts/index.js';
 import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from './private_kernel_reset_data.js';
 import { keyJsonToVKData } from './utils/vk_json.js';
 

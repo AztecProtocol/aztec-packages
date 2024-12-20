@@ -1,0 +1,90 @@
+#!/bin/bash
+# Use the minio script base. We ensure minio is running and wipe it.
+root=$(git rev-parse --show-toplevel)
+source $root/ci3/source_test
+set -o pipefail
+
+export DENOISE=${DENOISE:-1}
+# Tests the various modes of bootstrap test usage.
+# We mock ci3/test_should_run and ci3/cache_download for this purpose.
+function run_cleanup() {
+  rm -f $ci3/cache_download.bkup
+  rm -f $ci3/test_should_run.bkup
+  git checkout -- $ci3/test_should_run
+  git checkout -- $ci3/cache_download
+}
+function exit_cleanup() {
+  run_cleanup
+  rm -f $ci3/.test_failures
+}
+trap exit_cleanup EXIT
+
+function run_bootstrap() {
+  set +e
+  project=$1
+  cp $ci3/test_should_run $ci3/test_should_run.bkup
+  cp $ci3/cache_download $ci3/cache_download.bkup
+  # Install our mocks
+  cp $2 $ci3/test_should_run
+  cp $3 $ci3/cache_download
+  rm -f $ci3/.test_failures
+
+  cd $root/$project
+  TEST=1 USE_CACHE=1 denoise ./bootstrap.sh
+  exit_code=$?
+  if [ "$exit_code" != 0 ]; then
+    echo "Bootstrap had a bad exit code $exit_code."
+    exit 1
+  fi
+  run_cleanup
+}
+
+function check_for_bad_asserts() {
+  if [ -s "$ci3/.test_failures" ]; then
+    echo "Failures detected:"
+    cat "$ci3/.test_failures"
+    exit 1
+  fi
+}
+
+function test_CI_0() {
+  CI=0 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_first_pass.sh $root/scripts/tests/bootstrap/download_first_pass.sh
+  check_for_bad_asserts
+}
+
+function test_CI_1_first_pass() {
+  CI=1 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_first_pass.sh $root/scripts/tests/bootstrap/download_second_pass.sh
+  check_for_bad_asserts
+}
+
+function test_CI_1_second_pass() {
+  CI=1 run_bootstrap $1 $root/scripts/tests/bootstrap/should_run_second_pass.sh $root/scripts/tests/bootstrap/download_second_pass.sh
+  check_for_bad_asserts
+}
+
+PROJECTS=(
+  noir
+  barretenberg
+  l1-contracts
+  avm-transpiler
+  noir-projects
+  yarn-project
+  boxes
+)
+
+for project in "${PROJECTS[@]}"; do
+  # Run the tests
+  echo "$project 1/3: CI=0 build should run and upload"
+  test_CI_0 $project | sed "s/^/$project 1\/3: /" || (echo "$project 1/3 failure" && exit 1)
+  echo "$project 1/3 success"
+  echo "$project 2/3: CI=1, tests should run, downloads should happen"
+  test_CI_1_first_pass $project | sed "s/^/$project 2\/3: /" || (echo "$project 2/3 failure" && exit 1)
+  echo "$project 2/3 success"
+  echo "$project 3/3: CI=1 tests shouldn't run, downloads should happen"
+  test_CI_1_second_pass $project | sed "s/^/$project 3\/3: /" || (echo "$project 3/3 failure" && exit 1)
+  echo "$project 3/3 success"
+  # We shouldn't need this cache anymore
+  minio_delete_cache
+done
+
+echo "success: ./bootstrap.sh consistency tests have all passed."

@@ -35,6 +35,10 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
+
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = false;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
@@ -123,8 +127,9 @@ class TranslatorFlavor {
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    // length = 3.
+    // The degree has to be further increased because the relation is multiplied by the Row Disabling Polynomial
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck

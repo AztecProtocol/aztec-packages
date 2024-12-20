@@ -25,6 +25,10 @@ export class PrivateKernelInitCircuitPrivateInputs {
      * Private calldata corresponding to this iteration of the kernel.
      */
     public privateCall: PrivateCallData,
+    /**
+     * Wether this tx will make public calls or not.
+     */
+    public isPrivateOnly: boolean,
   ) {}
 
   /**
@@ -47,6 +51,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
+      reader.readBoolean(),
     );
   }
 }

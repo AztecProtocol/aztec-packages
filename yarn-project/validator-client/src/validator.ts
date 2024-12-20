@@ -15,6 +15,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
+import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -71,6 +72,8 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   private epochCacheUpdateLoop: RunningPromise;
 
+  private blockProposalValidator: BlockProposalValidator;
+
   constructor(
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
@@ -85,10 +88,18 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.validationService = new ValidationService(keyStore);
 
+    this.blockProposalValidator = new BlockProposalValidator(epochCache);
+
     // Refresh epoch cache every second to trigger commiteeChanged event
-    this.epochCacheUpdateLoop = new RunningPromise(async () => {
-      await this.epochCache.getCommittee().catch(err => log.error('Error updating validator committee', err));
-    }, 1000);
+    this.epochCacheUpdateLoop = new RunningPromise(
+      () =>
+        this.epochCache
+          .getCommittee()
+          .then(() => {})
+          .catch(err => log.error('Error updating validator committee', err)),
+      log,
+      1000,
+    );
 
     // Listen to commiteeChanged event to alert operator when their validator has entered the committee
     this.epochCache.on('committeeChanged', (newCommittee, epochNumber) => {
@@ -174,18 +185,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
 
     // Check that the proposal is from the current proposer, or the next proposer.
-    const proposalSender = proposal.getSender();
-    const { currentProposer, nextProposer, currentSlot, nextSlot } =
-      await this.epochCache.getProposerInCurrentOrNextSlot();
-    if (!proposalSender.equals(currentProposer) && !proposalSender.equals(nextProposer)) {
-      this.log.verbose(`Not the current or next proposer, skipping attestation`);
-      return undefined;
-    }
-
-    // Check that the proposal is for the current or next slot
-    const slotNumberBigInt = proposal.slotNumber.toBigInt();
-    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-      this.log.verbose(`Not the current or next slot, skipping attestation`);
+    const invalidProposal = await this.blockProposalValidator.validate(proposal);
+    if (invalidProposal) {
+      this.log.verbose(`Proposal is not valid, skipping attestation`);
       return undefined;
     }
 
