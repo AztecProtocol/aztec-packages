@@ -394,14 +394,17 @@ export class Oracle {
     await this.typedOracle.syncNotes();
   }
 
-  async store([key]: ACVMField[], values: ACVMField[]) {
-    const processedValues = values.map(fromACVMField);
+  async store([contract]: ACVMField[], [key]: ACVMField[], values: ACVMField[]) {
+    const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
-    await this.typedOracle.store(processedKey, processedValues);
+    const processedValues = values.map(fromACVMField);
+    await this.typedOracle.store(processedContract, processedKey, processedValues);
   }
 
-  async load([key]: ACVMField[]): Promise<ACVMField[]> {
-    const values = await this.typedOracle.load(fromACVMField(key));
+  async load([contract]: ACVMField[], [key]: ACVMField[]): Promise<ACVMField[]> {
+    const processedContract = AztecAddress.fromField(fromACVMField(contract));
+    const processedKey = fromACVMField(key);
+    const values = await this.typedOracle.load(processedContract, processedKey);
     return values.map(toACVMField);
   }
 }

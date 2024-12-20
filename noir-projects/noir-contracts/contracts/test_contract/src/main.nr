@@ -459,12 +459,12 @@ contract Test {
     }
 
     unconstrained fn store_in_pxe_db(key: Field, note: ValueNote) {
-        pxe_db::store(key, note);
+        pxe_db::store(context.this_address(), key, note);
     }
 
     unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; VALUE_NOTE_LEN] {
         // ValueNote does not implement the Deserialize trait, so I just get it as an array.
-        pxe_db::load(key)
+        pxe_db::load(context.this_address(), key)
     }
 
     #[private]
