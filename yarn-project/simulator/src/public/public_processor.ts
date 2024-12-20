@@ -313,7 +313,7 @@ export class PublicProcessor implements Traceable {
 
     const phaseCount = processedPhases.length;
     const durationMs = timer.ms();
-    this.metrics.recordTx(phaseCount, durationMs);
+    this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 
