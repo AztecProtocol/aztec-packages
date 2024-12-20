@@ -19,7 +19,7 @@ pub mod block_header;
 pub mod notes;
 pub mod storage;
 pub mod logs;
-pub mod pxe_store;
+pub mod pxe_db;
 pub mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it

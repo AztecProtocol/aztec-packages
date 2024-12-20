@@ -32,7 +32,7 @@ contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::pxe_store::{load, store},
+        oracle::pxe_db,
         utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
@@ -458,12 +458,12 @@ contract Test {
         constant.value
     }
 
-    unconstrained fn store_in_pxe_store(key: Field, values: [Field; 3]) {
-        store(key, values);
+    unconstrained fn store_in_pxe_db(key: Field, values: [Field; 3]) {
+        pxe_db::store(key, values);
     }
 
-    unconstrained fn load_from_pxe_store(key: Field) -> pub [Field; 3] {
-        load(key)
+    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 3] {
+        pxe_db::load(key)
     }
 
     #[private]
