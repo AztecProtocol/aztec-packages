@@ -31,12 +31,11 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, 4>& libra_polynomials = {},
-                              const FF& libra_evaluation = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool has_zk = !(libra_evaluation == FF{ 0 });
+        const bool has_zk = (libra_polynomials[0].size() > 0);
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,

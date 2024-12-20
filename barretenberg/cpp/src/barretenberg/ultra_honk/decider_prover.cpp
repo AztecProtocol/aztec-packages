@@ -82,8 +82,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,
-                                                              small_subgroup_ipa_prover.get_witness_polynomials(),
-                                                              sumcheck_output.claimed_libra_evaluation);
+                                                              small_subgroup_ipa_prover.get_witness_polynomials());
     }
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
