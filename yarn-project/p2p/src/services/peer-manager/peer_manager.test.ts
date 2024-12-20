@@ -331,6 +331,12 @@ describe('PeerManager', () => {
         Buffer.from([GoodByeReason.DISCONNECTED]),
       );
 
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        disconnectPeerId,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.DISCONNECTED]),
+      );
       // Verify that hangUp was not called for the healthy peer
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
 
