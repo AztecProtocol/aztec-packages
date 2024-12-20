@@ -35,7 +35,7 @@ where
     } else if fields[0] == 1 {
         Option::some(T::deserialize(array::subarray(fields, 1)))
     } else {
-        assert(false, "Invalid key-existence flag value");
+        assert(false, "Invalid key-existence flag");
         Option::none()
     }
 }
