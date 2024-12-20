@@ -21,7 +21,11 @@ where
 /// Load M values from local PXE database. We pass in M as a parameter to have the information of how many fields
 /// we need to pad if the key does not exist.
 #[oracle(load)]
-unconstrained fn load_oracle<let M: u32>(contract_address: AztecAddress, key: Field, num_return_values: u32) -> [Field; M] {}
+unconstrained fn load_oracle<let M: u32>(
+    contract_address: AztecAddress,
+    key: Field,
+    num_return_values: u32,
+) -> [Field; M] {}
 
 /// Load a value of type T that implements Deserialize from local PXE database.
 /// The data is scoped to the current contract.
@@ -45,8 +49,7 @@ where
 mod test {
     use crate::{
         oracle::{pxe_db::{load, store}, random::random},
-        test::helpers::test_environment::TestEnvironment,
-        utils::array,
+        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
     };
 
     #[test]
@@ -55,11 +58,22 @@ mod test {
 
         let contract_address = env.contract_address();
         let key = random();
-        let values = [random(), random(), random(), random()];
-        store(contract_address, key, values);
+        let value = MockStruct::new(5, 6);
+        store(contract_address, key, value);
 
-        let loaded_values = load::<[Field; 4], 4>(contract_address, key).unwrap();
+        let loaded_value: MockStruct = load(contract_address, key).unwrap();
 
-        assert(loaded_values == values, "Stored and loaded values should be equal");
+        assert(loaded_value == value, "Stored and loaded values should be equal");
+    }
+
+    #[test]
+    unconstrained fn load_non_existent_key() {
+        let env = TestEnvironment::new();
+
+        let contract_address = env.contract_address();
+        let key = random();
+        let loaded_value: Option<MockStruct> = load(contract_address, key);
+
+        assert(loaded_value == Option::none(), "Value should not exist");
     }
 }
