@@ -277,7 +277,7 @@ index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size(cons
                                                                             ReadTransaction& tx) const
 {
     // We need to identify the size of the committed tree as it exists from our perspective
-    // To do this we read the uncommitted meta which will contained the committed size at our initialisation point
+    // To do this we read the uncommitted meta which will contain the committed size at our initialisation point
     TreeMeta m;
     get_meta(m, tx, true);
     index_t sizeLimit = m.committedSize;
