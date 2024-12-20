@@ -3,7 +3,7 @@ import { type Gas } from '@aztec/circuits.js';
 import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,
-  Gauge,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,

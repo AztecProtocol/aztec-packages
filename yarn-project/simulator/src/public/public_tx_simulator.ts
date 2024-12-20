@@ -12,7 +12,7 @@ import {
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer, elapsed } from '@aztec/foundation/timer';
+import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
