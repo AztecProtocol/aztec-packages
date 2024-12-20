@@ -22,11 +22,6 @@ on:
         description: Whether to respect the Terraform lock
         required: false
         default: "true"
-      sepolia_deployment:
-        description: "Whether to deploy on Sepolia network (default: false)"
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,7 +46,7 @@ jobs:
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}
       deployment_salt: ${{ github.event.inputs.deployment_salt }}
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
-      sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
+      run_terraform_destroy: "true"
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
@@ -133,20 +128,11 @@ jobs:
           # wait for port-forwards to establish
           sleep 5
 
-          if ${{ inputs.sepolia_deployment }}; then
-            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
-              --rpc-url http://127.0.0.1:$PXE_PORT \
-              --l1-rpc-url ${{ secrets.SEPOLIA_EXTERNAL_HOST }} \
-              --l1-chain-id "$L1_CHAIN_ID" \
-              --l1-private-key ${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }} \
-              --json | tee ./basic_contracts.json
-          else
-            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
-              --rpc-url http://127.0.0.1:$PXE_PORT \
-              --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
-              --l1-chain-id "$L1_CHAIN_ID" \
-              --mnemonic "$MNEMONIC" \
-              --json | tee ./basic_contracts.json
-          fi
+          docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
+            --rpc-url http://127.0.0.1:$PXE_PORT \
+            --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
+            --l1-chain-id "$L1_CHAIN_ID" \
+            --mnemonic "$MNEMONIC" \
+            --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json
