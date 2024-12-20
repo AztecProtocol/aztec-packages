@@ -125,7 +125,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, this.tracer, logger);
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, telemetry, logger);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
