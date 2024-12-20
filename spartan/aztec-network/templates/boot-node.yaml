@@ -44,8 +44,8 @@ spec:
               cat /shared/config/service-addresses
               echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
               until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep -q reth; do
+                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+                ${ETHEREUM_HOST} | grep 0x; do
                 echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
                 sleep 5
               done
@@ -97,6 +97,8 @@ spec:
               value: "true"
             - name: MNEMONIC
               value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: L1_DEPLOYMENT_PRIVATE_KEY
+              value: "{{ .Values.ethereum.deployL1ContractsPrivateKey }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -189,6 +191,8 @@ spec:
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: SEQ_PUBLISHER_PRIVATE_KEY
+              value: "{{ .Values.bootNode.seqPublisherPrivateKey }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
@@ -203,6 +207,14 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.viemPollingInterval | quote }}
             - name: PEER_ID_PRIVATE_KEY
               value: "{{ .Values.bootNode.peerIdPrivateKey }}"
           ports:

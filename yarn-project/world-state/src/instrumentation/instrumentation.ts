@@ -1,8 +1,21 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import { Attributes, type Gauge, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type Gauge,
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  ValueType,
+} from '@aztec/telemetry-client';
 
-import { type DBStats, type TreeDBStats, type TreeMeta, type WorldStateStatusFull } from '../native/message.js';
+import {
+  type DBStats,
+  type TreeDBStats,
+  type TreeMeta,
+  WorldStateMessageType,
+  type WorldStateStatusFull,
+} from '../native/message.js';
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 
@@ -14,41 +27,48 @@ export class WorldStateInstrumentation {
   private oldestBlock: Gauge;
   private dbNumItems: Gauge;
   private dbUsedSize: Gauge;
+  private requestHistogram: Histogram;
 
   constructor(public readonly telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
     const meter = telemetry.getMeter('World State');
-    this.dbMapSize = meter.createGauge(`aztec.world_state.db_map_size`, {
+    this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE, {
       description: `The current configured map size for each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.treeSize = meter.createGauge(`aztec.world_state.tree_size`, {
+    this.treeSize = meter.createGauge(Metrics.WORLD_STATE_TREE_SIZE, {
       description: `The current number of leaves in each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.unfinalisedHeight = meter.createGauge(`aztec.world_state.unfinalised_height`, {
+    this.unfinalisedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALISED_HEIGHT, {
       description: `The unfinalised block height of each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.finalisedHeight = meter.createGauge(`aztec.world_state.finalised_height`, {
+    this.finalisedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALISED_HEIGHT, {
       description: `The finalised block height of each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.oldestBlock = meter.createGauge(`aztec.world_state.oldest_block`, {
+    this.oldestBlock = meter.createGauge(Metrics.WORLD_STATE_OLDEST_BLOCK, {
       description: `The oldest historical block of each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.dbUsedSize = meter.createGauge(`aztec.world_state.db_used_size`, {
+    this.dbUsedSize = meter.createGauge(Metrics.WORLD_STATE_DB_USED_SIZE, {
       description: `The current used database size for each db of each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.dbNumItems = meter.createGauge(`aztec.world_state.db_num_items`, {
+    this.dbNumItems = meter.createGauge(Metrics.WORLD_STATE_DB_NUM_ITEMS, {
       description: `The current number of items in each database of each merkle tree`,
+      valueType: ValueType.INT,
+    });
+
+    this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME, {
+      description: 'The round trip time of world state requests',
+      unit: 'us',
       valueType: ValueType.INT,
     });
   }
@@ -118,5 +138,11 @@ export class WorldStateInstrumentation {
       worldStateStatus.meta.publicDataTreeMeta,
       MerkleTreeId.PUBLIC_DATA_TREE,
     );
+  }
+
+  public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
+    this.requestHistogram.record(Math.ceil(timeUs), {
+      [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+    });
   }
 }
