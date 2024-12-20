@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734719811264,
+  "lastUpdate": 1734719812943,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7ebef8d09744fdc24a79cb0bf74638b0a8f5dc8",
-          "message": "feat: manage enqueued calls & phases in AVM witgen (#10310)\n\nAnother larger PR:\n1) Swap out to use the enqueued side effect trace (so we private insert\nhints)\n2) Perform private inserts of nullifiers in witgen\n3) Apply asserts in witgen to ensure the endTree snapshots and endGas\nline up with expected public inputs\n4) Enforce side effect limits in witgen\n5) Handle enqueued calls & phases in witgen\n\nLater:\n1) [Handle nested calls in\nwitgen](https://github.com/AztecProtocol/aztec-packages/pull/10384)\n2) Remove old side effect trace & old public inputs completely\n\n---------\n\nCo-authored-by: David Banks <47112877+dbanks12@users.noreply.github.com>\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
-          "timestamp": "2024-12-06T10:55:34-05:00",
-          "tree_id": "0234141f751e83f7ac99ef8f4ac7e4f325960c69",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e7ebef8d09744fdc24a79cb0bf74638b0a8f5dc8"
-        },
-        "date": 1733503614595,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25520.91563799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23644.049005 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4589.823870999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4320.716221000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89293.39788599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89293398000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16528.366928,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16528367000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2816102150,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2816102150 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134061838,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134061838 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3102,6 +3042,68 @@ window.BENCHMARK_DATA = {
             "value": 142453198,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142453198 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "bf5e294dd31ed860d5b4ce6bf06f7ae4d5f3052a",
+          "message": "chore(master): Release 0.68.0",
+          "timestamp": "2024-12-20T18:20:30Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10834/commits/bf5e294dd31ed860d5b4ce6bf06f7ae4d5f3052a"
+        },
+        "date": 1734719805369,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20448.393573000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17879.481030000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21785.989263999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19094.770102 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4627.763732999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4282.267201999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73104.782897,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73104783000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13925.917256,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13925918000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2869513808,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2869513808 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141927201,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141927201 ns\nthreads: 1"
           }
         ]
       }
