@@ -112,6 +112,7 @@ export function makeEmptyProcessedTx(
     gasUsed: {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
+      publicGas: Gas.empty(),
     },
     revertReason: undefined,
     isEmpty: true,
@@ -148,7 +149,8 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const gasUsed = {
     totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
-  };
+    publicGas: Gas.empty(),
+  } satisfies GasUsed;
 
   return {
     hash: tx.getTxHash(),
