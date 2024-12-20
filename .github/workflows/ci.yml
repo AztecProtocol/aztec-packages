@@ -153,7 +153,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
+      - name: "Bootstrap (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
