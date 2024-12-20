@@ -36,6 +36,6 @@ function install_parallel() {
 }
 export -f install_parallel
 if ! command -v parallel >/dev/null; then
-  DENOISE=1 ci3/denoise install_parallel
+  DENOISE=1 ci3/denoise ci3/retry install_parallel
 fi
 [ -x /usr/local/bin/earthly ] || ci3/dump_fail ci3/earthly_install
