@@ -1,4 +1,4 @@
-import { AVM_MAX_UNIQUE_CONTRACT_CALLS } from '@aztec/circuits.js';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/circuits.js';
 
 import { strict as assert } from 'assert';
 
@@ -52,8 +52,8 @@ export class UniqueClassIds {
     if (!this.has(classId)) {
       this.classIds.add(classId);
       assert(
-        this.size() <= AVM_MAX_UNIQUE_CONTRACT_CALLS,
-        `Bug! Surpassed limit (${AVM_MAX_UNIQUE_CONTRACT_CALLS}) of unique contract class IDs used for bytecode retrievals.`,
+        this.size() <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        `Bug! Surpassed limit (${MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS}) of unique contract class IDs used for bytecode retrievals.`,
       );
     }
   }
@@ -73,8 +73,8 @@ export class UniqueClassIds {
     }
     // since set() has an assertion, and size() always checks parent, this should be impossible
     assert(
-      this.size() <= AVM_MAX_UNIQUE_CONTRACT_CALLS,
-      `Bug! Merging unique class Ids should never exceed the limit of ${AVM_MAX_UNIQUE_CONTRACT_CALLS}.`,
+      this.size() <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+      `Bug! Merging unique class Ids should never exceed the limit of ${MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS}.`,
     );
   }
 }

@@ -1,6 +1,5 @@
 import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  AVM_MAX_UNIQUE_CONTRACT_CALLS,
   AvmAccumulatedData,
   AvmAppendTreeHint,
   AvmCircuitPublicInputs,
@@ -25,6 +24,7 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -56,7 +56,6 @@ import { strict as assert } from 'assert';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { UniqueContractCallsLimitReachedError } from './bytecode_errors.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
@@ -431,10 +430,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       return;
     }
 
-    if (this.gotBytecodeFromClassIds.size() >= AVM_MAX_UNIQUE_CONTRACT_CALLS) {
-      throw new UniqueContractCallsLimitReachedError(AVM_MAX_UNIQUE_CONTRACT_CALLS);
-    }
-
     const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
@@ -447,6 +442,22 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       membershipHint,
     );
 
+    // If we could actually allow contract calls after the limit was reached, we would hint even if we have
+    // surpassed the limit of unique class IDs (still trace the failed bytecode retrieval)
+    // because the circuit needs to know the class ID to know when the limit is hit.
+    // BUT, the issue with this approach is that the sequencer could lie and say "this call was to a new class ID",
+    // and the circuit cannot prove that it's not true without deriving the class ID from bytecode,
+    // proving that it corresponds to the called contract address, and proving that the class ID wasn't already
+    // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
+    if (this.gotBytecodeFromClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+      this.log.debug(
+        `Bytecode retrieval failure for contract class ID ${contractInstance.contractClassId.toString()} (limit reached)`,
+      );
+      throw new SideEffectLimitReachedError(
+        'contract calls to unique class IDs',
+        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+      );
+    }
     this.avmCircuitHints.contractBytecodeHints.set(
       contractInstance.contractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),

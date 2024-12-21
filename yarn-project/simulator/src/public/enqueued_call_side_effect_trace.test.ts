@@ -13,6 +13,7 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
@@ -315,6 +316,19 @@ describe('Enqueued-call Side Effect Trace', () => {
         trace.traceUnencryptedLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
       }
       expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
+        SideEffectLimitReachedError,
+      );
+    });
+
+    it('Should enforce maximum number of calls to unique contract class IDs', () => {
+      for (let i = 0; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
+        const addr = AztecAddress.fromNumber(i);
+        const instance = SerializableContractInstance.random();
+        trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance);
+      }
+      const addr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+      const instance = SerializableContractInstance.random();
+      expect(() => trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance)).toThrow(
         SideEffectLimitReachedError,
       );
     });

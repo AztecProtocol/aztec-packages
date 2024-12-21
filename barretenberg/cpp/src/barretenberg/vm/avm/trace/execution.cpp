@@ -451,7 +451,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         bytecode =
             trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
     } catch ([[maybe_unused]] const std::runtime_error& e) {
-        info("AVM enqueued call exceptionally halted. Error: No bytecode found for enqueued call");
+        info("AVM enqueued call exceptionally halted. Failed bytecode retrieval.");
         // FIXME: properly handle case when bytecode is not found!
         // For now, we add a dummy row in main trace to mutate later.
         // Dummy row in main trace to mutate afterwards.
@@ -459,8 +459,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
         trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
         trace_builder.handle_exceptional_halt();
-        return AvmError::NO_BYTECODE_FOUND;
-        ;
+        return AvmError::FAILED_BYTECODE_RETRIEVAL;
     }
 
     trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
@@ -881,7 +880,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM CALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -901,7 +901,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM STATICCALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -919,7 +920,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false);
+                                                      /*check_membership=*/false,
+                                                      /*jumping_to_parent=*/true);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -939,7 +941,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false);
+                                                      /*check_membership=*/false,
+                                                      /*jumping_to_parent=*/true);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -959,7 +962,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false);
+                                                      /*check_membership=*/false,
+                                                      /*jumping_to_parent=*/true);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -1054,7 +1058,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // otherwise, handle exceptional halt and proceed with execution in caller/parent
             // We hack it in here the logic to change contract address that we are processing
             bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  /*check_membership=*/false);
+                                                  /*check_membership=*/false,
+                                                  /*jumping_to_parent=*/true);
             counter = debug_counter_stack.top();
             debug_counter_stack.pop();
 

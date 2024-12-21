@@ -8,7 +8,10 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
+import {
+  simulateAvmTestCallingTooManyContractClassesGenerateCircuitInputs,
+  simulateAvmTestContractGenerateCircuitInputs,
+} from '@aztec/simulator/public/fixtures';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -86,6 +89,13 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
+    'Should prove and verify test that attempts too many calls to unique contract class ids',
+    async () => {
+      await proveAndVerifyAvmTestCallingTooManyContractClasses();
+    },
+    TIMEOUT,
+  );
+  it(
     'Should prove and verify a top-level exceptional halt',
     async () => {
       await proveAndVerifyAvmTestContract('divide_by_zero', /*calldata=*/ [], /*expectRevert=*/ true);
@@ -150,6 +160,34 @@ async function proveAndVerifyAvmTestContract(
     expectRevert,
     skipContractDeployments,
   );
+
+  const internalLogger = createLogger('bb-prover:avm-proving-test');
+  const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
+
+  // The paths for the barretenberg binary and the write path are hardcoded for now.
+  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
+  const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
+
+  // Then we prove.
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
+  if (proofRes.status === BB_RESULT.FAILURE) {
+    internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
+  }
+  expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
+
+  // Then we test VK extraction and serialization.
+  const succeededRes = proofRes as BBSuccess;
+  const vkData = await extractAvmVkData(succeededRes.vkPath!);
+  VerificationKeyData.fromBuffer(vkData.toBuffer());
+
+  // Then we verify.
+  const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
+  const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
+  expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+}
+
+async function proveAndVerifyAvmTestCallingTooManyContractClasses() {
+  const avmCircuitInputs = await simulateAvmTestCallingTooManyContractClassesGenerateCircuitInputs();
 
   const internalLogger = createLogger('bb-prover:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);

@@ -316,8 +316,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
    * Check that the memory at the given offset matches the specified tag.
    */
   public checkTag(tag: TypeTag, offset: number) {
-    if (this.getTag(offset) !== tag) {
-      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    const gotTag = this.getTag(offset);
+    if (gotTag !== tag) {
+      throw TagCheckError.forOffset(offset, TypeTag[gotTag], TypeTag[tag]);
     }
   }
 
@@ -336,13 +337,13 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public static checkIsValidTag(tagNumber: number) {
     if (
       ![
+        TypeTag.FIELD,
         TypeTag.UINT1,
         TypeTag.UINT8,
         TypeTag.UINT16,
         TypeTag.UINT32,
         TypeTag.UINT64,
         TypeTag.UINT128,
-        TypeTag.FIELD,
       ].includes(tagNumber)
     ) {
       throw new InvalidTagValueError(tagNumber);
@@ -382,21 +383,23 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public static getTag(v: MemoryValue | undefined): TypeTag {
     let tag = TypeTag.INVALID;
 
+    // Not sure why, but using instanceof here doesn't work and leads odd behavior,
+    // but using constructor.name does the job...
     if (v === undefined) {
       tag = TypeTag.FIELD; // uninitialized memory is Field(0)
-    } else if (v instanceof Field) {
+    } else if (v.constructor.name == 'Field') {
       tag = TypeTag.FIELD;
-    } else if (v instanceof Uint1) {
+    } else if (v.constructor.name == 'Uint1') {
       tag = TypeTag.UINT1;
-    } else if (v instanceof Uint8) {
+    } else if (v.constructor.name == 'Uint8') {
       tag = TypeTag.UINT8;
-    } else if (v instanceof Uint16) {
+    } else if (v.constructor.name == 'Uint16') {
       tag = TypeTag.UINT16;
-    } else if (v instanceof Uint32) {
+    } else if (v.constructor.name == 'Uint32') {
       tag = TypeTag.UINT32;
-    } else if (v instanceof Uint64) {
+    } else if (v.constructor.name == 'Uint64') {
       tag = TypeTag.UINT64;
-    } else if (v instanceof Uint128) {
+    } else if (v.constructor.name == 'Uint128') {
       tag = TypeTag.UINT128;
     }
 

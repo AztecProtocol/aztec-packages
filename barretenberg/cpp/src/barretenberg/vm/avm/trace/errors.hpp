@@ -22,7 +22,7 @@ enum class AvmError : uint32_t {
     SIDE_EFFECT_LIMIT_REACHED,
     OUT_OF_GAS,
     STATIC_CALL_ALTERATION,
-    NO_BYTECODE_FOUND,
+    FAILED_BYTECODE_RETRIEVAL,
 };
 
 } // namespace bb::avm_trace

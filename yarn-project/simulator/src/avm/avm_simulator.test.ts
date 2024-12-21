@@ -30,7 +30,7 @@ import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { MockedAvmTestContractDataSource } from '../public/fixtures/index.js';
+import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '../public/fixtures/index.js';
 import { WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
@@ -152,42 +152,33 @@ const TIMESTAMP = new Fr(99833);
 
 describe('AVM simulator: transpiled Noir contracts', () => {
   it('bulk testing', async () => {
-    const functionName = 'bulk_testing';
-    const functionSelector = getAvmTestContractFunctionSelector(functionName);
     const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const calldata = [functionSelector.toField(), ...args];
+    await simulateAvmTestContractCall('bulk_testing', args, /*expectRevert=*/ false);
+  });
+
+  it('call too many unique contract classes', async () => {
     const globals = GlobalVariables.empty();
     globals.timestamp = TIMESTAMP;
 
-    const telemetry = new NoopTelemetryClient();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+    const contractDataSource = await MockedAvmTestContractDataSource.create(merkleTrees);
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
-    const contractInstance = contractDataSource.contractInstance;
-    const contractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractInstance.address.toField(),
-    );
-    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-    // other contract address used by the bulk test's GETCONTRACTINSTANCE test
-    const otherContractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractDataSource.otherContractInstance.address.toField(),
-    );
-    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
-
-    const trace = mock<PublicSideEffectTraceInterface>();
-    const nestedTrace = mock<PublicSideEffectTraceInterface>();
-    mockNoteHashCount(trace, 0);
-    mockTraceFork(trace, nestedTrace);
+    const trace = new PublicEnqueuedCallSideEffectTrace();
     const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
+
+    const sender = AztecAddress.random();
+    const functionName = 'nested_call_to_add_n_times_different_addresses';
+    const functionSelector = getAvmTestContractFunctionSelector(functionName);
+    // args are the addresses to make nested calls to
+    const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
+    const calldata = [functionSelector.toField(), ...args];
     const environment = initExecutionEnvironment({
       calldata,
       globals,
-      address: contractInstance.address,
-      sender: AztecAddress.fromNumber(42),
+      address: contractDataSource.firstContractInstance.address,
+      sender,
     });
     const context = initContext({ env: environment, persistableState });
 
@@ -195,7 +186,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const simulator = new AvmSimulator(context);
     const results = await simulator.execute();
 
-    expect(results.reverted).toBe(false);
+    expect(results.reverted).toBe(true);
   });
 
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
@@ -1049,6 +1040,28 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
 
       it('Should handle returndatacopy oracle', async () => {
+        const context = createContext();
+        const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
+        mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+
+        mockTraceFork(trace);
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+      });
+
+      it('Overrun of unique contract class IDs for bytecode retrieval', async () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');

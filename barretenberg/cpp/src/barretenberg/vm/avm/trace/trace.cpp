@@ -157,16 +157,26 @@ void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
     merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
 }
 
-std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address,
+                                                   bool check_membership,
+                                                   bool jumping_to_parent)
 {
-    // The cache contains all the unique contract class ids we have seen so far
-    if (contract_class_id_cache.size() >= AVM_MAX_UNIQUE_CONTRACT_CALLS) {
-        // Right now we have no way of communicating this to the circuit since we don't currently lay down rows
-        // for these operations
-        // error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
-        throw std::runtime_error("Max unique contract call limit reached");
-    }
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // The cache contains all the unique contract class ids we have seen so far
+    // If this bytecode retrievals have reached the number of unique contract class IDs, can't make any more retrievals!
+    //
+    // If we could actually allow contract calls after the limit was reached, we would let you make more calls
+    // as long as they were to class IDs that are already here.
+    // BUT, the issue with this approach is that the sequencer could lie and say "this call was to a new class ID",
+    // and the circuit cannot prove that it's not true without deriving the class ID from bytecode,
+    // proving that it corresponds to the called contract address, and proving that the class ID wasn't already
+    // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
+    if (!jumping_to_parent && contract_class_id_cache.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+        info("Limit reached for contract calls to unique class id. Limit: ",
+             MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+        throw std::runtime_error("Limit reached for contract calls to unique class id.");
+    }
 
     // Find the bytecode based on contract address of the public call request
     const AvmContractBytecode bytecode_hint =
@@ -216,7 +226,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         vinfo("Found bytecode for contract address: ", contract_address);
         return bytecode_hint.bytecode;
     }
-    vinfo("Bytecode not found for contract address: ", contract_address);
+    info("Bytecode not found for contract address: ", contract_address);
     throw std::runtime_error("Bytecode not found");
 }
 
