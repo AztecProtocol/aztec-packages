@@ -58,7 +58,7 @@ bootNode:
   resources:
     requests:
       memory: "2Gi"
-      cpu: "200m"
+      cpu: "1"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -114,7 +114,7 @@ validator:
   resources:
     requests:
       memory: "2Gi"
-      cpu: "200m"
+      cpu: "1"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   attestationPollingInterval: 1000
@@ -145,7 +145,7 @@ proverNode:
   resources:
     requests:
       memory: "2Gi"
-      cpu: "200m"
+      cpu: "1"
   storage: "8Gi"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -220,7 +220,7 @@ ethereum:
   resources:
     requests:
       memory: "2Gi"
-      cpu: "200m"
+      cpu: "1"
   storage: "80Gi"
   deployL1ContractsPrivateKey:
 
@@ -237,7 +237,10 @@ proverAgent:
   bb:
     hardwareConcurrency: ""
   nodeSelector: {}
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
   pollInterval: 200
 
 proverBroker:
@@ -254,7 +257,7 @@ proverBroker:
   resources:
     requests:
       memory: "2Gi"
-      cpu: "200m"
+      cpu: "1"
 
 jobs:
   deployL1Verifier:
@@ -268,4 +271,7 @@ faucet:
   accountIndex: 0
   l1Assets: ""
   logLevel: ""
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
