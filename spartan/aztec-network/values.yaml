@@ -57,7 +57,7 @@ bootNode:
     enabled: "true"
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -113,7 +113,7 @@ validator:
     failureThreshold: 120
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -144,7 +144,7 @@ proverNode:
     dataDirectory: ""
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
   storage: "8Gi"
   archiverPollingInterval: 1000
@@ -165,8 +165,8 @@ pxe:
     failureThreshold: 3
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
+      memory: "4Gi"
+      cpu: "1"
 
 bot:
   enabled: true
@@ -194,8 +194,8 @@ bot:
     failureThreshold: 3
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
+      memory: "4Gi"
+      cpu: "1"
 
 ethereum:
   externalHost: ""
@@ -219,7 +219,7 @@ ethereum:
     failureThreshold: 3
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
   storage: "80Gi"
   deployL1ContractsPrivateKey:
@@ -239,7 +239,7 @@ proverAgent:
   nodeSelector: {}
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
   pollInterval: 200
 
@@ -256,7 +256,7 @@ proverBroker:
   nodeSelector: {}
   resources:
     requests:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
 
 jobs:
