@@ -49,7 +49,7 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     }
 
     // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
-    // into one. These polynomials are not commited to.
+    // into one. These polynomials are not committed to.
     bb::compute_concatenated_polynomials<Flavor>(key->polynomials);
 
     // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
