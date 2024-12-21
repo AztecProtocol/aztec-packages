@@ -86,11 +86,28 @@ async function main() {
         .env('AZTEC_NODE_URL')
         .default(`http://${LOCALHOST}:8080`),
     )
+    .addOption(
+      new Option('-b, --bb-binary-path <string>', 'Path to the BB binary')
+        .env('BB_BINARY_PATH')
+        .default(`$HOME/.bb/bb`),
+    )
+    .addOption(
+      new Option('-w, --bb-working-directory <string>', 'Path to the BB working directory')
+        .env('BB_WORKING_DIRECTORY')
+        .default(`$HOME/.bb-workdir`),
+    )
     .hook('preSubcommand', async command => {
       const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
+
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
-        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
+        const subcommand = command.args[0];
+        const isProfiling = command.args.includes('--profile');
+        const enableProving = subcommand === 'simulate' && isProfiling;
+
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
+          proverEnabled: enableProving,
+        });
       }
       db.init(AztecLmdbStore.open(dataDir));
     });

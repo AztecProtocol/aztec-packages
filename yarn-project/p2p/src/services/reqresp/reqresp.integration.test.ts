@@ -29,8 +29,8 @@ import { type AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../../services/types.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../discv5/discV5_service.js';
 
 const TEST_TIMEOUT = 80000;
 

@@ -9,6 +9,16 @@ const DefaultPeerPenalties = {
   [PeerErrorSeverity.HighToleranceError]: 2,
 };
 
+export enum PeerScoreState {
+  Banned,
+  Disconnect,
+  Healthy,
+}
+
+// TODO: move into config / constants
+const MIN_SCORE_BEFORE_BAN = -100;
+const MIN_SCORE_BEFORE_DISCONNECT = -50;
+
 export class PeerScoring {
   private scores: Map<string, number> = new Map();
   private lastUpdateTime: Map<string, number> = new Map();
@@ -63,6 +73,17 @@ export class PeerScoring {
 
   getScore(peerId: string): number {
     return this.scores.get(peerId) || 0;
+  }
+
+  getScoreState(peerId: string) {
+    // TODO: permanently store banned peers???
+    const score = this.getScore(peerId);
+    if (score < MIN_SCORE_BEFORE_BAN) {
+      return PeerScoreState.Banned;
+    } else if (score < MIN_SCORE_BEFORE_DISCONNECT) {
+      return PeerScoreState.Disconnect;
+    }
+    return PeerScoreState.Healthy;
   }
 
   getStats(): { medianScore: number } {
