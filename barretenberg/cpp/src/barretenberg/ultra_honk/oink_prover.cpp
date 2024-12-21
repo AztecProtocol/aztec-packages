@@ -88,7 +88,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
 
 /**
  * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
- * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
+ * only committed to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
  * DataBus columns.
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
