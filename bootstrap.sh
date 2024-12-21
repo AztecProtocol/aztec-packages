@@ -76,8 +76,8 @@ function check_toolchains {
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
-    echo "Minimum Node.js version 18.19.0 not found."
-    echo "Installation: nvm install 18"
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
     exit 1
   fi
   # Check for required npm globals.
@@ -89,6 +89,22 @@ function check_toolchains {
       exit 1
     fi
   done
+  # Check for yarn availability
+  if ! command -v yarn > /dev/null; then
+    encourage_dev_container
+    echo "yarn not found."
+    echo "Installation: corepack enable"
+    exit 1
+  fi
+  # Check for yarn version
+  local yarn_min_version="4.5.2"
+  local yarn_installed_version=$(yarn --version)
+  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
+    encourage_dev_container
+    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
+    echo "Installation: yarn set version $yarn_min_version; yarn install"
+    exit 1
+  fi
 }
 
 case "$cmd" in
@@ -132,7 +148,7 @@ case "$cmd" in
     ;;
   "test-boxes")
     github_group "test-boxes"
-    bootstrap_local "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
+    bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
     exit
   ;;
   "image-aztec")

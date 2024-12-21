@@ -5,6 +5,67 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+## 0.68.0
+### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
+Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
+when registering contract classes
+
+Function changes in the Node interface and Contract Data source interface:
+```diff
+- addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
++ registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
+```
+
+So now the PXE registers this when calling `registerContract()`
+```
+await this.node.registerContractFunctionNames(instance.address, functionNames);
+```
+
+Function changes in the Archiver
+```diff
+- addContractArtifact(address: AztecAddress, artifact: ContractArtifact)
+-  getContractArtifact(address: AztecAddress)
++  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>
+```
+
+### [fees, fpc] Changes in setting up FPC as fee payer on AztecJS and method names in FPC
+On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` are now the same. The don't need to specify a sequencer address or which coin to pay in. The coins are set up in the FPC contract!
+
+```diff
+- paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address,bananaFPC.address,aliceWallet,sequencerAddress),
++ paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+
+- paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
++ paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+```
+
+Changes in `FeePaymentMethod` class in AztecJS
+```diff
+- getAsset(): AztecAddress;
++ getAsset(): Promise<AztecAddress>;
+```
+
+Changes in the token contract:
+FPC specific methods, `setup_refund()` and `complete_refund()` have minor args rename.
+
+Changes in FPC contract:
+Rename of args in all of FPC functions as FPC now stores the accepted token address and admin and making it clearer the amounts are corresponding to the accepted token and not fee juice.
+Also created a public function `pull_funds()` for admin to clawback any money in the FPC
+
+Expect more changes in FPC in the coming releases!
+
+### Name change from `contact` to `sender` in PXE API
+`contact` has been deemed confusing because the name is too similar to `contract`.
+For this reason we've decided to rename it:
+
+```diff
+- await pxe.registerContact(address);
++ await pxe.registerSender(address);
+- await pxe.getContacts();
++ await pxe.getSenders();
+- await pxe.removeContact(address);
++ await pxe.removeSender(address);
+```
 
 ## 0.67.1
 

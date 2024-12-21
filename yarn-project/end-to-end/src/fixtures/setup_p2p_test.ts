@@ -9,6 +9,7 @@ import { type PXEService } from '@aztec/pxe';
 
 import getPort from 'get-port';
 
+import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
@@ -101,6 +102,7 @@ export async function createValidatorConfig(
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     p2pEnabled: true,
+    peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,
     transactionProtocol: '',
     dataDirectory,

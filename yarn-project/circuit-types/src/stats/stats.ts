@@ -36,6 +36,10 @@ export type L1PublishStats = {
   calldataGas: number;
   /** Size in bytes of the calldata. */
   calldataSize: number;
+  /** Gas cost of the blob data */
+  blobDataGas: bigint;
+  /** Amount of blob gas used. */
+  blobGasUsed: bigint;
 };
 
 /** Stats logged for each L1 rollup publish tx.*/

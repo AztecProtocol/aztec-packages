@@ -31,7 +31,7 @@ runs:
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types, aws chooses for us based on capacity
           echo "instance_type=m6a.32xlarge m6i.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6in.32xlarge" >> $GITHUB_OUTPUT
-          echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
+          echo "ami_id=ami-044f8e99cd65daf76" >> $GITHUB_OUTPUT
           echo "runner_concurrency=20" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
