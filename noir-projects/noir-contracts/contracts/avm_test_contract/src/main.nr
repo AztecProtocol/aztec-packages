@@ -598,8 +598,10 @@ contract AvmTest {
     }
 
     #[public]
-    fn nested_call_to_add_n_times_different_addresses(addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1]) {
-        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 {
+    fn nested_call_to_add_n_times_different_addresses(
+        addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1],
+    ) {
+        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1 {
             let addr = addrs[i];
             if addr != AztecAddress::empty() {
                 let _ = AvmTest::at(addr).add_args_return(1, 2).call(&mut context);
