@@ -292,7 +292,7 @@ describe('AMM', () => {
         .methods.balance_of_private(otherLiquidityProvider.getAddress())
         .simulate();
 
-      // Because private burning requires first transfering the tokens into the AMM, we again need to provide an
+      // Because private burning requires first transferring the tokens into the AMM, we again need to provide an
       // authwit.
       const nonceForAuthwits = Fr.random();
       await otherLiquidityProvider.createAuthWit({
