@@ -401,7 +401,7 @@ describe('prover-node', () => {
           makeBackoff(times(20, () => 1)),
         );
 
-        // We should be able to retreive the quote from the other node
+        // We should be able to retrieve the quote from the other node
         const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(epochNumber);
         expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(epochNumber));
       });
