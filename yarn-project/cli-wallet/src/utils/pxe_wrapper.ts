@@ -1,5 +1,5 @@
 import { type PXE, createAztecNodeClient } from '@aztec/circuit-types';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 /*
  * Wrapper class for PXE service, avoids initialization issues due to
@@ -12,9 +12,9 @@ export class PXEWrapper {
     return PXEWrapper.pxe;
   }
 
-  async init(nodeUrl: string, dataDir: string) {
+  async init(nodeUrl: string, dataDir: string, overridePXEServiceConfig?: Partial<PXEServiceConfig>) {
     const aztecNode = createAztecNodeClient(nodeUrl);
-    const pxeConfig = getPXEServiceConfig();
+    const pxeConfig = Object.assign(getPXEServiceConfig(), overridePXEServiceConfig);
     pxeConfig.dataDirectory = dataDir;
     PXEWrapper.pxe = await createPXEService(aztecNode, pxeConfig);
   }
