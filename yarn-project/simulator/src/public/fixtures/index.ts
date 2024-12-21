@@ -1,17 +1,19 @@
-import { PublicExecutionRequest, Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
+  BlockHeader,
   CallContext,
   type ContractClassPublic,
+  type ContractDataSource,
   type ContractInstanceWithAddress,
   DEFAULT_GAS_LIMIT,
+  DEPLOYER_CONTRACT_ADDRESS,
   FunctionSelector,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  Header,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   type PublicFunction,
@@ -22,26 +24,24 @@ import {
   TxContext,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { PublicTxSimulator, WorldStateDB } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
-/**
- * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
- * we check that the revert reason error contains this string. However, the circuit must correctly prove the
- * execution.
- */
 export async function simulateAvmTestContractGenerateCircuitInputs(
   functionName: string,
   calldata: Fr[] = [],
+  expectRevert: boolean = false,
+  skipContractDeployments: boolean = false,
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
   const sender = AztecAddress.random();
@@ -54,17 +54,30 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   const telemetry = new NoopTelemetryClient();
   const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
-  const contractDataSource = new MockedAvmTestContractDataSource();
+  const contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
   const contractInstance = contractDataSource.contractInstance;
+
+  if (!skipContractDeployments) {
+    const contractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+    // other contract address used by the bulk test's GETCONTRACTINSTANCE test
+    const otherContractAddressNullifier = siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractDataSource.otherContractInstance.address.toField(),
+    );
+    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
+  }
 
   const simulator = new PublicTxSimulator(
     merkleTrees,
     worldStateDB,
     new NoopTelemetryClient(),
     globalVariables,
-    /*realAvmProving=*/ true,
     /*doMerkleOperations=*/ true,
   );
 
@@ -80,13 +93,15 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   const avmResult = await simulator.simulate(tx);
 
-  if (assertionErrString == undefined) {
+  if (!expectRevert) {
     expect(avmResult.revertCode.isOK()).toBe(true);
   } else {
     // Explicit revert when an assertion failed.
     expect(avmResult.revertCode.isOK()).toBe(false);
     expect(avmResult.revertReason).toBeDefined();
-    expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    if (assertionErrString !== undefined) {
+      expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    }
   }
 
   const avmCircuitInputs: AvmCircuitInputs = avmResult.avmProvingRequest.inputs;
@@ -103,7 +118,7 @@ export function createTxForPublicCall(
 ): Tx {
   const callRequest = executionRequest.toCallRequest();
   // use max limits
-  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_ENQUEUED_CALL);
+  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
@@ -115,9 +130,9 @@ export function createTxForPublicCall(
   }
 
   const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
-  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty());
+  const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const constantData = new TxConstantData(Header.empty(), txContext, Fr.zero(), Fr.zero());
+  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
@@ -134,7 +149,7 @@ export function createTxForPublicCall(
   return tx;
 }
 
-class MockedAvmTestContractDataSource {
+export class MockedAvmTestContractDataSource implements ContractDataSource {
   private fnName = 'public_dispatch';
   private bytecode: Buffer;
   public fnSelector: FunctionSelector;
@@ -142,9 +157,9 @@ class MockedAvmTestContractDataSource {
   private contractClass: ContractClassPublic;
   public contractInstance: ContractInstanceWithAddress;
   private bytecodeCommitment: Fr;
-  private otherContractInstance: ContractInstanceWithAddress;
+  public otherContractInstance: ContractInstanceWithAddress;
 
-  constructor() {
+  constructor(private noContractsDeployed: boolean = false) {
     this.bytecode = getAvmTestContractBytecode(this.fnName);
     this.fnSelector = getAvmTestContractFunctionSelector(this.fnName);
     this.publicFn = { bytecode: this.bytecode, selector: this.fnSelector };
@@ -152,6 +167,7 @@ class MockedAvmTestContractDataSource {
     this.contractInstance = makeContractInstanceFromClassId(this.contractClass.id);
     this.bytecodeCommitment = computePublicBytecodeCommitment(this.bytecode);
     // The values here should match those in `avm_simulator.test.ts`
+    // Used for GETCONTRACTINSTANCE test
     this.otherContractInstance = new SerializableContractInstance({
       version: 1,
       salt: new Fr(0x123),
@@ -164,7 +180,7 @@ class MockedAvmTestContractDataSource {
         new Point(new Fr(0x252627), new Fr(0x282930), false),
         new Point(new Fr(0x313233), new Fr(0x343536), false),
       ),
-    }).withAddress(this.contractInstance.address);
+    }).withAddress(AztecAddress.fromNumber(0x4444));
   }
 
   getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
@@ -187,12 +203,15 @@ class MockedAvmTestContractDataSource {
     return Promise.resolve();
   }
 
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress> {
-    if (address.equals(this.contractInstance.address)) {
-      return Promise.resolve(this.contractInstance);
-    } else {
-      return Promise.resolve(this.otherContractInstance);
+  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    if (!this.noContractsDeployed) {
+      if (address.equals(this.contractInstance.address)) {
+        return Promise.resolve(this.contractInstance);
+      } else if (address.equals(this.otherContractInstance.address)) {
+        return Promise.resolve(this.otherContractInstance);
+      }
     }
+    return Promise.resolve(undefined);
   }
 
   getContractClassIds(): Promise<Fr[]> {
@@ -207,7 +226,7 @@ class MockedAvmTestContractDataSource {
     return Promise.resolve(this.fnName);
   }
 
-  addContractArtifact(_address: AztecAddress, _contract: ContractArtifact): Promise<void> {
+  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
     return Promise.resolve();
   }
 }

@@ -1,4 +1,4 @@
-import { createDebugLogger, sleep } from '@aztec/aztec.js';
+import { createLogger, sleep } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 
 import { exec, execSync, spawn } from 'child_process';
@@ -11,7 +11,7 @@ import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_chec
 
 const execAsync = promisify(exec);
 
-const logger = createDebugLogger('k8s-utils');
+const logger = createLogger('e2e:k8s-utils');
 
 const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
@@ -23,7 +23,7 @@ const k8sLocalConfigSchema = z.object({
   HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().min(1, 'GRAFANA_PASSWORD env variable must be set'),
-  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1/query'),
+  METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
   K8S: z.literal('local'),
 });
@@ -97,14 +97,19 @@ export async function startPortForward({
   });
 
   process.stdout?.on('data', data => {
-    logger.info(data.toString());
+    const str = data.toString();
+    if (str.includes('Starting port forward')) {
+      logger.info(str);
+    } else {
+      logger.debug(str);
+    }
   });
   process.stderr?.on('data', data => {
     // It's a strange thing:
     // If we don't pipe stderr, then the port forwarding does not work.
     // Log to silent because this doesn't actually report errors,
     // just extremely verbose debug logs.
-    logger.debug(data.toString());
+    logger.silent(data.toString());
   });
 
   // Wait a moment for the port forward to establish
@@ -401,7 +406,7 @@ export async function enableValidatorDynamicBootNode(
       'validator.dynamicBootNode': 'true',
     },
     valuesFile: undefined,
-    timeout: '10m',
+    timeout: '15m',
     reuseValues: true,
   });
 

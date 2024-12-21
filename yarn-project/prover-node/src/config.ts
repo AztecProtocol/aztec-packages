@@ -1,11 +1,11 @@
-import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver';
-import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
+import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
+import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
@@ -13,13 +13,13 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
-import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
+import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverClientConfig,
   bbConfigMappings,
   getProverEnvVars,
   proverClientConfigMappings,
-} from '@aztec/prover-client';
+} from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -27,8 +27,8 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigFromEnv,
   getTxSenderConfigMappings,
-} from '@aztec/sequencer-client';
-import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
+} from '@aztec/sequencer-client/config';
+import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {

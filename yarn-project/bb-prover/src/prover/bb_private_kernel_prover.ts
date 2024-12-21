@@ -1,26 +1,18 @@
+import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  type AppCircuitSimulateOutput,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-} from '@aztec/circuit-types';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  AGGREGATION_OBJECT_LENGTH,
-  ClientIvcProof,
-  Fr,
+  type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  Proof,
-  RecursiveProof,
-  type VerificationKeyAsFields,
+  type Proof,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
@@ -39,28 +31,21 @@ import {
   convertPrivateKernelTailToPublicInputsToWitnessMap,
   getPrivateKernelResetArtifactName,
 } from '@aztec/noir-protocol-circuits-types';
-import { WASMSimulator } from '@aztec/simulator';
+import { WASMSimulatorWithBlobs } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
-import {
-  BB_RESULT,
-  PROOF_FIELDS_FILENAME,
-  PROOF_FILENAME,
-  computeGateCountForCircuit,
-  computeVerificationKey,
-  executeBbClientIvcProof,
-  verifyProof,
-} from '../bb/execute.js';
+import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof, verifyProof } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
+import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -68,7 +53,7 @@ import { extractVkData } from '../verification_key/verification_key_data.js';
  * TODO(#7368): this class grew 'organically' aka it could use a look at its resposibilities
  */
 export class BBNativePrivateKernelProver implements PrivateKernelProver {
-  private simulator = new WASMSimulator();
+  private simulator = new WASMSimulatorWithBlobs();
 
   private verificationKeys: Map<ClientProtocolArtifact, Promise<VerificationKeyData>> = new Map<
     ClientProtocolArtifact,
@@ -79,10 +64,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
-    private log = createDebugLogger('aztec:bb-native-prover'),
+    private log = createLogger('bb-prover:native'),
   ) {}
 
-  public static async new(config: BBConfig, log?: DebugLogger) {
+  public static async new(config: BBConfig, log?: Logger) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
   }
@@ -112,7 +97,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       throw new Error(provingResult.reason);
     }
 
-    const proof = await ClientIvcProof.readFromOutputDirectory(directory);
+    const proof = await readFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.durationMs,
@@ -184,22 +169,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async computeAppCircuitVerificationKey(
-    bytecode: Buffer,
-    appCircuitName?: string,
-  ): Promise<AppCircuitSimulateOutput> {
-    const operation = async (directory: string) => {
-      this.log.debug(`Proving app circuit`);
-      // App circuits are always recursive; the #[recursive] attribute used to be applied automatically
-      // by the `private` comptime macro in noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr
-      // Yet, inside `computeVerificationKey` the `mega_honk` flavor is used, which doesn't use the recursive flag.
-      const recursive = true;
-      return await this.computeVerificationKey(directory, bytecode, recursive, 'App', appCircuitName);
-    };
-
-    return await this.runInDirectory(operation);
-  }
-
   /**
    * Verifies a proof, will generate the verification key if one is not cached internally
    * @param circuitType - The type of circuit whose proof is to be verified
@@ -230,12 +199,17 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   }
 
   public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {
+    const logFunction = (message: string) => {
+      this.log.debug(`$bb gates ${circuitName} - ${message}`);
+    };
+
     const result = await computeGateCountForCircuit(
       this.bbBinaryPath,
       this.bbWorkingDirectory,
       circuitName,
       bytecode,
       'mega_honk',
+      logFunction,
     );
     if (result.status === BB_RESULT.FAILURE) {
       throw new Error(result.reason);
@@ -311,99 +285,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       bytecode,
     };
     return kernelOutput;
-  }
-
-  private async computeVerificationKey(
-    directory: string,
-    bytecode: Buffer,
-    recursive: boolean,
-    circuitType: ClientProtocolArtifact | 'App',
-    appCircuitName?: string,
-  ): Promise<{
-    verificationKey: VerificationKeyAsFields;
-  }> {
-    const dbgCircuitName = appCircuitName ? `(${appCircuitName})` : '';
-    this.log.info(`Computing VK of ${circuitType}${dbgCircuitName} circuit...`);
-
-    const timer = new Timer();
-
-    const vkResult = await computeVerificationKey(
-      this.bbBinaryPath,
-      directory,
-      circuitType,
-      bytecode,
-      recursive,
-      circuitType === 'App' ? 'mega_honk' : getUltraHonkFlavorForCircuit(circuitType),
-      this.log.debug,
-    );
-
-    if (vkResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate verification key for ${circuitType}${dbgCircuitName}: ${vkResult.reason}`);
-      throw new Error(vkResult.reason);
-    }
-
-    this.log.info(`Generated ${circuitType}${dbgCircuitName} VK in ${Math.ceil(timer.ms())} ms`);
-
-    if (circuitType === 'App') {
-      const vkData = await extractVkData(directory);
-
-      this.log.debug(`Computed verification key`, {
-        circuitName: 'app-circuit',
-        duration: vkResult.durationMs,
-        eventName: 'circuit-simulation',
-        inputSize: bytecode.length,
-        outputSize: vkData.keyAsBytes.length,
-        circuitSize: vkData.circuitSize,
-        numPublicInputs: vkData.numPublicInputs,
-      } as CircuitSimulationStats);
-
-      return { verificationKey: vkData.keyAsFields };
-    }
-
-    const vkData = await this.updateVerificationKeyAfterSimulation(directory, circuitType);
-
-    this.log.debug(`Computed verification key`, {
-      circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-      duration: vkResult.durationMs,
-      eventName: 'circuit-simulation',
-      inputSize: bytecode.length,
-      outputSize: vkData.keyAsBytes.length,
-      circuitSize: vkData.circuitSize,
-      numPublicInputs: vkData.numPublicInputs,
-    } as CircuitSimulationStats);
-
-    return { verificationKey: vkData.keyAsFields };
-  }
-
-  /**
-   * Parses and returns the proof data stored at the specified directory
-   * @param filePath - The directory containing the proof data
-   * @param circuitType - The type of circuit proven
-   * @returns The proof
-   */
-  private async readProofAsFields<PROOF_LENGTH extends number>(
-    filePath: string,
-    circuitType: ClientProtocolArtifact | 'App',
-    vkData: VerificationKeyData,
-  ): Promise<RecursiveProof<PROOF_LENGTH>> {
-    const [binaryProof, proofString] = await Promise.all([
-      fs.readFile(`${filePath}/${PROOF_FILENAME}`),
-      fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
-    ]);
-    const json = JSON.parse(proofString);
-    const fields = json.map(Fr.fromString);
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
-    this.log.info(
-      `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
-    );
-    const proof = new RecursiveProof<PROOF_LENGTH>(
-      fieldsWithoutPublicInputs,
-      new Proof(binaryProof, vkData.numPublicInputs),
-      true,
-      fieldsWithoutPublicInputs.length,
-    );
-    return proof;
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {

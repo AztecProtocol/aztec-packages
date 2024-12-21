@@ -6,10 +6,10 @@
  * @returns - An array of bucket boundaries
  */
 export function linearBuckets(start: number, end: number, count: number): number[] {
-  const buckets = [];
+  const buckets: number[] = [];
   const step = (end - start) / count;
   for (let i = 0; i <= count; i++) {
-    buckets.push(start + i * step);
+    buckets.push(Math.floor(start + i * step));
   }
   return buckets;
 }
@@ -47,20 +47,4 @@ export function exponentialBuckets(scale: number, count: number): number[] {
     buckets.push(base ** i);
   }
   return buckets;
-}
-
-/**
- * Creates an array of exponential buckets optimized for milliseconds
- * @param significantFractionalDigits - The number of significant digits to round to
- * @param count - The number of buckets. Defaults to 60
- * @returns - An array of bucket boundaries
- */
-export function millisecondBuckets(significantFractionalDigits: number, count = 60): number[] {
-  if (significantFractionalDigits < 1) {
-    // if significant digits is 1 then we end up having duplicate buckets
-    throw new Error('significantFractionalDigits must be >= 1');
-  }
-
-  const scale = 10 ** significantFractionalDigits;
-  return exponentialBuckets(2, count).map(x => Math.round(x * scale));
 }

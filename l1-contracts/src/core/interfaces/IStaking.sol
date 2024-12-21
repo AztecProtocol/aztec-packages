@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
@@ -31,6 +32,12 @@ struct OperatorInfo {
 struct Exit {
   Timestamp exitableAt;
   address recipient;
+}
+
+struct StakingStorage {
+  EnumerableSet.AddressSet attesters;
+  mapping(address attester => ValidatorInfo) info;
+  mapping(address attester => Exit) exits;
 }
 
 interface IStaking {

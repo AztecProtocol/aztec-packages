@@ -3,7 +3,8 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 
-namespace bb {
+namespace bb::avm {
+
 template <typename Flavor> class AvmRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -38,4 +39,5 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
   private:
     FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
-} // namespace bb
+
+} // namespace bb::avm

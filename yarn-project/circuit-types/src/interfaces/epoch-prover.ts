@@ -1,4 +1,5 @@
-import { type Fr, type Header, type Proof, type RootRollupPublicInputs } from '@aztec/circuits.js';
+import { type BlockHeader, type Fr, type Proof } from '@aztec/circuits.js';
+import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
 import { type L2Block } from '../l2_block.js';
 import { type BlockBuilder } from './block-builder.js';
@@ -14,7 +15,7 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
   startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void;
 
   /** Pads the block with empty txs if it hasn't reached the declared number of txs. */
-  setBlockCompleted(blockNumber: number, expectedBlockHeader?: Header): Promise<L2Block>;
+  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */
   finaliseEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof }>;

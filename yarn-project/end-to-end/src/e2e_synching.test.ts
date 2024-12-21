@@ -39,10 +39,10 @@ import {
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
@@ -51,7 +51,9 @@ import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -96,7 +98,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;

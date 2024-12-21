@@ -9,6 +9,7 @@
 
 pub mod constants;
 pub mod errors;
+pub mod foreign_calls;
 pub mod ops;
 pub mod package;
 pub mod workspace;
@@ -29,6 +30,7 @@ use rayon::prelude::*;
 use walkdir::WalkDir;
 
 pub use self::errors::NargoError;
+pub use self::foreign_calls::print::PrintOutput;
 
 pub fn prepare_dependencies(
     context: &mut Context,

@@ -5,13 +5,13 @@ import {
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
   type Fq,
   Fr,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
 import {
@@ -23,7 +23,7 @@ import {
 import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -67,7 +67,7 @@ export class FullProverTest {
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   keys: Array<[Fr, Fq]> = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
@@ -93,7 +93,7 @@ export class FullProverTest {
     coinbase: EthAddress,
     private realProofs = true,
   ) {
-    this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
+    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,

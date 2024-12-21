@@ -1,6 +1,53 @@
 name: Aztec Network Deployment
 
 on:
+  workflow_call:
+    inputs:
+      namespace:
+        description: The namespace to deploy to, e.g. smoke
+        required: true
+        type: string
+      values_file:
+        description: The values file to use, e.g. 1-validators.yaml
+        required: true
+        type: string
+      aztec_docker_image:
+        description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
+        required: true
+        type: string
+      deployment_mnemonic_secret_name:
+        description: The name of the secret which holds the boot node's contract deployment mnemonic
+        required: false
+        type: string
+        default: testnet-deployment-mnemonic
+      deployment_salt:
+        description: The salt to use for this deployment. Defaults to random
+        required: false
+        type: string
+        default: ""
+      respect_tf_lock:
+        description: Whether to respect the Terraform lock
+        required: false
+        type: string
+        default: "true"
+      run_terraform_destroy:
+        description: Whether to run terraform destroy before deploying
+        required: false
+        type: string
+        default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
+      sepolia_deployment:
+        description: "Whether to deploy on Sepolia network (default: false)"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      GCP_SA_KEY:
+        required: true
   workflow_dispatch:
     inputs:
       namespace:
@@ -12,6 +59,33 @@ on:
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
+      deployment_mnemonic_secret_name:
+        description: The name of the secret which holds the boot node's contract deployment mnemonic
+        required: false
+        default: testnet-deployment-mnemonic
+      deployment_salt:
+        description: The salt to use for this deployment. Defaults to random
+        required: false
+        default: ""
+      respect_tf_lock:
+        description: Whether to respect the Terraform lock
+        required: false
+        default: "true"
+      run_terraform_destroy:
+        description: Whether to run terraform destroy before deploying
+        required: false
+        type: string
+        default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
+      sepolia_deployment:
+        description: "Whether to deploy on Sepolia network (default: false)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   network_deployment:
@@ -26,6 +100,8 @@ jobs:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
+      DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
+      DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
       CLUSTER_NAME: aztec-gke
       REGION: us-west1-a
@@ -35,6 +111,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -62,6 +140,12 @@ jobs:
             echo "Terraform state bucket already exists"
           fi
 
+      - name: Grab the boot node deployment mnemonic
+        id: get-mnemonic
+        run: |
+          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
+          echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -74,16 +158,63 @@ jobs:
             -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
             -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate" \
 
+      - name: Terraform Destroy
+        working-directory: ./spartan/terraform/deploy-release
+        if: ${{ inputs.run_terraform_destroy == 'true' }}
+        # Destroy fails if the resources are already destroyed, so we continue on error
+        continue-on-error: true
+        run: |
+          if ${{ inputs.sepolia_deployment }}; then
+            terraform destroy -auto-approve \
+              -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+              -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+              -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
+              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
+            -lock=${{ inputs.respect_tf_lock }}
+          else
+            terraform destroy -auto-approve \
+              -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+              -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+              -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}"
+            -lock=${{ inputs.respect_tf_lock }}
+          fi
+
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
         run: |
-          terraform plan \
-            -var="release_name=${{ env.NAMESPACE }}" \
-            -var="values_file=${{ env.VALUES_FILE }}" \
-            -var="gke_cluster_context=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="aztec_docker_image=${{ env.AZTEC_DOCKER_IMAGE }}" \
-            -out=tfplan
+          if ${{ inputs.sepolia_deployment }}; then
+            terraform plan \
+              -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+              -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+              -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+              -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
+              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
+              -out=tfplan \
+              -lock=${{ inputs.respect_tf_lock }}
+          else
+            terraform plan \
+              -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
+              -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+              -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+              -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -out=tfplan \
+              -lock=${{ inputs.respect_tf_lock }}
+          fi
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan

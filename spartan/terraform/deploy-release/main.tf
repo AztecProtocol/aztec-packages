@@ -6,7 +6,7 @@ terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12.1"
+      version = "~> 2.16.1"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -37,6 +37,7 @@ resource "helm_release" "aztec-gke-cluster" {
   chart            = "aztec-network"
   namespace        = var.RELEASE_NAME
   create_namespace = true
+  upgrade_install  = true
 
   # base values file
   values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
@@ -44,6 +45,59 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "images.aztec.image"
     value = var.AZTEC_DOCKER_IMAGE
+  }
+
+  dynamic "set" {
+    for_each = var.L1_DEPLOYMENT_MNEMONIC != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "aztec.l1DeploymentMnemonic"
+      value = var.L1_DEPLOYMENT_MNEMONIC
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.L1_DEPLOYMENT_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.deployL1ContractsPrivateKey"
+      value = var.L1_DEPLOYMENT_PRIVATE_KEY
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "bootNode.seqPublisherPrivateKey"
+      value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "proverNode.proverPublisherPrivateKey"
+      value = var.PROVER_PUBLISHER_PRIVATE_KEY
+    }
+  }
+
+  dynamic "set_list" {
+    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? toset(["iterate"]) : toset([])
+    content {
+      name  = "validator.validatorKeys"
+      value = var.VALIDATOR_KEYS
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.ETHEREUM_EXTERNAL_HOST != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.externalHost"
+      value = var.ETHEREUM_EXTERNAL_HOST
+    }
+  }
+
+  set {
+    name  = "aztec.l1Salt"
+    value = var.L1_DEPLOYMENT_SALT
   }
 
   # Setting timeout and wait conditions

@@ -5,13 +5,13 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
-import { Header } from '../header.js';
+import { BlockHeader } from '../block_header.js';
 import { RecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 export class PrivateKernelEmptyInputData {
   constructor(
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
@@ -29,7 +29,7 @@ export class PrivateKernelEmptyInputData {
   static fromBuffer(buf: Buffer) {
     const reader = BufferReader.asReader(buf);
     return new PrivateKernelEmptyInputData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -65,7 +65,7 @@ export class PrivateKernelEmptyInputData {
 export class PrivateKernelEmptyInputs {
   constructor(
     public readonly emptyNested: EmptyNestedData,
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
@@ -98,7 +98,7 @@ export class PrivateKernelEmptyInputs {
     const reader = BufferReader.asReader(buf);
     return new PrivateKernelEmptyInputs(
       reader.readObject(EmptyNestedData),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),

@@ -2,11 +2,11 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
-  type DebugLogger,
   EpochProofQuote,
   EpochProofQuotePayload,
+  type Logger,
   TxStatus,
-  createDebugLogger,
+  createLogger,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
@@ -15,7 +15,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
@@ -57,13 +57,13 @@ describe('e2e_prover_coordination', () => {
   let proverSigner: Secp256k1Signer;
   let proverWallet: WalletClient<HttpTransport, Chain, Account>;
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let snapshotManager: ISnapshotManager;
 
   beforeEach(async () => {
-    logger = createDebugLogger('aztec:prover_coordination:e2e_json_coordination');
+    logger = createLogger('e2e:prover_coordination');
     snapshotManager = createSnapshotManager(
-      `prover_coordination/e2e_json_coordination`,
+      `prover_coordination/e2e_prover_coordination`,
       process.env.E2E_DATA_PATH,
       { startProverNode: true },
       { assumeProvenThrough: undefined },

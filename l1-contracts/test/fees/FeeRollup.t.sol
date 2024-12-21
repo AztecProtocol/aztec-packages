@@ -32,7 +32,6 @@ import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -92,6 +91,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 blockHash;
     bytes header;
     bytes body;
+    bytes blobInputs;
     bytes32[] txHashes;
     Signature[] signatures;
   }
@@ -114,21 +114,24 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20();
+    asset = new TestERC20("test", "TEST", address(this));
 
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
+    asset.transferOwnership(address(fakeCanonical));
+
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
+      asset,
       bytes32(0),
       bytes32(0),
       address(this),
-      new address[](0),
       Config({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16
+        aztecEpochProofClaimWindowInL2Slots: 16,
+        minimumStake: 100 ether
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -215,6 +218,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       blockHash: blockHash,
       header: header,
       body: body,
+      blobInputs: full.block.blobInputs,
       txHashes: txHashes,
       signatures: signatures
     });
@@ -230,7 +234,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
         Block memory b = getBlock();
-
+        skipBlobCheck(address(rollup));
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -243,7 +247,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body
+          b.body,
+          b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -325,6 +330,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         Block memory b = getBlock();
 
+        skipBlobCheck(address(rollup));
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -337,7 +343,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body
+          b.body,
+          b.blobInputs
         );
 
         BlockLog memory blockLog = rollup.getBlock(nextSlot.unwrap());
@@ -426,11 +433,21 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           bytes32(0),
           bytes32(0)
         ];
+
+        bytes memory blobPublicInputs;
+        for (uint256 j = 0; j < epochSize; j++) {
+          // For each block in the epoch, add its blob public inputs
+          // Since we are reusing the same block, they are the same
+          blobPublicInputs =
+            abi.encodePacked(blobPublicInputs, this.getBlobPublicInputs(full.block.blobInputs));
+        }
+
         rollup.submitEpochRootProof(
           SubmitEpochRootProofArgs({
             epochSize: epochSize,
             args: args,
             fees: fees,
+            blobPublicInputs: blobPublicInputs,
             aggregationObject: aggregationObject,
             proof: proof
           })
@@ -470,5 +487,27 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       proving_cost: b.provingCost
     });
     assertEq(a, bModel);
+  }
+
+  // This is duplicated from Rollup.t.sol because we need to call it as this.getBlobPublicInputs
+  // so it accepts the input as calldata
+  function getBlobPublicInputs(bytes calldata _blobsInput)
+    public
+    pure
+    returns (bytes memory blobPublicInputs)
+  {
+    uint8 numBlobs = uint8(_blobsInput[0]);
+    blobPublicInputs = abi.encodePacked(numBlobs, blobPublicInputs);
+    for (uint256 i = 0; i < numBlobs; i++) {
+      // Add 1 for the numBlobs prefix
+      uint256 blobInputStart = i * 192 + 1;
+      // We want to extract the bytes we use for public inputs:
+      //  * input[32:64]   - z
+      //  * input[64:96]   - y
+      //  * input[96:144]  - commitment C
+      // Out of 192 bytes per blob.
+      blobPublicInputs =
+        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
+    }
   }
 }

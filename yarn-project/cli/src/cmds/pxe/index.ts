@@ -1,10 +1,9 @@
 import { Fr } from '@aztec/circuits.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import {
-  LOCALHOST,
   logJson,
   makePxeOption,
   parseAztecAddress,
@@ -19,7 +18,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('add-contract')
     .description(
@@ -55,11 +54,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .option('-f, --follow', 'Keep polling for new blocks')
     .addOption(pxeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+      await getBlock(options.rpcUrl, blockNumber, debugLogger, log);
     });
 
   program
@@ -145,7 +143,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   program
     .command('get-node-info')
     .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
-    .option('--node-url <string>', 'URL of the node.', `http://${LOCALHOST}:8080`)
+    .option('--node-url <string>', 'URL of the node.')
+    .option('--json', 'Emit output as json')
     .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
@@ -155,7 +154,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       } else {
         url = options.rpcUrl;
       }
-      await getNodeInfo(url, !options.nodeUrl, debugLogger, log);
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, options.json, log, logJson(log));
     });
 
   program

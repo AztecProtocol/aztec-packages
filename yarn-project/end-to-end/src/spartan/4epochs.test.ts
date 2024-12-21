@@ -1,7 +1,8 @@
-import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
+import { readFieldCompressedString } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -14,7 +15,7 @@ const config = setupEnvironment(process.env);
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 
-  const logger = createDebugLogger(`aztec:spartan:4epochs`);
+  const logger = createLogger(`e2e:spartan:4epochs`);
   const l1Config = getL1ContractsConfigEnvVars();
 
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
@@ -58,7 +59,7 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,

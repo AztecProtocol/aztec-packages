@@ -2,6 +2,7 @@
 #![allow(clippy::items_after_test_module)]
 use clap::Parser;
 use fm::FileManager;
+use nargo::PrintOutput;
 use noirc_driver::{check_crate, file_manager_with_stdlib, CompileOptions};
 use noirc_frontend::hir::FunctionNameMatch;
 use std::io::Write;
@@ -86,7 +87,7 @@ fn run_stdlib_tests(force_brillig: bool, inliner_aggressiveness: i64) {
                 &bn254_blackbox_solver::Bn254BlackBoxSolver,
                 &mut context,
                 &test_function,
-                true,
+                PrintOutput::Stdout,
                 None,
                 Some(dummy_package.root_dir.clone()),
                 Some(dummy_package.name.to_string()),
@@ -137,6 +138,12 @@ fn display_test_report(
                         compile_options.silence_warnings,
                     );
                 }
+            }
+            TestStatus::Skipped { .. } => {
+                writer
+                    .set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))
+                    .expect("Failed to set color");
+                writeln!(writer, "skipped").expect("Failed to write to stderr");
             }
             TestStatus::CompileError(err) => {
                 noirc_errors::reporter::report_all(

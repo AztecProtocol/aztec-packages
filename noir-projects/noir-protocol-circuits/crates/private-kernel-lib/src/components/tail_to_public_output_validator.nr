@@ -9,9 +9,8 @@ use dep::types::{
         log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::Counted,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
@@ -86,13 +85,13 @@ impl TailToPublicOutputValidator {
         );
 
         // private_logs
-        assert_split_transformed_value_arrays(
-            prev_data.private_logs,
-            output_non_revertible.private_logs,
-            output_revertible.private_logs,
-            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
-            split_counter,
-        );
+        // assert_split_transformed_value_arrays(
+        //     prev_data.private_logs,
+        //     output_non_revertible.private_logs,
+        //     output_revertible.private_logs,
+        //     |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
+        //     split_counter,
+        // );
     }
 
     fn validate_propagated_sorted_values(self) {

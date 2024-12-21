@@ -2,7 +2,10 @@
   "name": "@aztec/sequencer-client",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -19,7 +22,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
@@ -104,11 +107,15 @@
     "rootDir": "./src",
     "reporters": [
       [
-        "default",
+        "jest-silent-reporter",
         {
-          "summaryThreshold": 9999
+          "useDots": true
         }
       ]
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   }
 }

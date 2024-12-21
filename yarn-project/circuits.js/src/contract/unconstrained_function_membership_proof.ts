@@ -1,6 +1,6 @@
 import { type ContractArtifact, type FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { computeRootFromSiblingPath } from '../merkle/index.js';
 import {
@@ -26,7 +26,7 @@ export function createUnconstrainedFunctionMembershipProof(
   selector: FunctionSelector,
   artifact: ContractArtifact,
 ): UnconstrainedFunctionMembershipProof {
-  const log = createDebugLogger('aztec:circuits:function_membership_proof');
+  const log = createLogger('circuits:function_membership_proof');
 
   // Locate function artifact
   const fn = artifact.functions.find(fn => selector.equals(fn));
@@ -85,7 +85,7 @@ export function isValidUnconstrainedFunctionMembershipProof(
   fn: UnconstrainedFunctionWithMembershipProof,
   contractClass: Pick<ContractClassPublic, 'artifactHash'>,
 ) {
-  const log = createDebugLogger('aztec:circuits:function_membership_proof');
+  const log = createLogger('circuits:function_membership_proof');
 
   const functionArtifactHash = computeFunctionArtifactHash(fn);
   const computedArtifactFunctionTreeRoot = Fr.fromBuffer(

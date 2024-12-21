@@ -3,23 +3,21 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
+  type Logger,
   type PXE,
   SignerlessWallet,
-  createDebugLogger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
-import {
-  AppSubscriptionContract,
-  TokenContract as BananaCoin,
-  CounterContract,
-  FPCContract,
-  FeeJuiceContract,
-} from '@aztec/noir-contracts.js';
+import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
@@ -51,7 +49,7 @@ export class FeesTest {
   private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
-  public logger: DebugLogger;
+  public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
 
@@ -62,7 +60,7 @@ export class FeesTest {
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
 
-  public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
+  public fpcAdmin!: AztecAddress;
 
   public gasSettings!: GasSettings;
 
@@ -83,7 +81,7 @@ export class FeesTest {
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
+    this.logger = createLogger(`e2e:e2e_fees:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
   }
 
@@ -142,8 +140,8 @@ export class FeesTest {
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
 
-        // We like sequencer so we send him the fees.
-        this.feeRecipient = this.sequencerAddress;
+        // We set Alice as the FPC admin to avoid the need for deployment of another account.
+        this.fpcAdmin = this.aliceAddress;
 
         this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
@@ -225,7 +223,7 @@ export class FeesTest {
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.feeRecipient)
+        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
           .send()
           .deployed();
 
@@ -299,11 +297,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'setup_subscription',
       async () => {
-        // Deploy counter contract for testing with Bob as owner
-        // Emitting the outgoing logs to Bob below since we need someone to emit them to.
-        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress, this.bobAddress)
-          .send()
-          .deployed();
+        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress).send().deployed();
 
         // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
         const subscriptionContract = await AppSubscriptionContract.deploy(

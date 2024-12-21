@@ -1,6 +1,6 @@
 import { format } from 'util';
 
-import { createDebugLogger } from '../../log/logger.js';
+import { createLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
 import { defaultFetch } from './fetch.js';
 
@@ -19,7 +19,7 @@ export function createSafeJsonRpcClient<T extends object>(
   useApiEndpoints: boolean = false,
   namespaceMethods?: string | false,
   fetch = defaultFetch,
-  log = createDebugLogger('json-rpc:client'),
+  log = createLogger('json-rpc:client'),
 ): T {
   let id = 0;
   const request = async (methodName: string, params: any[]): Promise<any> => {
@@ -44,18 +44,10 @@ export function createSafeJsonRpcClient<T extends object>(
     return (schema as ApiSchema)[methodName].returnType().parse(res.result);
   };
 
-  // Intercept any RPC methods with a proxy
-  const proxy = new Proxy(
-    {},
-    {
-      get: (target, method: string) => {
-        if (['then', 'catch'].includes(method)) {
-          return Reflect.get(target, method);
-        }
-        return (...params: any[]) => request(method, params);
-      },
-    },
-  ) as T;
+  const proxy: any = {};
+  for (const method of Object.keys(schema)) {
+    proxy[method] = (...params: any[]) => request(method, params);
+  }
 
-  return proxy;
+  return proxy as T;
 }

@@ -1,9 +1,8 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
-import fs from 'fs';
 import { type Hex } from 'viem';
 
 /**
@@ -18,7 +17,7 @@ export class EthCheatCodes {
     /**
      * The logger to use for the eth cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:eth'),
+    public logger = createLogger('ethereum:cheat_codes'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {
@@ -77,11 +76,15 @@ export class EthCheatCodes {
    * @param numberOfBlocks - The number of blocks to mine
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
+    await this.doMine(numberOfBlocks);
+    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
+  }
+
+  private async doMine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   /**
@@ -188,35 +191,8 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
-    await this.mine();
+    await this.doMine();
     this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
-  }
-
-  /**
-   * Dumps the current chain state to a file.
-   * @param fileName - The file name to dump state into
-   */
-  public async dumpChainState(fileName: string): Promise<void> {
-    const res = await this.rpcCall('hardhat_dumpState', []);
-    if (res.error) {
-      throw new Error(`Error dumping state: ${res.error.message}`);
-    }
-    const jsonContent = JSON.stringify(res.result);
-    fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
-    this.logger.verbose(`Dumped state to ${fileName}`);
-  }
-
-  /**
-   * Loads the chain state from a file.
-   * @param fileName - The file name to load state from
-   */
-  public async loadChainState(fileName: string): Promise<void> {
-    const data = JSON.parse(fs.readFileSync(`${fileName}.json`, 'utf8'));
-    const res = await this.rpcCall('hardhat_loadState', [data]);
-    if (res.error) {
-      throw new Error(`Error loading state: ${res.error.message}`);
-    }
-    this.logger.verbose(`Loaded state from ${fileName}`);
   }
 
   /**

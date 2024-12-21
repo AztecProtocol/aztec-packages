@@ -160,7 +160,7 @@ using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness;
+    WitnessVector witness = {};
 };
 
 /**
@@ -193,6 +193,27 @@ struct AcirProgramStack {
     void pop_back() { witness_stack.pop_back(); }
 };
 
+struct ProgramMetadata {
+
+    // An IVC instance; needed to construct a circuit from IVC recursion constraints
+    std::shared_ptr<ClientIVC> ivc = nullptr;
+
+    bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
+                            // The proof produced when this flag is true should be friendly for recursive verification
+                            // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
+                            // for hashing in its transcript, while we still want a prove that uses Keccak for its
+                            // transcript in order to be able to verify SNARKs on Ethereum.
+    bool honk_recursion = false; // honk_recursion means we will honk to recursively verify this
+                                 // circuit. This distinction is needed to not add the default
+                                 // aggregation object when we're not using the honk RV.
+    bool collect_gates_per_opcode = false;
+    size_t size_hint = 0;
+};
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
+template <typename Builder = bb::UltraCircuitBuilder>
+Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
@@ -208,20 +229,8 @@ Builder create_circuit(AcirFormat& constraint_system,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
-MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         ClientIVC& ivc,
-                                         const WitnessVector& witness = {},
-                                         const size_t size_hint = 0);
-
 template <typename Builder>
-void build_constraints(
-    Builder& builder,
-    AcirFormat& constraint_system,
-    bool has_valid_witness_assignments,
-    bool honk_recursion = false,
-    bool collect_gates_per_opcode = false); // honk_recursion means we will honk to recursively verify this
-                                            // circuit. This distinction is needed to not add the default
-                                            // aggregation object when we're not using the honk RV.
+void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
 
 /**
  * @brief Utility class for tracking the gate count of acir constraints
@@ -266,6 +275,12 @@ void process_honk_recursion_constraints(Builder& builder,
                                         AcirFormat& constraint_system,
                                         bool has_valid_witness_assignments,
                                         GateCounter<Builder>& gate_counter);
+
+void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
+                                       AcirFormat& constraints,
+                                       ClientIVC* ivc,
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter);
 
 #ifndef DISABLE_AZTEC_VM
 void process_avm_recursion_constraints(Builder& builder,

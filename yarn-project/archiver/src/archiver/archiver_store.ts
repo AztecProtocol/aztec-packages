@@ -10,15 +10,15 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -71,7 +71,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers.
    */
-  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
 
   /**
    * Gets a tx effect.
@@ -261,12 +261,10 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
-
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
+  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**

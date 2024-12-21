@@ -38,6 +38,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -52,7 +53,7 @@ spec:
               mountPath: /shared/config
       containers:
         - name: transaction-bot
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -63,6 +64,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -73,14 +75,20 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.bot.debug }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
@@ -93,6 +101,8 @@ spec:
               value: "{{ .Values.bot.followChain }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
+            - name: BOT_FEE_PAYMENT_METHOD
+              value: "{{ .Values.bot.feePaymentMethod }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS

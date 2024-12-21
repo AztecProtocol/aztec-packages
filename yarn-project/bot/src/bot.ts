@@ -5,12 +5,13 @@ import {
   NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -19,7 +20,7 @@ import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils
 const TRANSFER_AMOUNT = 1;
 
 export class Bot {
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   private attempts: number = 0;
   private successes: number = 0;
@@ -64,9 +65,7 @@ export class Bot {
       );
     } else {
       calls.push(
-        ...times(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient, sender).request(),
-        ),
+        ...times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request()),
       );
     }
 

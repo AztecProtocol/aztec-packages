@@ -10,12 +10,13 @@ use crate::{
 };
 
 pub struct PrivateKernelCircuitPublicInputsBuilder {
-    constants: TxConstantData,
-    min_revertible_side_effect_counter: u32,
-    validation_requests: PrivateValidationRequestsBuilder,
-    end: PrivateAccumulatedDataBuilder,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub min_revertible_side_effect_counter: u32,
+    pub validation_requests: PrivateValidationRequestsBuilder,
+    pub end: PrivateAccumulatedDataBuilder,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
+    pub is_private_only: bool,
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {
@@ -27,6 +28,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             end: self.end.finish(),
             public_teardown_call_request: self.public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
         }
     }
 }
@@ -40,6 +42,7 @@ impl Empty for PrivateKernelCircuitPublicInputsBuilder {
             end: PrivateAccumulatedDataBuilder::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
+            is_private_only: false,
         }
     }
 }

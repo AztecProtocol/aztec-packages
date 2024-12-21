@@ -1,10 +1,11 @@
-import { Header } from '@aztec/circuits.js';
+import { BlockHeader } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { type Signable, type SignatureDomainSeperator } from './signature_utils.js';
@@ -14,12 +15,22 @@ export class ConsensusPayload implements Signable {
 
   constructor(
     /** The block header the attestation is made over */
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
     /** The sequence of transactions in the block */
     public readonly txHashes: TxHash[],
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        header: BlockHeader.schema,
+        archive: Fr.schema,
+        txHashes: z.array(TxHash.schema),
+      })
+      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.txHashes));
+  }
 
   static getFields(fields: FieldsOf<ConsensusPayload>) {
     return [fields.header, fields.archive, fields.txHashes] as const;
@@ -51,7 +62,7 @@ export class ConsensusPayload implements Signable {
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
     return new ConsensusPayload(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readArray(reader.readNumber(), TxHash),
     );
@@ -62,7 +73,7 @@ export class ConsensusPayload implements Signable {
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(Header.empty(), Fr.ZERO, []);
+    return new ConsensusPayload(BlockHeader.empty(), Fr.ZERO, []);
   }
 
   /**

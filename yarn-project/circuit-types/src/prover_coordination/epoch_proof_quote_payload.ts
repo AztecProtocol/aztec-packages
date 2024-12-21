@@ -114,6 +114,16 @@ export class EpochProofQuotePayload {
     };
   }
 
+  toInspect() {
+    return {
+      epochToProve: Number(this.epochToProve),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
   getSize(): number {
     // We cache size to avoid recalculating it
     if (this.size) {

@@ -123,7 +123,7 @@ fi
 DEST="$SCRIPT_DIR/../dest"
 mkdir -p $DEST
 
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../mega_honk_circuits.json")
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../client_ivc_circuits.json")
 
 # Process each CIRCUIT_NAME.
 for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
@@ -150,7 +150,7 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
 
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_mega_honk" -- -h
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_for_ivc" -- -h
         else
             $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h
         fi

@@ -786,7 +786,6 @@ fn handle_getter_instruction(
     enum EnvironmentVariable {
         ADDRESS,
         SENDER,
-        FUNCTIONSELECTOR,
         TRANSACTIONFEE,
         CHAINID,
         VERSION,
@@ -821,7 +820,6 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
         "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
         "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
         "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
@@ -1066,29 +1064,30 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
-            let num_limbs = output.size as u32;
+        BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits } => {
             let input_offset = input.to_usize() as u32;
-            let output_offset = output.pointer.to_usize() as u32;
             let radix_offset = radix.to_usize() as u32;
+            let output_offset = output_pointer.to_usize() as u32;
+            let num_limbs_offset = num_limbs.to_usize() as u32;
+            let output_bits_offset = output_bits.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
-                        .indirect_operand(&output.pointer)
                         .direct_operand(radix)
+                        .direct_operand(num_limbs)
+                        .direct_operand(output_bits)
+                        .indirect_operand(output_pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: input_offset as u16 },
-                    AvmOperand::U16 { value: output_offset as u16 },
                     AvmOperand::U16 { value: radix_offset as u16 },
-                ],
-                immediates: vec![
-                    AvmOperand::U16 { value: num_limbs as u16 },
-                    AvmOperand::U8 { value: *output_bits as u8 },
+                    AvmOperand::U16 { value: num_limbs_offset as u16 },
+                    AvmOperand::U16 { value: output_bits_offset as u16 },
+                    AvmOperand::U16 { value: output_offset as u16 },
                 ],
                 ..Default::default()
             });

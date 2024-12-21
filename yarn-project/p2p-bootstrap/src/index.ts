@@ -1,5 +1,5 @@
-import { createDebugLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/utils';
+import { createLogger } from '@aztec/foundation/log';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -7,7 +7,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import Koa from 'koa';
 import Router from 'koa-router';
 
-const debugLogger = createDebugLogger('aztec:bootstrap_node');
+const debugLogger = createLogger('p2p-bootstrap:bootstrap_node');
 
 const { HTTP_PORT } = process.env;
 

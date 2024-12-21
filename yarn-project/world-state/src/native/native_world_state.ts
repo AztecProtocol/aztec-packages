@@ -7,9 +7,9 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -20,13 +20,15 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import assert from 'assert/strict';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
@@ -52,13 +54,14 @@ export const WORLD_STATE_VERSION_FILE = 'version';
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
-  protected initialHeader: Header | undefined;
+  protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
     protected readonly instance: NativeWorldState,
-    protected readonly log = createDebugLogger('aztec:world-state:database'),
+    protected readonly worldStateInstrumentation: WorldStateInstrumentation,
+    protected readonly log = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -66,7 +69,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
-    log = createDebugLogger('aztec:world-state:database'),
+    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+    log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
     const worldStateDirectory = join(dataDir, 'world_state');
@@ -89,8 +93,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await mkdir(worldStateDirectory, { recursive: true });
     await newWorldStateVersion.writeVersionFile(versionFile);
 
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
-    const worldState = new this(instance, log, cleanup);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, instrumentation);
+    const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -101,8 +105,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return worldState;
   }
 
-  static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
-    const log = createDebugLogger('aztec:world-state:database');
+  static async tmp(
+    rollupAddress = EthAddress.ZERO,
+    cleanupTmpDir = true,
+    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+  ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
     log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
@@ -117,7 +125,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, instrumentation, log, cleanup);
   }
 
   protected async init() {
@@ -136,7 +144,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const initialHeaderIndex = await committed.findLeafIndex(MerkleTreeId.ARCHIVE, this.initialHeader.hash());
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [this.initialHeader.hash()]);
+    const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
 
@@ -156,7 +165,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
 
-  public getInitialHeader(): Header {
+  public getInitialHeader(): BlockHeader {
     return this.initialHeader!;
   }
 
@@ -208,9 +217,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await this.cleanup();
   }
 
-  private async buildInitialHeader(): Promise<Header> {
+  private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return Header.empty({ state });
+    return BlockHeader.empty({ state });
   }
 
   private sanitiseAndCacheSummaryFromFull(response: WorldStateStatusFull) {

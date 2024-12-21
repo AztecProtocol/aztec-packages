@@ -8,7 +8,6 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
@@ -27,8 +26,8 @@ contract Crowdfunding {
     use token::Token;
     // docs:end:all-deps
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
         amount: u64,
@@ -85,11 +84,9 @@ contract Crowdfunding {
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor);
 
-        let donor_ovpk_m = get_public_keys(donor).ovpk_m;
         // docs:end:valuenote_new
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            donor_ovpk_m,
             donor,
             donor,
         ));
