@@ -463,7 +463,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
         tree.commit(completion);
         signal.wait_for_level();
 
-        // At this stage, the tree is still in an uncommited state despite the error
+        // At this stage, the tree is still in an uncommitted state despite the error
         // Reading both committed and uncommitted data shold be ok
 
         // check the uncommitted data is accurate
