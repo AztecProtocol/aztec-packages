@@ -250,9 +250,11 @@ export async function proveThenVerifyAztecClient(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
     { threads },
   );
-
-  const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-  const verified = await backend.verify(proof, vk);
-  await backend.destroy();
-  return verified;
+  try {
+    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    const verified = await backend.verify(proof, vk);
+    return verified;
+  } finally {
+    await backend.destroy();
+  }
 }
