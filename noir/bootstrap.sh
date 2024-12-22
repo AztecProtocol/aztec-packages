@@ -37,12 +37,12 @@ function test {
 
 function build_tests {
   cd noir-repo
-  cargo nextest list --workspace --locked --release &> /dev/null
+  cargo nextest list --workspace --locked --release &>/dev/null
 }
 
 function test_cmds {
   cd noir-repo
-  cargo nextest list --workspace --locked --release -Tjson-pretty | \
+  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |

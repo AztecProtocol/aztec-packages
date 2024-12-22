@@ -100,7 +100,7 @@ function build {
   set +e
   set -u
 
-  [ -f "package.json" ] denoise "yarn && node ./scripts/generate_variants.js"
+  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do

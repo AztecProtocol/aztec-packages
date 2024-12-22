@@ -225,7 +225,6 @@ __metadata:
     eslint: "npm:^8.21.0"
     eslint-import-resolver-typescript: "npm:^3.5.5"
     eslint-plugin-import: "npm:^2.27.5"
-    jest-dot-reporter: "npm:^1.0.14"
     madge: "npm:^6.1.0"
     prettier: "npm:^2.8.8"
     typedoc: "npm:^0.24.8"
@@ -7862,16 +7861,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chalk@npm:3.0.0":
-  version: 3.0.0
-  resolution: "chalk@npm:3.0.0"
-  dependencies:
-    ansi-styles: "npm:^4.1.0"
-    supports-color: "npm:^7.1.0"
-  checksum: 10/37f90b31fd655fb49c2bd8e2a68aebefddd64522655d001ef417e6f955def0ed9110a867ffc878a533f2dafea5f2032433a37c8a7614969baa7f8a1cd424ddfc
-  languageName: node
-  linkType: hard
-
 "chalk@npm:5.0.1":
   version: 5.0.1
   resolution: "chalk@npm:5.0.1"
@@ -13069,17 +13058,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-dot-reporter@npm:^1.0.14":
-  version: 1.0.14
-  resolution: "jest-dot-reporter@npm:1.0.14"
-  dependencies:
-    chalk: "npm:3.0.0"
-    moment: "npm:2.24.0"
-    progress: "npm:2.0.3"
-  checksum: 10/f54755c1ac7226820fedac4b44b769c24c4b0c0b943628e035cbca73e1af94d6057b14a019317bfe155bee3cfb51195e35c960e0c910c8a0442b76782cbbeaa7
-  languageName: node
-  linkType: hard
-
 "jest-each@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest-each@npm:29.7.0"
@@ -14838,13 +14816,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"moment@npm:2.24.0":
-  version: 2.24.0
-  resolution: "moment@npm:2.24.0"
-  checksum: 10/b3e45321421b62b1068bb40fdd1a3089c39b0b7b8758508e6bd86fe3fd49f80d9715e5409a228e9dcdadcb46aead418298132bc33bda925a9f48381a1c93d9b3
-  languageName: node
-  linkType: hard
-
 "morphdom@npm:^2.3.3":
   version: 2.7.4
   resolution: "morphdom@npm:2.7.4"
@@ -16298,7 +16269,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"progress@npm:2.0.3, progress@npm:^2.0.3":
+"progress@npm:^2.0.3":
   version: 2.0.3
   resolution: "progress@npm:2.0.3"
   checksum: 10/e6f0bcb71f716eee9dfac0fe8a2606e3704d6a64dd93baaf49fbadbc8499989a610fe14cf1bc6f61b6d6653c49408d94f4a94e124538084efd8e4cf525e0293d

@@ -112,7 +112,7 @@ case "$cmd" in
       bin_name=$(basename $bin)
       $bin --gtest_list_tests | \
         awk -vbin=$bin_name '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "barretenberg/cpp/scripts/run_test.sh " bin " " suite$1}' | \
-        sed 's/\.$//' | grep -v 'DISABLED_'; \
+        sed 's/\.$//' | grep -v 'DISABLED_'
     done
     ;;
   *)

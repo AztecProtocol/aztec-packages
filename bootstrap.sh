@@ -216,8 +216,16 @@ case "$cmd" in
     exit
   ;;
   "test-all")
+    # Rust is very annoying.
+    # You sneeze and everything needs recompiling and you can't avoid recompiling when running tests.
+    # Ensure tests are up-to-date first.
+    echo "Building tests..."
+    ./noir/bootstrap.sh build-tests
+
+    echo "Gathering tests to run..."
     {
       set -euo pipefail
+
       if [ "$#" -gt 0 ]; then
         for arg in "$@"; do
           "$arg/bootstrap.sh" test-cmds
@@ -235,7 +243,7 @@ case "$cmd" in
 
     slow_jobs=$(cat joblog.txt | \
       awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
-      awk '{print $4 ": " substr($0, index($0, $9))}'  | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
+      awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
     if [ -n "$slow_jobs" ]; then
       echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up.${reset}"
       echo "$slow_jobs"
