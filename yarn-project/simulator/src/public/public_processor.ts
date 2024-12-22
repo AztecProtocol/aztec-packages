@@ -15,6 +15,7 @@ import {
   type BlockHeader,
   type ContractDataSource,
   Fr,
+  Gas,
   type GlobalVariables,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -113,6 +114,8 @@ export class PublicProcessor implements Traceable {
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
     let returns: NestedProcessReturnValues[] = [];
+    let totalGas = new Gas(0, 0);
+    const timer = new Timer();
 
     for (const tx of txs) {
       // only process up to the limit of the block
@@ -123,6 +126,7 @@ export class PublicProcessor implements Traceable {
         const [processedTx, returnValues] = await this.processTx(tx, txValidator);
         result.push(processedTx);
         returns = returns.concat(returnValues);
+        totalGas = totalGas.add(processedTx.gasUsed.publicGas);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
@@ -134,6 +138,10 @@ export class PublicProcessor implements Traceable {
         returns.push(new NestedProcessReturnValues([]));
       }
     }
+
+    const duration = timer.s();
+    const rate = duration > 0 ? totalGas.l2Gas / duration : 0;
+    this.metrics.recordAllTxs(totalGas, rate);
 
     return [result, failed, returns];
   }
@@ -187,6 +195,7 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
+    const treeInsertionStart = process.hrtime.bigint();
     await this.db.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
@@ -211,6 +220,8 @@ export class PublicProcessor implements Traceable {
       MerkleTreeId.PUBLIC_DATA_TREE,
       processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
     );
+    const treeInsertionEnd = process.hrtime.bigint();
+    this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
 
     return [processedTx, returnValues ?? []];
   }
@@ -302,7 +313,7 @@ export class PublicProcessor implements Traceable {
 
     const phaseCount = processedPhases.length;
     const durationMs = timer.ms();
-    this.metrics.recordTx(phaseCount, durationMs);
+    this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 

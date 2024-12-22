@@ -116,7 +116,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // as a contact to all donor wallets, so they can receive notes
     await Promise.all(
       donorWallets.map(async wallet => {
-        await wallet.registerContact(operatorWallet.getAddress());
+        await wallet.registerSender(operatorWallet.getAddress());
       }),
     );
     // Now we mint DNT to donors
