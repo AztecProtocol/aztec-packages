@@ -427,13 +427,13 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     AvmError error = AvmError::NO_ERROR;
 
     // These hints help us to set up first call ctx
-    uint32_t clk = trace_builder.get_clk();
-    auto context_id = static_cast<uint8_t>(clk);
+    auto context_id = trace_builder.next_context_id;
     uint32_t l2_gas_allocated_to_enqueued_call = trace_builder.get_l2_gas_left();
     uint32_t da_gas_allocated_to_enqueued_call = trace_builder.get_da_gas_left();
     trace_builder.current_ext_call_ctx = AvmTraceBuilder::ExtCallCtx{
         .context_id = context_id,
         .parent_id = 0,
+        .is_top_level = true,
         .contract_address = enqueued_call_hint.contract_address,
         .calldata = enqueued_call_hint.calldata,
         .nested_returndata = {},
@@ -445,6 +445,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .da_gas_left = da_gas_allocated_to_enqueued_call,
         .internal_return_ptr_stack = {},
     };
+    trace_builder.next_context_id++;
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode;
     try {
@@ -470,7 +471,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     uint32_t pc = 0;
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
-    trace_builder.set_call_ptr(context_id);
+    // FIXME: this cast means that we can have duplicate call ptrs since clk will end up way bigger than 256
+    trace_builder.set_call_ptr(static_cast<uint8_t>(context_id));
     while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
 
@@ -920,8 +922,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false,
-                                                      /*jumping_to_parent=*/true);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -941,8 +942,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false,
-                                                      /*jumping_to_parent=*/true);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -962,8 +962,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             } else if (is_ok(error)) {
                 // switch back to caller's bytecode
                 bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                      /*check_membership=*/false,
-                                                      /*jumping_to_parent=*/true);
+                                                      /*check_membership=*/false);
                 counter = debug_counter_stack.top();
                 debug_counter_stack.pop();
             }
@@ -1037,7 +1036,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         }
 
         if (!is_ok(error)) {
-            const bool is_top_level = trace_builder.current_ext_call_ctx.context_id == 0;
+            const bool is_top_level = trace_builder.current_ext_call_ctx.is_top_level;
 
             auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
             std::string call_type = is_top_level ? "enqueued" : "nested";
@@ -1058,8 +1057,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // otherwise, handle exceptional halt and proceed with execution in caller/parent
             // We hack it in here the logic to change contract address that we are processing
             bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
-                                                  /*check_membership=*/false,
-                                                  /*jumping_to_parent=*/true);
+                                                  /*check_membership=*/false);
             counter = debug_counter_stack.top();
             debug_counter_stack.pop();
 

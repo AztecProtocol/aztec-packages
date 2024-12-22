@@ -321,16 +321,34 @@ describe('Enqueued-call Side Effect Trace', () => {
     });
 
     it('Should enforce maximum number of calls to unique contract class IDs', () => {
-      for (let i = 0; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
+      const firstAddr = AztecAddress.fromNumber(0);
+      const firstInstance = SerializableContractInstance.random();
+      trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
+
+      for (let i = 1; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
         const addr = AztecAddress.fromNumber(i);
         const instance = SerializableContractInstance.random();
         trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance);
       }
+
       const addr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
       const instance = SerializableContractInstance.random();
       expect(() => trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance)).toThrow(
         SideEffectLimitReachedError,
       );
+
+      // can re-trace same contract address
+      trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
+
+      const differentAddr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1);
+      const instanceWithSameClassId = SerializableContractInstance.random({
+        contractClassId: firstInstance.contractClassId,
+      });
+      // can re-trace different contract address if it has a duplicate class ID
+      trace.traceGetBytecode(differentAddr, /*exists=*/ true, bytecode, instanceWithSameClassId);
+
+      // can trace a call to a non-existent contract
+      trace.traceGetBytecode(differentAddr, /*exists=*/ false);
     });
 
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', () => {

@@ -232,9 +232,7 @@ class AvmTraceBuilder {
 
     void checkpoint_non_revertible_state();
     void rollback_to_non_revertible_checkpoint();
-    std::vector<uint8_t> get_bytecode(const FF contract_address,
-                                      bool check_membership = false,
-                                      bool jumping_to_parent = false);
+    std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
     // Used to track the unique class ids, could also be used to cache membership checks of class ids
     std::unordered_set<FF> contract_class_id_cache;
     std::unordered_set<FF> bytecode_membership_cache;
@@ -270,6 +268,7 @@ class AvmTraceBuilder {
     struct ExtCallCtx {
         uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
         uint32_t parent_id;
+        bool is_top_level = false;
         bool is_static_call = false;
         FF contract_address{};
         std::vector<FF> calldata;
@@ -285,6 +284,7 @@ class AvmTraceBuilder {
         std::unordered_set<FF> public_data_unique_writes;
     };
 
+    uint32_t next_context_id = 0;
     ExtCallCtx current_ext_call_ctx{};
     std::stack<ExtCallCtx> external_call_ctx_stack;
 
@@ -330,6 +330,7 @@ class AvmTraceBuilder {
     AvmBytecodeTraceBuilder bytecode_trace_builder;
     AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
+    std::vector<uint8_t> get_bytecode_from_hints(const FF contract_class_id);
     RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
     RowWithError create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);

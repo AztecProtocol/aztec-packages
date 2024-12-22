@@ -421,14 +421,13 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    // We already hinted this bytecode. Do nothing.
-    if (this.gotBytecodeFromClassIds.has(contractInstance.contractClassId.toString())) {
-      // this ensures there are no duplicates
-      this.log.debug(
-        `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
-      );
-      return;
-    }
+    // FIXME: The way we are hinting contract bytecodes is fundamentally broken.
+    // We are mapping contract class ID to a bytecode hint
+    // But a bytecode hint is tied to a contract INSTANCE.
+    // What if you encounter another contract instance with the same class ID?
+    // We can't hint that instance too since there is already an entry in the hints set that class ID.
+    // But without that instance hinted, the circuit can't prove that the called contract address
+    // actually corresponds to any class ID.
 
     const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
@@ -441,6 +440,31 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       contractInstance.publicKeys,
       membershipHint,
     );
+
+    // Always hint the contract instance separately from the bytecode hint.
+    // Since the bytecode hints are keyed by class ID, we need to hint the instance separately
+    // since there might be multiple instances hinted for the same class ID.
+    this.avmCircuitHints.contractInstances.items.push(instance);
+    this.log.debug(
+      `Tracing contract instance for bytecode retrieval: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
+    );
+
+    if (!exists) {
+      // this ensures there are no duplicates
+      this.log.debug(`Contract address ${contractAddress} does not exist. Not tracing bytecode & class ID.`);
+      return;
+    }
+    // We already hinted this bytecode. No need to
+    // Don't we still need to hint if the class ID already exists?
+    // Because the circuit needs to prove that the called contract address corresponds to the class ID.
+    // To do so, the circuit needs to know the class ID in the
+    if (this.gotBytecodeFromClassIds.has(contractInstance.contractClassId.toString())) {
+      // this ensures there are no duplicates
+      this.log.debug(
+        `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
+      );
+      return;
+    }
 
     // If we could actually allow contract calls after the limit was reached, we would hint even if we have
     // surpassed the limit of unique class IDs (still trace the failed bytecode retrieval)
@@ -458,6 +482,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
       );
     }
+
+    this.log.debug(`Tracing bytecode & contract class for bytecode retrieval: class=${jsonStringify(contractClass)}`);
     this.avmCircuitHints.contractBytecodeHints.set(
       contractInstance.contractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
@@ -465,10 +491,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // After adding the bytecode hint, mark the classId as retrieved to avoid duplication.
     // The above map alone isn't sufficient because we need to check the parent trace's (and its parent) as well.
     this.gotBytecodeFromClassIds.add(contractInstance.contractClassId.toString());
-
-    this.log.debug(
-      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
-    );
   }
 
   /**

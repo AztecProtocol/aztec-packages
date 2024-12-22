@@ -157,32 +157,25 @@ void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
     merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
 }
 
-std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address,
-                                                   bool check_membership,
-                                                   bool jumping_to_parent)
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_class_id)
+{
+
+    // Find the bytecode based on the hinted contract class id
+    // TODO: still need to make sure that the contract address does correspond to this class id
+    const AvmContractBytecode bytecode_hint =
+        *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_class_id](const auto& contract) {
+            return contract.contract_instance.contract_class_id == contract_class_id;
+        });
+    return bytecode_hint.bytecode;
+}
+
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    // The cache contains all the unique contract class ids we have seen so far
-    // If this bytecode retrievals have reached the number of unique contract class IDs, can't make any more retrievals!
-    //
-    // If we could actually allow contract calls after the limit was reached, we would let you make more calls
-    // as long as they were to class IDs that are already here.
-    // BUT, the issue with this approach is that the sequencer could lie and say "this call was to a new class ID",
-    // and the circuit cannot prove that it's not true without deriving the class ID from bytecode,
-    // proving that it corresponds to the called contract address, and proving that the class ID wasn't already
-    // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
-    if (!jumping_to_parent && contract_class_id_cache.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
-        info("Limit reached for contract calls to unique class id. Limit: ",
-             MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
-        throw std::runtime_error("Limit reached for contract calls to unique class id.");
-    }
-
-    // Find the bytecode based on contract address of the public call request
-    const AvmContractBytecode bytecode_hint =
-        *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_address](const auto& contract) {
-            return contract.contract_instance.address == contract_address;
-        });
+    ASSERT(execution_hints.contract_instance_hints.contains(contract_address));
+    const ContractInstanceHint instance_hint = execution_hints.contract_instance_hints.at(contract_address);
+    const FF contract_class_id = instance_hint.contract_class_id;
 
     bool exists = true;
     if (check_membership && !is_canonical(contract_address)) {
@@ -190,12 +183,12 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address,
             // If we have already seen the contract address, we can skip the membership check and used the cached
             // membership proof
             vinfo("Found bytecode for contract address in cache: ", contract_address);
-            return bytecode_hint.bytecode;
+            return get_bytecode_from_hints(contract_class_id);
         }
         const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
             DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
         // nullifier read hint for the contract address
-        NullifierReadTreeHint nullifier_read_hint = bytecode_hint.contract_instance.membership_hint;
+        NullifierReadTreeHint nullifier_read_hint = instance_hint.membership_hint;
 
         // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
         // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
@@ -211,9 +204,20 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address,
         if (exists) {
             // This was a membership proof!
             // Assert that the hint's exists flag matches. The flag isn't really necessary...
-            ASSERT(bytecode_hint.contract_instance.exists);
+            ASSERT(instance_hint.exists);
             bytecode_membership_cache.insert(contract_address);
-            contract_class_id_cache.insert(bytecode_hint.contract_instance.contract_class_id);
+
+            // The cache contains all the unique contract class ids we have seen so far
+            // If this bytecode retrievals have reached the number of unique contract class IDs, can't make
+            // more retrievals unless to already-checked contract class ids!
+            if (!contract_class_id_cache.contains(contract_class_id) &&
+                contract_class_id_cache.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+                info("Limit reached for contract calls to unique class id. Limit: ",
+                     MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+                throw std::runtime_error("Limit reached for contract calls to unique class id.");
+            }
+            contract_class_id_cache.insert(instance_hint.contract_class_id);
+            return get_bytecode_from_hints(contract_class_id);
         } else {
             // This was a non-membership proof!
             // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
@@ -224,7 +228,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address,
 
     if (exists) {
         vinfo("Found bytecode for contract address: ", contract_address);
-        return bytecode_hint.bytecode;
+        return get_bytecode_from_hints(contract_class_id);
     }
     info("Bytecode not found for contract address: ", contract_address);
     throw std::runtime_error("Bytecode not found");
@@ -375,7 +379,7 @@ void AvmTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
 
 void AvmTraceBuilder::handle_exceptional_halt()
 {
-    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
     if (is_top_level) {
         vinfo("Handling exceptional halt in top-level call. Consuming all allocated gas:");
         // Consume all remaining gas.
@@ -2129,8 +2133,7 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
-    // If the context_id == 0, then we are at the top level call so we read/write to a trace column
-    bool is_top_level = current_ext_call_ctx.context_id == 0;
+    bool is_top_level = current_ext_call_ctx.is_top_level;
 
     auto calldata = current_ext_call_ctx.calldata;
     if (is_ok(error)) {
@@ -3806,15 +3809,13 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
         std::vector<FF> calldata;
         read_slice_from_memory(resolved_args_offset, args_size, calldata);
 
-        set_call_ptr(static_cast<uint8_t>(clk));
-
         // Don't try allocating more than the gas that is actually left
         const auto l2_gas_allocated_to_nested_call =
             std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
         const auto da_gas_allocated_to_nested_call =
             std::min(static_cast<uint32_t>(read_gas_da.val), gas_trace_builder.get_da_gas_left());
         current_ext_call_ctx = ExtCallCtx{
-            .context_id = static_cast<uint8_t>(clk),
+            .context_id = next_context_id,
             .parent_id = current_ext_call_ctx.context_id,
             .is_static_call = opcode == OpCode::STATICCALL,
             .contract_address = read_addr.val,
@@ -3829,8 +3830,12 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
             .internal_return_ptr_stack = {},
             .tree_snapshot = {},
         };
+        next_context_id++;
+
+        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
 
         allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
+
         set_pc(0);
     }
 
@@ -3922,7 +3927,7 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
 
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
 
-    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
 
     const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::RETURN, ret_size);
     bool out_of_gas =
@@ -4061,7 +4066,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     const auto ret_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
-    const bool is_top_level = current_ext_call_ctx.context_id == 0;
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
 
     const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::REVERT_8, ret_size);
     bool out_of_gas =

@@ -2,7 +2,7 @@ import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-typ
 import {
   DEPLOYER_CONTRACT_ADDRESS,
   GasFees,
-  GlobalVariables,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   PublicDataTreeLeafPreimage,
   PublicKeys,
   SerializableContractInstance,
@@ -31,7 +31,7 @@ import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
 import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '../public/fixtures/index.js';
-import { WorldStateDB } from '../public/public_db_sources.js';
+import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -41,7 +41,6 @@ import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   getAvmTestContractArtifact,
   getAvmTestContractBytecode,
-  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -148,45 +147,43 @@ describe('AVM simulator: injected bytecode', () => {
   });
 });
 
-const TIMESTAMP = new Fr(99833);
-
 describe('AVM simulator: transpiled Noir contracts', () => {
   it('bulk testing', async () => {
     const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
     await simulateAvmTestContractCall('bulk_testing', args, /*expectRevert=*/ false);
   });
 
-  it('call too many unique contract classes', async () => {
-    const globals = GlobalVariables.empty();
-    globals.timestamp = TIMESTAMP;
+  it('call max unique contract classes', async () => {
+    const contractDataSource = new MockedAvmTestContractDataSource();
+    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
+    const args = Array.from(contractDataSource.contractInstances.values())
+      .map(instance => instance.address.toField())
+      .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+    args.push(args[0]);
+    // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
+    args.push(contractDataSource.instanceSameClassAsFirstContract.address.toField());
+    await simulateAvmTestContractCall(
+      'nested_call_to_add_n_times_different_addresses',
+      args,
+      /*expectRevert=*/ false,
+      contractDataSource,
+    );
+  });
 
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
-    const contractDataSource = await MockedAvmTestContractDataSource.create(merkleTrees);
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-
-    const trace = new PublicEnqueuedCallSideEffectTrace();
-    const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
-    const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
-
-    const sender = AztecAddress.random();
-    const functionName = 'nested_call_to_add_n_times_different_addresses';
-    const functionSelector = getAvmTestContractFunctionSelector(functionName);
-    // args are the addresses to make nested calls to
+  it('call too many unique contract classes fails', async () => {
+    const contractDataSource = new MockedAvmTestContractDataSource();
+    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
+    // should fail because we are trying to call MAX+1 unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
-    const calldata = [functionSelector.toField(), ...args];
-    const environment = initExecutionEnvironment({
-      calldata,
-      globals,
-      address: contractDataSource.firstContractInstance.address,
-      sender,
-    });
-    const context = initContext({ env: environment, persistableState });
-
-    // First we simulate (though it's not needed in this simple case).
-    const simulator = new AvmSimulator(context);
-    const results = await simulator.execute();
-
-    expect(results.reverted).toBe(true);
+    // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
+    args.push(new Fr(0));
+    await simulateAvmTestContractCall(
+      'nested_call_to_add_n_times_different_addresses',
+      args,
+      /*expectRevert=*/ true,
+      contractDataSource,
+    );
   });
 
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
@@ -1040,28 +1037,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
 
       it('Should handle returndatacopy oracle', async () => {
-        const context = createContext();
-        const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
-        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
-
-        const contractClass = makeContractClassPublic(0, {
-          bytecode: nestedBytecode,
-          selector: FunctionSelector.random(),
-        });
-        mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
-
-        mockTraceFork(trace);
-
-        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-        expect(results.reverted).toBe(false);
-      });
-
-      it('Overrun of unique contract class IDs for bytecode retrieval', async () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
