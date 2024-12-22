@@ -35,10 +35,14 @@ function test {
   github_endgroup
 }
 
+function build_tests {
+  cd noir-repo
+  cargo nextest list --workspace --locked --release &> /dev/null
+}
+
 function test_cmds {
   cd noir-repo
-  RAYON_NUM_THREADS=1 cargo nextest list --workspace --locked --release \
-    -E '!test(hello_world_example) & !test(simple_verifier_codegen)' -Tjson-pretty | \
+  cargo nextest list --workspace --locked --release -Tjson-pretty | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |
@@ -46,7 +50,8 @@ function test_cmds {
         $tests |
         to_entries[] |
         select(.value.ignored == false and .value["filter-match"].status == "matches") |
-        "RAYON_NUM_THREADS=1 \($binary) --exact \(.key) &>/dev/null"' | \
+        "noir/scripts/run_test.sh \($binary) \(.key)"' | \
+      sed "s|$PWD/target/release/deps/||" | \
       # TODO: These fail. Figure out why.
       grep -vE "(test_caches_open|requests)"
 }
@@ -64,6 +69,9 @@ case "$cmd" in
   "ci")
     build
     test
+    ;;
+  "build-tests")
+    build_tests
     ;;
   "test-cmds")
     test_cmds

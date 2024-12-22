@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
-function build {
+function build_tests {
   set -eu
 
   github_group "acir_tests build"
@@ -131,20 +131,20 @@ function test_cmds {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
-export -f build test
+export -f build_tests test
 
 case "$cmd" in
   "clean")
     git clean -fdx
     (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
     ;;
-  ""|"fast")
+  ""|"fast"|"full")
     ;;
-  "full")
-    build
+  "build-tests")
+    build_tests
     ;;
   "ci")
-    build
+    build_tests
     test
     ;;
   "hash")

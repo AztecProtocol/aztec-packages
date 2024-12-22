@@ -33,8 +33,6 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-[ -f package.json ] && denoise "yarn && node ./scripts/generate_variants.js"
-
 mkdir -p $tmp_dir
 mkdir -p $key_dir
 
@@ -100,6 +98,9 @@ function compile {
 function build {
   set +e
   set -u
+
+  [ -f "package.json" ] denoise "yarn && node ./scripts/generate_variants.js"
+
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -142,8 +143,13 @@ case "$CMD" in
   "test")
     test
     ;;
+  "test-cmds")
+    $NARGO test --list-tests --silence-warnings | while read -r package test; do
+      echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    ;;
   "ci")
-    parallel --tag --line-buffered denoise {} ::: build test
+    parallel --tag --line-buffered {} ::: build test
     ;;
   *)
     echo_stderr "Unknown command: $CMD"

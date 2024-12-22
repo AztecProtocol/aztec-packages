@@ -12,6 +12,8 @@ set -eu
 TYPE=$1
 export TEST=$2
 
+cd $(dirname $0)
+
 case "$TYPE" in
   "simple"|"simple-flake")
     # Strip leading non alpha numerics and replace / with _ for the container name.
@@ -19,7 +21,7 @@ case "$TYPE" in
     trap 'docker kill $name &> /dev/null' SIGINT SIGTERM
     docker run --rm \
       --name $name \
-      -v$PWD/../..:/root/aztec-packages \
+      -v$(git rev-parse --show-toplevel):/root/aztec-packages \
       -v$HOME/.bb-crs:/root/.bb-crs \
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
       --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
@@ -28,7 +30,7 @@ case "$TYPE" in
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose"|"compose-flake")
-    docker compose -p "${TEST//[\/\.]/_}" -f ./scripts/docker-compose.yml up --exit-code-from=end-to-end --force-recreate
+    docker compose -p "${TEST//[\/\.]/_}" up --exit-code-from=end-to-end --force-recreate
   ;;
   "skip")
     echo "Skipping test: $TEST"

@@ -38,6 +38,13 @@ case "$cmd" in
   "test")
     test
     ;;
+  "test-cmds")
+    wd=$(realpath --relative-to=$root $PWD)
+    ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
+      sed "s|$(pwd)/||" | while read -r test; do
+        echo "$wd/scripts/run_test.sh $test"
+      done
+    ;;
   "ci")
     build
     test

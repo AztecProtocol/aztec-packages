@@ -50,6 +50,9 @@ case "$cmd" in
   "test")
     test
     ;;
+  "test-cmds")
+    echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+    ;;
   "ci")
     build
     denoise test

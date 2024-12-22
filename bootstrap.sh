@@ -13,6 +13,7 @@ export DENOISE=1
 export FORCE_COLOR=true
 
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
@@ -196,6 +197,33 @@ case "$cmd" in
       docker push $image
     fi
     github_endgroup
+    exit
+  ;;
+  "test-all")
+    {
+      set -euo pipefail
+      if [ "$#" -gt 0 ]; then
+        for arg in "$@"; do
+          "$arg/bootstrap.sh" test-cmds
+        done
+      else
+        # Ordered with longest running first, to ensure they get scheduled earliest.
+        ./yarn-project/bootstrap.sh test-cmds
+        ./noir-projects/bootstrap.sh test-cmds
+        ./boxes/bootstrap.sh test-cmds
+        ./barretenberg/bootstrap.sh test-cmds
+        ./l1-contracts/bootstrap.sh test-cmds
+        ./noir/bootstrap.sh test-cmds
+      fi
+    } | parallel -j96 --bar --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
+
+    slow_jobs=$(cat joblog.txt | \
+      awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
+      awk '{print $4 ": " substr($0, index($0, $9))}'  | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
+    if [ -n "$slow_jobs" ]; then
+      echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up.${reset}"
+      echo "$slow_jobs"
+    fi
     exit
   ;;
   ""|"fast"|"full"|"test"|"ci")

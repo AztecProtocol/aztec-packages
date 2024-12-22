@@ -140,7 +140,6 @@ function build {
   # For testing. Small parallel case.
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
 }
-export -f build
 
 case "$cmd" in
   "clean")
@@ -157,7 +156,7 @@ case "$cmd" in
     build
     ;;
   "ci")
-    denoise build
+    build
     ;;
   "compile")
     shift

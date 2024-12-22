@@ -9,30 +9,36 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns \
+hash=$(cache_content_hash \
+  .rebuild_patterns \
+  ../noir/.rebuild_patterns \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
 function build {
-  # Moved to test for now as there was no cache here.
-  return
+  if ! cache_download boxes-$hash.tar.gz; then
+    denoise 'yarn && echo "Building... " && yarn build'
+    cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist}
+  else
+    denoise yarn
+  fi
 }
 
 function test {
   test_should_run "boxes-test-$hash" || return 0
 
-  function test_box {
-    set -eu
-    BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --force-recreate
-  }
-  export -f test_box
-
   github_group "boxes"
-  # TODO: Move back to build and use cache.
-  denoise 'yarn && echo "Building... " && yarn build'
-  parallel --tag --line-buffered --timeout 5m --halt now,fail=1 test_box {1} {2} ::: vanilla react ::: chromium webkit
+  test_cmds | parallel --tag --line-buffered --timeout 5m --halt now,fail=1
   cache_upload_flag boxes-test-$hash
   github_endgroup
+}
+
+function test_cmds {
+  for browser in chromium webkit; do
+    for box in vanilla react; do
+      echo "boxes/scripts/run_test.sh $box $browser"
+    done
+  done
 }
 
 case "$cmd" in
@@ -44,6 +50,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "test-cmds")
+    test_cmds
     ;;
   "hash")
     echo $hash

@@ -2,6 +2,8 @@
 # This is a basis for shell scripts that use the ci3 framework.
 # Set BASH best practices for early error exit and undefined variables.
 set -euo pipefail
+# Enable extended bash globs.
+shopt -s extglob
 
 # Enter our script directory, allowing usage of scripts from any directory.
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
