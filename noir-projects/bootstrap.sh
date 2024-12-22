@@ -41,6 +41,8 @@ case "$cmd" in
     ;;
   "test-cmds")
     ./noir-protocol-circuits/bootstrap.sh test-cmds
+    ./noir-contracts/bootstrap.sh test-cmds
+    ./aztec-nr/bootstrap.sh test-cmds
     exit
     ;;
   "hash")
