@@ -15,6 +15,7 @@ images:
     pullPolicy: Always
 
 validator:
+  logLevel: "debug; info: aztec:simulator, json-rpc trace: aztec:world-state"
   storageSize: "100Gi"
   replicas: 48
   validatorKeys:
