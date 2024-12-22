@@ -117,13 +117,13 @@ validator:
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "7Gi"
+      cpu: "1.5"
   validator:
     disabled: false
   sequencer:
     maxTxsPerBlock: 36
-    enforceTimeTable: false
+    enforceTimeTable: true
 
 bootNode:
   peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
@@ -132,8 +132,8 @@ bootNode:
     disabled: true
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "7Gi"
+      cpu: "1.5"
 
 proverAgent:
   replicas: 8
@@ -141,14 +141,14 @@ proverAgent:
 proverBroker:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "7Gi"
+      cpu: "1.5"
 
 proverNode:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "7Gi"
+      cpu: "1.5"
 
 bot:
   replicas: 10
@@ -163,5 +163,5 @@ jobs:
 ethereum:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "7Gi"
+      cpu: "1.5"
