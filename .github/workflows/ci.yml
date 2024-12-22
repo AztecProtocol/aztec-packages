@@ -403,7 +403,7 @@ jobs:
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
-            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-kind.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-test:
     needs: [images-e2e, configure]
