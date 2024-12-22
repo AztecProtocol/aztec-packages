@@ -290,7 +290,7 @@ export class KernelProver {
       tailOutput.profileResult = { gateCounts };
     }
 
-    this.log.verbose(`Private kernel witness generation took ${timer.ms()}ms`);
+    this.log.info(`Witness generation took ${timer.ms()}ms`);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!dryRun) {

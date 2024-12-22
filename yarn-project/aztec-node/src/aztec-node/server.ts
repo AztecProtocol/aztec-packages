@@ -196,7 +196,6 @@ export class AztecNodeService implements AztecNode, Traceable {
           l2BlockSource: archiver,
           l1ToL2MessageSource: archiver,
           telemetry,
-          dateProvider,
           ...deps,
         });
 
@@ -229,10 +228,6 @@ export class AztecNodeService implements AztecNode, Traceable {
 
   public getBlockSource(): L2BlockSource {
     return this.blockSource;
-  }
-
-  public getContractDataSource(): ContractDataSource {
-    return this.contractDataSource;
   }
 
   public getP2P(): P2P {
@@ -820,11 +815,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new DateProvider(),
-      this.telemetry,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
     const fork = await this.worldStateSynchronizer.fork();
 
     this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {

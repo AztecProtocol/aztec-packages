@@ -24,7 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -38,11 +38,7 @@ import { PublicTxSimulator } from './public_tx_simulator.js';
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
  */
 export class PublicProcessorFactory {
-  constructor(
-    private contractDataSource: ContractDataSource,
-    private dateProvider: DateProvider,
-    private telemetryClient: TelemetryClient,
-  ) {}
+  constructor(private contractDataSource: ContractDataSource, private telemetryClient: TelemetryClient) {}
 
   /**
    * Creates a new instance of a PublicProcessor.
@@ -60,7 +56,7 @@ export class PublicProcessorFactory {
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
 
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
-    const publicTxSimulator = this.createPublicTxSimulator(
+    const publicTxSimulator = new PublicTxSimulator(
       merkleTree,
       worldStateDB,
       this.telemetryClient,
@@ -75,34 +71,8 @@ export class PublicProcessorFactory {
       historicalHeader,
       worldStateDB,
       publicTxSimulator,
-      this.dateProvider,
       this.telemetryClient,
     );
-  }
-
-  protected createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
-    globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    enforceFeePayment: boolean,
-  ) {
-    return new PublicTxSimulator(
-      db,
-      worldStateDB,
-      telemetryClient,
-      globalVariables,
-      doMerkleOperations,
-      enforceFeePayment,
-    );
-  }
-}
-
-class PublicProcessorTimeoutError extends Error {
-  constructor(message: string = 'Timed out while processing tx') {
-    super(message);
-    this.name = 'PublicProcessorTimeoutError';
   }
 }
 
@@ -118,7 +88,6 @@ export class PublicProcessor implements Traceable {
     protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
-    private dateProvider: DateProvider,
     telemetryClient: TelemetryClient,
     private log = createLogger('simulator:public-processor'),
   ) {
@@ -139,7 +108,6 @@ export class PublicProcessor implements Traceable {
     txs: Tx[],
     maxTransactions = txs.length,
     txValidator?: TxValidator<ProcessedTx>,
-    deadline?: Date,
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
@@ -155,19 +123,18 @@ export class PublicProcessor implements Traceable {
         break;
       }
       try {
-        const [processedTx, returnValues] = await this.processTx(tx, txValidator, deadline);
+        const [processedTx, returnValues] = await this.processTx(tx, txValidator);
         result.push(processedTx);
         returns = returns.concat(returnValues);
         totalGas = totalGas.add(processedTx.gasUsed.publicGas);
       } catch (err: any) {
-        if (err?.name === 'PublicProcessorTimeoutError') {
-          this.log.warn(`Stopping tx processing due to timeout.`);
-          break;
-        }
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
 
-        failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
+        failed.push({
+          tx,
+          error: err instanceof Error ? err : new Error(errorMessage),
+        });
         returns.push(new NestedProcessReturnValues([]));
       }
     }
@@ -183,14 +150,15 @@ export class PublicProcessor implements Traceable {
   private async processTx(
     tx: Tx,
     txValidator?: TxValidator<ProcessedTx>,
-    deadline?: Date,
   ): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
-    const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
+    const [processedTx, returnValues] = !tx.hasPublicCalls()
+      ? await this.processPrivateOnlyTx(tx)
+      : await this.processTxWithPublicCalls(tx);
 
     this.log.verbose(
       !tx.hasPublicCalls()
-        ? `Processed tx ${processedTx.hash} with no public calls in ${time}ms`
-        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls in ${time}ms`,
+        ? `Processed tx ${processedTx.hash} with no public calls`
+        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls`,
       {
         txHash: processedTx.hash,
         txFee: processedTx.txEffect.transactionFee.toBigInt(),
@@ -204,7 +172,6 @@ export class PublicProcessor implements Traceable {
         unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
         privateLogCount: processedTx.txEffect.privateLogs.length,
         l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
-        durationMs: time,
       },
     );
 
@@ -259,37 +226,6 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  /** Processes the given tx within deadline. Returns timeout if deadline is hit. */
-  private async processTxWithinDeadline(
-    tx: Tx,
-    deadline?: Date,
-  ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> {
-    const processFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
-      ? () => this.processTxWithPublicCalls(tx)
-      : () => this.processPrivateOnlyTx(tx);
-
-    if (!deadline) {
-      return await processFn();
-    }
-
-    const timeout = +deadline - this.dateProvider.now();
-    this.log.debug(`Processing tx ${tx.getTxHash().toString()} within ${timeout}ms`, {
-      deadline: deadline.toISOString(),
-      now: new Date(this.dateProvider.now()).toISOString(),
-      txHash: tx.getTxHash().toString(),
-    });
-
-    if (timeout < 0) {
-      throw new PublicProcessorTimeoutError();
-    }
-
-    return await executeTimeout(
-      () => processFn(),
-      timeout,
-      () => new PublicProcessorTimeoutError(),
-    );
-  }
-
   /**
    * Creates the public data write for paying the tx fee.
    * This is used in private only txs, since for txs with public calls
@@ -324,7 +260,7 @@ export class PublicProcessor implements Traceable {
   @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
+  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
@@ -343,7 +279,7 @@ export class PublicProcessor implements Traceable {
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
         .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
     );
-    return [processedTx, undefined];
+    return [processedTx];
   }
 
   @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({

@@ -70,6 +70,6 @@ export class InterruptibleSleep {
  * @param returnValue - The return value of the promise.
  * @returns A Promise that resolves after the specified duration, allowing the use of 'await' to pause execution.
  */
-export function sleep<T>(ms: number, returnValue?: T): Promise<T> {
-  return new Promise(resolve => setTimeout(() => resolve(returnValue as T), ms));
+export function sleep<T>(ms: number, returnValue?: T): Promise<T | undefined> {
+  return new Promise(resolve => setTimeout(() => resolve(returnValue), ms));
 }

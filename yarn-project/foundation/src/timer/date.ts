@@ -19,6 +19,6 @@ export class TestDateProvider implements DateProvider {
 
   public setTime(timeMs: number) {
     this.offset = timeMs - Date.now();
-    this.logger.warn(`Time set to ${new Date(timeMs).toISOString()}`, { offset: this.offset, timeMs });
+    this.logger.warn(`Time set to ${timeMs}`);
   }
 }
