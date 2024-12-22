@@ -1,6 +1,5 @@
 import createDebug from 'debug';
 import { randomBytes } from '../../random/index.js';
-import { killSelf } from '../helpers/index.js';
 
 const debug = createDebug('bb.js:wasm');
 
@@ -35,9 +34,7 @@ export class BarretenbergWasmBase {
         },
         proc_exit: () => {
           this.logger('PANIC: proc_exit was called.');
-          // this.logger(new Error().stack!);
           throw new Error();
-          // killSelf();
         },
       },
 
