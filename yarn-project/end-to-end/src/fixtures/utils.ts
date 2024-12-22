@@ -416,10 +416,13 @@ export async function setup(
     await ethCheatCodes.warp(opts.l2StartTime);
   }
 
+  const dateProvider = new TestDateProvider();
+
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
+    dateProvider,
   );
 
   await watcher.start();
@@ -441,7 +444,6 @@ export async function setup(
 
   const telemetry = await telemetryPromise;
   const publisher = new TestL1Publisher(config, telemetry);
-  const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
   const sequencer = aztecNode.getSequencer();
 
