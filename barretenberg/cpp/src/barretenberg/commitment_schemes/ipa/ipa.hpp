@@ -947,6 +947,17 @@ template <typename Curve_> class IPA {
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
 
+        info("accumulated claim challenge: ", output_claim.opening_pair.challenge);
+        info("accumulated claim challenge: ", output_claim.opening_pair.evaluation);
+        for (size_t i = 0; i < 4; i++) {
+            info("accumulated claim challenge limb ", i, " is ", output_claim.opening_pair.challenge.binary_basis_limbs[i]);
+        }
+        for (size_t i = 0; i < 4; i++) {
+            info("accumulated claim eval limb ", i, " is ", output_claim.opening_pair.evaluation.binary_basis_limbs[i]);
+        }
+        ASSERT(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())) == fq(output_claim.opening_pair.evaluation.get_value()));
+
+        output_claim.opening_pair.evaluation.self_reduce();
         return {output_claim, prover_transcript->proof_data};
     }
 };
