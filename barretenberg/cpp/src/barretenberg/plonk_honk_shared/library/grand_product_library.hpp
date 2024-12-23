@@ -187,13 +187,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 if (check_is_active(i + 1)) {
                     numerator.at(i + 1) *= numerator[i];
                     denominator.at(i + 1) *= denominator[i];
-                    // info("active");
-                } else {
-                    numerator.at(i + 1) = numerator[i];
-                    denominator.at(i + 1) = denominator[i];
-                    // info("inactive");
                 }
-                // info("num(", i + 1, ") = ", numerator[i + 1]);
             }
             partial_numerators[thread_idx] = numerator[end - 1];
             partial_denominators[thread_idx] = denominator[end - 1];
@@ -219,13 +213,6 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                     if (check_is_active(i)) {
                         numerator.at(i) = numerator[i] * numerator_scaling;
                         denominator.at(i) = denominator[i] * denominator_scaling;
-                        // info("active num(", i, ") = ", numerator[i]);
-                    } else {
-                        // numerator.at(i) = numerator[i - 1];
-                        // denominator.at(i) = denominator[i - 1];
-                        numerator.at(i) = numerator[i] * numerator_scaling;
-                        denominator.at(i) = denominator[i] * denominator_scaling;
-                        // info("inactive num(", i, ") = ", numerator[i]);
                     }
                 }
             }
@@ -253,14 +240,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 if (check_is_active(i)) {
                     grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
                 } else {
-                    // grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
-                    // if (i + 2 >= end) {
-                    //     info("INVALID READ AT i+2!!!!!");
-                    // }
-                    // WORKTODO: reading into adjacent entries in GP is no good because we could be reading into data
-                    // being handled by another thread that has not populated those values yet. Need to find a way to
-                    // make this independent of adjacent entries. grand_product_polynomial.at(i + 1) =
-                    // grand_product_polynomial[i + 2];
+                    // Set the value in the inactive regions to the first active value in the active region that follows
                     for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
                         auto& ranges = active_block_ranges;
                         if (i + 1 >= ranges[j].second && i + 1 < ranges[j + 1].first) {
