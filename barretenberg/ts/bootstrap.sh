@@ -7,12 +7,12 @@ hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
   github_group "bb.js build"
-  if ! cache_download bb.js-$hash.tar.gz; then
+  if ! cache_download bb.js $hash; then
     denoise yarn install
     find . -exec touch -d "@0" {} + 2>/dev/null || true
 
     denoise yarn build
-    cache_upload bb.js-$hash.tar.gz dest
+    cache_upload bb.js $hash dest
   else
     denoise yarn install
   fi

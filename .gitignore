@@ -25,10 +25,12 @@ terraform.tfstate*
 .secret
 .bb_tmp
 
-
 # tmux
 tmux-client-*.log
 .supermavenignore
 
 # parallel
 joblog.txt
+
+# bootstrap cache
+*.cache

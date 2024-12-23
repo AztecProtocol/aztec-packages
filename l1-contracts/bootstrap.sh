@@ -7,8 +7,7 @@ export hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
   github_group "l1-contracts build"
-  local artifact=l1-contracts-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! cache_download l1-contracts $hash; then
     # Clean
     rm -rf broadcast cache out serve
 
@@ -21,7 +20,7 @@ function build {
     # Compile contracts
     forge build
 
-    cache_upload $artifact out
+    cache_upload l1-contracts $hash out
   fi
   github_endgroup
 }

@@ -23,43 +23,43 @@ hash=$(cache_content_hash .rebuild_patterns)
 
 function build_native {
   set -eu
-  if ! cache_download barretenberg-release-$hash.tar.gz; then
+  if ! cache_download barretenberg-release $hash; then
     rm -f build/CMakeCache.txt
     echo "Building with preset: $preset"
     cmake --preset $preset -Bbuild
     cmake --build build --target bb
-    cache_upload barretenberg-release-$hash.tar.gz build/bin
+    cache_upload barretenberg-release $hash build/bin
   fi
 
   (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-release-world-state-$hash.tar.gz; then
+  if ! cache_download barretenberg-release-world-state $hash; then
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $pic_preset --target world_state_napi
-    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib/world_state_napi.node
+    cache_upload barretenberg-release-world-state $hash build-pic/lib/world_state_napi.node
   fi
 }
 
 function build_wasm {
   set -eu
-  if ! cache_download barretenberg-wasm-$hash.tar.gz; then
+  if ! cache_download barretenberg-wasm $hash; then
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
     cmake --build --preset wasm
     /opt/wasi-sdk/bin/llvm-strip ./build-wasm/bin/barretenberg.wasm
-    cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
+    cache_upload barretenberg-wasm $hash build-wasm/bin
   fi
   (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 function build_wasm_threads {
   set -eu
-  if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
+  if ! cache_download barretenberg-wasm-threads $hash; then
     rm -f build-wasm-threads/CMakeCache.txt
     cmake --preset wasm-threads
     cmake --build --preset wasm-threads
     /opt/wasi-sdk/bin/llvm-strip ./build-wasm-threads/bin/barretenberg.wasm
-    cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
+    cache_upload barretenberg-wasm-threads $hash build-wasm-threads/bin
   fi
   (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }

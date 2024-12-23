@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_test
 export CI=1
 export USE_CACHE=1
 # should not exist
-! cache_download cache-artifact.tar.gz
+! cache_download cache-artifact hash
 touch cache-artifact
-cache_upload cache-artifact.tar.gz cache-artifact
-# should not exist
-cache_download cache-artifact.tar.gz
+cache_upload cache-artifact hash cache-artifact
+# should exist
+cache_download cache-artifact hash

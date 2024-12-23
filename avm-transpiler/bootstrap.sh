@@ -8,10 +8,9 @@ hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
 
 function build {
   github_group "avm-transpiler build"
-  artifact=avm-transpiler-$hash.tar.gz
-  if ! cache_download $artifact; then
+  if ! cache_download avm-transpiler $hash; then
     denoise ./scripts/bootstrap_native.sh
-    cache_upload $artifact target/release
+    cache_upload avm-transpiler $hash target/release
   fi
   github_endgroup
 }

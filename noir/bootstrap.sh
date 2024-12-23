@@ -7,11 +7,11 @@ hash=$(cache_content_hash .rebuild_patterns)
 function build {
   github_group "noir build"
   # Downloads and checks for valid nargo and packages.
-  if ! cache_download noir-$hash.tar.gz; then
+  if ! cache_download noir $hash; then
     # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     parallel denoise ::: ./scripts/bootstrap_native.sh ./scripts/bootstrap_packages.sh
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm packages
+    cache_upload noir $hash noir-repo/target/release/nargo noir-repo/target/release/acvm packages
   fi
   github_endgroup
 }
@@ -19,6 +19,7 @@ function build {
 function test_hash() {
   hash_str $hash-$(cache_content_hash .rebuild_patterns_tests)
 }
+
 function test {
   test_flag=noir-test-$(test_hash)
   if test_should_run $test_flag; then

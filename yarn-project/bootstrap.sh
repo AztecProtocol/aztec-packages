@@ -19,10 +19,7 @@ function build {
   echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
   denoise yarn install
 
-  # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash.tar.gz
-
-  if ! cache_download $tar_file; then
+  if ! cache_download yarn-project $hash; then
     case "${1:-}" in
       "fast")
         yarn build:fast
@@ -41,7 +38,7 @@ function build {
 
     # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
     # Then one-off cases. If you've written into src, you need to update this.
-    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+    cache_upload yarn-project $hash */{dest,fixtures,build,artifacts,generated} \
       circuit-types/src/test/artifacts \
       end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
       ivc-integration/src/types/ \

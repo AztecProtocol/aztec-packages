@@ -264,12 +264,13 @@ rollup-verifier-contract-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=rollup-verifier-contract-$(./noir-projects/bootstrap.sh hash).tar.gz
+  LET artifact_hash=$(./noir-projects/bootstrap.sh hash)
   # Running this directly in the 'if' means files are not permanent
-  RUN ci3/cache_download rollup-verifier-contract-3e3a78f9a68f1f1e04240acf0728522d87a313ac-linux-gnu-x86_64 || true
+  # TODO(palla/cache): Shouldn't the hash below be the artifact_hash?
+  RUN ci3/cache_download rollup-verifier-contract 3e3a78f9a68f1f1e04240acf0728522d87a313ac-linux-gnu-x86_64 || true
   IF ! [ -d /usr/src/bb ]
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    RUN ci3/cache_upload $artifact bb
+    RUN ci3/cache_upload rollup-verifier-contract artifact_hash bb
   END
   SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
