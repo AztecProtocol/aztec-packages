@@ -51,8 +51,6 @@ See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-package
 
 See the page on [contract communication](../smart_contracts/functions/public_private_calls.md) for more context on transaction execution.
 
-### Batch Transactions
-
 ### Transaction Requests
 
 In Noir:
@@ -65,6 +63,16 @@ Where:
 - `args_hash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx_execution_request.ts) and checked against this hash.
 - `tx_context` contains the chain id, version, and gas settings.
 - `function_data` contains the function selector and indicates whether the function is private or public.
+
+The `function_data` includes the [`AppPayload`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L20), which includes information about the application functions and arguments, and the [`FeePayload`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L18), which includes info about how to pay for the transaction.
+
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
+
+Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a transaction object is created and can be sent to the network to be included in a block.
+
+### Batch Transactions
+
+Batch transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls to be sent as a single transaction through a wallet.
 
 ### Enabling Transaction Semantics: The Aztec Kernel
 
