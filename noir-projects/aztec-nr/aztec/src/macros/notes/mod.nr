@@ -121,7 +121,7 @@ comptime fn generate_note_interface(
                 let mut buffer: [u8; $content_len * 32 + 34] = [0; $content_len * 32 + 34];
 
                 let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-                // TODO(#10724): Since `note)type_id` is 7 bits long in the 2 bytes there is a space for a 1 bit
+                // TODO(#10724): Since `note_type_id` is 7 bits long in the 2 bytes there is a space for a 1 bit
                 // partial note flag.
                 let note_type_id_bytes: [u8; 2] = $name::get_note_type_id().to_be_bytes();
                 let serialized_note = self.serialize_content();
