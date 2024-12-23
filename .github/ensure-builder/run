@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -u
 exit_code=254
+
+# Initialize variables
 ttl=$1
+export RUN_ID=$(date +%s)
+export GIT_COMMIT=${GIT_COMMIT:-"main"} # Default to main if not set
+
 scripts/run_on_builder "
   set -eu;
+  
+  # Schedule shutdown
   sudo shutdown -P $ttl;
+  
+  # Function to clone repository
   function clone {
     if ! [ -d ~/run-$RUN_ID ]; then
       mkdir -p ~/run-$RUN_ID;
@@ -15,20 +24,34 @@ scripts/run_on_builder "
       git checkout FETCH_HEAD >/dev/null 2>&1;
     fi;
   }
+  
   export RUN_ID GIT_COMMIT
   export -f clone
+  
+  # Lock cloning process
   flock /var/lock/clone.lock bash -c clone
+  
   cd ~/run-$RUN_ID
+  
+  # Ensure builder and dependencies
   flock /var/lock/install.lock .github/ensure-builder/chron
   flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD
+  
+  # Handle eviction
   ci3/aws_handle_evict 'set -eu; $INPUT'
 "
+
 exit_code=$?
+
+# Handle spot eviction case
 if [ $exit_code = 255 ]; then
   echo "Treating ssh termination as spot eviction."
   exit_code=155
 fi
+
+# Output exit code for GitHub Actions
 echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
 if [ $exit_code = 155 ]; then
   echo "Spot eviction detected - retrying with on-demand."
 fi
