@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.0...aztec-package-v0.68.1) (2024-12-23)
+
+
+### Miscellaneous
+
+* Configurable parallelism in bootstrap ([#10909](https://github.com/AztecProtocol/aztec-packages/issues/10909)) ([5260f1e](https://github.com/AztecProtocol/aztec-packages/commit/5260f1e087d085ff42dc72801274442932af9778))
+
 ## [0.68.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.67.1...aztec-package-v0.68.0) (2024-12-20)
 
 
