@@ -249,7 +249,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             const size_t start = idx_bounds[thread_idx].first;
             const size_t end = idx_bounds[thread_idx].second;
             for (size_t i = end; i-- > start;) {
-                if (check_is_active(i + 1)) {
+                // if (check_is_active(i + 1)) {
+                if (check_is_active(i)) {
                     grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
                 } else {
                     // grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
