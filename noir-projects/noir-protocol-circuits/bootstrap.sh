@@ -2,7 +2,9 @@
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-CMD=${1:-}
+cmd=${1:-}
+project_name=$(basename "$PWD")
+test_flag=$project_name-tests-$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$project_name")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -47,9 +49,12 @@ function compile {
   local filename="$name.json"
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
-  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
-  program_hash=$(dump_fail "$program_hash_cmd")
+  # program_hash=$(dump_fail "$program_hash_cmd")
+  program_hash=$(cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    "^noir-projects/$project_name/crates/$dir")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
@@ -95,6 +100,7 @@ function compile {
     cache_upload vk-$hash.tar.gz $key_path &> /dev/null
   fi
 }
+export -f compile
 
 function build {
   set +e
@@ -115,26 +121,27 @@ function build {
   return $code
 }
 
-function test {
-  set -eu
-  name=$(basename "$PWD")
-  CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
-  test_should_run $name-tests-$CIRCUITS_HASH || return 0
+function test_cmds {
+  test_should_run $test_flag || return 0
 
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
-  cache_upload_flag $name-tests-$CIRCUITS_HASH
+  $NARGO test --list-tests --silence-warnings | while read -r package test; do
+    echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  done
 }
 
-export -f compile test build
+function test {
+  test_cmds | parallelise
+  cache_upload_flag $test_flag &>/dev/null
+}
 
-case "$CMD" in
+case "$cmd" in
   "clean")
     git clean -fdx
     ;;
   "clean-keys")
     rm -rf target/keys
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "compile")
@@ -145,14 +152,9 @@ case "$CMD" in
     test
     ;;
   "test-cmds")
-    $NARGO test --list-tests --silence-warnings | while read -r package test; do
-      echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
-    done
-    ;;
-  "ci")
-    parallel --tag --line-buffered {} ::: build test
+    test_cmds
     ;;
   *)
-    echo_stderr "Unknown command: $CMD"
+    echo_stderr "Unknown command: $cmd"
     exit 1
 esac

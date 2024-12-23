@@ -193,7 +193,7 @@
     },
     {
       "name": "clang16-assert",
-      "binaryDir": "build-assert",
+      "binaryDir": "build",
       "displayName": "Build with Clang-16 using RelWithAssert",
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",

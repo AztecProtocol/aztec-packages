@@ -26,6 +26,36 @@ function echo_stderr {
   echo $@ >&2
 }
 
+function get_num_jobs {
+  if [ -f /sys/fs/cgroup/cpu.max ]; then
+    read cpu_quota cpu_period < /sys/fs/cgroup/cpu.max
+    if [[ "$cpu_quota" == "max" ]]; then
+      nproc
+    else
+      echo $((cpu_quota / cpu_period))
+    fi
+  else
+    nproc
+  fi
+}
+
+# For running test cmds that are pathed relative to the repo root.
+function parallelise {
+  cd $root
+  local jobs=$(get_num_jobs)
+  [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
+  echo "Starting test run with max $jobs jobs..."
+  parallel -j$jobs --bar --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
+
+  slow_jobs=$(cat joblog.txt | \
+    awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
+    awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
+  if [ -n "$slow_jobs" ]; then
+    echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
+    echo "$slow_jobs"
+  fi
+}
+
 export -f hash_str echo_stderr
 
 source $ci3/source_color

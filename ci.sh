@@ -11,7 +11,7 @@ function echo_cmd {
   printf "${blue}${bold}%10s${reset}: %s\n" $name "$(echo $@ | sed 's/\. /.\n            /g')"
 }
 
-if [ -z "$cmd" ]; then
+function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
   echo_cmd "ec2"      "Launch an ec2 instance and bootstrap on it. Exactly what Github action does, but doesn't touch GA."
@@ -26,10 +26,9 @@ if [ -z "$cmd" ]; then
   echo_cmd "ssh-host" "Connect to host instance of the current running build."
   echo_cmd "draft"    "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"    "Mark current PR as ready (enable automatic CI runs when pushing)."
-  exit 0
-fi
+}
 
-shift
+[ -n "$cmd" ] && shift
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -212,8 +211,12 @@ case "$cmd" in
     echo "$run_url"
     exit 0
     ;;
+  "help"|"")
+    print_usage
+    exit 0
+    ;;
   *)
-    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|test-kind-network|test-network|gha-url"
+    echo "Unknown command: $cmd"
     exit 1
     ;;
 esac

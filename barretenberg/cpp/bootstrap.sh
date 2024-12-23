@@ -12,8 +12,8 @@ function build_native {
   if ! cache_download barretenberg-release-$hash.tar.gz; then
     rm -f build/CMakeCache.txt
     echo "Building with preset: $preset"
-    cmake --preset $preset -Bbuild
-    cmake --build build --target bb
+    cmake --preset $preset
+    cmake --build --preset $preset --target bb
     cache_upload barretenberg-release-$hash.tar.gz build/bin
   fi
 
@@ -61,18 +61,32 @@ function build {
 function build_tests {
   github_group "bb build tests"
   denoise ./format.sh check
-  denoise cmake --preset $preset -Bbuild "&&" cmake --build build
+  denoise "cmake --preset $preset && cmake --preset $preset"
   # Download ignition transcripts. Only needed for tests.
   # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
   # TODO: Use the flattened crs. These old transcripts are a pain.
   denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
 }
 
-function test {
+# Print every individual test command. Can be fed into gnu parallel.
+# Paths are relative to repo root.
+function test_cmds {
   test_should_run barretenberg-test-$hash || return 0
+
+  cd build
+  for bin in ./bin/*_tests; do
+    bin_name=$(basename $bin)
+    $bin --gtest_list_tests | \
+      awk -vbin=$bin_name '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "barretenberg/cpp/scripts/run_test.sh " bin " " suite$1}' | \
+      sed 's/\.$//' | grep -v 'DISABLED_'
+  done
+}
+
+# This is not called in ci. It is just for a developer to run the tests.
+function test {
   github_group "bb test"
-  (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
-  cache_upload_flag barretenberg-test-$hash
+  test_cmds | parallelise
+  cache_upload_flag barretenberg-test-$hash &>/dev/null
   github_endgroup
 }
 
@@ -100,20 +114,12 @@ case "$cmd" in
   "ci")
     build
     build_tests
-    test
     ;;
   "hash")
     echo $hash
     ;;
   "test-cmds")
-    # Print every individual test command. Can be fed into gnu parallel.
-    cd build
-    for bin in ./bin/*_tests; do
-      bin_name=$(basename $bin)
-      $bin --gtest_list_tests | \
-        awk -vbin=$bin_name '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "barretenberg/cpp/scripts/run_test.sh " bin " " suite$1}' | \
-        sed 's/\.$//' | grep -v 'DISABLED_'
-    done
+    test_cmds
     ;;
   *)
     echo "Unknown command: $cmd"

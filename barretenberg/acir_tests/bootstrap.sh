@@ -4,6 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
+hash=$(cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../noir/.rebuild_patterns_tests \
+    ../../barretenberg/cpp/.rebuild_patterns \
+    ../../barretenberg/ts/.rebuild_patterns)
+
 function build_tests {
   set -eu
 
@@ -39,36 +45,25 @@ function build_tests {
   github_endgroup
 }
 
-function hash {
-  cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests \
-    ../../barretenberg/cpp/.rebuild_patterns \
-    ../../barretenberg/ts/.rebuild_patterns
-}
-
 function test {
-  set -eu
-
-  local hash=$(hash)
-  test_should_run barretenberg-acir-tests-$hash || return 0
-
   github_group "acir_tests testing"
 
   # TODO: These are some magic numbers that fit our dev/ci environments. They ultimately need to work on lower hardware.
-  export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
+  # export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
   # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-  local jobs=64
+  # local jobs=64
 
-  test_cmds | (cd $root; parallel -j$jobs --tag --line-buffered --joblog joblog.txt)
+  test_cmds | parallelise 64
 
-  cache_upload_flag barretenberg-acir-tests-$hash
+  cache_upload_flag barretenberg-acir-tests-$hash &>/dev/null
   github_endgroup
 }
 
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
 function test_cmds {
+  test_should_run barretenberg-acir-tests-$hash || return 0
+
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|double_verify_honk_proof')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
@@ -131,8 +126,6 @@ function test_cmds {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
-export -f build_tests test
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -140,12 +133,8 @@ case "$cmd" in
     ;;
   ""|"fast"|"full")
     ;;
-  "build-tests")
+  "build-tests"|"ci")
     build_tests
-    ;;
-  "ci")
-    build_tests
-    test
     ;;
   "hash")
     hash

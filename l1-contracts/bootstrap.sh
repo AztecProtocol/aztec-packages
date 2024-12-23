@@ -26,6 +26,11 @@ function build {
   github_endgroup
 }
 
+function test_cmds {
+  test_should_run l1-contracts-test-$hash || return 0
+  echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+}
+
 function test {
   set -eu
   local test_flag=l1-contracts-test-$hash
@@ -44,18 +49,14 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "test")
     test
     ;;
   "test-cmds")
-    echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
-    ;;
-  "ci")
-    build
-    denoise test
+    test_cmds
     ;;
   "hash")
     echo $hash

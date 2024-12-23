@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 hash=$(cache_content_hash .rebuild_patterns)
+test_hash=$(hash_str $hash-$(cache_content_hash .rebuild_patterns_tests))
+test_flag=noir-test-$test_hash
 
 function build {
   github_group "noir build"
@@ -16,31 +18,28 @@ function build {
   github_endgroup
 }
 
-function test_hash() {
-  hash_str $hash-$(cache_content_hash .rebuild_patterns_tests)
-}
-
 function test {
-  test_flag=noir-test-$(test_hash)
-  test_should_run $test_flag || return 0
-
   github_group "noir test"
-  export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-  export PATH="$PWD/noir-repo/target/release/:$PATH"
-  # parallel --tag --line-buffered --timeout 5m --halt now,fail=1 \
-  #   denoise ::: ./scripts/test_native.sh ./scripts/test_js_packages.sh
-  denoise ./scripts/test_native.sh
-  denoise ./scripts/test_js_packages.sh
-  cache_upload_flag $test_flag
+  # export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
+  # export PATH="$PWD/noir-repo/target/release/:$PATH"
+  # denoise ./scripts/test_native.sh
+  # denoise ./scripts/test_js_packages.sh
+  test_cmds | parallelise
+  cache_upload_flag $test_flag &>/dev/null
   github_endgroup
 }
 
 function build_tests {
   cd noir-repo
+  export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
+  export GIT_DIRTY=false
+  export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
   cargo nextest list --workspace --locked --release &>/dev/null
 }
 
 function test_cmds {
+  test_should_run $test_flag || return 0
+
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -68,7 +67,7 @@ case "$cmd" in
     ;;
   "ci")
     build
-    test
+    build_tests
     ;;
   "build-tests")
     build_tests
@@ -80,7 +79,7 @@ case "$cmd" in
     echo $hash
     ;;
   "hash-test")
-    test_hash
+    echo $test_hash
     ;;
   *)
     echo "Unknown command: $cmd"

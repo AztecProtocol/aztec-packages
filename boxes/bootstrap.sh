@@ -25,15 +25,15 @@ function build {
 }
 
 function test {
-  test_should_run "boxes-test-$hash" || return 0
-
   github_group "boxes"
-  test_cmds | (cd $root; parallel --tag --line-buffered --timeout 5m --halt now,fail=1)
-  cache_upload_flag boxes-test-$hash
+  test_cmds | parallelise
+  cache_upload_flag boxes-test-$hash &>/dev/null
   github_endgroup
 }
 
 function test_cmds {
+  test_should_run "boxes-test-$hash" || return 0
+
   for browser in chromium webkit; do
     for box in vanilla react; do
       echo "boxes/scripts/run_test.sh $box $browser"
@@ -45,7 +45,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "test")
@@ -56,10 +56,6 @@ case "$cmd" in
     ;;
   "hash")
     echo $hash
-    ;;
-  "ci")
-    build
-    test
     ;;
   *)
     echo "Unknown command: $cmd"

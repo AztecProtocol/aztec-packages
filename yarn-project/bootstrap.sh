@@ -70,7 +70,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "full")
+  "full"|"ci")
     build full
     ;;
   "fast-only")
@@ -87,10 +87,7 @@ case "$cmd" in
       echo yarn-project/scripts/run_test.sh $test
     done
     ./end-to-end/bootstrap.sh test-cmds
-    ;;
-  "ci")
-    build full
-    test
+    # TODO: formatting?
     ;;
   "hash")
     echo $hash

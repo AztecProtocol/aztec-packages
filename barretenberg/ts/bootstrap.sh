@@ -19,12 +19,20 @@ function build {
   github_endgroup
 }
 
-function test {
+function test_cmds {
   test_should_run bb.js-tests-$hash || return 0
 
+  ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
+    sed "s|$(pwd)/||" | while read -r test; do
+      echo "barretenberg/ts/scripts/run_test.sh $test"
+    done
+}
+
+function test {
   github_group "bb.js test"
-  denoise yarn test
-  cache_upload_flag bb.js-tests-$hash
+  # denoise yarn test
+  test_cmds | parallelise
+  cache_upload_flag bb.js-tests-$hash &>/dev/null
   github_endgroup
 }
 
@@ -32,22 +40,14 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "test")
     test
     ;;
   "test-cmds")
-    wd=$(realpath --relative-to=$root $PWD)
-    ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
-      sed "s|$(pwd)/||" | while read -r test; do
-        echo "$wd/scripts/run_test.sh $test"
-      done
-    ;;
-  "ci")
-    build
-    test
+    test_cmds
     ;;
   "hash")
     echo "$hash"

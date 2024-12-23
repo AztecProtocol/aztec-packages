@@ -17,6 +17,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+test_flag=noir-contracts-test-$(cache_content_hash "^noir-projects/noir-contracts")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -143,6 +144,8 @@ function build {
 }
 
 function test_cmds {
+  test_should_run $test_flag || return 0
+
   i=0
   $NARGO test --list-tests --silence-warnings | while read -r package test; do
     # We assume there are 8 txe's running.
@@ -163,8 +166,10 @@ function test {
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
   done
 
-  echo "Starting test run..."
-  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar --halt now,fail=1 'dump_fail {} >/dev/null')
+  export NARGO_FOREIGN_CALL_TIMEOUT=300000
+  test_cmds | parallelise
+
+  cache_upload_flag $test_flag &>/dev/null
 }
 
 case "$cmd" in
@@ -178,10 +183,7 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  "ci")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "compile")
