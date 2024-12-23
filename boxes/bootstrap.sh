@@ -28,7 +28,7 @@ function test {
   test_should_run "boxes-test-$hash" || return 0
 
   github_group "boxes"
-  test_cmds | parallel --tag --line-buffered --timeout 5m --halt now,fail=1
+  test_cmds | (cd $root; parallel --tag --line-buffered --timeout 5m --halt now,fail=1)
   cache_upload_flag boxes-test-$hash
   github_endgroup
 }
