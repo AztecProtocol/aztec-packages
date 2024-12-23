@@ -15,7 +15,7 @@ using witness_ct = stdlib::witness_t<Builder>;
 using rom_table_ct = stdlib::rom_table<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
-TEST(boomerang_rom_table, graph_description_rom_table)
+TEST(boomerang_rom_ram_table, graph_description_rom_table)
 {
     Builder builder;
 
@@ -42,7 +42,7 @@ TEST(boomerang_rom_table, graph_description_rom_table)
     graph.print_variables_in_one_gate();
 }
 
-TEST(boomerang_ram_table, graph_description_ram_table_read)
+TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
 {
     Builder builder;
 
@@ -66,7 +66,7 @@ TEST(boomerang_ram_table, graph_description_ram_table_read)
     graph.print_variables_in_one_gate();
 }
 
-TEST(boomerang_ram_table, graph_description_ram_table_write)
+TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
 {
     Builder builder;
     const size_t table_size = 10;
@@ -101,9 +101,9 @@ TEST(boomerang_ram_table, graph_description_ram_table_write)
 
     update();
     read();
-    //    update();
-    //    read();
-    //    update();
+    update();
+    read();
+    update();
 
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();

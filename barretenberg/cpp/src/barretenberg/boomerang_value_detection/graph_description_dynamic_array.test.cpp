@@ -42,5 +42,32 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
         info("variables_in_one_gate is empty");
     }
     EXPECT_EQ(connected_components.size(), 1);
-    // EXPECT_EQ(variables_in_one_gate.size(), max_size * 2);
+}
+
+TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency_methods) 
+{
+    Builder builder;
+    const size_t max_size = 10;
+
+    DynamicArray_ct array(&builder, max_size);
+
+    for (size_t i = 0; i < max_size; ++i) {
+        array.push(field_ct::from_witness(&builder, i));
+    }
+
+    for (size_t i = 0; i < max_size; ++i) {
+        array.pop();
+    }
+
+    array.resize(max_size - 1, 7);
+
+    array.conditional_push(false, 100);
+    array.conditional_push(true, 100);
+    array.conditional_pop(false);
+    array.conditional_pop(true);
+    Graph graph = Graph(builder);
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
+    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    graph.print_variables_in_one_gate();
 }
