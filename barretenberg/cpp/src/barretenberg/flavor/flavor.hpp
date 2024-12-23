@@ -125,6 +125,8 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 
     // Ranges of the form [start, end) where witnesses have non-zero values (hence the execution trace is "active")
     std::vector<std::pair<size_t, size_t>> active_block_ranges;
+    // The actual polynomial indices corresposponding to the active block ranges
+    std::vector<uint32_t> active_idxs;
 
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,

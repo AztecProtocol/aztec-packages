@@ -224,33 +224,44 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     using FF = typename Flavor::FF;
     const size_t num_gates = proving_key->circuit_size;
 
+    size_t domain_size = proving_key->active_idxs.size();
+    size_t num_threads = calculate_num_threads(domain_size, /*min_iterations_per_thread=*/1 << 5);
+    size_t thread_size = domain_size / num_threads;
+    size_t leftover = domain_size % num_threads;
+
     size_t wire_idx = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
-        ITERATE_OVER_DOMAIN_START(proving_key->evaluation_domain);
-        auto idx = static_cast<ptrdiff_t>(i);
-        const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
-        const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
-        const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
-        const auto& current_is_public_input = permutation_mappings[wire_idx].is_public_input[idx];
-        if (current_is_public_input) {
-            // We intentionally want to break the cycles of the public input variables.
-            // During the witness generation, the left and right wire polynomials at idx i contain the i-th public
-            // input. The CyclicPermutation created for these variables always start with (i) -> (n+i), followed by
-            // the indices of the variables in the "real" gates. We make i point to -(i+1), so that the only way of
-            // repairing the cycle is add the mapping
-            //  -(i+1) -> (n+i)
-            // These indices are chosen so they can easily be computed by the verifier. They can expect the running
-            // product to be equal to the "public input delta" that is computed in <honk/utils/grand_product_delta.hpp>
-            current_permutation_poly.at(i) = -FF(current_row_idx + 1 + num_gates * current_col_idx);
-        } else if (current_is_tag) {
-            // Set evaluations to (arbitrary) values disjoint from non-tag values
-            current_permutation_poly.at(i) = num_gates * Flavor::NUM_WIRES + current_row_idx;
-        } else {
-            // For the regular permutation we simply point to the next location by setting the evaluation to its
-            // idx
-            current_permutation_poly.at(i) = FF(current_row_idx + num_gates * current_col_idx);
-        }
-        ITERATE_OVER_DOMAIN_END;
+        parallel_for(num_threads, [&](size_t j) {
+            const size_t start = j * thread_size;
+            const size_t end = (j == num_threads - 1) ? (j + 1) * thread_size + leftover : (j + 1) * thread_size;
+            for (size_t i = start; i < end; ++i) {
+                size_t poly_idx = proving_key->active_idxs[i];
+                auto idx = static_cast<ptrdiff_t>(poly_idx);
+                const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
+                const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
+                const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
+                const auto& current_is_public_input = permutation_mappings[wire_idx].is_public_input[idx];
+                if (current_is_public_input) {
+                    // We intentionally want to break the cycles of the public input variables.
+                    // During the witness generation, the left and right wire polynomials at idx i contain the i-th
+                    // public input. The CyclicPermutation created for these variables always start with (i) -> (n+i),
+                    // followed by the indices of the variables in the "real" gates. We make i point to
+                    // -(i+1), so that the only way of repairing the cycle is add the mapping
+                    //  -(i+1) -> (n+i)
+                    // These indices are chosen so they can easily be computed by the verifier. They can expect
+                    // the running product to be equal to the "public input delta" that is computed
+                    // in <honk/utils/grand_product_delta.hpp>
+                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + num_gates * current_col_idx);
+                } else if (current_is_tag) {
+                    // Set evaluations to (arbitrary) values disjoint from non-tag values
+                    current_permutation_poly.at(poly_idx) = num_gates * Flavor::NUM_WIRES + current_row_idx;
+                } else {
+                    // For the regular permutation we simply point to the next location by setting the
+                    // evaluation to its idx
+                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + num_gates * current_col_idx);
+                }
+            }
+        });
         wire_idx++;
     }
 }

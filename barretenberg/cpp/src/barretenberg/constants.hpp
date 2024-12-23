@@ -13,9 +13,12 @@ static constexpr uint32_t CONST_PG_LOG_N = 20;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
 
-static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 75000;
+// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 75000;
 
-static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
+// static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
+static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 8;
+
+static constexpr uint32_t MAX_DATABUS_SIZE = 2;
 
 // The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
 // evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift

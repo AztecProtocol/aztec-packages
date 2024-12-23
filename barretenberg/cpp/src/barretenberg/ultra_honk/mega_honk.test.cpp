@@ -120,7 +120,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ MICRO_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
