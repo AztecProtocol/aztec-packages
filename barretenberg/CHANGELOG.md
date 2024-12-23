@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.0...barretenberg-v0.68.1) (2024-12-23)
+
+
+### Features
+
+* Add limit to unique contract call ([#10640](https://github.com/AztecProtocol/aztec-packages/issues/10640)) ([d340f0b](https://github.com/AztecProtocol/aztec-packages/commit/d340f0b0c2c97b59d2a8830bdae452d85945322c))
+
+
+### Miscellaneous
+
+* **avm:** Check that slice read/write are not out of memory range ([#10879](https://github.com/AztecProtocol/aztec-packages/issues/10879)) ([ab3f318](https://github.com/AztecProtocol/aztec-packages/commit/ab3f31858b09cb6c8afcc3d2f8f361814cbe531c)), closes [#7385](https://github.com/AztecProtocol/aztec-packages/issues/7385)
+* Reorganise translator proving key construction ([#10853](https://github.com/AztecProtocol/aztec-packages/issues/10853)) ([5da4d1b](https://github.com/AztecProtocol/aztec-packages/commit/5da4d1b661cb27b81c657adacf928a74f98c264c))
+
 ## [0.68.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.67.1...barretenberg-v0.68.0) (2024-12-20)
 
 
