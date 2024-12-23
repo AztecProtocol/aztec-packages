@@ -22,25 +22,20 @@
 namespace bb {
 
 class GoblinProver {
-    using MegaCircuitBuilder = MegaCircuitBuilder;
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
   public:
-    using Builder = MegaCircuitBuilder;
+    using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
     using OpQueue = ECCOpQueue;
-    using ECCVMFlavor = ECCVMFlavor;
-    using ECCVMBuilder = ECCVMCircuitBuilder;
-    using ECCVMProver = ECCVMProver;
+    using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
-    using TranslatorProver = TranslatorProver;
-    using TranslatorProvingKey = TranslatorProvingKey;
-    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
     using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
@@ -88,7 +83,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    GoblinAccumulationOutput accumulate(MegaCircuitBuilder& circuit_builder)
+    GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
     {
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
@@ -121,7 +116,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    void merge(MegaCircuitBuilder& circuit_builder)
+    void merge(MegaBuilder& circuit_builder)
     {
         // Append a recursive merge verification of the merge proof
         if (merge_proof_exists) {
@@ -138,7 +133,7 @@ class GoblinProver {
      * @param circuit_builder
      * @return PairingPoints
      */
-    PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
+    PairingPoints verify_merge(MegaBuilder& circuit_builder, MergeProof& proof) const
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
@@ -150,7 +145,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
+    MergeProof prove_merge(MegaBuilder& circuit_builder)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
