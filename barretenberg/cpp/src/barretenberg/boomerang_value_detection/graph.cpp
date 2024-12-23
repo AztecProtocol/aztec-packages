@@ -1091,9 +1091,10 @@ template <typename FF> void Graph_<FF>::print_variables_in_one_gate()
         ASSERT(variables_gates[elem].size() <= 1);
         if (variables_gates[elem].size() == 1) {
             info("for variable with index ", elem, " gate index == ", variables_gates[elem][0]);
-        } else {
-            info("variable's gate with index ", elem, " hasn't processed yet");
         }
+        else {
+            info("variable with index ", elem, " may be false case");
+        } 
     }
 }
 
