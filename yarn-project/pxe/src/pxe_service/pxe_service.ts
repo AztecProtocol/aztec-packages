@@ -212,12 +212,6 @@ export class PXEService implements PXE {
     );
   }
 
-  public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRegisteredAccounts();
-    const account = result.find(r => r.address.equals(address));
-    return Promise.resolve(account);
-  }
-
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
@@ -876,7 +870,9 @@ export class PXEService implements PXE {
         const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
-          const registeredAccount = await this.getRegisteredAccount(account);
+          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
+            completeAddress.address.equals(account),
+          );
           if (!registeredAccount) {
             throw new Error('No registered account');
           }
