@@ -75,6 +75,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
         builder.add_pairing_point_accumulator(agg_obj_indices);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             using NativeCurve = curve::Grumpkin;
             using Curve = stdlib::grumpkin<InnerBuilder>;

@@ -39,8 +39,8 @@ class ProofSurgeon {
         if constexpr (bb::HasIPAAccumulator<Flavor>) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }
-        info("proof size: ", proof.size());
-        info("number of public inputs to extract: ", num_public_inputs_to_extract);
+        debug("proof size: ", proof.size());
+        debug("number of public inputs to extract: ", num_public_inputs_to_extract);
         std::vector<FF> public_inputs =
             acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
 

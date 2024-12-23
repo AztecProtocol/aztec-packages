@@ -339,7 +339,8 @@ void prove(const std::string& bytecodePath,
 template <typename Builder = UltraCircuitBuilder>
 void gateCount(const std::string& bytecodePath, bool recursive, uint32_t honk_recursion)
 {
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: only do this if the circuit does accumulation...
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Try to only do this when necessary.
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
@@ -401,6 +402,7 @@ void gate_count_for_ivc(const std::string& bytecodePath)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
     auto constraint_systems = get_constraint_systems(bytecodePath, /*honk_recursion=*/0);
 
     // Initialize an SRS to make the ClientIVC constructor happy
@@ -813,14 +815,17 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     if (!witnessPath.empty()) {
         program.witness = get_witness(witnessPath);
     }
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: only do this if the circuit does accumulation...
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+    }
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
+    ASSERT(CircuitChecker::check(builder));
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
 
     // output the vk
     typename Flavor::VerificationKey vk(prover.proving_key->proving_key);
-    info(vk.to_field_elements());
+    debug(vk.to_field_elements());
     return std::move(prover);
 }
 
@@ -896,8 +901,9 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
         const size_t num_public_inputs =
             static_cast<size_t>(proof[1]) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
         // The extra calculation is for the IPA proof length.
-        info("proof size: ", proof.size());
-        info("num public inputs: ", num_public_inputs);
+        debug("proof size: ", proof.size());
+        debug("num public inputs: ", num_public_inputs);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
@@ -1189,7 +1195,9 @@ void prove_honk_output_all(const std::string& bytecodePath,
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
                                       get_witness(witnessPath) };
 
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N); // WORKTODO: remove if possible
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+    }
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Construct Honk proof
@@ -1212,6 +1220,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     vinfo("binary proof written to: ", proofPath);
 
     // Write the proof as fields
+    info("proof: ", proof);
     std::string proofJson = to_json(proof);
     write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
     vinfo("proof as fields written to: ", proofFieldsPath);
@@ -1223,6 +1232,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
 
     // Write the vk as fields
     std::vector<bb::fr> vk_data = vk.to_field_elements();
+    debug("vk: ", vk_data);
     auto vk_json = honk_vk_to_json(vk_data);
     write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
     vinfo("vk as fields written to: ", vkFieldsOutputPath);
@@ -1265,7 +1275,7 @@ int main(int argc, char* argv[])
         const std::string pk_path = get_option(args, "-r", "./target/pk");
 
         const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-        info("honk recursion is: ", honk_recursion);
+        debug("honk recursion is: ", honk_recursion);
         const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 

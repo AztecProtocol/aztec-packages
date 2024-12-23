@@ -270,8 +270,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
         }
-        // This assertion should be true, except for the root rollup as of now since the root rollup will not output a
-        // ipa proof. ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1183): This assertion should be true, except for
+        // the root rollup as of now since the root rollup will not output a ipa proof.
+        // ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
             builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
             builder.ipa_proof = output.ipa_proof;
@@ -401,7 +402,6 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     }
     // Accumulate the claims
     if (nested_ipa_claims.size() == 2) {
-        // init Grumpkin CRS
         auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
@@ -419,6 +419,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     } else if (nested_ipa_claims.size() > 2) {
         throw_or_abort("Too many nested IPA claims to accumulate");
     } else {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if (honk_recursion == 2) {
             info("Proving with UltraRollupHonk but no IPA claims exist.");
             // just create some fake IPA claim and proof

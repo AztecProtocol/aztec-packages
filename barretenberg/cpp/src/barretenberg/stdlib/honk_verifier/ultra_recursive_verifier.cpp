@@ -53,6 +53,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         const size_t HONK_PROOF_LENGTH = 469;
         const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
         // The extra calculation is for the IPA proof length.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + (1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2) + num_public_inputs -
                                    (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
         // split out the ipa proof
@@ -151,6 +152,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                info("limbs " + std::to_string(k) + ": ", limbs[k]);
                 limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
             }
             return Curve::BaseField::unsafe_construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], false);
