@@ -1,5 +1,15 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  FunctionSelector,
+  type Logger,
+  type PXE,
+  TxStatus,
+  type Wallet,
+  createPXEClient,
+  makeFetch,
+} from '@aztec/aztec.js';
+import { broadcastPrivateFunction } from '@aztec/aztec.js/deployment';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -21,6 +31,27 @@ describe('e2e_deploy_contract deploy method', () => {
   });
 
   afterAll(() => t.teardown());
+
+  it('cannot skip contract class registration', async () => {
+    const owner = wallet.getAddress();
+    const opts = { skipClassRegistration: true };
+    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts)).rejects.toThrow(/blah/);
+    //await StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait();
+  });
+
+  it('cannot deploy a contract instance without registering its contract class', async () => {
+    const constructorArtifact = StatefulTestContract.artifact.functions.find(fn => fn.name == 'constructor');
+    if (!constructorArtifact) {
+      // If this gets thrown you've probably modified the StatefulTestContract to no longer include constructor.
+      // If that's the case you should update this test to use a private function which fits into the bytecode size limit.
+      throw new Error('No constructor found in the StatefulTestContract artifact. Does it still exist?');
+    }
+    const selector = FunctionSelector.fromNameAndParameters(constructorArtifact.name, constructorArtifact.parameters);
+    const txReceipt = await (await broadcastPrivateFunction(wallet, StatefulTestContract.artifact, selector))
+      .send()
+      .wait();
+    expect(txReceipt.status).toEqual(TxStatus.DROPPED);
+  });
 
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
