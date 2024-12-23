@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734719812943,
+  "lastUpdate": 1734967459640,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38c0c14fe90a1a920818f2f99a7d3204f0211091",
-          "message": "chore(avm): remove function selector type of getenv opcode (#10406)\n\nResolves #9396",
-          "timestamp": "2024-12-06T20:07:08+01:00",
-          "tree_id": "9114d995646ae38aa3b2904cdd31f68a032aff96",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/38c0c14fe90a1a920818f2f99a7d3204f0211091"
-        },
-        "date": 1733513801175,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25778.716395000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23730.594843000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4590.6557349999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4288.54193 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90954.692418,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90954692000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16494.789636,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16494789000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2824984306,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2824984306 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134158258,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134158258 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3104,6 +3044,72 @@ window.BENCHMARK_DATA = {
             "value": 141927201,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141927201 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5da4d1b661cb27b81c657adacf928a74f98c264c",
+          "message": "chore: reorganise translator proving key construction (#10853)\n\nTranslator ProverPolynomials were constructed in three different files: \r\n* `permutation_lib.hpp` which was part of the honk target\r\n* the witness was constructed in the `TranslatorProver` class\r\n* some polynomials were constructed in `TranslatorFlavor`\r\n\r\nThis PR introduces a `TranslatorProvingKey` aimed to unify the logic in\r\na manner similar to `DeciderProvingKey`, in an attempt to make\r\nnavigating state less confusing.",
+          "timestamp": "2024-12-23T15:58:07+01:00",
+          "tree_id": "acb3e4a424141ede7a93de01026623d740b2b2ac",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5da4d1b661cb27b81c657adacf928a74f98c264c"
+        },
+        "date": 1734967451673,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20232.947851000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17634.279267 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21819.305328000042,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19323.144963 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4625.779651000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4276.178236999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72986.298089,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72986298000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13980.891083999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13980892000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2850525774,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2850525774 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147333302,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147333302 ns\nthreads: 1"
           }
         ]
       }
