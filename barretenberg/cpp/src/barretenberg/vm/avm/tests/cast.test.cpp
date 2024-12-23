@@ -188,6 +188,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
     trace_builder.set_all_calldata(calldata);
     AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
                                                .parent_id = 0,
+                                               .is_top_level = true,
                                                .contract_address = FF(0),
                                                .calldata = calldata,
                                                .nested_returndata = {},
@@ -219,6 +220,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
     trace_builder.set_all_calldata(calldata);
     AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
                                                .parent_id = 0,
+                                               .is_top_level = true,
                                                .contract_address = FF(0),
                                                .calldata = calldata,
                                                .nested_returndata = {},

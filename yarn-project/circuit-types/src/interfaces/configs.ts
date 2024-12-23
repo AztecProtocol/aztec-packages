@@ -38,6 +38,8 @@ export interface SequencerConfig {
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
+  /** How many seconds into an L1 slot we can still send a tx and get it mined. */
+  maxL1TxInclusionTimeIntoSlot?: number;
 }
 
 const AllowedElementSchema = z.union([
@@ -59,4 +61,5 @@ export const SequencerConfigSchema = z.object({
   maxBlockSizeInBytes: z.number().optional(),
   enforceFees: z.boolean().optional(),
   gerousiaPayload: schemas.EthAddress.optional(),
+  maxL1TxInclusionTimeIntoSlot: z.number().optional(),
 }) satisfies ZodFor<SequencerConfig>;

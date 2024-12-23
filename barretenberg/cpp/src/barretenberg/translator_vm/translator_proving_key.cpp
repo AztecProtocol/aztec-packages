@@ -1,10 +1,4 @@
-#pragma once
-#include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
-#include <execution>
-#include <typeinfo>
-
+#include "translator_proving_key.hpp"
 namespace bb {
 
 /**
@@ -23,16 +17,16 @@ namespace bb {
  * @tparam Flavor
  * @param proving_key Can be a proving_key or an AllEntities object
  */
-template <typename Flavor> void compute_concatenated_polynomials(typename Flavor::ProverPolynomials& polynomials)
+void TranslatorProvingKey::compute_concatenated_polynomials()
 {
     // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = polynomials.get_groups_to_be_concatenated();
+    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
 
     // Resulting concatenated polynomials
-    auto targets = polynomials.get_concatenated();
+    auto targets = proving_key->polynomials.get_concatenated();
 
-    // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by dividing by
-    // concatenation index
+    // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
+    // dividing by concatenation index
     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
     ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
     // A function that produces 1 concatenated polynomial
@@ -40,7 +34,7 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
     // Translator uses concatenated polynomials in the permutation argument. These polynomials contain the same
     // coefficients as other shorter polynomials, but we don't have to commit to them due to reusing commitments of
     // shorter polynomials and updating our PCS to open using them. But the prover still needs the concatenated
-    // polynomials. This function constructs a chunk of the polynomial.
+    // proving_key->polynomials. This function constructs a chunk of the polynomial.
     auto ordering_function = [&](size_t index) {
         // Get the index of the concatenated polynomial
         size_t i = index / concatenation_groups[0].size();
@@ -80,14 +74,11 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
  * @tparam Flavor
  * @param proving_key
  */
-template <typename Flavor>
-void compute_translator_range_constraint_ordered_polynomials(typename Flavor::ProverPolynomials& polynomials,
-                                                             size_t mini_circuit_dyadic_size)
+void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
 {
     // Get constants
     constexpr auto sort_step = Flavor::SORT_STEP;
     constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
-    const auto mini_circuit_size = mini_circuit_dyadic_size;
     const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
 
     // The value we have to end polynomials with
@@ -109,14 +100,14 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     }
 
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
-    RefArray ordered_constraint_polynomials{ polynomials.ordered_range_constraints_0,
-                                             polynomials.ordered_range_constraints_1,
-                                             polynomials.ordered_range_constraints_2,
-                                             polynomials.ordered_range_constraints_3 };
+    RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
+                                             proving_key->polynomials.ordered_range_constraints_1,
+                                             proving_key->polynomials.ordered_range_constraints_2,
+                                             proving_key->polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
     // Get information which polynomials need to be concatenated
-    auto concatenation_groups = polynomials.get_groups_to_be_concatenated();
+    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
 
     // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
     // ordered polynomials
@@ -136,9 +127,9 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
         for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * mini_circuit_size;
+            auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = 0; k < mini_circuit_size; k++) {
+            for (size_t k = 0; k < mini_circuit_dyadic_size; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
@@ -159,8 +150,8 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
 
         // Sort the polynomial in nondescending order. We sort using vector with size_t elements for 2 reasons:
         // 1. It is faster to sort size_t
-        // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them from
-        // Montgomery
+        // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
+        // from Montgomery
         std::sort(current_vector.begin(), current_vector.end());
         // Copy the values into the actual polynomial
         ordered_constraint_polynomials[i].copy_vector(current_vector);
@@ -184,7 +175,61 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
 #endif
 
     // Copy the values into the actual polynomial
-    polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
+    proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
 }
 
+void TranslatorProvingKey::compute_lagrange_polynomials()
+{
+
+    for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
+        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+        proving_key->polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    }
+    proving_key->polynomials.lagrange_second.at(1) = 1;
+    proving_key->polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+}
+
+/**
+ * @brief Compute the extra numerator for Goblin range constraint argument
+ *
+ * @details Goblin proves that several polynomials contain only values in a certain range through 2
+ * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
+ * relation enforcing a certain ordering on the elements of the given polynomial
+ * (TranslatorDeltaRangeConstraintRelation)
+ *
+ * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
+ * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
+ * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
+ * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+ *
+ */
+void TranslatorProvingKey::compute_extra_range_constraint_numerator()
+{
+    auto& extra_range_constraint_numerator = proving_key->polynomials.ordered_extra_range_constraints_numerator;
+
+    static constexpr uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
+    size_t sorted_elements_count = (MAX_VALUE / Flavor::SORT_STEP) + 1 + (MAX_VALUE % Flavor::SORT_STEP == 0 ? 0 : 1);
+
+    // Check that we can fit every element in the polynomial
+    ASSERT((Flavor::NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
+
+    std::vector<size_t> sorted_elements(sorted_elements_count);
+
+    // Calculate the sequence in integers
+    sorted_elements[0] = MAX_VALUE;
+    for (size_t i = 1; i < sorted_elements_count; i++) {
+        sorted_elements[i] = (sorted_elements_count - 1 - i) * Flavor::SORT_STEP;
+    }
+
+    // TODO(#756): can be parallelized further. This will use at most 5 threads
+    auto fill_with_shift = [&](size_t shift) {
+        for (size_t i = 0; i < sorted_elements_count; i++) {
+            extra_range_constraint_numerator.at(shift + i * (Flavor::NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
+        }
+    };
+    // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
+    parallel_for(Flavor::NUM_CONCATENATED_WIRES + 1, fill_with_shift);
+}
 } // namespace bb
