@@ -41,7 +41,7 @@ _The sequencer has passed the transaction information – proofs of correct exec
 
 5. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
 
-### Going deeper
+### Detailed Diagram
 
 Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
 
@@ -50,6 +50,21 @@ Transactions on Aztec start with a call from Aztec.js, which creates a request c
 See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
 See the page on [contract communication](../smart_contracts/functions/public_private_calls.md) for more context on transaction execution.
+
+### Batch Transactions
+
+### Transaction Requests
+
+In Noir:
+
+#include_code tx_request noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_request.nr rust
+
+Where:
+
+- `origin` is the account contract where the transaction is initiated from.
+- `args_hash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx_execution_request.ts) and checked against this hash.
+- `tx_context` contains the chain id, version, and gas settings.
+- `function_data` contains the function selector and indicates whether the function is private or public.
 
 ### Enabling Transaction Semantics: The Aztec Kernel
 
@@ -71,3 +86,9 @@ The only information leaked about the transaction is:
 2. The set of public calls generated
 
 The addresses of all private calls are hidden from observers.
+
+### In Aztec.js
+
+Send
+Simulate
+View

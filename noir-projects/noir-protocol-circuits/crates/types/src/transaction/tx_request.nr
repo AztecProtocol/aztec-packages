@@ -8,13 +8,14 @@ use crate::{
     utils::reader::Reader,
 };
 
+// docs:start:tx_request
 pub struct TxRequest {
     pub origin: AztecAddress,
     pub args_hash: Field,
     pub tx_context: TxContext,
     pub function_data: FunctionData,
 }
-
+// docs:end:tx_request
 impl Empty for TxRequest {
     fn empty() -> Self {
         TxRequest {
