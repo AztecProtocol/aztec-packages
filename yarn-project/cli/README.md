@@ -314,7 +314,7 @@ aztec-cli send <functionName> --args [functionArgs...] --contract-artifact <cont
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractArtifact.
+- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in [@aztec/noir-contracts](https://www.npmjs.com/package/@aztec/noir-contracts), e.g. PrivateTokenContractArtifact.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-k, --private-key <string>`: The sender's private key.
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
@@ -343,7 +343,7 @@ aztec-cli call <functionName> -a [functionArgs...] -c <contractArtifact> -ca <co
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractArtifact.
+- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in [@aztec/noir-contracts](https://www.npmjs.com/package/@aztec/noir-contracts), e.g. PrivateTokenContractArtifact.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-f, --from <string>`: Address of the caller. If empty, first account in the Private eXecution Environment (PXE) will be used.
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
