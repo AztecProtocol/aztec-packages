@@ -162,12 +162,10 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_
 
     // Find the bytecode based on the hinted contract class id
     // TODO: still need to make sure that the contract address does correspond to this class id
-    info("getting bytecode from hint for class id: ", contract_class_id);
     const AvmContractBytecode bytecode_hint =
         *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_class_id](const auto& contract) {
             return contract.contract_instance.contract_class_id == contract_class_id;
         });
-    info("got");
     return bytecode_hint.bytecode;
 }
 
@@ -175,9 +173,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    info("getting bytecode for contract address: ", contract_address);
     ASSERT(execution_hints.contract_instance_hints.contains(contract_address));
-    info("getting instance hint for contract address: ", contract_address);
     const ContractInstanceHint instance_hint = execution_hints.contract_instance_hints.at(contract_address);
     const FF contract_class_id = instance_hint.contract_class_id;
 
