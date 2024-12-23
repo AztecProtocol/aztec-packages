@@ -14,7 +14,9 @@ export interface NoteSelector {
   _branding: 'NoteSelector';
 }
 
-/** A note selector is the first 4 bytes of the hash of a note signature. */
+/** A note selector is the first 4 bytes of the hash of a note signature
+ * TODO(#10952): Encoding of note type id can be reduced to 7 bits.
+ */
 export class NoteSelector extends Selector {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
