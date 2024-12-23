@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
+import { Field, TaggedMemory, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
+import { MemorySliceOutOfRangeError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
@@ -421,7 +422,21 @@ describe('Memory instructions', () => {
       expect(actual).toEqual([new Field(2), new Field(3)]);
     });
 
-    // TODO: check bad cases (i.e., out of bounds)
+    it('Should return error when memory slice calldatacopy target is out-of-range', async () => {
+      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      context.machineState.memory.set(0, new Uint32(0)); // cdoffset
+      context.machineState.memory.set(1, new Uint32(3)); // size
+
+      await expect(
+        new CalldataCopy(
+          /*indirect=*/ 0,
+          /*cdOffset=*/ 0,
+          /*copySize=*/ 1,
+          /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 2,
+        ).execute(context),
+      ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
   });
 
   describe('RETURNDATASIZE', () => {
@@ -505,6 +520,20 @@ describe('Memory instructions', () => {
       expect(actual).toEqual([new Field(2), new Field(3)]);
     });
 
-    // TODO: check bad cases (i.e., out of bounds)
+    it('Should return error when memory slice target is out-of-range', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(1)); // rdoffset
+      context.machineState.memory.set(1, new Uint32(2)); // size
+
+      await expect(
+        new ReturndataCopy(
+          /*indirect=*/ 0,
+          /*rdOffset=*/ 0,
+          /*copySize=*/ 1,
+          /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 1,
+        ).execute(context),
+      ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
   });
 });

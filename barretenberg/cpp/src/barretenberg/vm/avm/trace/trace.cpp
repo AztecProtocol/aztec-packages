@@ -142,6 +142,13 @@ bool is_canonical(FF contract_address)
            contract_address == FEE_JUICE_ADDRESS || contract_address == ROUTER_ADDRESS;
 }
 
+// Returns true if the slice is not out of memory.
+inline bool check_slice_mem_range(uint32_t start_addr, uint32_t size)
+{
+    // Detect overflow for the highest address (start_addr + size - 1) in the slice.
+    return !(size > 1 && start_addr + size - 1 < start_addr);
+}
+
 } // anonymous namespace
 
 /**************************************************************************************************
@@ -517,7 +524,7 @@ bool AvmTraceBuilder::check_tag(AvmMemoryTag tag, AddressWithMode addr)
     return unconstrained_get_memory_tag(addr) == tag;
 }
 
-bool AvmTraceBuilder::check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size)
+bool AvmTraceBuilder::check_tag_range(AvmMemoryTag tag, uint32_t start_offset, uint32_t size)
 {
     for (uint32_t i = 0; i < size; i++) {
         if (!check_tag(tag, start_offset + i)) {
@@ -548,27 +555,30 @@ void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag
 }
 
 template <typename T>
-void AvmTraceBuilder::read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice)
+AvmError AvmTraceBuilder::read_slice_from_memory(uint32_t addr, uint32_t slice_len, std::vector<T>& slice)
 {
-    uint32_t base_addr = addr.offset;
-    if (addr.mode == AddressingMode::INDIRECT) {
-        base_addr = static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, base_addr));
+    if (!check_slice_mem_range(addr, slice_len)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
 
     for (uint32_t i = 0; i < slice_len; i++) {
-        slice.push_back(static_cast<T>(mem_trace_builder.unconstrained_read(call_ptr, base_addr + i)));
+        slice.push_back(static_cast<T>(mem_trace_builder.unconstrained_read(call_ptr, addr + i)));
     }
+    return AvmError::NO_ERROR;
 }
 
-template <typename T>
-void AvmTraceBuilder::write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice)
+template <typename T> AvmError AvmTraceBuilder::write_slice_to_memory(uint32_t addr, AvmMemoryTag w_tag, const T& slice)
 {
-    auto base_addr = addr.mode == AddressingMode::INDIRECT
-                         ? static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, addr.offset))
-                         : addr.offset;
-    for (uint32_t i = 0; i < slice.size(); i++) {
-        write_to_memory(base_addr + i, slice[i], w_tag);
+    const size_t slice_len = slice.size();
+    // Memory out-of-range occurs if slice being huge (more than 32 bits) or highest address overflow.
+    if (slice_len > UINT32_MAX || !check_slice_mem_range(addr, static_cast<uint32_t>(slice_len))) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
+
+    for (uint32_t i = 0; i < slice_len; i++) {
+        write_to_memory(addr + i, slice[i], w_tag);
+    }
+    return AvmError::NO_ERROR;
 }
 
 // Finalise Lookup Counts
@@ -2150,15 +2160,22 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     bool is_top_level = current_ext_call_ctx.is_top_level;
 
+    // Do not take a reference as calldata might be resized below.
     auto calldata = current_ext_call_ctx.calldata;
     if (is_ok(error)) {
         if (is_top_level) {
-            slice_trace_builder.create_calldata_copy_slice(
-                calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
-            mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+            if (!check_slice_mem_range(dst_offset_resolved, copy_size)) {
+                error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+            } else {
+                slice_trace_builder.create_calldata_copy_slice(
+                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+                mem_trace_builder.write_calldata_copy(
+                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+            }
         } else {
+            calldata.resize(copy_size);
             // If we are not at the top level, we write to memory directly
-            write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
+            error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
         }
     }
 
@@ -2282,7 +2299,7 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
         // Crucial to perform this operation after having incremented pc because write_slice_to_memory
         // is implemented with opcodes (SET and JUMP).
-        write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+        error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
     }
     return error;
 }
@@ -3529,7 +3546,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
 
     pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a
     // constrained writes
@@ -3578,7 +3595,6 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
     Row row;
     uint32_t log_size = 0;
-    AddressWithMode direct_field_addr;
     uint32_t num_bytes = 0;
 
     if (is_ok(error)) {
@@ -3592,10 +3608,13 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
                              std::make_move_iterator(log_size_bytes.begin()),
                              std::make_move_iterator(log_size_bytes.end()));
 
-        direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
-        if (!check_tag_range(AvmMemoryTag::FF, direct_field_addr, log_size)) {
+        if (!check_slice_mem_range(resolved_log_offset, log_size)) {
+            error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+        }
+
+        if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_log_offset, log_size)) {
             error = AvmError::CHECK_TAG_ERROR;
-        };
+        }
     }
 
     // Can't return earlier as we do elsewhere for side-effect-limit because we need
@@ -3619,7 +3638,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
         for (uint32_t i = 0; i < log_size; i++) {
-            FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
+            FF log_value = unconstrained_read_from_memory(resolved_log_offset + i);
             std::vector<uint8_t> log_value_byte = log_value.to_buffer();
             bytes_to_hash.insert(bytes_to_hash.end(),
                                  std::make_move_iterator(log_value_byte.begin()),
@@ -3822,7 +3841,15 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
         // Ext Ctx setup
         std::vector<FF> calldata;
-        read_slice_from_memory(resolved_args_offset, args_size, calldata);
+        const auto slice_err = read_slice_from_memory(resolved_args_offset, args_size, calldata);
+
+        if (!is_ok(slice_err)) {
+            return slice_err;
+        }
+
+        if (!check_tag_range(AvmMemoryTag::FF, resolved_args_offset, args_size)) {
+            return AvmError::CHECK_TAG_ERROR;
+        }
 
         // Don't try allocating more than the gas that is actually left
         const auto l2_gas_allocated_to_nested_call =
@@ -3985,7 +4012,12 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
             // We are returning from a nested call
             std::vector<FF> returndata{};
-            read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+            const auto slice_err = read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+
+            if (is_ok(error)) {
+                error = slice_err;
+            }
+
             // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
@@ -4124,7 +4156,12 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
             // We are returning from a nested call
             std::vector<FF> returndata{};
-            read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+            const auto slice_err = read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+
+            if (is_ok(error)) {
+                error = slice_err;
+            }
+
             // Pop the caller/parent's context from the stack to proceed with execution there
             current_ext_call_ctx = external_call_ctx_stack.top();
             external_call_ctx_stack.pop();
@@ -4229,8 +4266,14 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
 
     // Constrain gas cost
     bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+
     if (out_of_gas && is_ok(error)) {
         error = AvmError::OUT_OF_GAS;
+    }
+
+    if (is_ok(error) && !(check_slice_mem_range(resolved_message_offset, message_size) &&
+                          check_slice_mem_range(resolved_fields_offset, fields_size))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
 
     if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
@@ -4286,6 +4329,10 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
         error = AvmError::OUT_OF_GAS;
     }
 
+    if (is_ok(error) && !check_slice_mem_range(resolved_input_offset, 4)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
     // These read patterns will be refactored - we perform them here instead of in the poseidon gadget trace
     // even though they are "performed" by the gadget.
     AddressWithMode direct_src_offset = { AddressingMode::DIRECT, resolved_input_offset };
@@ -4319,10 +4366,14 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
                                                IntermRegister::ID,
                                                AvmMemTraceBuilder::POSEIDON2);
 
-    bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
+    const bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
 
     if (is_ok(error) && !read_tag_valid) {
         error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_output_offset, 4)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
 
     if (is_ok(error)) {
@@ -4430,8 +4481,13 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
-                          check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE))) {
+    if (is_ok(error) && !(check_slice_mem_range(resolved_inputs_offset, INPUTS_SIZE)) &&
+        check_slice_mem_range(resolved_state_offset, STATE_SIZE)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE) &&
+                          check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE))) {
         error = AvmError::CHECK_TAG_ERROR;
     }
 
@@ -4483,20 +4539,27 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // Input for hash is expanded to 512 bits
     std::vector<uint32_t> input_vec;
     // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
+    auto slice_err = read_slice_from_memory<uint32_t>(resolved_state_offset, STATE_SIZE, h_init_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
+
     // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
+    slice_err = read_slice_from_memory<uint32_t>(resolved_inputs_offset, INPUTS_SIZE, input_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
     // main trace that has the selector
-    std::array<uint32_t, 8> h_init = vec_to_arr<uint32_t, 8>(h_init_vec);
-    std::array<uint32_t, 16> input = vec_to_arr<uint32_t, 16>(input_vec);
+    std::array<uint32_t, STATE_SIZE> h_init = vec_to_arr<uint32_t, STATE_SIZE>(h_init_vec);
+    std::array<uint32_t, INPUTS_SIZE> input = vec_to_arr<uint32_t, INPUTS_SIZE>(input_vec);
 
-    std::array<uint32_t, 8> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
+    std::array<uint32_t, STATE_SIZE> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
     // We convert the results to field elements here
     std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 8; i++) {
+    for (uint32_t i = 0; i < STATE_SIZE; i++) {
         ff_result.emplace_back(result[i]);
     }
 
@@ -4504,7 +4567,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
+    error = write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 
     return AvmError::NO_ERROR;
 }
@@ -4532,8 +4595,15 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = input_read.tag_match;
 
-    if (is_ok(error) &&
-        !(tag_match && check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE))) {
+    if (is_ok(error) && !tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_input_offset, KECCAKF1600_INPUT_SIZE)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    if (is_ok(error) && !check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE)) {
         error = AvmError::CHECK_TAG_ERROR;
     }
 
@@ -4565,7 +4635,11 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
     // Array input is fixed to 1600 bits
     std::vector<uint64_t> input_vec;
     // Read results are written to input array
-    read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+    const auto slice_err = read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
+
     std::array<uint64_t, KECCAKF1600_INPUT_SIZE> input = vec_to_arr<uint64_t, KECCAKF1600_INPUT_SIZE>(input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
@@ -4577,9 +4651,9 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
+    error = write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
@@ -4669,7 +4743,11 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::ECADD);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    if (!check_slice_mem_range(resolved_output_offset, 3)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
@@ -4702,6 +4780,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
+    if (is_ok(error) && !check_slice_mem_range(resolved_points_offset, static_cast<uint32_t>(points_length))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
     const uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
     // We need to split up the reads due to the memory tags,
@@ -4709,18 +4791,24 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     std::vector<FF> points_inf_vec;
     std::vector<FF> scalars_vec;
 
-    bool tags_valid = true;
     for (uint32_t i = 0; i < num_points; i++) {
-        tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2) &&
-                     check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2);
+        if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2)) {
+            error = AvmError::CHECK_TAG_ERROR;
+        }
+
+        if (is_ok(error) && !check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2)) {
+            error = AvmError::CHECK_TAG_ERROR;
+        }
     }
 
     // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
     uint32_t scalar_read_length = num_points * 2;
 
-    tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length);
+    if (is_ok(error) && !check_slice_mem_range(resolved_scalars_offset, static_cast<uint32_t>(scalar_read_length))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
 
-    if (is_ok(error) && !tags_valid) {
+    if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length)) {
         error = AvmError::CHECK_TAG_ERROR;
     }
 
@@ -4760,7 +4848,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
     // ...]
-    read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
+    const auto slice_err = read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
 
     // Reconstruct Grumpkin points
     std::vector<grumpkin::g1::affine_element> points;
@@ -4797,7 +4888,11 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::MSM);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    if (!check_slice_mem_range(resolved_output_offset, 3)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
@@ -4926,7 +5021,12 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
+    const auto slice_err = write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
+
+    if (is_ok(error)) {
+        error = slice_err;
+    }
+
     return error;
 }
 
@@ -5217,8 +5317,8 @@ std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
             public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
         auto const allocated_l2_gas =
             std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
-        // Since end_gas_used also contains start_gas_used, we need to subtract it out to see what is consumed by the
-        // public computation only
+        // Since end_gas_used also contains start_gas_used, we need to subtract it out to see what is consumed by
+        // the public computation only
         auto expected_public_gas_consumed = public_inputs.end_gas_used.l2_gas - public_inputs.start_gas_used.l2_gas;
         auto expected_end_gas_l2 = allocated_l2_gas - expected_public_gas_consumed;
         auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;

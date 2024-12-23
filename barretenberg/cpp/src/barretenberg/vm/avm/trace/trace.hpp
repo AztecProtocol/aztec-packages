@@ -400,11 +400,11 @@ class AvmTraceBuilder {
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     bool check_tag(AvmMemoryTag tag, AddressWithMode addr);
-    bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
+    bool check_tag_range(AvmMemoryTag tag, uint32_t start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
-    template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
+    template <typename T> AvmError read_slice_from_memory(uint32_t addr, uint32_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
-    template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
+    template <typename T> AvmError write_slice_to_memory(uint32_t addr, AvmMemoryTag w_tag, const T& slice);
 };
 
 } // namespace bb::avm_trace

@@ -1,7 +1,8 @@
 import { keccakf1600, sha256Compression } from '@aztec/foundation/crypto';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint32, Uint64 } from '../avm_memory_types.js';
+import { Field, TaggedMemory, Uint32, Uint64 } from '../avm_memory_types.js';
+import { MemorySliceOutOfRangeError } from '../errors.js';
 import { initContext, randomMemoryUint32s } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { KeccakF1600, Poseidon2, Sha256Compression } from './hashing.js';
@@ -65,6 +66,26 @@ describe('Hashing Opcodes', () => {
         new Field(0x16c877b5b9c04d873218804ccbf65d0eeb12db447f66c9ca26fec380055df7e9n),
       ]);
     });
+
+    it('Should throw an error when input state offsets are out of range.', async () => {
+      const indirect = 0;
+      const inputStateOffset = TaggedMemory.MAX_MEMORY_SIZE - 3;
+      const outputStateOffset = 0;
+
+      await expect(new Poseidon2(indirect, inputStateOffset, outputStateOffset).execute(context)).rejects.toThrow(
+        MemorySliceOutOfRangeError,
+      );
+    });
+
+    it('Should throw an error when output state offsets are out of range.', async () => {
+      const indirect = 0;
+      const inputStateOffset = 0;
+      const outputStateOffset = TaggedMemory.MAX_MEMORY_SIZE - 1;
+
+      await expect(new Poseidon2(indirect, inputStateOffset, outputStateOffset).execute(context)).rejects.toThrow(
+        MemorySliceOutOfRangeError,
+      );
+    });
   });
 
   describe('Keccakf1600', () => {
@@ -93,6 +114,29 @@ describe('Hashing Opcodes', () => {
 
       const result = context.machineState.memory.getSliceAs<Uint64>(dstOffset, 25);
       expect(result).toEqual(keccakf1600(rawArgs).map(a => new Uint64(a)));
+    });
+
+    it('Should throw an error when message input offsets are out of range.', async () => {
+      const indirect = 0;
+      const messageOffset = TaggedMemory.MAX_MEMORY_SIZE - 24;
+      const dstOffset = 200;
+
+      await expect(new KeccakF1600(indirect, dstOffset, messageOffset).execute(context)).rejects.toThrow(
+        MemorySliceOutOfRangeError,
+      );
+    });
+
+    it('Should throw an error when destination offsets are out of range.', async () => {
+      const rawArgs = [...Array(25)].map(_ => 0n);
+      const args = rawArgs.map(a => new Uint64(a));
+      const indirect = 0;
+      const messageOffset = 0;
+      const dstOffset = TaggedMemory.MAX_MEMORY_SIZE - 24;
+      context.machineState.memory.setSlice(messageOffset, args);
+
+      await expect(new KeccakF1600(indirect, dstOffset, messageOffset).execute(context)).rejects.toThrow(
+        MemorySliceOutOfRangeError,
+      );
     });
   });
 
@@ -178,6 +222,45 @@ describe('Hashing Opcodes', () => {
 
       const expectedOutput = sha256Compression(stateArray, inputsArray);
       expect(outputArray).toEqual(expectedOutput);
+    });
+
+    it('Should throw an error when input offsets are out of range.', async () => {
+      const indirect = 0;
+      const stateOffset = 0;
+      const inputsOffset = TaggedMemory.MAX_MEMORY_SIZE - 15;
+      const outputOffset = 300;
+
+      await expect(
+        new Sha256Compression(indirect, outputOffset, stateOffset, inputsOffset).execute(context),
+      ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
+
+    it('Should throw an error when state offsets are out of range.', async () => {
+      const inputs = randomMemoryUint32s(16);
+      const indirect = 0;
+      const stateOffset = TaggedMemory.MAX_MEMORY_SIZE - 7;
+      const inputsOffset = 200;
+      const outputOffset = 300;
+      context.machineState.memory.setSlice(inputsOffset, inputs);
+
+      await expect(
+        new Sha256Compression(indirect, outputOffset, stateOffset, inputsOffset).execute(context),
+      ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
+
+    it('Should throw an error when output offsets are out of range.', async () => {
+      const state = randomMemoryUint32s(8);
+      const inputs = randomMemoryUint32s(16);
+      const indirect = 0;
+      const stateOffset = 0;
+      const inputsOffset = 200;
+      const outputOffset = TaggedMemory.MAX_MEMORY_SIZE - 7;
+      context.machineState.memory.setSlice(stateOffset, state);
+      context.machineState.memory.setSlice(inputsOffset, inputs);
+
+      await expect(
+        new Sha256Compression(indirect, outputOffset, stateOffset, inputsOffset).execute(context),
+      ).rejects.toThrow(MemorySliceOutOfRangeError);
     });
   });
 });

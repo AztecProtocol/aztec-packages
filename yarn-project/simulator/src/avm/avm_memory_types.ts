@@ -15,7 +15,12 @@ import { type FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
 
-import { InstructionExecutionError, InvalidTagValueError, TagCheckError } from './errors.js';
+import {
+  InstructionExecutionError,
+  InvalidTagValueError,
+  MemorySliceOutOfRangeError,
+  TagCheckError,
+} from './errors.js';
 import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 
 /** MemoryValue gathers the common operations for all memory types. */
@@ -271,7 +276,11 @@ export class TaggedMemory implements TaggedMemoryInterface {
 
   public getSlice(offset: number, size: number): MemoryValue[] {
     assert(Number.isInteger(offset) && Number.isInteger(size));
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
+
+    if (offset + size > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(offset, size);
+    }
+
     const slice = new Array<MemoryValue>(size);
 
     for (let i = 0; i < size; i++) {
@@ -299,7 +308,11 @@ export class TaggedMemory implements TaggedMemoryInterface {
 
   public setSlice(offset: number, slice: MemoryValue[]) {
     assert(Number.isInteger(offset));
-    assert(offset + slice.length <= TaggedMemory.MAX_MEMORY_SIZE);
+
+    if (offset + slice.length > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(offset, slice.length);
+    }
+
     slice.forEach((element, idx) => {
       this._mem.set(offset + idx, element);
     });
