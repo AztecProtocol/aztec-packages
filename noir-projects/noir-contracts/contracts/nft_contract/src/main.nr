@@ -162,7 +162,7 @@ contract NFT {
 
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     // docs:start:transfer_to_private
-     #[private]
+    #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
         let from = context.msg_sender();
 
