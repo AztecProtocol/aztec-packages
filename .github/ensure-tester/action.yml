@@ -32,7 +32,6 @@ runs:
         fi
         echo "USERNAME=$USERNAME" >> $GITHUB_ENV
         echo "runner_label=$USERNAME-${{ github.jobs[github.job].name }}" >> $GITHUB_OUTPUT
-        echo "runner_label=$USERNAME-${{ github.jobs[github.job].name }}" >> $GITHUB_OUTPUT
         echo "ami_id=ami-052a1e16394277fdf" >> $GITHUB_OUTPUT
         # no github runners, 'bare spot' in action code
         echo "runner_concurrency=0" >> $GITHUB_OUTPUT
