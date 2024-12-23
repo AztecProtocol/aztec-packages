@@ -22,7 +22,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
   },
@@ -80,7 +80,7 @@
     "@chainsafe/libp2p-noise": "^15.0.0",
     "@chainsafe/libp2p-yamux": "^6.0.2",
     "@libp2p/bootstrap": "10.0.0",
-    "@libp2p/crypto": "^4.1.1",
+    "@libp2p/crypto": "4.0.3",
     "@libp2p/identify": "1.0.18",
     "@libp2p/interface": "1.3.1",
     "@libp2p/kad-dht": "10.0.4",

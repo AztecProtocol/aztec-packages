@@ -106,6 +106,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
+  maxL1TxInclusionTimeIntoSlot: {
+    env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
+    description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {

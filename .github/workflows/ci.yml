@@ -153,7 +153,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "CI (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
+      - name: "Bootstrap (l1-contracts, avm-transpiler, noir-projects, yarn-project)"
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
@@ -204,7 +204,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
+          run:
+            scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
             --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
             --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
@@ -402,7 +403,7 @@ jobs:
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
-            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-test:
     needs: [images-e2e, configure]
@@ -447,7 +448,7 @@ jobs:
       - name: Copy Network Logs
         if: always()
         run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
-        
+
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -580,7 +581,7 @@ jobs:
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
-        uses: vezenovm/noir-gates-diff@510d7da8a7b027510ca0734761dfa9bcf3e8309d
+        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
         continue-on-error: true
         timeout-minutes: 1
         with:
@@ -618,7 +619,7 @@ jobs:
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
+        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
         continue-on-error: true
         timeout-minutes: 1
         with:

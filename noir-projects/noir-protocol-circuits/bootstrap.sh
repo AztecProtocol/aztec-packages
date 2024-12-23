@@ -4,8 +4,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
 
-export RAYON_NUM_THREADS=16
-export HARDWARE_CONCURRENCY=16
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
+export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+export PARALLELISM=${PARALLELISM:-16}
 
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -124,7 +125,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+    parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
   code=$?
   cat joblog.txt
   return $code
