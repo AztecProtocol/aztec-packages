@@ -94,7 +94,7 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
 
-      - name: Enable Corepack and Install Yarn v4.5.2
+      - name: Enable Corepack and Install Yarn v4.5.2 # Needed to call 'yarn build' on barretenberg/ts
         run: |
           corepack enable
           corepack prepare yarn@4.5.2 --activate
