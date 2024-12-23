@@ -18,6 +18,7 @@ import {
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
@@ -91,6 +92,7 @@ export class TestContext {
       BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
+      new TestDateProvider(),
       telemetry,
     );
 

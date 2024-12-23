@@ -122,7 +122,7 @@ export const pinoPrettyOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
-  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
+  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity',
   messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',

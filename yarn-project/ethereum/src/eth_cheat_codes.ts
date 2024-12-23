@@ -77,7 +77,7 @@ export class EthCheatCodes {
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
     await this.doMine(numberOfBlocks);
-    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
+    this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   private async doMine(numberOfBlocks = 1): Promise<void> {
@@ -107,7 +107,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting balance for ${account}: ${res.error.message}`);
     }
-    this.logger.verbose(`Set balance for ${account} to ${balance}`);
+    this.logger.warn(`Set balance for ${account} to ${balance}`);
   }
 
   /**
@@ -119,7 +119,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 block interval to ${interval}`);
+    this.logger.warn(`Set L1 block interval to ${interval}`);
   }
 
   /**
@@ -131,7 +131,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block base fee per gas: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 next block base fee per gas to ${baseFee}`);
+    this.logger.warn(`Set L1 next block base fee per gas to ${baseFee}`);
   }
 
   /**
@@ -143,7 +143,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting interval mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 interval mining to ${seconds} seconds`);
+    this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
   }
 
   /**
@@ -155,7 +155,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting automine: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 automine to ${automine}`);
+    this.logger.warn(`Set L1 automine to ${automine}`);
   }
 
   /**
@@ -167,7 +167,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error dropping transaction: ${res.error.message}`);
     }
-    this.logger.verbose(`Dropped transaction ${txHash}`);
+    this.logger.warn(`Dropped transaction ${txHash}`);
   }
 
   /**
@@ -179,20 +179,22 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 next block timestamp to ${timestamp}`);
+    this.logger.warn(`Set L1 next block timestamp to ${timestamp}`);
   }
 
   /**
    * Set the next block timestamp and mines the block
    * @param timestamp - The timestamp to set the next block to
    */
-  public async warp(timestamp: number | bigint): Promise<void> {
+  public async warp(timestamp: number | bigint, silent = false): Promise<void> {
     const res = await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
     await this.doMine();
-    this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
+    if (!silent) {
+      this.logger.warn(`Warped L1 timestamp to ${timestamp}`);
+    }
   }
 
   /**
@@ -218,7 +220,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     }
-    this.logger.verbose(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
@@ -242,7 +244,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error impersonating ${who}: ${res.error.message}`);
     }
-    this.logger.verbose(`Impersonating ${who}`);
+    this.logger.warn(`Impersonating ${who}`);
   }
 
   /**
@@ -254,7 +256,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
     }
-    this.logger.verbose(`Stopped impersonating ${who}`);
+    this.logger.warn(`Stopped impersonating ${who}`);
   }
 
   /**
@@ -267,7 +269,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
     }
-    this.logger.verbose(`Set bytecode for ${contract} to ${bytecode}`);
+    this.logger.warn(`Set bytecode for ${contract} to ${bytecode}`);
   }
 
   /**

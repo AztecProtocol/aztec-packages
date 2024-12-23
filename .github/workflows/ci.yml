@@ -204,7 +204,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
+          run:
+            scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
             --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
             --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
             --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
@@ -402,7 +403,7 @@ jobs:
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
-            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
   kind-network-test:
     needs: [images-e2e, configure]

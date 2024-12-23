@@ -135,8 +135,8 @@ std::string to_name(AvmError error)
         return "SIDE EFFECT LIMIT REACHED";
     case AvmError::OUT_OF_GAS:
         return "OUT OF GAS";
-    case AvmError::NO_BYTECODE_FOUND:
-        return "NO BYTECODE FOUND";
+    case AvmError::FAILED_BYTECODE_RETRIEVAL:
+        return "FAILED BYTECODE RETRIEVAL";
     default:
         throw std::runtime_error("Invalid error type");
         break;
