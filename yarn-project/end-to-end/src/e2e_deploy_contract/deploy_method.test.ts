@@ -1,15 +1,5 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  FunctionSelector,
-  type Logger,
-  type PXE,
-  TxStatus,
-  type Wallet,
-  createPXEClient,
-  makeFetch,
-} from '@aztec/aztec.js';
-import { broadcastPrivateFunction } from '@aztec/aztec.js/deployment';
+import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -99,9 +89,10 @@ describe('e2e_deploy_contract deploy method', () => {
     await expect(TestContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
-  it('refused to deploy a contract whose contract class is not yet registered', async () => {
+  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
     const owner = wallet.getAddress();
     const opts = { skipClassRegistration: true };
+    logger.debug(`Trying to deploy contract instance without registering its contract class`);
     await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/,
     );
