@@ -6,10 +6,16 @@ import { ActionConfig } from "./config";
 // Main function to prune instances older than 2 weeks
 async function pruneOldInstances(config: ActionConfig) {
   // Initialize EC2 client
-  const credentials = {
-    accessKeyId: config.awsAccessKeyId,
-    secretAccessKey: config.awsSecretAccessKey,
-  };
+if (!config.awsAccessKeyId || !config.awsSecretAccessKey) {
+  core.setFailed("AWS credentials are missing");
+  return;
+}
+
+const credentials = {
+  accessKeyId: config.awsAccessKeyId,
+  secretAccessKey: config.awsSecretAccessKey,
+};
+
   const ec2 = new EC2({
     region: config.awsRegion,
     credentials,
