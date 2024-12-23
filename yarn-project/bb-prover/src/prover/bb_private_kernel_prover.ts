@@ -31,7 +31,7 @@ import {
   convertPrivateKernelTailToPublicInputsToWitnessMap,
   getPrivateKernelResetArtifactName,
 } from '@aztec/noir-protocol-circuits-types';
-import { WASMSimulator } from '@aztec/simulator';
+import { WASMSimulatorWithBlobs } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { encode } from '@msgpack/msgpack';
@@ -53,7 +53,7 @@ import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
  * TODO(#7368): this class grew 'organically' aka it could use a look at its resposibilities
  */
 export class BBNativePrivateKernelProver implements PrivateKernelProver {
-  private simulator = new WASMSimulator();
+  private simulator = new WASMSimulatorWithBlobs();
 
   private verificationKeys: Map<ClientProtocolArtifact, Promise<VerificationKeyData>> = new Map<
     ClientProtocolArtifact,

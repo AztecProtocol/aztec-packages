@@ -34,6 +34,10 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
+
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = false;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;

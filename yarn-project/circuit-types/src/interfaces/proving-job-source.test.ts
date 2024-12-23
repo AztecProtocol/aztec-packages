@@ -1,9 +1,5 @@
-import {
-  BaseOrMergeRollupPublicInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  VerificationKeyData,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import { BaseOrMergeRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';

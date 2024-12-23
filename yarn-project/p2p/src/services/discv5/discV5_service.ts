@@ -11,26 +11,16 @@ import EventEmitter from 'events';
 import type { P2PConfig } from '../../config.js';
 import { convertToMultiaddr } from '../../util.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
-
-export const AZTEC_ENR_KEY = 'aztec_network';
+import { AZTEC_ENR_KEY, AZTEC_NET, Discv5Event, PeerEvent } from '../types.js';
 
 const delayBeforeStart = 2000; // 2sec
-
-export enum AztecENR {
-  devnet = 0x01,
-  testnet = 0x02,
-  mainnet = 0x03,
-}
-
-// TODO: Make this an env var
-export const AZTEC_NET = AztecENR.devnet;
 
 /**
  * Peer discovery service using Discv5.
  */
 export class DiscV5Service extends EventEmitter implements PeerDiscoveryService {
   /** The Discv5 instance */
-  private discv5: Discv5;
+  private discv5: Discv5 & Discv5EventEmitter;
 
   /** This instance's ENR */
   private enr: SignableENR;
@@ -88,13 +78,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
-    (this.discv5 as Discv5EventEmitter).on('discovered', (enr: ENR) => this.onDiscovered(enr));
-    (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
-      const multiAddrTcp = await enr.getFullMultiaddr('tcp');
-      const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
-      this.onDiscovered(enr);
-    });
+    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
+    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
   }
 
   public async start(): Promise<void> {
@@ -168,8 +153,19 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
+    await this.discv5.off(Discv5Event.DISCOVERED, this.onDiscovered);
+    await this.discv5.off(Discv5Event.ENR_ADDED, this.onEnrAdded);
+
     await this.discv5.stop();
+
     this.currentState = PeerDiscoveryState.STOPPED;
+  }
+
+  private async onEnrAdded(enr: ENR) {
+    const multiAddrTcp = await enr.getFullMultiaddr('tcp');
+    const multiAddrUdp = await enr.getFullMultiaddr('udp');
+    this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+    this.onDiscovered(enr);
   }
 
   private onDiscovered(enr: ENR) {
@@ -179,7 +175,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       const network = value[0];
       // check if the peer is on the same network
       if (network === AZTEC_NET) {
-        this.emit('peer:discovered', enr);
+        this.emit(PeerEvent.DISCOVERED, enr);
       }
     }
   }

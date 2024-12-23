@@ -44,6 +44,7 @@ contract AvmTest {
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
+        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
     };
     use dep::aztec::state_vars::PublicMutable;
@@ -594,6 +595,18 @@ contract AvmTest {
     #[public]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
+    }
+
+    #[public]
+    fn nested_call_to_add_n_times_different_addresses(
+        addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2],
+    ) {
+        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
+            let addr = addrs[i];
+            if addr != AztecAddress::empty() {
+                let _ = AvmTest::at(addr).add_args_return(1, 2).call(&mut context);
+            }
+        }
     }
 
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
