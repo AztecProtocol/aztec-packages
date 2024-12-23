@@ -61,7 +61,8 @@ spec:
             - name: config
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
-        - name: deploy-create2-delpoyer
+        {{- if not .Values.ethereum.externalHost }}
+        - name: deploy-create2-deployer
           image: {{ .Values.images.foundry.image }}
           command:
             - /bin/sh
@@ -72,6 +73,7 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
+        {{- end }}
         - name: deploy-l1-contracts
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
