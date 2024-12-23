@@ -1,6 +1,8 @@
 use dep::aztec::{
-    keys::getters::{get_nsk_app, get_public_keys}, macros::notes::partial_note,
-    note::utils::compute_note_hash_for_nullify, oracle::random::random,
+    keys::getters::{get_nsk_app, get_public_keys},
+    macros::notes::partial_note,
+    note::utils::compute_note_hash_for_nullify,
+    oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
