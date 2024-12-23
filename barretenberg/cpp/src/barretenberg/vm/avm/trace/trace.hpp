@@ -255,6 +255,24 @@ class AvmTraceBuilder {
         full_precomputed_tables = required;
         return *this;
     }
+    AvmTraceBuilder& with_default_ctx()
+    {
+        AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                                   .parent_id = 0,
+                                                   .is_top_level = true,
+                                                   .contract_address = FF(0),
+                                                   .calldata = {},
+                                                   .nested_returndata = {},
+                                                   .last_pc = 0,
+                                                   .success_offset = 0,
+                                                   .start_l2_gas_left = 0,
+                                                   .start_da_gas_left = 0,
+                                                   .l2_gas_left = 0,
+                                                   .da_gas_left = 0,
+                                                   .internal_return_ptr_stack = {} });
+        current_ext_call_ctx = ext_call_ctx;
+        return *this;
+    }
 
     struct MemOp {
         bool is_indirect;
