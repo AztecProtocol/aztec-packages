@@ -135,7 +135,7 @@ Before we can implement the functions, we need set up the contract storage, and 
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/nft_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
@@ -190,7 +190,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 This function sets the admin and makes them a minter, and sets the name and symbol.
 
-#include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code constructor /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ### Public function implementations
 
@@ -222,7 +222,7 @@ This public function checks that the `token_id` is not 0 and does not already ex
 
 #include_code transfer_in_public /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
-##### Authorizing token spends
+##### Authorizing token spends (via authwits)
 
 If the `msg_sender` is **NOT** the same as the account to debit from, the function checks that the account has authorized the `msg_sender` contract to debit tokens on its behalf. This check is done by computing the function selector that needs to be authorized, computing the hash of the message that the account contract has approved. This is a hash of the contract that is approved to spend (`context.msg_sender`), the token contract that can be spent from (`context.this_address()`), the `selector`, the account to spend from (`from`), the `amount` and a `nonce` to prevent multiple spends. This hash is passed to `assert_inner_hash_valid_authwit_public` to ensure that the Account Contract has approved tokens to be spent on it's behalf.
 
@@ -230,9 +230,9 @@ If the `msg_sender` is the same as the account to debit from, the authorization 
 
 #### `finalize_transfer_to_private`
 
-This public function finalizes a transfer that has been set up by a call to `prepare_private_balance_increase` by reducing the public balance of the associated account and emitting the note for the intended recipient.
+This public function finalizes a transfer that has been set up by a call to [`prepare_private_balance_increase`](#prepare_private_balance_increase) by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 ### Private function implementations
 
@@ -249,19 +249,21 @@ Storage is referenced as `storage.variable`.
 
 #### `transfer_to_private`
 
-Transfers token with `token_id` from public balance of the sender to a private balance of `to`. Calls [`_prepare_private_balance_increase`](#prepare_private_balance_increase) to get the hiding point slot and [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) to finalize the transfer in the public context.
+Transfers token with `token_id` from public balance of the sender to a private balance of `to`. Calls [`_prepare_private_balance_increase`](#prepare_private_balance_increase) to get the hiding point slot (a transient storage slot where we can keep the partial note) and then calls [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) to finalize the transfer in the public context.
 
-#include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_to_private /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `prepare_private_balance_increase`
 
-This function prepares a partial note to transfer an NFT from the public context to the private context. The caller specifies an `AztecAddress` that will receive the NFT in private storage.
+This function prepares a [partial note](../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context. The caller specifies an `AztecAddress` that will receive the NFT in private storage.
 
 :::note
 
 This function calls `_prepare_private_balance_increase` which is marked as `#[contract_library_method]`, which means the compiler will inline the `_prepare_private_balance_increase` function. Click through to the source to see the implementation.
 
 :::
+
+It also calls [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) to store the partial note in "transient storage" (more below)
 
 #include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
@@ -273,7 +275,7 @@ Cancels a private authwit by emitting the corresponding nullifier.
 
 #### `transfer_in_private`
 
-Transfers an NFT in the private context. Uses [authwits](../../../aztec/concepts/accounts/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
+Transfers an NFT between two addresses in the private context. Uses [authwits](../../../aztec/concepts/accounts/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
 
 #include_code transfer_in_private /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
@@ -290,6 +292,8 @@ Internal functions are functions that can only be called by this contract. The f
 #### `_store_payload_in_transient_storage_unsafe`
 
 It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
+
+This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subseqeuent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
 
 #include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
@@ -315,13 +319,13 @@ Public view calls that are part of a transaction will be executed by the sequenc
 
 A getter function for reading the public `admin` value.
 
-#include_code admin /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code admin /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `is_minter`
 
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
-#include_code is_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code is_minter /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
 #### `owner_of`
 

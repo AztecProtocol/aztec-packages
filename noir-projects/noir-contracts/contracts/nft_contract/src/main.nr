@@ -128,17 +128,21 @@ contract NFT {
         storage.symbol.read()
     }
 
+    // docs:start:admin
     #[public]
     #[view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
+    // docs:end:admin
 
+    // docs:start:is_minter
     #[public]
     #[view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
+    // docs:end:is_minter
 
     // docs:start:transfer_in_public
     #[public]
@@ -158,7 +162,7 @@ contract NFT {
 
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     // docs:start:transfer_to_private
-    #[private]
+     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
         let from = context.msg_sender();
 
@@ -182,7 +186,7 @@ contract NFT {
     fn prepare_private_balance_increase(to: AztecAddress) -> Field {
         _prepare_private_balance_increase(to, &mut context, storage)
     }
-    // docs:end:prepare_private_balance_increase
+
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
     /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
     ///
@@ -230,6 +234,7 @@ contract NFT {
 
         hiding_point_slot
     }
+    // docs:end:prepare_private_balance_increase
 
     // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
     // users to derive manually. This will however go away once we have a real transient storage since we will not need
