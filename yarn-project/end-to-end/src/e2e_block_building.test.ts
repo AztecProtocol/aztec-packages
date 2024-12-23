@@ -146,6 +146,40 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
     });
 
+    // Tests that public function simulation time is not affected by the size of the nullifier tree.
+    // Skipped since we only use it to manually test number of invocations to world-state.
+    it.skip('builds blocks with multiple public fns after multiple nullifier insertions', async () => {
+      // First deploy the contracts
+      const ownerAddress = owner.getCompleteAddress().address;
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      const another = await TestContract.deploy(owner).send().deployed();
+
+      await aztecNode.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
+
+      // Flood nullifiers to grow the size of the nullifier tree.
+      // Can probably do this more efficiently by batching multiple emit_nullifier calls
+      // per tx using batch calls.
+      const NULLIFIER_COUNT = 128;
+      const sentNullifierTxs = [];
+      for (let i = 0; i < NULLIFIER_COUNT; i++) {
+        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send({ skipPublicSimulation: true }));
+      }
+      await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
+      logger.info(`Nullifier txs sent`);
+
+      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+
+      // Now send public functions
+      const TX_COUNT = 128;
+      const sentTxs = [];
+      for (let i = 0; i < TX_COUNT; i++) {
+        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send({ skipPublicSimulation: true }));
+      }
+
+      await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
+      logger.info(`Txs sent`);
+    });
+
     it('processes txs until hitting timetable', async () => {
       const TX_COUNT = 32;
 
