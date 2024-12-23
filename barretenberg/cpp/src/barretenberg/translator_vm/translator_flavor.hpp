@@ -161,9 +161,6 @@ class TranslatorFlavor {
                               concatenated_range_constraints_2, // column 2
                               concatenated_range_constraints_3) // column 3
     };
-
-    // Why do we not concatenate this, I assume because they are defined over the whole circuit and range constraints
-    // are a mini circuit thing
     template <typename DataType> class WireToBeShiftedWithoutConcatenated {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -273,9 +270,6 @@ class TranslatorFlavor {
                               ordered_range_constraints_3,  // column 3
                               ordered_range_constraints_4); // column 4
     };
-
-    // Only contains the op polynomial because I guess for this one we're not looking for any corespondence, it's just
-    // giving us what operation we perform at each row, cus it's a VM duh
 
     template <typename DataType> class WireNonshiftedEntities {
       public:

@@ -14,7 +14,6 @@
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
 namespace bb {
-using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
 /**
  * @brief Given the transcript values from the EccOpQueue, the values of the previous accumulator, batching challenge
@@ -34,17 +33,23 @@ using ECCVMOperation = ECCOpQueue::ECCVMOperation;
  * @param evaluation_input_x The value at which we evaluate the polynomials
  * @return TranslatorCircuitBuilder::AccumulationInput
  */
-TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_witness_values(Fr op_code,
-                                                                                              Fr p_x_lo,
-                                                                                              Fr p_x_hi,
-                                                                                              Fr p_y_lo,
-                                                                                              Fr p_y_hi,
-                                                                                              Fr z1,
-                                                                                              Fr z2,
-                                                                                              Fq previous_accumulator,
-                                                                                              Fq batching_challenge_v,
-                                                                                              Fq evaluation_input_x)
+TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_witness_values(
+    const Fr op_code,
+    const Fr p_x_lo,
+    const Fr p_x_hi,
+    const Fr p_y_lo,
+    const Fr p_y_hi,
+    const Fr z1,
+    const Fr z2,
+    const Fq previous_accumulator,
+    const Fq batching_challenge_v,
+    const Fq evaluation_input_x)
 {
+    // All parameters are well-described in the header, this is just for convenience
+    constexpr size_t TOP_STANDARD_MICROLIMB_BITS = NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS;
+    constexpr size_t TOP_Z_MICROLIMB_BITS = (NUM_Z_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
+    constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS =
+        (TranslatorCircuitBuilder::NUM_QUOTIENT_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
 
     /**
      * @brief A small function to transform a native element Fq into its bigfield representation in Fr scalars
@@ -52,7 +57,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * @details We transform Fq into an integer and then split it into 68-bit limbs, then convert them to Fr.
      *
      */
-    auto base_element_to_limbs = [](Fq& original) {
+    auto base_element_to_limbs = [](const Fq& original) {
         uint256_t original_uint = original;
         return std::array<Fr, NUM_BINARY_LIMBS>({
             Fr(original_uint.slice(0, NUM_LIMB_BITS)),
@@ -68,7 +73,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * convert to Fr
      *
      */
-    auto uint512_t_to_limbs = [](uint512_t& original) {
+    auto uint512_t_to_limbs = [](const uint512_t& original) {
         return std::array<Fr, NUM_BINARY_LIMBS>{ Fr(original.slice(0, NUM_LIMB_BITS).lo),
                                                  Fr(original.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo),
                                                  Fr(original.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo),
@@ -79,16 +84,15 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * @brief A method for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
      *
      */
-    auto split_wide_limb_into_2_limbs = [](Fr& wide_limb) {
-        return std::array<Fr, TranslatorCircuitBuilder::NUM_Z_LIMBS>{ Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
-                                                                      Fr(uint256_t(wide_limb).slice(
-                                                                          NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
+    auto split_wide_limb_into_2_limbs = [](const Fr& wide_limb) {
+        return std::array<Fr, NUM_Z_LIMBS>{ Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
+                                            Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
     };
     /**
      * @brief A method to split a full 68-bit limb into 5 14-bit limb and 1 shifted limb for a more secure constraint
      *
      */
-    auto split_standard_limb_into_micro_limbs = [](Fr& limb) {
+    auto split_standard_limb_into_micro_limbs = [](const Fr& limb) {
         static_assert(MICRO_LIMB_BITS == 14);
         return std::array<Fr, NUM_MICRO_LIMBS>{
             uint256_t(limb).slice(0, MICRO_LIMB_BITS),
@@ -106,7 +110,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * (plus there is 1 extra space for other constraints)
      *
      */
-    auto split_top_limb_into_micro_limbs = [](Fr& limb, size_t last_limb_bits) {
+    auto split_top_limb_into_micro_limbs = [](const Fr& limb, const size_t last_limb_bits) {
         static_assert(MICRO_LIMB_BITS == 14);
         return std::array<Fr, NUM_MICRO_LIMBS>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
                                                 uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
@@ -122,7 +126,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * the last limb)
      *
      */
-    auto split_top_z_limb_into_micro_limbs = [](Fr& limb, size_t last_limb_bits) {
+    auto split_top_z_limb_into_micro_limbs = [](const Fr& limb, const size_t last_limb_bits) {
         static_assert(MICRO_LIMB_BITS == 14);
         return std::array<Fr, NUM_MICRO_LIMBS>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
                                                 uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
@@ -138,7 +142,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
      * ensure non-overflow of the modulus)
      *
      */
-    auto split_relation_limb_into_micro_limbs = [](Fr& limb) {
+    auto split_relation_limb_into_micro_limbs = [](const Fr& limb) {
         static_assert(MICRO_LIMB_BITS == 14);
         return std::array<Fr, 6>{
             uint256_t(limb).slice(0, MICRO_LIMB_BITS),
@@ -222,7 +226,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     Fr low_wide_relation_limb_part_1 = previous_accumulator_limbs[0] * x_witnesses[0] + op_code +
                                        v_witnesses[0] * p_x_limbs[0] + v_squared_witnesses[0] * p_y_limbs[0] +
                                        v_cubed_witnesses[0] * z_1_limbs[0] + v_quarted_witnesses[0] * z_2_limbs[0] +
-                                       quotient_limbs[0] * neg_modulus_limbs[0] -
+                                       quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[0] -
                                        remainder_limbs[0]; // This covers the lowest limb
 
     Fr low_wide_relation_limb =
@@ -231,14 +235,14 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
          v_witnesses[1] * p_x_limbs[0] + p_x_limbs[1] * v_witnesses[0] + v_squared_witnesses[1] * p_y_limbs[0] +
          v_squared_witnesses[0] * p_y_limbs[1] + v_cubed_witnesses[1] * z_1_limbs[0] +
          z_1_limbs[1] * v_cubed_witnesses[0] + v_quarted_witnesses[1] * z_2_limbs[0] +
-         v_quarted_witnesses[0] * z_2_limbs[1] + quotient_limbs[0] * neg_modulus_limbs[1] +
-         quotient_limbs[1] * neg_modulus_limbs[0] - remainder_limbs[1]) *
-            shift_1;
+         v_quarted_witnesses[0] * z_2_limbs[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[1] +
+         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[0] - remainder_limbs[1]) *
+            SHIFT_1;
 
     // Low bits have to be zero
     ASSERT(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
 
-    Fr low_wide_relation_limb_divided = low_wide_relation_limb * shift_2_inverse;
+    Fr low_wide_relation_limb_divided = low_wide_relation_limb * SHIFT_2_INVERSE;
 
     // The high relation limb is the accumulation of the low limb divided by 2¹³⁶ and the combination of limbs with
     // indices (0*2,1*1,2*0) with limbs with indices (0*3,1*2,2*1,3*0) multiplied by 2⁶⁸
@@ -250,8 +254,9 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         v_squared_witnesses[2] * p_y_limbs[0] + v_squared_witnesses[1] * p_y_limbs[1] +
         v_squared_witnesses[0] * p_y_limbs[2] + v_cubed_witnesses[2] * z_1_limbs[0] +
         v_cubed_witnesses[1] * z_1_limbs[1] + v_quarted_witnesses[2] * z_2_limbs[0] +
-        v_quarted_witnesses[1] * z_2_limbs[1] + quotient_limbs[2] * neg_modulus_limbs[0] +
-        quotient_limbs[1] * neg_modulus_limbs[1] + quotient_limbs[0] * neg_modulus_limbs[2] - remainder_limbs[2] +
+        v_quarted_witnesses[1] * z_2_limbs[1] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[0] +
+        quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[2] -
+        remainder_limbs[2] +
         (previous_accumulator_limbs[3] * x_witnesses[0] + previous_accumulator_limbs[2] * x_witnesses[1] +
          previous_accumulator_limbs[1] * x_witnesses[2] + previous_accumulator_limbs[0] * x_witnesses[3] +
          v_witnesses[3] * p_x_limbs[0] + v_witnesses[2] * p_x_limbs[1] + v_witnesses[1] * p_x_limbs[2] +
@@ -259,19 +264,19 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
          v_squared_witnesses[1] * p_y_limbs[2] + v_squared_witnesses[0] * p_y_limbs[3] +
          v_cubed_witnesses[3] * z_1_limbs[0] + v_cubed_witnesses[2] * z_1_limbs[1] +
          v_quarted_witnesses[3] * z_2_limbs[0] + v_quarted_witnesses[2] * z_2_limbs[1] +
-         quotient_limbs[3] * neg_modulus_limbs[0] + quotient_limbs[2] * neg_modulus_limbs[1] +
-         quotient_limbs[1] * neg_modulus_limbs[2] + quotient_limbs[0] * neg_modulus_limbs[3] - remainder_limbs[3]) *
-            shift_1;
+         quotient_limbs[3] * NEGATIVE_MODULUS_LIMBS[0] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[1] +
+         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[2] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[3] -
+         remainder_limbs[3]) *
+            SHIFT_1;
 
     // Check that the results lower 136 bits are zero
     ASSERT(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
 
     // Get divided version
-    auto high_wide_relation_limb_divided = high_wide_relation_limb * shift_2_inverse;
+    auto high_wide_relation_limb_divided = high_wide_relation_limb * SHIFT_2_INVERSE;
 
-    const auto last_limb_index = TranslatorCircuitBuilder::NUM_BINARY_LIMBS - 1;
+    const auto last_limb_index = NUM_BINARY_LIMBS - 1;
 
-    const auto NUM_Z_LIMBS = TranslatorCircuitBuilder::NUM_Z_LIMBS;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_x_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_y_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_1_microlimbs;
@@ -297,10 +302,10 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(z_1_limbs[i]);
         z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(z_2_limbs[i]);
     }
-    z_1_microlimbs[TranslatorCircuitBuilder::NUM_Z_LIMBS - 1] =
-        split_top_z_limb_into_micro_limbs(z_1_limbs[TranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
-    z_2_microlimbs[TranslatorCircuitBuilder::NUM_Z_LIMBS - 1] =
-        split_top_z_limb_into_micro_limbs(z_2_limbs[TranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+    z_1_microlimbs[NUM_Z_LIMBS - 1] =
+        split_top_z_limb_into_micro_limbs(z_1_limbs[NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+    z_2_microlimbs[NUM_Z_LIMBS - 1] =
+        split_top_z_limb_into_micro_limbs(z_2_limbs[NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
 
     // Split current accumulator into microlimbs for range constraining
     for (size_t i = 0; i < last_limb_index; i++) {
@@ -317,7 +322,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         split_top_limb_into_micro_limbs(quotient_limbs[last_limb_index], TOP_QUOTIENT_MICROLIMB_BITS);
 
     // Start filling the witness container
-    TranslatorCircuitBuilder::AccumulationInput input{
+    AccumulationInput input{
         .op_code = op_code,
         .P_x_lo = p_x_lo,
         .P_x_hi = p_x_hi,
@@ -546,14 +551,13 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput 
  * @tparam Fq
  * @return TranslatorCircuitBuilder::AccumulationInput
  */
-template <typename Fq>
-TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
-                                                                                  Fq previous_accumulator,
-                                                                                  Fq batching_challenge_v,
-                                                                                  Fq evaluation_input_x)
-{
-    using Fr = bb::fr;
 
+TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_witness_values_for_one_ecc_op(
+    const ECCVMOperation& ecc_op,
+    const Fq previous_accumulator,
+    const Fq batching_challenge_v,
+    const Fq evaluation_input_x)
+{
     // Get the Opcode value
     Fr op(ecc_op.get_opcode_value());
     Fr p_x_lo(0);
@@ -567,12 +571,10 @@ TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_o
     // the original in-circuit coordinate values are also zero
     const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
 
-    p_x_lo = Fr(uint256_t(x_256).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_x_hi = Fr(uint256_t(x_256).slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS,
-                                       4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_y_lo = Fr(uint256_t(y_256).slice(0, 2 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
-    p_y_hi = Fr(uint256_t(y_256).slice(2 * TranslatorCircuitBuilder::NUM_LIMB_BITS,
-                                       4 * TranslatorCircuitBuilder::NUM_LIMB_BITS));
+    p_x_lo = Fr(uint256_t(x_256).slice(0, 2 * NUM_LIMB_BITS));
+    p_x_hi = Fr(uint256_t(x_256).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS));
+    p_y_lo = Fr(uint256_t(y_256).slice(0, 2 * NUM_LIMB_BITS));
+    p_y_hi = Fr(uint256_t(y_256).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS));
 
     // Generate the full witness values
     return generate_witness_values(op,
@@ -586,7 +588,7 @@ TranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_o
                                    batching_challenge_v,
                                    evaluation_input_x);
 }
-void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue)
+void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
     using Fq = bb::fq;
     const auto& raw_ops = ecc_op_queue->get_raw_ops();
@@ -600,9 +602,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
     auto v = batching_challenge_v;
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate. We don't care about the last
-    // value since we'll recompute it during witness generation anyway
-    for (size_t i = 0; i < raw_ops.size() - 1; i++) {
+    // from the later indices. We need to know the previous accumulator to create the gate
+    for (size_t i = 0; i < raw_ops.size(); i++) {
         const auto& ecc_op = raw_ops[raw_ops.size() - 1 - i];
         current_accumulator *= x;
         const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
@@ -610,6 +611,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<EC
             (Fq(ecc_op.get_opcode_value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
         accumulator_trace.push_back(current_accumulator);
     }
+
+    // We don't care about the last value since we'll recompute it during witness generation anyway
+    accumulator_trace.pop_back();
 
     for (const auto& raw_op : raw_ops) {
         Fq previous_accumulator = 0;

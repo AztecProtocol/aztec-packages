@@ -59,20 +59,21 @@ namespace bb {
  * modulo 2¹³⁶ again and as a result we get correctness modulo 2²⁷².
  *
  * One big issue are range constraints. In Translator we check ranges by decomposing LIMBS into special other
- * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires) . These wires always have the
- * range of 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for
- * example, 68 bits are decomposed into 5 14-bit limbs + 1 shifted limb, which is equal to the highest microlimb
- * multiplied by 4). The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space
- * and because of the proving system requirements we put some of the decomposed values from relation limbs (limbs which
- * compute the result of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y,
- * accumulator and quotient. This is due to the fact that the highest limb in these four is less than 56 bits, which
- * frees up an extra microlimb.
+ * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires). These wires always have the range of
+ * 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for example,
+ * 68 bits are decomposed into 5 14-bit limbs + 1 shifted limb, which is equal to the highest microlimb multiplied by
+ * 4). The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space and because of
+ * the proving system requirements we put some of the decomposed values from relation limbs (limbs which compute the
+ * result of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y, accumulator and
+ * quotient. This is due to the fact that the highest limb in these four is less than 56 bits, which frees up an extra
+ * microlimb.
  *
  */
 class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // We don't need templating for Goblin
     using Fr = bb::fr;
     using Fq = bb::fq;
+    using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
   public:
     static constexpr size_t NUM_WIRES = 81;
@@ -448,7 +449,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @param ecc_op_queue The queue
      */
-    void feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue);
+    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
 
     /**
      * @brief Check the witness satisifies the circuit
@@ -459,16 +460,20 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @return false
      */
     bool check_circuit();
-    AccumulationInput generate_witness_values(Fr op_code,
-                                              Fr p_x_lo,
-                                              Fr p_x_hi,
-                                              Fr p_y_lo,
-                                              Fr p_y_hi,
-                                              Fr z1,
-                                              Fr z2,
-                                              Fq previous_accumulator,
-                                              Fq batching_challenge_v,
-                                              Fq evaluation_input_x);
+    static AccumulationInput generate_witness_values(const Fr op_code,
+                                                     const Fr p_x_lo,
+                                                     const Fr p_x_hi,
+                                                     const Fr p_y_lo,
+                                                     const Fr p_y_hi,
+                                                     const Fr z1,
+                                                     const Fr z2,
+                                                     const Fq previous_accumulator,
+                                                     const Fq batching_challenge_v,
+                                                     const Fq evaluation_input_x);
+    static AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
+                                                                   const Fq previous_accumulator,
+                                                                   const Fq batching_challenge_v,
+                                                                   const Fq evaluation_input_x);
 };
 
 } // namespace bb

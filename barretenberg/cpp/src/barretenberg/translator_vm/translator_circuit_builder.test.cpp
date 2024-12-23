@@ -58,12 +58,13 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
 
     Fq previous_accumulator = Fq::random_element();
 
-    // Generate the witness for a single step
-    TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
-        generate_witness_values(op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
-
     // Create a circuit builder
     auto circuit_builder = TranslatorCircuitBuilder(v, x);
+
+    // Generate the witness for a single step
+    TranslatorCircuitBuilder::AccumulationInput single_accumulation_step = circuit_builder.generate_witness_values(
+        op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
+
     // Submit one accumulation step in the builder
     circuit_builder.create_accumulation_gate(single_accumulation_step);
     // Check if the circuit fails
