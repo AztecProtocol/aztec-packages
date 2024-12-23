@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734977639009,
+  "lastUpdate": 1734981838080,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0803964015492db81001c17252aa4b724e43797b",
-          "message": "feat!: rename Header to BlockHeader (#10372)\n\nI found this name quite confusing since there are lots of headers (note\r\nheaders, log headers, etc.), and so this seemed like an obvious\r\nimprovement. I also renamed the generic-looking methods (e.g.\r\n`getHeader()`) where appropriate.",
-          "timestamp": "2024-12-07T20:24:35+01:00",
-          "tree_id": "f08a04f47f2f90f4ea6a0e07b1189bd95c164b12",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0803964015492db81001c17252aa4b724e43797b"
-        },
-        "date": 1733602222573,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 26129.843539999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23759.768661 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4708.530955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4423.987256 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93080.362463,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93080363000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16775.935299,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16775934000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2852306938,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2852306938 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136154515,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136154515 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3126,6 +3066,68 @@ window.BENCHMARK_DATA = {
             "value": 167597621,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167597621 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "febb96c06d3ca51a70cf116d05fa21ad23d733d1",
+          "message": "chore(master): Release 0.68.1",
+          "timestamp": "2024-12-23T19:14:35Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10918/commits/febb96c06d3ca51a70cf116d05fa21ad23d733d1"
+        },
+        "date": 1734981831023,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20349.93410200002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17890.489276 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21881.26345699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19420.72105 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4623.300760000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4314.227238000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73099.897263,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73099898000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13932.895406,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13932897000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2916163511,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2916163511 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165929001,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165929001 ns\nthreads: 1"
           }
         ]
       }
