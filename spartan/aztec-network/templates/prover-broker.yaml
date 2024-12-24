@@ -29,7 +29,7 @@ spec:
       volumes:
         - name: config
           emptyDir: {}
-        -name: prover-broker-data
+        - name: prover-broker-data
           emptyDir: {}
         - name: scripts
           configMap:
