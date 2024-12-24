@@ -2,16 +2,16 @@ use dep::types::{
     block_header::BlockHeader,
     KernelCircuitPublicInputs,
     proof::{
-        recursive_proof::RecursiveProof,
+        rollup_recursive_proof::RecursiveProof,
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
     traits::Empty,
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
-    vk: HonkVerificationKey,
+    vk: RollupHonkVerificationKey,
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {

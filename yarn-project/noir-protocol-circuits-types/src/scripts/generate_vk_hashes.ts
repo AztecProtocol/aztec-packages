@@ -15,7 +15,7 @@ function resolveRelativePath(relativePath: string) {
 const main = async () => {
   // TODO(#7410) tube VK should have been generated in noir-projects, but since we don't have a limited set of tubes
   // we fake it here.
-  const tubeVK = VerificationKeyData.makeFakeHonk();
+  const tubeVK = VerificationKeyData.makeFakeRollupHonk();
   const tubeVKPath = resolveRelativePath('../../artifacts/keys/tube.vk.data.json');
   await fs.writeFile(
     tubeVKPath,

@@ -191,6 +191,7 @@ library Constants {
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
+  uint256 internal constant IPA_CLAIM_LENGTH = 10;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
@@ -222,8 +223,12 @@ library Constants {
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant TUBE_PROOF_LENGTH = 459;
+  uint256 internal constant IPA_PROOF_LENGTH = 65;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
+  uint256 internal constant TUBE_PROOF_LENGTH = 534;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
   uint256 internal constant MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES = 96000;
   uint256 internal constant MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = 21;
@@ -294,4 +299,6 @@ library Constants {
   uint256 internal constant PROOF_TYPE_OINK = 2;
   uint256 internal constant PROOF_TYPE_PG = 3;
   uint256 internal constant PROOF_TYPE_AVM = 4;
+  uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
+  uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
 }
