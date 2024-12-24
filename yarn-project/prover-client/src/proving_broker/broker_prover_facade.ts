@@ -11,26 +11,29 @@ import {
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  type KernelCircuitPublicInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type ParityPublicInputs,
+  type PrivateKernelEmptyInputData,
+  type RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type TUBE_PROOF_LENGTH,
   type TubeInputs,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -147,7 +150,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_MERGE_ROLLUP,
@@ -161,7 +166,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_ROOT_ROLLUP,
@@ -175,7 +182,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
@@ -189,7 +198,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
       ProvingRequestType.PRIVATE_KERNEL_EMPTY,
@@ -203,7 +214,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     input: MergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.MERGE_ROLLUP, input, epochNumber),
       ProvingRequestType.MERGE_ROLLUP,
@@ -216,7 +229,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput, epochNumber),
       ProvingRequestType.PRIVATE_BASE_ROLLUP,
@@ -230,7 +245,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: PublicBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueAndWaitForJob(
       this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs, epochNumber),
       ProvingRequestType.PUBLIC_BASE_ROLLUP,

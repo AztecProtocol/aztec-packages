@@ -42,7 +42,7 @@ The goal for this tutorial is to create functionality such that a token can be b
 
 This is just a reference implementation for educational purposes only. It has not been through an in-depth security audit.
 
-Let’s assume a token exists on Ethereum and Aztec (see a [the token tutorial](../token_contract.md)).
+Let’s assume a token exists on Ethereum and Aztec (see [the example token contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr)).
 
 We will build:
 

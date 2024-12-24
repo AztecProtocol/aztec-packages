@@ -18,20 +18,14 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  type BaseRollupHints,
-  BlobPublicInputs,
   type BlockHeader,
-  type BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
   FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   PrivateKernelEmptyInputData,
@@ -43,6 +37,14 @@ import {
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import { BlobPublicInputs } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BaseRollupHints,
+  type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { maxBy, padArrayEnd } from '@aztec/foundation/collection';
@@ -102,7 +104,7 @@ const logger = createLogger('prover-client:orchestrator');
 export class ProvingOrchestrator implements EpochProver {
   private provingState: EpochProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTxProof?: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  private paddingTxProof?: ProofAndVerificationKey<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
@@ -523,7 +525,7 @@ export class ProvingOrchestrator implements EpochProver {
   private provePaddingTransactions(
     txInputs: Array<{ hints: BaseRollupHints; snapshot: TreeSnapshots }>,
     paddingTx: ProcessedTx,
-    proofAndVk: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    proofAndVk: ProofAndVerificationKey<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     provingState: BlockProvingState,
   ) {
     // The padding tx contains the proof and vk, generated separately from the base inputs
@@ -1145,7 +1147,7 @@ export class ProvingOrchestrator implements EpochProver {
     currentIndex: bigint,
     mergeInputData: [
       BaseOrMergeRollupPublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
   ) {
@@ -1183,7 +1185,7 @@ export class ProvingOrchestrator implements EpochProver {
     currentIndex: bigint,
     mergeInputData: [
       BlockRootOrBlockMergePublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
   ) {

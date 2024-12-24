@@ -18,13 +18,14 @@ import {
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
   PublicProcessor,
   PublicTxSimulator,
   type SimulationProvider,
-  WASMSimulator,
+  WASMSimulatorWithBlobs,
   type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -69,7 +70,7 @@ export class TestContext {
     logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
+      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulatorWithBlobs())),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -91,6 +92,7 @@ export class TestContext {
       BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
+      new TestDateProvider(),
       telemetry,
     );
 

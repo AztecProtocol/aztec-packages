@@ -29,6 +29,7 @@ namespace bb {
 template <class Params_> struct alignas(32) field {
   public:
     using View = field;
+    using CoefficientAccumulator = field;
     using Params = Params_;
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;

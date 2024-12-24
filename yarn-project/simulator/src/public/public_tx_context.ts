@@ -26,6 +26,7 @@ import {
   RevertCode,
   type StateReference,
   TreeSnapshots,
+  computeTransactionFee,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -282,6 +283,15 @@ export class PublicTxContext {
   }
 
   /**
+   * Compute the public gas used using the actual gas used during teardown instead
+   * of the teardown gas limit.
+   */
+  getActualPublicGasUsed(): Gas {
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
+    return this.gasUsedByPublic.add(this.teardownGasUsed);
+  }
+
+  /**
    * Get the transaction fee as is available to the specified phase.
    * Only teardown should have access to the actual transaction fee.
    */
@@ -298,12 +308,15 @@ export class PublicTxContext {
    * Should only be called during or after teardown.
    */
   private getTransactionFeeUnsafe(): Fr {
-    const txFee = this.getTotalGasUsed().computeFee(this.globalVariables.gasFees);
+    const gasUsed = this.getTotalGasUsed();
+    const txFee = computeTransactionFee(this.globalVariables.gasFees, this.gasSettings, gasUsed);
+
     this.log.debug(`Computed tx fee`, {
       txFee,
-      gasUsed: inspect(this.getTotalGasUsed()),
+      gasUsed: inspect(gasUsed),
       gasFees: inspect(this.globalVariables.gasFees),
     });
+
     return txFee;
   }
 

@@ -9,7 +9,6 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  BlockBlobPublicInputs,
   type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
@@ -18,6 +17,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -169,12 +169,7 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(
-      builderDb,
-      blockSource,
-      worldStateConfig,
-      new NoopTelemetryClient(),
-    );
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     publisher = new L1Publisher(

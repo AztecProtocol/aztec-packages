@@ -16,6 +16,7 @@ import {
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -44,6 +45,7 @@ export type ProverNodeOptions = {
  */
 export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
+  private dateProvider = new DateProvider();
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
@@ -93,6 +95,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       return;
     }
 
+    const provenEpoch = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpoch !== undefined && proofClaim.epochToProve <= provenEpoch) {
+      this.log.verbose(`Claim for epoch ${proofClaim.epochToProve} is already proven`);
+      return;
+    }
+
     try {
       await this.startProof(proofClaim.epochToProve);
       this.latestEpochWeAreProving = proofClaim.epochToProve;
@@ -117,12 +125,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       const claim = await this.publisher.getProofClaim();
       if (!claim || claim.epochToProve < epochNumber) {
+        this.log.verbose(`Handling epoch ${epochNumber} completed as initial sync`);
         await this.handleEpochCompleted(epochNumber);
-      } else if (claim && claim.bondProvider.equals(this.publisher.getSenderAddress())) {
-        const lastEpochProven = await this.l2BlockSource.getProvenL2EpochNumber();
-        if (lastEpochProven === undefined || lastEpochProven < claim.epochToProve) {
-          await this.handleClaim(claim);
-        }
       }
     } catch (err) {
       this.log.error(`Error handling initial epoch sync`, err);
@@ -264,7 +268,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await this.worldState.syncImmediate(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      this.dateProvider,
+      this.telemetryClient,
+    );
 
     const cleanUp = () => {
       this.jobs.delete(job.getId());

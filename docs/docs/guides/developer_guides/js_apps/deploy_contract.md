@@ -15,7 +15,7 @@ You can read about contract artifacts [here](../../../aztec/smart_contracts/cont
 
 ## Import the contract artifact
 
-In this guide we are using a Token contract artifact. This comes from the [token contract tutorial](../../../tutorials/codealong/contract_tutorials/token_contract.md).
+In this guide we are using a Token contract artifact.
 
 #include_code import_token_contract yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 

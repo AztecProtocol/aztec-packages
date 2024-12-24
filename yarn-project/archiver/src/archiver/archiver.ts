@@ -36,7 +36,6 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -295,6 +294,7 @@ export class Archiver implements ArchiveSource, Traceable {
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
+      this.instrumentation.processPrune();
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -508,6 +508,10 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
+  public getL1Constants(): L1RollupConstants {
+    return this.l1constants;
+  }
+
   public getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(this.l1Addresses.rollupAddress);
   }
@@ -567,17 +571,22 @@ export class Archiver implements ArchiveSource, Traceable {
       return true;
     }
 
+    // If we haven't run an initial sync, just return false.
+    const l1Timestamp = this.l1Timestamp;
+    if (l1Timestamp === undefined) {
+      return false;
+    }
+
     // If not, the epoch may also be complete if the L2 slot has passed without a block
-    // We compute this based on the timestamp for the given epoch and the timestamp of the last L1 block
-    const l1Timestamp = this.getL1Timestamp();
+    // We compute this based on the end timestamp for the given epoch and the timestamp of the last L1 block
     const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
 
     // For this computation, we throw in a few extra seconds just for good measure,
     // since we know the next L1 block won't be mined within this range. Remember that
-    // l1timestamp is the timestamp of the last l1 block we've seen, so this 3s rely on
-    // the fact that L1 won't mine two blocks within 3s of each other.
+    // l1timestamp is the timestamp of the last l1 block we've seen, so this relies on
+    // the fact that L1 won't mine two blocks within this time of each other.
     // TODO(palla/reorg): Is the above a safe assumption?
-    const leeway = 3n;
+    const leeway = 1n;
     return l1Timestamp + leeway >= endTimestamp;
   }
 
@@ -766,12 +775,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return;
   }
 
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, artifact);
-  }
-
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void> {
+    return this.store.registerContractFunctionName(address, names);
   }
 
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1078,11 +1083,8 @@ class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, contract);
-  }
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void> {
+    return this.store.registerContractFunctionName(address, names);
   }
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getContractFunctionName(address, selector);

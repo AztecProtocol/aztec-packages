@@ -13,6 +13,7 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 - Pushing arbitrary [notes](../../guides/developer_guides/smart_contracts/writing_contracts/notes/index.md) to your PXE
 - Creating [authwits](../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md)
 - Aliasing info and secrets for further usage
+- Proving your transactions and profile gate counts
 
 :::info
 
@@ -164,3 +165,6 @@ It expects `name` and `storageFieldName`. For example, if the `#[storage]` struc
 ```bash
 aztec-wallet add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
 ```
+
+## Proving
+You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/developer_guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)

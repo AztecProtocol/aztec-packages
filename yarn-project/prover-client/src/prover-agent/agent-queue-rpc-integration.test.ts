@@ -1,5 +1,6 @@
 import { ProvingJobSourceSchema, type ServerCircuitProver } from '@aztec/circuit-types';
-import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Fr, PrivateKernelEmptyInputData } from '@aztec/circuits.js';
+import { TubeInputs } from '@aztec/circuits.js/rollup';
 import {
   makeAvmCircuitInputs,
   makeBaseParityInputs,

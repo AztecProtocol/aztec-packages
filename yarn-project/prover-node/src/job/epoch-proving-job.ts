@@ -71,12 +71,13 @@ export class EpochProvingJob implements Traceable {
   })
   public async run() {
     const epochNumber = Number(this.epochNumber);
-    const epochSize = this.blocks.length;
+    const epochSizeBlocks = this.blocks.length;
+    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.numberOfTxsIncludingPadded, 0);
     const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
     this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
       fromBlock,
       toBlock,
-      epochSize,
+      epochSizeBlocks,
       epochNumber,
       uuid: this.uuid,
     });
@@ -87,7 +88,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSize);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
@@ -113,7 +114,7 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.dbProvider.fork(block.number - 1);
-        const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables);
+        const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables, true);
         const processed = await this.processTxs(publicProcessor, txs, txCount);
         await this.prover.addTxs(processed);
         await db.close();
@@ -136,7 +137,7 @@ export class EpochProvingJob implements Traceable {
       this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'completed';
-      this.metrics.recordProvingJob(timer);
+      this.metrics.recordProvingJob(timer, epochSizeBlocks, epochSizeTxs);
     } catch (err) {
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';

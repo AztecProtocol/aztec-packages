@@ -20,10 +20,6 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
-  /** The minimum number of seconds in-between consecutive blocks. */
-  minSecondsBetweenBlocks?: number;
-  /** The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached. */
-  maxSecondsBetweenBlocks?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -42,6 +38,8 @@ export interface SequencerConfig {
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
+  /** How many seconds into an L1 slot we can still send a tx and get it mined. */
+  maxL1TxInclusionTimeIntoSlot?: number;
 }
 
 const AllowedElementSchema = z.union([
@@ -55,8 +53,6 @@ export const SequencerConfigSchema = z.object({
   transactionPollingIntervalMS: z.number().optional(),
   maxTxsPerBlock: z.number().optional(),
   minTxsPerBlock: z.number().optional(),
-  minSecondsBetweenBlocks: z.number().optional(),
-  maxSecondsBetweenBlocks: z.number().optional(),
   coinbase: schemas.EthAddress.optional(),
   feeRecipient: schemas.AztecAddress.optional(),
   acvmWorkingDirectory: z.string().optional(),
@@ -65,4 +61,5 @@ export const SequencerConfigSchema = z.object({
   maxBlockSizeInBytes: z.number().optional(),
   enforceFees: z.boolean().optional(),
   gerousiaPayload: schemas.EthAddress.optional(),
+  maxL1TxInclusionTimeIntoSlot: z.number().optional(),
 }) satisfies ZodFor<SequencerConfig>;

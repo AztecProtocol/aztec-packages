@@ -38,7 +38,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
+import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -253,8 +253,8 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public getContacts(): Promise<AztecAddress[]> {
-    return this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    return this.db.getSenderAddresses();
   }
 
   /**
@@ -321,18 +321,19 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address receiving the notes
    * @returns A list of indexed tagging secrets
    */
-  async #getIndexedTaggingSecretsForContacts(
+  async #getIndexedTaggingSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...(await this.db.getContactAddresses()), ...(await this.keyStore.getAccounts())].filter(
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us)
+    const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = contacts.map(contact => {
+    const appTaggingSecrets = senders.map(contact => {
       const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
@@ -353,59 +354,56 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<void> {
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    let [currentIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [oldIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
-    const INDEX_OFFSET = 10;
+    // This algorithm works such that:
+    // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
+    // we found and quit.
+    // 2. If we don't find minimum consecutive empty logs in a window of logs we slide the window to latest log index
+    // and repeat the process.
+    const MIN_CONSECUTIVE_EMPTY_LOGS = 10;
+    const WINDOW_SIZE = MIN_CONSECUTIVE_EMPTY_LOGS * 2;
 
-    let previousEmptyBack = 0;
-    let currentEmptyBack = 0;
-    let currentEmptyFront: number;
-
-    // The below code is trying to find the index of the start of the first window in which for all elements of window, we do not see logs.
-    // We take our window size, and fetch the node for these logs. We store both the amount of empty consecutive slots from the front and the back.
-    // We use our current empty consecutive slots from the front, as well as the previous consecutive empty slots from the back to see if we ever hit a time where there
-    // is a window in which we see the combination of them to be greater than the window's size. If true, we rewind current index to the start of said window and use it.
-    // Assuming two windows of 5:
-    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 0]
-    // We can see that when processing the second window, the previous amount of empty slots from the back of the window (1), added with the empty elements from the front of the window (5)
-    // is greater than 5 (6) and therefore we have found a window to use.
-    // We simply need to take the number of elements (10) - the size of the window (5) - the number of consecutive empty elements from the back of the last window (1) = 4;
-    // This is the first index of our desired window.
-    // Note that if we ever see a situation like so:
-    // [0, 1, 0, 1, 0], [0, 0, 0, 0, 1]
-    // This also returns the correct index (4), but this is indicative of a problem / desync. i.e. we should never have a window that has a log that exists after the window.
-
+    let [numConsecutiveEmptyLogs, currentIndex] = [0, oldIndex];
     do {
-      const currentTags = [...new Array(INDEX_OFFSET)].map((_, i) => {
+      // We compute the tags for the current window of indexes
+      const currentTags = [...new Array(WINDOW_SIZE)].map((_, i) => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
         return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
-      previousEmptyBack = currentEmptyBack;
 
+      // We fetch the logs for the tags
       const possibleLogs = await this.aztecNode.getLogsByTags(currentTags);
 
-      const indexOfFirstLog = possibleLogs.findIndex(possibleLog => possibleLog.length !== 0);
-      currentEmptyFront = indexOfFirstLog === -1 ? INDEX_OFFSET : indexOfFirstLog;
-
+      // We find the index of the last log in the window that is not empty
       const indexOfLastLog = possibleLogs.findLastIndex(possibleLog => possibleLog.length !== 0);
-      currentEmptyBack = indexOfLastLog === -1 ? INDEX_OFFSET : INDEX_OFFSET - 1 - indexOfLastLog;
 
-      currentIndex += INDEX_OFFSET;
-    } while (currentEmptyFront + previousEmptyBack < INDEX_OFFSET);
+      if (indexOfLastLog === -1) {
+        // We haven't found any logs in the current window so we stop looking
+        break;
+      }
 
-    // We unwind the entire current window and the amount of consecutive empty slots from the previous window
-    const newIndex = currentIndex - (INDEX_OFFSET + previousEmptyBack);
+      // We move the current index to that of the last log we found
+      currentIndex += indexOfLastLog + 1;
 
-    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, newIndex)]);
+      // We compute the number of consecutive empty logs we found and repeat the process if we haven't found enough.
+      numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLog - 1;
+    } while (numConsecutiveEmptyLogs < MIN_CONSECUTIVE_EMPTY_LOGS);
 
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
-    this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
-      sender,
-      secret: appTaggingSecret,
-      index: currentIndex,
-      contractName,
-      contractAddress,
-    });
+    if (currentIndex !== oldIndex) {
+      await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
+
+      this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
+        sender,
+        secret: appTaggingSecret,
+        index: currentIndex,
+        contractName,
+        contractAddress,
+      });
+    } else {
+      this.log.debug(`No new logs found for sender ${sender} at contract ${contractName}(${contractAddress})`);
+    }
   }
 
   /**
@@ -421,9 +419,6 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
-    // Half the size of the window we slide over the tagging secret indexes.
-    const WINDOW_HALF_SIZE = 10;
-
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
     // This nesting is necessary because for a given set of tags we don't
@@ -440,7 +435,7 @@ export class SimulatorOracle implements DBOracle {
       const logsForRecipient: TxScopedL2Log[] = [];
 
       // Get all the secrets for the recipient and sender pairs (#9365)
-      const secrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
+      const secrets = await this.#getIndexedTaggingSecretsForSenders(contractAddress, recipient);
 
       // We fetch logs for a window of indexes in a range:
       //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.

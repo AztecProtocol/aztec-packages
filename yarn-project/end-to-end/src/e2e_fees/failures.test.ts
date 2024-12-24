@@ -40,11 +40,10 @@ describe('e2e_fees failures', () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
-    const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
-      aliceAddress,
-      sequencerAddress,
-    );
+    const [initialAlicePrivateBananas] = await t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress);
     const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
+
+    const [initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(bananaFPC.address);
 
     await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
 
@@ -56,12 +55,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(
-              bananaCoin.address,
-              bananaFPC.address,
-              aliceWallet,
-              t.sequencerAddress,
-            ),
+            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -85,12 +79,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(
-            bananaCoin.address,
-            bananaFPC.address,
-            aliceWallet,
-            t.sequencerAddress,
-          ),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -107,15 +96,18 @@ describe('e2e_fees failures', () => {
     // and thus we paid the fee
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, sequencerAddress],
+      [aliceAddress],
       [
         // Even with the revert public teardown function got successfully executed so Alice received the refund note
         // and hence paid the actual fee.
         initialAlicePrivateBananas + privateMintedAlicePrivateBananas - feeAmount,
-        // Sequencer is the FPC admin/fee recipient and hence he should have received the fee amount note
-        initialSequencerPrivateBananas + feeAmount,
       ],
     );
+
+    // FPC should have received the fee in public
+    await expect(t.getBananaPublicBalanceFn(t.bananaFPC.address)).resolves.toEqual([
+      initialFPCPublicBananas + feeAmount,
+    ]);
 
     // Gas balance of Alice should have stayed the same as the FPC paid the gas fee and not her (she paid bananas
     // to FPC admin).
@@ -152,7 +144,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -182,7 +174,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -218,7 +210,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -232,7 +224,7 @@ describe('e2e_fees failures', () => {
           skipPublicSimulation: true,
           fee: {
             gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -262,8 +254,7 @@ describe('e2e_fees failures', () => {
     await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
 
     const badGas = GasSettings.from({
-      gasLimits: gasSettings.gasLimits,
-      maxFeesPerGas: gasSettings.maxFeesPerGas,
+      ...gasSettings,
       teardownGasLimits: Gas.empty(),
     });
 
@@ -273,7 +264,7 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings: badGas,
-            paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
@@ -285,7 +276,7 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings: badGas,
-          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
         },
       })
       .wait({
@@ -318,11 +309,13 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
+
+    const asset = await this.getAsset();
 
     return Promise.resolve([
       this.wallet
@@ -335,7 +328,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
               selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
-              to: this.asset,
+              to: asset,
               returnTypes: [],
             },
           },
@@ -345,10 +338,10 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [tooMuchFee, this.asset.toField(), nonce],
+        args: [tooMuchFee, nonce],
         returnTypes: [],
       },
     ]);

@@ -11,7 +11,7 @@ import { type Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
-import { type Browser, type Page, launch } from 'puppeteer';
+import { type Browser, type Page, launch } from 'puppeteer-core';
 
 declare global {
   /**
