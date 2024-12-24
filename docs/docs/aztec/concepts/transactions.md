@@ -53,18 +53,20 @@ See the page on [contract communication](../smart_contracts/functions/public_pri
 
 ### Transaction Requests
 
-In Noir:
+Transaction requests are how transactions are constructed and sent to the network.
 
-#include_code tx_request noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_request.nr rust
+In Aztec.js:
+
+#include_code constructor yarn-project/circuits.js/src/structs/tx_request.ts javascript
 
 Where:
 
 - `origin` is the account contract where the transaction is initiated from.
-- `args_hash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx_execution_request.ts) and checked against this hash.
-- `tx_context` contains the chain id, version, and gas settings.
-- `function_data` contains the function selector and indicates whether the function is private or public.
+- `functionData` contains the function selector and indicates whether the function is private or public.
+- `argsHash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx_execution_request.ts) and checked against this hash.
+- `txContext` contains the chain id, version, and gas settings.
 
-The `function_data` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
+The `functionData` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
 
 An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
 
@@ -72,7 +74,17 @@ Transaction requests are simulated in the PXE in order to generate the necessary
 
 #### Contract Interaction Methods
 
-Most transaction requests are created as interactions with specific contracts. The exception is transactions that deploy contracts. Here are the main methods for interacting with contracts related to transactions:
+Most transaction requests are created as interactions with specific contracts. The exception is transactions that deploy contracts. Here are the main methods for interacting with contracts related to transactions.
+
+1. [`create`](#create)
+2. [`simulate`](#simulate)
+3. [`prove`](#prove)
+4. [`send`](#send)
+
+And fee utilities:
+
+- [`estimateGas`](#estimategas)
+- [`getFeeOptions`](#getfeeoptions)
 
 ##### `create`
 

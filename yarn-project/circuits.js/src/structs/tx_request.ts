@@ -13,6 +13,7 @@ import { TxContext } from './tx_context.js';
  */
 export class TxRequest {
   constructor(
+    // docs:start:constructor
     /** Sender. */
     public origin: AztecAddress,
     /** Function data representing the function to call. */
@@ -21,7 +22,8 @@ export class TxRequest {
     public argsHash: Fr,
     /** Transaction context. */
     public txContext: TxContext,
-  ) {}
+  ) // docs:end:constructor
+  {}
 
   static getFields(fields: FieldsOf<TxRequest>) {
     return [fields.origin, fields.functionData, fields.argsHash, fields.txContext] as const;
