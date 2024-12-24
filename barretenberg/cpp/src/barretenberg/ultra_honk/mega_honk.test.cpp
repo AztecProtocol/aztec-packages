@@ -120,7 +120,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ MICRO_TEST_STRUCTURE };
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
@@ -390,7 +390,12 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
-    proving_key_1->proving_key.polynomials.w_l.at(5) = 10;
+    for (size_t i = 0; i < proving_key_1->proving_key.circuit_size; ++i) {
+        if (proving_key_1->proving_key.polynomials.q_arith[i] != 0) {
+            proving_key_1->proving_key.polynomials.w_l.at(i) += 1;
+            break;
+        }
+    }
 
     // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
     std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);

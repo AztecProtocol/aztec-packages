@@ -243,21 +243,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 /**
  * @brief A tiny structuring (for testing without recursive verifications only)
  */
-static constexpr TraceStructure MICRO_TEST_STRUCTURE{ .ecc_op = 5,
-                                                      .busread = 5,
-                                                      .lookup = 5,
-                                                      .pub_inputs = 5,
-                                                      .arithmetic = 10,
-                                                      .delta_range = 2,
-                                                      .elliptic = 2,
-                                                      .aux = 2,
-                                                      .poseidon2_external = 2,
-                                                      .poseidon2_internal = 3,
-                                                      .overflow = 0 };
-
-/**
- * @brief A tiny structuring (for testing without recursive verifications only)
- */
 static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .busread = 3,
                                                      .lookup = 2,
