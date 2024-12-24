@@ -27,9 +27,9 @@ spec:
           args:
             - |
               apk update && apk add e2fsprogs &&
-              mkfs.ext4 /dev/nvme0n1 &&
+              mkfs.ext4 /dev/sdb &&
               mkdir -p /mnt/disks/ssd0 &&
-              mount /dev/nvme0n1 /mnt/disks/ssd0
+              mount /dev/sbd /mnt/disks/ssd0
           volumeMounts:
             - name: host-mount
               mountPath: /mnt/disks
