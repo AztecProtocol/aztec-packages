@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735009276482,
+  "lastUpdate": 1735021570367,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7fa8f844d9e389f8636118f1d3c3ecce707e771e",
-          "message": "chore: Optimise grand product computation round based on active ranges (#10460)\n\nSkip computation of numerator and denominator of z_perm at indexes that\r\nare not part of the active ranges, and refine the threshold in\r\ncommit_structured for `z_perm`. New benchmarks:\r\n**Now: 5.6 s difference**\r\nWe still see a difference between committing to z_perm between an\r\nambient trace of 2^19 and 2^20, caused by the fact that the active\r\nranges complement are larger (i.e. the ranges in the trace blocks where\r\nz_perm is constant) because the blocks themselves are larger. We \r\nmake sure to at least avoid computing and committing to z_perm after the\r\nfinal active wire index.",
-          "timestamp": "2024-12-09T09:53:47Z",
-          "tree_id": "e07b9816aa0a2b96dfd8c944278cc45ff76196b9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7fa8f844d9e389f8636118f1d3c3ecce707e771e"
-        },
-        "date": 1733740870659,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25051.447335000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23098.617967 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4955.206206,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4610.698397 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84998.268733,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84998270000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15135.86786,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15135869000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2841811673,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2841811673 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142816444,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142816444 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3134,6 +3074,72 @@ window.BENCHMARK_DATA = {
             "value": 142324936,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142324936 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2274402ef1b67d8f1a88a922d00521a48cf38c08",
+          "message": "chore(master): Release 0.68.2 (#10948)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.68.2</summary>\r\n\r\n##\r\n[0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.1...aztec-package-v0.68.2)\r\n(2024-12-23)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.68.2</summary>\r\n\r\n##\r\n[0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.68.1...barretenberg.js-v0.68.2)\r\n(2024-12-23)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.68.2</summary>\r\n\r\n##\r\n[0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.68.1...aztec-packages-v0.68.2)\r\n(2024-12-23)\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Fix proverEnabled flag in cli-wallet\r\n([#10945](https://github.com/AztecProtocol/aztec-packages/issues/10945))\r\n([c484e50](https://github.com/AztecProtocol/aztec-packages/commit/c484e50ad990ae50e99a5badc4cec60e679d68e8))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.68.2</summary>\r\n\r\n##\r\n[0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.1...barretenberg-v0.68.2)\r\n(2024-12-23)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-12-24T11:39:33+05:30",
+          "tree_id": "d42c72b648235bbde664014065e3bdd8a3c89440",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2274402ef1b67d8f1a88a922d00521a48cf38c08"
+        },
+        "date": 1735021559356,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20018.349253999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17621.63941 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21796.022749999964,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18993.331961 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4624.46975200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4296.561926 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72979.099704,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72979100000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13988.284001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13988284000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2881450982,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2881450982 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142409439,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142409439 ns\nthreads: 1"
           }
         ]
       }
