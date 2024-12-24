@@ -120,8 +120,8 @@ validator:
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
   resources:
     requests:
-      memory: "5Gi"
-      cpu: "1.5"
+      memory: "4Gi"
+      cpu: "1"
   validator:
     disabled: false
   sequencer:

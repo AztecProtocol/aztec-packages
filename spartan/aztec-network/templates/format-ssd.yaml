@@ -22,10 +22,11 @@ spec:
                       - "true"
       containers:
         - name: format
-          image: busybox
+          image: alpine
           command: ["/bin/sh", "-c"]
           args:
             - |
+              apk update && apk add e2fsprogs &&
               mkfs.ext4 /dev/nvme0n1 &&
               mkdir -p /mnt/disks/ssd0 &&
               mount /dev/nvme0n1 /mnt/disks/ssd0

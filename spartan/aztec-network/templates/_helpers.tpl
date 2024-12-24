@@ -184,7 +184,7 @@ affinity:
         namespaceSelector: {}
 {{- end -}}
 
-{{- define "aztec-network.localSsdAntiAffinity" -}}
+{{- define "aztec-network.localSsdAffinity" -}}
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
