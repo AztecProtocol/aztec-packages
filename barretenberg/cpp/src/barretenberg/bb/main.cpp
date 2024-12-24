@@ -815,9 +815,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     if (!witnessPath.empty()) {
         program.witness = get_witness(witnessPath);
     }
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
@@ -1194,9 +1194,9 @@ void prove_honk_output_all(const std::string& bytecodePath,
     acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion),
                                       get_witness(witnessPath) };
 
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Construct Honk proof
