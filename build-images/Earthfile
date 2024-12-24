@@ -365,7 +365,7 @@ devbox:
   SAVE IMAGE aztecprotocol/devbox:2.2
 
 devbox-manifest:
-  LET VERSION = 2.1
+  LET VERSION = 2.2
   ARG TARGETARCH
   WAIT
     BUILD +devbox

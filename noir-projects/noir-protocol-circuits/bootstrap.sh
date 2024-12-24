@@ -51,10 +51,10 @@ function compile {
   local program_hash hash bytecode_hash vk vk_fields
   # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
-  # program_hash=$(dump_fail "$program_hash_cmd")
-  program_hash=$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    "^noir-projects/$project_name/crates/$dir")
+  program_hash=$(dump_fail "$program_hash_cmd")
+  # program_hash=$(cache_content_hash \
+  #   ../../noir/.rebuild_patterns \
+  #   "^noir-projects/$project_name/crates/$dir")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
