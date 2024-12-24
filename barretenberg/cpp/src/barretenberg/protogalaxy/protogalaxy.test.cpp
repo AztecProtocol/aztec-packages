@@ -137,7 +137,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
-        for (const auto& eval : full_honk_evals) {
+        for (const auto& eval : full_honk_evals.coeffs()) {
             EXPECT_EQ(eval, FF(0));
         }
     }
@@ -152,7 +152,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
+        [[maybe_unused]] Polynomial honk_evaluations_poly(full_honk_evaluations.size());
+        for (auto [poly_val, val] : zip_view(honk_evaluations_poly.coeffs(), full_honk_evaluations)) {
+            poly_val = val;
+        }
+        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, honk_evaluations_poly);
         std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
         EXPECT_EQ(perturbator.size(), 4); // log(size) + 1
         for (size_t i = 0; i < perturbator.size(); i++) {
