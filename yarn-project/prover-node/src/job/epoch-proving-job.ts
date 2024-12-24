@@ -1,5 +1,4 @@
 import {
-  EmptyTxValidator,
   type EpochProver,
   type EpochProvingJobState,
   type ForkMerkleTreeOperations,
@@ -90,7 +89,6 @@ export class EpochProvingJob implements Traceable {
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
-        const txCount = block.body.numberOfTxsIncludingPadded;
         const txs = this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const previousHeader = await this.getBlockHeader(block.number - 1);
@@ -112,7 +110,7 @@ export class EpochProvingJob implements Traceable {
         // Process public fns
         const db = await this.dbProvider.fork(block.number - 1);
         const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables, true);
-        const processed = await this.processTxs(publicProcessor, txs, txCount);
+        const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();
         this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
@@ -168,12 +166,8 @@ export class EpochProvingJob implements Traceable {
     return this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(block.number));
   }
 
-  private async processTxs(
-    publicProcessor: PublicProcessor,
-    txs: Tx[],
-    totalNumberOfTxs: number,
-  ): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs, totalNumberOfTxs, new EmptyTxValidator());
+  private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs);
 
     if (failedTxs.length) {
       throw new Error(

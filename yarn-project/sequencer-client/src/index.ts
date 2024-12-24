@@ -1,6 +1,7 @@
 export * from './client/index.js';
 export * from './config.js';
 export * from './publisher/index.js';
+export * from './tx_validator/tx_validator_factory.js';
 export { Sequencer, SequencerState } from './sequencer/index.js';
 export * from './slasher/index.js';
 

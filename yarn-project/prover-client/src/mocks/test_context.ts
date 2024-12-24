@@ -195,7 +195,7 @@ export class TestContext {
     return { block, txs, msgs };
   }
 
-  public async processPublicFunctions(txs: Tx[], maxTransactions: number, txValidator?: TxValidator<ProcessedTx>) {
+  public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -220,7 +220,6 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      txValidator,
       defaultExecutorImplementation,
     );
   }
@@ -244,7 +243,6 @@ export class TestContext {
   private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -271,7 +269,7 @@ export class TestContext {
     if (executorMock) {
       simulateInternal.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txValidator);
+    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 }
 
