@@ -22,7 +22,7 @@ cd ./acir_tests/$TEST_NAME
 
 if [ "$COMPILE" -ne 0 ]; then
   echo -n "$TEST_NAME compiling... "
-  export RAYON_NUM_THREADS=4
+  export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4}
   rm -rf target
   set +e
   compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)

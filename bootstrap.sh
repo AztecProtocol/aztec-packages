@@ -137,7 +137,7 @@ function test {
   done
 
   echo "Gathering tests to run..."
-  test_cmds $@ | parallelise 96
+  test_cmds $@ | RAYON_NUM_THREADS=1 HARDWARE_CONCURRENCY=8 parallelise 96
   github_endgroup
 }
 

@@ -61,7 +61,7 @@ function build {
 function build_tests {
   github_group "bb build tests"
   denoise ./format.sh check
-  denoise "cmake --preset $preset && cmake --preset $preset"
+  denoise "cmake --preset $preset && cmake --build --preset $preset"
   # Download ignition transcripts. Only needed for tests.
   # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
   # TODO: Use the flattened crs. These old transcripts are a pain.

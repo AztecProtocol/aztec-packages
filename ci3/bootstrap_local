@@ -15,8 +15,9 @@ if ! git diff --quiet; then
   echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"
 fi
 
-docker run --name aztec_build -ti --rm \
-  --privileged \
+docker run -ti --rm --privileged \
+  --name aztec_build \
+  --hostname bootstrap_local \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
   -v $HOME/.aws:/home/aztec-dev/.aws:ro \
