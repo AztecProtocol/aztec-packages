@@ -12,6 +12,7 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: validator
+  {{- if .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: validator-data
@@ -20,6 +21,7 @@ spec:
         resources:
           requests:
             storage: {{ .Values.validator.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -27,7 +29,8 @@ spec:
         app: validator
     spec:
       {{- if .Values.storage.localSsd }}
-      {{- include "aztec-network.localSsdAffinity" . | nindent 6 }}
+      nodeSelector:
+        local-ssd: "true"
       {{- end }}
 
       {{- if .Values.network.public }}
