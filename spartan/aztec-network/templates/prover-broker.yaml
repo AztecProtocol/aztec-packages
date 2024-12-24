@@ -18,6 +18,9 @@ spec:
         app: prover-broker
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -25,6 +28,8 @@ spec:
       {{- end }}
       volumes:
         - name: config
+          emptyDir: {}
+        -name: prover-broker-data
           emptyDir: {}
         - name: scripts
           configMap:
@@ -74,6 +79,8 @@ spec:
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverBroker.logLevel }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDir }}"
             - name: LOG_JSON
               value: "1"
             - name: PROVER_BROKER_POLL_INTERVAL_MS
@@ -83,7 +90,7 @@ spec:
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverBroker.jobMaxRetries }}"
             - name: PROVER_BROKER_DATA_DIRECTORY
-              value: "{{ .Values.proverBroker.dataDirectory }}"
+              value: "{{ .Values.proverBroker.dataDir }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
           resources:

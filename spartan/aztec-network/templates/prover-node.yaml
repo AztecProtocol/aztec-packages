@@ -17,6 +17,9 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-node
     spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -106,6 +109,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: prover-node-data
+              mountPath: {{ .Values.proverNode.dataDir }}
           env:
             - name: K8S_POD_UID
               valueFrom:
@@ -165,6 +170,8 @@ spec:
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
             - name: PROVER_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.proverNode.dataDir }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
@@ -182,6 +189,11 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: prover-node-data
+          emptyDir: {}
+      {{- end }}
+  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
   - metadata:
       name: shared-volume
@@ -192,6 +204,7 @@ spec:
       resources:
         requests:
           storage: {{ .Values.proverNode.storage }}
+  {{- end }}
 {{if not .Values.network.public }}
 ---
 apiVersion: v1

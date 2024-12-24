@@ -29,8 +29,7 @@ spec:
         app: validator
     spec:
       {{- if .Values.storage.localSsd }}
-      nodeSelector:
-        cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
 
       {{- if .Values.network.public }}
@@ -233,7 +232,6 @@ spec:
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: validator-data
-          hostPath:
           emptyDir: {}
       {{ else }}
         - name: validator-data

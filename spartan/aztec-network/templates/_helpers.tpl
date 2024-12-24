@@ -184,14 +184,7 @@ affinity:
         namespaceSelector: {}
 {{- end -}}
 
-{{- define "aztec-network.localSsdAffinity" -}}
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: local-ssd
-          operator: In
-          values:
-          - "true"
+{{- define "aztec-network.gcpLocalSsd" -}}
+nodeSelector:
+  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
 {{- end -}}

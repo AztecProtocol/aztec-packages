@@ -11,6 +11,9 @@ network:
   public: false
   setupL2Contracts: true
 
+storage:
+  localSsd: false
+
 telemetry:
   enabled: false
   otelCollectorEndpoint:
@@ -151,6 +154,8 @@ proverNode:
   archiverViemPollingInterval: 1000
   pollInterval: 1000
   viemPollingInterval: 1000
+  dataDir: "/data"
+  storageSize: "1Gi"
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
@@ -236,7 +241,6 @@ proverAgent:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
-  nodeSelector: {}
   resources:
     requests:
       memory: "4Gi"
@@ -251,9 +255,9 @@ proverBroker:
   jobTimeoutMs: 30000
   pollIntervalMs: 1000
   jobMaxRetries: 3
-  dataDirectory: ""
   logLevel: "debug; info: aztec:simulator, json-rpc"
-  nodeSelector: {}
+  storageSize: "1Gi"
+  dataDir: "/data"
   resources:
     requests:
       memory: "4Gi"
