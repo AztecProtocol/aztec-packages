@@ -40,31 +40,18 @@ The sandbox will also deploy 3 Schnorr account contracts on startup. The sandbox
 Once everything has been set up, you will see that the PXE is listening on `localhost:8080` as you would see with the sandbox running in the default mode. At this point you can use the sandbox as you would without client-side proving enabled.
 
 ## Proving with `aztec-wallet`
-You can enable proving on a per-transaction basis using the `aztec-wallet` CLI.
-
-### Config
-Open `~/.aztec/bin/aztec-wallet` and update the `ENV_VARS_TO_INJECT` variable to:
+You can enable proving on a per-transaction basis using the `aztec-wallet` CLI by setting the `PXE_PROVER_ENABLED` environment variable to `1`. This will use your local `bb` binary to prove the transaction.
 
 ```bash
-# ~/.aztec/bin/aztec-wallet
-export ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY SSH_AUTH_SOCK BB_BINARY_PATH PXE_PROVER_ENABLED BB_WORKING_DIRECTORY"
+PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Export the following envnironment variables in the terminal where you will run `aztec-wallet` commands:
+Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../../reference/developer_references/cli_wallet_reference.md)
 
-```bash
-export BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-export PXE_PROVER_ENABLED=1
-export BB_WORKING_DIRECTORY=~/bb-temp
-```
+Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for one-off transactions.
 
-### Usage
-Now send transactions from `aztec-wallet`, and proving will be enabled. Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../../reference/developer_references/cli_wallet_reference.md)
+If this is the first time you are sending transactions with proving enabled, it will take a while to download a CRS file (which is several MBs) that is required for proving.
 
-Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for 1 off transactions.
-
-If this is the first time you are sending transactions with proving enabled, you will have to download the CRS (which is several GBs).
-
-::: note
-You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow [reference here](../../../reference/developer_references/cli_wallet_reference.md#profile)
+:::note
+You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../developer_guides/smart_contracts/profiling_transactions.md)
 :::
