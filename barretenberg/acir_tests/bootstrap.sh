@@ -69,9 +69,9 @@ function test {
   }
 
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof')
 
   # barretenberg-acir-tests-sol:
   run FLOW=sol ./run_test.sh assert_statement
@@ -119,6 +119,8 @@ function test {
   run SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true ./run_test.sh assert_statement
   run SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true ./run_test.sh double_verify_honk_proof
   run SYS=ultra_honk FLOW=prove_and_verify_program ./run_test.sh merkle_insert
+  run SYS=ultra_rollup_honk FLOW=prove_and_verify ./run_test.sh verify_rollup_honk_proof
+
 
   # barretenberg-acir-tests-bb-client-ivc:
   run FLOW=prove_then_verify_client_ivc ./run_test.sh 6_array

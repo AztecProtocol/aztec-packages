@@ -65,29 +65,6 @@ export class AvmPersistableStateManager {
   ) {}
 
   /**
-   * Create a new state manager with some preloaded pending siloed nullifiers
-   */
-  public static async newWithPendingSiloedNullifiers(
-    worldStateDB: WorldStateDB,
-    trace: PublicSideEffectTraceInterface,
-    pendingSiloedNullifiers: Fr[],
-    doMerkleOperations: boolean = false,
-    txHash: TxHash,
-  ) {
-    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
-    const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
-    return new AvmPersistableStateManager(
-      worldStateDB,
-      trace,
-      /*publicStorage=*/ new PublicStorage(worldStateDB),
-      /*nullifiers=*/ parentNullifiers.fork(),
-      doMerkleOperations,
-      ephemeralForest,
-      txHash,
-    );
-  }
-
-  /**
    * Create a new state manager
    */
   public static async create(

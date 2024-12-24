@@ -3,7 +3,7 @@
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - You can call ./bootstrap.sh build <package name> to compile and process a single contract.
-# - You can disable further parallelism by putting -j1 on the parallel calls.
+# - You can disable further parallelism by setting PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
@@ -18,8 +18,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-export RAYON_NUM_THREADS=16
-export HARDWARE_CONCURRENCY=16
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
+export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+export PARALLELISM=${PARALLELISM:-16}
 export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -71,7 +72,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 
@@ -116,7 +117,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel -j16 --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
+    parallel -j$PARALLELISM --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -131,7 +132,7 @@ function build {
     set +e
     echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+      parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
     code=$?
     cat joblog.txt
     return $code

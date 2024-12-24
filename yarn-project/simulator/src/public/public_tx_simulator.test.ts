@@ -295,6 +295,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: Gas.empty(),
+      publicGas: expectedPublicGasUsed,
     });
 
     const availableGasForFirstSetup = gasLimits.sub(privateGasUsed);
@@ -330,6 +331,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: Gas.empty(),
+      publicGas: expectedPublicGasUsed,
     });
 
     const availableGasForFirstAppLogic = gasLimits.sub(privateGasUsed);
@@ -365,6 +367,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedTeardownGasUsed,
     });
 
     expectAvailableGasForCalls([teardownGasLimits]);
@@ -404,6 +407,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
 
     // Check that each enqueued call is allocated the correct amount of gas.
@@ -553,6 +557,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedTotalGas.sub(privateGasUsed),
     });
 
     const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
@@ -634,6 +639,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedTotalGas.sub(privateGasUsed),
     });
 
     const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
@@ -717,6 +723,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedTotalGas.sub(privateGasUsed),
     });
 
     const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
@@ -804,6 +811,7 @@ describe('public_tx_simulator', () => {
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
       teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
 
     const output = txResult.avmProvingRequest!.inputs.output;
