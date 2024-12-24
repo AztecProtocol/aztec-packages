@@ -32,7 +32,7 @@ To avoid this, many protocols implement the `permit` flow, which uses a meta-tra
 
 <Image img={require("/img/authwit2.png")} />
 
-This is a great improvement to infinite approvals, but still has its own sets of issues. For example, if the user is using a smart-contract wallet (such as Argent or Gnosis Safe), they will not be able to sign the permit message since the usual signature validation does not work well with contracts. [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) was proposed to give contracts a way to emulate this, but it is not widely adopted.
+This is a great improvement to infinite approvals, but still has its own sets of issues. For example, if the user is using a smart contract wallet (such as Argent or Gnosis Safe), they will not be able to sign the permit message since the usual signature validation does not work well with contracts. [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) was proposed to give contracts a way to emulate this, but it is not widely adopted.
 
 Separately, the message that the user signs can seem opaque to the user and they might not understand what they are signing. This is generally an issue with `approve` as well.
 
@@ -40,7 +40,7 @@ All of these issues have been discussed in the community for a while, and there 
 
 ## In Aztec
 
-Adopting ERC20 for Aztec is not as simple as it might seem because of private state.
+Adopting ERC20 for Aztec is not as simple as it might seem because of the private state.
 
 If you recall from the [Hybrid State model](../storage/state_model/index.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
 
