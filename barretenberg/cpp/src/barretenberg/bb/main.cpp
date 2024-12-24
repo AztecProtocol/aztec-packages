@@ -819,7 +819,6 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     }
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
-    ASSERT(CircuitChecker::check(builder));
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
 
