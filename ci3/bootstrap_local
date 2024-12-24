@@ -1,15 +1,15 @@
 #!/bin/bash
 # Launches our CI image locally and runs the bootstrap.
 # This replicates exactly what our CI run experiences.
-# It uses docker-in-docker as some test flows require it (e.g. e2e).
 # We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
+# Similarly we use tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
 # We mount in aws credentials to leverage the s3 cache.
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
 # If anything goes wrong during the run, the container will drop into a shell.
 
 root=$(git rev-parse --show-toplevel)
 source $root/ci3/source
-cmd=${1:-"./bootstrap.sh ci || exec bash"}
+cmd=${1:-"./bootstrap.sh ci || exec zsh"}
 
 if ! git diff --quiet; then
   echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"
@@ -19,15 +19,15 @@ docker run --name aztec_build -ti --rm \
   --privileged \
   -v bootstrap_ci_local_docker:/var/lib/docker \
   -v $root:/aztec-packages-host:ro \
-  -v $HOME/.aws:/root/.aws:ro \
-  -v $HOME/.bb-crs:/root/.bb-crs:ro \
-  aztecprotocol/ci:2.0 bash -c "
-  set -e
-  /usr/local/share/docker-init.sh &> /dev/null
-  git config --global --add safe.directory /aztec-packages-host/.git
-  cd /root
-  # Ensure we get a clean clone of the repo.
-  git clone --depth 1 file:///aztec-packages-host aztec-packages
-  cd aztec-packages
-  $cmd
+  -v $HOME/.aws:/home/aztec-dev/.aws:ro \
+  -v $HOME/.bb-crs:/home/aztec-dev/.bb-crs:ro \
+  --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
+  -e LOCAL_USER_ID=$(id -u) \
+  -e LOCAL_GROUP_ID=$(id -g) \
+  aztecprotocol/devbox:2.2 bash -c "
+    set -e
+    git config --global --add safe.directory /aztec-packages-host/.git
+    git clone --depth 1 file:///aztec-packages-host aztec-packages
+    cd aztec-packages
+    $cmd
 "

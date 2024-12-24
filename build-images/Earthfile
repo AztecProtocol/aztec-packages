@@ -1,3 +1,4 @@
+# cspell: disable
 VERSION 0.8
 
 base-slim-node:
@@ -18,20 +19,20 @@ base-build:
         make \
         ninja-build \
         git \
-        cargo \
         curl \
         python3 \
         wget \
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/cache:base-build-1.0-$TARGETARCH
+  # ARG TARGETARCH
+  # SAVE IMAGE --push aztecprotocol/cache:base-build-1.0-$TARGETARCH
 
 ########################################################################################################################
 # Build wasi-sdk.
 wasi-sdk:
   FROM +base-build
+  RUN apt update && apt install cargo -y
   RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
       && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
       && cd /wasi-sdk \
@@ -45,8 +46,8 @@ wasi-sdk:
       && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
       && cd / && rm -rf /wasi-sdk
   SAVE ARTIFACT /opt/wasi-sdk /opt/wasi-sdk
-  ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-22.0-$TARGETARCH
+  # ARG TARGETARCH
+  # SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-22.0-$TARGETARCH
 
 ########################################################################################################################
 # Build osxcross.
@@ -80,8 +81,8 @@ osxcross:
       && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
       && rm -rf /osxcross /opt/osxcross/SDK/$OSX_SDK
   SAVE ARTIFACT /opt/osxcross /opt/osxcross
-  ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/cache:osxcross-14.0-$TARGETARCH
+  # ARG TARGETARCH
+  # SAVE IMAGE --push aztecprotocol/cache:osxcross-14.0-$TARGETARCH
 
 ########################################################################################################################
 # Build foundry.
@@ -91,8 +92,12 @@ foundry:
 
   LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
 
+  ENV RUSTUP_HOME=/opt/rust/rustup
+  ENV CARGO_HOME=/opt/rust/cargo
+  ENV PATH="/opt/rust/cargo/bin:$PATH"
+  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   RUN curl -L https://foundry.paradigm.xyz | bash \
-      && $FOUNDRY_BIN_DIR/foundryup -v nightly-$FOUNDRY_TAG \
+      && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
@@ -103,8 +108,8 @@ foundry:
   SAVE ARTIFACT /opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
 
-  ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/foundry:$FOUNDRY_TAG-$TARGETARCH
+  # ARG TARGETARCH
+  # SAVE IMAGE --push aztecprotocol/foundry:$FOUNDRY_TAG-$TARGETARCH
 
 ########################################################################################################################
 # This image contains *just* what's needed to perform a full build of the aztec project.
@@ -162,7 +167,6 @@ build:
   ENV RUSTUP_HOME=/opt/rust/rustup
   ENV CARGO_HOME=/opt/rust/cargo
   ENV PATH="/opt/rust/cargo/bin:$PATH"
-  RUN apt remove -y cargo rustc
   RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1 && \
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust
@@ -261,6 +265,7 @@ basebox:
           lsb-release \
           man \
           neovim \
+          psmisc \
           python3-blessed \
           software-properties-common \
           ssh \

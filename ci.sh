@@ -84,7 +84,7 @@ case "$cmd" in
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
-    bootstrap_local
+    bootstrap_local "$@"
     ;;
   "run")
     # Trigger a GA workflow for current branch PR and tail logs.

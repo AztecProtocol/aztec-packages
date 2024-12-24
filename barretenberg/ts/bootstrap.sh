@@ -22,10 +22,9 @@ function build {
 function test_cmds {
   test_should_run bb.js-tests-$hash || return 0
 
-  ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
-    sed "s|$(pwd)/||" | while read -r test; do
-      echo "barretenberg/ts/scripts/run_test.sh $test"
-    done
+  for test in src/**/*.test.ts; do
+    echo "barretenberg/ts/scripts/run_test.sh $test"
+  done
 }
 
 function test {

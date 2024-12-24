@@ -57,7 +57,7 @@ function build {
 }
 
 function test_cmds {
-  for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
+  for test in !(end-to-end|kv-store|bb-prover|prover-client)/src/**/*.test.ts; do
     echo yarn-project/scripts/run_test.sh $test
   done
   # TODO: formatting?

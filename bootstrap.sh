@@ -107,6 +107,7 @@ function test_cmds {
     done
   else
     # Ordered with longest running first, to ensure they get scheduled earliest.
+    ./yarn-project/end-to-end/bootstrap.sh test-cmds
     ./yarn-project/bootstrap.sh test-cmds
     ./noir-projects/bootstrap.sh test-cmds
     ./boxes/bootstrap.sh test-cmds
@@ -117,17 +118,18 @@ function test_cmds {
 }
 
 function test {
-  # Rust is very annoying.
+  github_group "test all"
+  # Rust/nextest is very annoying.
   # You sneeze and everything needs recompiling and you can't avoid recompiling when running tests.
   # Ensure tests are up-to-date first so parallel doesn't complain about slow startup.
-  echo "Building tests..."
-  ./noir/bootstrap.sh build-tests
+  # echo "Building tests..."
+  # ./noir/bootstrap.sh build-tests
 
   # Starting txe servers with incrementing port numbers.
   export NUM_TXES=8
-  trap 'kill $(jobs -p) &>/dev/null' EXIT
+  trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &>/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -135,7 +137,8 @@ function test {
   done
 
   echo "Gathering tests to run..."
-  test_cmds | parallelise 96
+  test_cmds $@ | parallelise 96
+  github_endgroup
 }
 
 function build {
