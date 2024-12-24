@@ -16,10 +16,10 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: storage
+                  - key: local-ssd
                     operator: In
                     values:
-                      - ssd
+                      - "true"
       containers:
         - name: format
           image: busybox
