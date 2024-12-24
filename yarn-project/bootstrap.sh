@@ -56,6 +56,13 @@ function build {
   github_endgroup
 }
 
+function test_cmds {
+  for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
+    echo yarn-project/scripts/run_test.sh $test
+  done
+  # TODO: formatting?
+}
+
 function test {
   test_should_run yarn-project-unit-tests-$hash || return 0
 
@@ -83,11 +90,7 @@ case "$cmd" in
     test
     ;;
   "test-cmds")
-    for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
-      echo yarn-project/scripts/run_test.sh $test
-    done
-    ./end-to-end/bootstrap.sh test-cmds
-    # TODO: formatting?
+    test_cmds
     ;;
   "hash")
     echo $hash
