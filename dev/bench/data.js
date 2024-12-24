@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735021642969,
+  "lastUpdate": 1735055523306,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da4c47c5dc8caea3e860ac15a58b9ff7f011e4f6",
-          "message": "feat: Adding fuzzer for ultra bigfield and relaxing ultra circuit checker (#10433)\n\nThis pr changes the behavior of `circuit_checker` for fuzzer's sake.\r\n- delta range constraint is now checked using ranges, not sort\r\nconstraints\r\n- RAM/ROM gates are checked directly \r\n\r\n\r\nAlso\r\n\r\n## Bigfield \r\n\r\n- add_two and sum methods are added\r\n\r\n## Auxiliary relation\r\n\r\n- fixed few typos\r\n\r\n## Bigfield fuzzer\r\n\r\n- Added extra logging\r\n- Disabled byte conversion due to known issue\r\n- Added Ultra circuit builder support",
-          "timestamp": "2024-12-09T18:07:50+03:00",
-          "tree_id": "97e10fe3a612168b00a6dff83f4a90a0de60e595",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da4c47c5dc8caea3e860ac15a58b9ff7f011e4f6"
-        },
-        "date": 1733759431069,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24792.9403,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22966.788697 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5012.512947999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4629.149490000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84221.257393,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84221257000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15170.732993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15170733000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2826613328,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2826613328 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140262421,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140262421 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3142,6 +3082,72 @@ window.BENCHMARK_DATA = {
             "value": 141464050,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141464050 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6fef05119af7714d60f00c52455e52bdfa98288",
+          "message": "chore: clean up translator circuit builder function definitions  (#10944)\n\nSome of the core functions in `TranslatorCircuitBuilder` were not\r\nactually defined as part of the class. This PR addresses it, which\r\nremoves the need to resolve the scope of member variables in the class,\r\nwhen used in those functions, and constified / staticfied function\r\nsignatures where appropriate",
+          "timestamp": "2024-12-24T16:26:03+01:00",
+          "tree_id": "77291f32991c1387bfee815d54b0b9cb33c33f73",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f6fef05119af7714d60f00c52455e52bdfa98288"
+        },
+        "date": 1735055516004,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20104.694028999973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17574.052976 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21826.818340999976,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19063.207024999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4633.245838000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4316.263722000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72941.80755700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72941809000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13911.937908,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13911938000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2884668919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2884668919 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146851888,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146851888 ns\nthreads: 1"
           }
         ]
       }
