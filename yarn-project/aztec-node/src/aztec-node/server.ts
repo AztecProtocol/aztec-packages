@@ -422,7 +422,9 @@ export class AztecNodeService implements AztecNode, Traceable {
       const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
       this.log.warn(`Invalid tx ${txHash}: ${reason}`, { txHash });
-      throw new Error(`Invalid tx: ${reason}`);
+      // TODO(#10967): Throw when receiving an invalid tx instead of just returning
+      // throw new Error(`Invalid tx: ${reason}`);
+      return;
     }
 
     await this.p2pClient!.sendTx(tx);
