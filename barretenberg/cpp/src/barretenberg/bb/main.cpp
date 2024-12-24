@@ -898,7 +898,7 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
         const size_t HONK_PROOF_LENGTH = 469;
         const size_t num_public_inputs =
-            static_cast<size_t>(proof[1]) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
+            static_cast<size_t>(uint64_t(proof[1])) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
         // The extra calculation is for the IPA proof length.
         debug("proof size: ", proof.size());
         debug("num public inputs: ", num_public_inputs);
