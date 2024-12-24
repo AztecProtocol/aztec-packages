@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.68.1...aztec-packages-v0.68.2) (2024-12-24)
+
+
+### Features
+
+* Use UltraRollupHonk in rollup ([#10342](https://github.com/AztecProtocol/aztec-packages/issues/10342)) ([82bc146](https://github.com/AztecProtocol/aztec-packages/commit/82bc146989f1375bb36b7d2ab47e3068af513f71))
+
+
+### Bug Fixes
+
+* Fix proverEnabled flag in cli-wallet ([#10945](https://github.com/AztecProtocol/aztec-packages/issues/10945)) ([c484e50](https://github.com/AztecProtocol/aztec-packages/commit/c484e50ad990ae50e99a5badc4cec60e679d68e8))
+
+
+### Miscellaneous
+
+* Replace relative paths to noir-protocol-circuits ([a71813b](https://github.com/AztecProtocol/aztec-packages/commit/a71813b37a6f30222063e256ceb9b54c6871336d))
+
+
+### Documentation
+
+* Update aztec-wallet proving instructions ([#10953](https://github.com/AztecProtocol/aztec-packages/issues/10953)) ([c0821bd](https://github.com/AztecProtocol/aztec-packages/commit/c0821bd9f224c84d4e0079fd783812e1e766b92c))
+
 ## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.68.0...aztec-packages-v0.68.1) (2024-12-23)
 
 
