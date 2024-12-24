@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: format-ssd
+spec:
+  selector:
+    matchLabels:
+      app: format-ssd
+  template:
+    metadata:
+      labels:
+        app: format-ssd
+    spec:
+    {{- if .Values.storage.localSsd }}
+      containers:
+        - name: format
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mkfs.ext4 /dev/nvme0n1 &&
+              mkdir -p /mnt/disks/ssd0 &&
+              mount /dev/nvme0n1 /mnt/disks/ssd0
+          volumeMounts:
+            - name: host-mount
+              mountPath: /mnt/disks
+      volumes:
+        - name: host-mount
+          hostPath:
+            path: /mnt/disks
+            type: DirectoryOrCreate
+    {{- end }}

@@ -17,6 +17,7 @@ spec:
         name: validator-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "ssd-storage"
         resources:
           requests:
             storage: {{ .Values.validator.storageSize }}
@@ -26,6 +27,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      {{ -if .Values.storage.localSsd }}
+      {{- include "aztec-network.localSsdAntiAffinity" . | nindent 6 }}
+      {{- end }}
+
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -222,9 +227,15 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: validator-data
+          hostPath:
+            path: /mnt/disks/ssd0
+      {{ else }}
         - name: validator-data
           persistentVolumeClaim:
             claimName: validator-data
+      {{- end }}
 ---
 # If this is not a public network, create a headless service for StatefulSet DNS entries
 {{ if not .Values.network.public }}
