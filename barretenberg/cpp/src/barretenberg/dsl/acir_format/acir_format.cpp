@@ -416,6 +416,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
         auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+        // If this is the root rollup, do full IPA verification
         if (is_root_rollup) {
             auto verifier_commitment_key = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<Builder>>>(
                 &builder,

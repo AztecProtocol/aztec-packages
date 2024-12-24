@@ -31,10 +31,10 @@ impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
-            self.previous_rollup_data[0].verify(PROOF_TYPE_ROLLUP_HONK);
+            self.previous_rollup_data[0].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
             self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
-            self.previous_rollup_data[1].verify(PROOF_TYPE_ROOT_ROLLUP_HONK);
+            self.previous_rollup_data[1].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
             self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
