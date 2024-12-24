@@ -7,9 +7,7 @@ import {
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
-  type ProverCoordination,
   type Tx,
-  type TxHash,
 } from '@aztec/circuit-types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
