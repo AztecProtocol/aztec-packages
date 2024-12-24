@@ -30,7 +30,7 @@ spec:
     spec:
       {{- if .Values.storage.localSsd }}
       nodeSelector:
-        local-ssd: "true"
+        cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
       {{- end }}
 
       {{- if .Values.network.public }}
@@ -207,6 +207,8 @@ spec:
               value: {{ .Values.validator.viemPollingInterval | quote }}
             - name: SEQ_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.validator.dataDir }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
@@ -232,7 +234,7 @@ spec:
       {{- if .Values.storage.localSsd }}
         - name: validator-data
           hostPath:
-            path: /mnt/disks/ssd0
+          emptyDir: {}
       {{ else }}
         - name: validator-data
           persistentVolumeClaim:

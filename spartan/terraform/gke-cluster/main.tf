@@ -129,8 +129,10 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
 
   # Node configuration
   node_config {
-    machine_type    = "n2d-standard-2"
-    local_ssd_count = 1
+    machine_type = "n2d-standard-2"
+    ephemeral_storage_local_ssd_config {
+      local_ssd_count = 1
+    }
 
     service_account = google_service_account.gke_sa.email
     oauth_scopes = [
@@ -138,8 +140,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
     ]
 
     labels = {
-      env       = "production"
-      local-ssd = "true"
+      env = "production"
 
     }
     tags = ["aztec-gke-node", "aztec"]
