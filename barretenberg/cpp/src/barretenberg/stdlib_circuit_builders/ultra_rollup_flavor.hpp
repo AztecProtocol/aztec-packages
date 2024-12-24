@@ -5,6 +5,24 @@ namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
+    // Proof length formula:
+    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
+    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 3. IPA_CLAIM_SIZE public inputs for IPA claim
+    // 4. NUM_WITNESS_ENTITIES commitments
+    // 5. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 6. NUM_ALL_ENTITIES sumcheck evaluations
+    // 7. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 8. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 9. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
+        HONK_PROOF_PUBLIC_INPUT_OFFSET + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE +
+        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
+        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
+        num_frs_comm;
+
     using UltraFlavor::UltraFlavor;
     class ProvingKey : public UltraFlavor::ProvingKey {
       public:
