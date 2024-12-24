@@ -64,17 +64,45 @@ Where:
 - `tx_context` contains the chain id, version, and gas settings.
 - `function_data` contains the function selector and indicates whether the function is private or public.
 
-The `function_data` includes the [`AppPayload`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/authwit/src/entrypoint/app.nr#L19-L20), which includes information about the application functions and arguments, and the [`FeePayload`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr#L18), which includes info about how to pay for the transaction.
+The `function_data` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
 
 An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
 
-Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a transaction object is created and can be sent to the network to be included in a block.
+Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
+
+#### Contract Interaction Methods
+
+Most transaction requests are created as interactions with specific contracts. The exception is transactions that deploy contracts. Here are the main methods for interacting with contracts related to transactions:
+
+##### `create`
+
+#include_code create yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+
+##### `simulate`
+
+#include_code simulate yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+
+##### `prove`
+
+#include_code prove yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `send`
+
+#include_code send yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `estimateGas`
+
+#include_code estimateGas yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `getFeeOptions`
+
+#include_code getFeeOptions yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
 
 ### Batch Transactions
 
-Batch transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls to be sent as a single transaction through a wallet.
+Batched transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
 
-### Enabling Transaction Semantics: The Aztec Kernel
+### Enabling Transaction Semantics
 
 There are two kernel circuits in Aztec, the private kernel and the public kernel. Each circuit validates the correct execution of a particular function call.
 
@@ -94,9 +122,3 @@ The only information leaked about the transaction is:
 2. The set of public calls generated
 
 The addresses of all private calls are hidden from observers.
-
-### In Aztec.js
-
-Send
-Simulate
-View
