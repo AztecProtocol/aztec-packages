@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734981838080,
+  "lastUpdate": 1735009276482,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9301253f0488e6d96ed12a8c9bde72a653aa7d36",
-          "message": "feat: GETCONTRACTINSTANCE and bytecode retrieval perform nullifier membership checks (#10445)\n\nResolves #10376 \r\nResolves #10377\r\nResolves #10378 \r\nResolves #10379",
-          "timestamp": "2024-12-08T19:44:55-05:00",
-          "tree_id": "ef88eee2d6dff18e500d014bda158e36dad44816",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9301253f0488e6d96ed12a8c9bde72a653aa7d36"
-        },
-        "date": 1733708113733,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25784.541165000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23861.023060999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5034.496931999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4678.906249 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84871.90155099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84871902000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15253.160036000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15253161000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2811242014,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2811242014 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140003553,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140003553 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3128,6 +3068,72 @@ window.BENCHMARK_DATA = {
             "value": 165929001,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165929001 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "82bc146989f1375bb36b7d2ab47e3068af513f71",
+          "message": "feat: Use UltraRollupHonk in rollup (#10342)\n\nUses UltraRollupFlavor and UltraRecursiveRollupFlavor in the rollup.\r\n\r\nModifies UltraRecursiveVerifier tests to also test rollup flavors.\r\n\r\nAdds new test program, `verify_rollup_honk_proof`, and new flows for\r\ntest program.",
+          "timestamp": "2024-12-23T21:44:01-05:00",
+          "tree_id": "2e914ee49452cfa42859749031266af8861790f3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/82bc146989f1375bb36b7d2ab47e3068af513f71"
+        },
+        "date": 1735009269479,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20272.17651000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17720.271271999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21821.03502000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19092.446210000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4614.9903919999815,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4236.160359 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73296.235023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73296235000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13932.224051000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13932225000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2864960911,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2864960911 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142324936,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142324936 ns\nthreads: 1"
           }
         ]
       }
