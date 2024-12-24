@@ -120,8 +120,8 @@ validator:
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
   validator:
     disabled: false
   sequencer:
@@ -135,8 +135,8 @@ bootNode:
     disabled: true
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
 
 proverAgent:
   replicas: 8
@@ -144,14 +144,14 @@ proverAgent:
 proverBroker:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
 
 proverNode:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
 
 bot:
   replicas: 10
@@ -166,5 +166,5 @@ jobs:
 ethereum:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
