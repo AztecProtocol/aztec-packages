@@ -76,8 +76,8 @@ function try_cache_download {
 
   # If not, try the link and the artifact pointed by it
   if SKIP_LOCAL_CACHE_FILE=1 cache_download "$name-link" "$fallback_hash" 1>&2; then
-    local target_hash=$(cat link.txt)
-    rm link.txt
+    local target_hash=$(cat "$name-link.txt")
+    rm "$name-link.txt"
     if cache_download $name $target_hash 1>&2; then
       return 0
     fi
@@ -93,9 +93,9 @@ function upload_symlink() {
   local name=$1
   local hash=$2
   local fallback_hash=$3
-  echo "$hash" > link.txt
-  SKIP_LOCAL_CACHE_FILE=1 cache_upload "$name-link" "$fallback_hash" link.txt
-  rm link.txt
+  echo "$hash" > "$name-link.txt"
+  SKIP_LOCAL_CACHE_FILE=1 cache_upload "$name-link" "$fallback_hash" "$name-link.txt"
+  rm "$name-link.txt"
 }
 
 function compile {
