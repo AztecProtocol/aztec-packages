@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735021570367,
+  "lastUpdate": 1735021642969,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c376725a29ec18e25a7c9a89c0df8f5a1e06ff4",
-          "message": "feat: Several Updates in SMT verification module (part 1) (#10437)\n\nThis pr enhances symbolic circuit to produce valid witnesses. \r\n\r\n# Utils\r\n\r\nAdded post processing functionality. So now, while optimizing something\r\ninside the circuit, you can postpone some witness calculations until\r\nhere, in case the variable has been optimized and does not fit as an\r\nSTerm.\r\n\r\n# Builders + Schema\r\n\r\nAdded `circuit_finalized` flag to the export. Should be used in the\r\nfuture, during RAM/ROM processing.\r\n\r\n# StandardCircuit\r\n\r\nPushed the post processing for standard logic operations. They were used\r\nto test the sha256 witness, which is coming in part 3, I guess.",
-          "timestamp": "2024-12-09T17:29:12+03:00",
-          "tree_id": "68b68e14c5d4eab18b74a38dbcddd8d2a8ff4c5c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c376725a29ec18e25a7c9a89c0df8f5a1e06ff4"
-        },
-        "date": 1733757438289,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24904.424422000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22998.633256 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4945.819821000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4631.735119 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84248.706783,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84248707000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15180.103952,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15180106000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2809749867,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2809749867 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140951230,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140951230 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3140,6 +3080,68 @@ window.BENCHMARK_DATA = {
             "value": 142409439,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142409439 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "0836fabe6bff272133b2befe2d713f194c5df694",
+          "message": "chore(master): Release 0.68.2",
+          "timestamp": "2024-12-24T06:09:38Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10948/commits/0836fabe6bff272133b2befe2d713f194c5df694"
+        },
+        "date": 1735021634984,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20205.64733500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17739.005098999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21751.091279999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19197.790051999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4644.332130999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4290.627646 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 81467.184956,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 81467186000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13952.067319999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13952067000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2880935505,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2880935505 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141464050,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141464050 ns\nthreads: 1"
           }
         ]
       }
