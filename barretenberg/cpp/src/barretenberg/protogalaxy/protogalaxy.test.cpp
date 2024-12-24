@@ -564,7 +564,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
+        for (size_t i = 0; i < prover_accumulator->proving_key.circuit_size; ++i) {
+            if (prover_accumulator->proving_key.polynomials.q_arith[i] != 0) {
+                prover_accumulator->proving_key.polynomials.w_l.at(i) += 1;
+                break;
+            }
+        }
         EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
