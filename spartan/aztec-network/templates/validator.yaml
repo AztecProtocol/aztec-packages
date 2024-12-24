@@ -27,7 +27,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
-      {{ -if .Values.storage.localSsd }}
+      {{- if .Values.storage.localSsd }}
       {{- include "aztec-network.localSsdAntiAffinity" . | nindent 6 }}
       {{- end }}
 

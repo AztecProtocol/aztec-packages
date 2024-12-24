@@ -139,7 +139,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
 
     labels = {
       env       = "production"
-      local_ssd = "true"
+      local-ssd = "true"
 
     }
     tags = ["aztec-gke-node", "aztec"]

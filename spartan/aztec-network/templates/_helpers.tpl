@@ -183,3 +183,15 @@ affinity:
         topologyKey: "kubernetes.io/hostname"
         namespaceSelector: {}
 {{- end -}}
+
+{{- define "aztec-network.localSsdAntiAffinity" -}}
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: local-ssd
+          operator: In
+          values:
+          - "true"
+{{- end -}}
