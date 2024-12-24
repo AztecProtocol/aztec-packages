@@ -11,7 +11,15 @@ spec:
       labels:
         app: format-ssd
     spec:
-    {{- if .Values.storage.localSsd }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: storage
+                    operator: In
+                    values:
+                      - ssd
       containers:
         - name: format
           image: busybox
@@ -29,4 +37,3 @@ spec:
           hostPath:
             path: /mnt/disks
             type: DirectoryOrCreate
-    {{- end }}

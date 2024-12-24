@@ -17,7 +17,6 @@ spec:
         name: validator-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        storageClassName: "ssd-storage"
         resources:
           requests:
             storage: {{ .Values.validator.storageSize }}
