@@ -3,7 +3,7 @@ title: Keys
 tags: [accounts, keys]
 ---
 
-The goal of this section is to give app developer a good idea what keys there are used in the system.
+The goal of this section is to give app developers a good idea what keys there are used in the system.
 For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 
 In short, there is a **nullifier key** (to spend your notes), an **incoming viewing key** (to view any notes or logs that were sent to you), an **outgoing viewing key** (to view any logs or notes you sent to another entity), a **tagging key** (to quickly find notes relevant to you) and oftentimes a signing key. A signing key is not strictly required by the protocol, but are often used with specific account contracts for authorization purposes.
@@ -61,7 +61,7 @@ All the keys below are Grumpkin keys (public keys derived on the Grumpkin curve)
 ## Nullifier keys
 
 Whenever a note is consumed, a nullifier deterministically derived from it is emitted.
-This mechanisms prevents double-spends, since nullifiers are checked by the protocol to be unique.
+This mechanism prevents double-spends, since nullifiers are checked by the protocol to be unique.
 Now, in order to preserve privacy, a third party should not be able to link a note hash to its nullifier - this link is enforced by the note implementation.
 Therefore, calculating the nullifier for a note requires a secret from its owner.
 
