@@ -49,7 +49,7 @@ function compile {
   local filename="$name.json"
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
-  # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   # program_hash=$(cache_content_hash \
