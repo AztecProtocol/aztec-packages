@@ -45,7 +45,7 @@ function parallelise {
   local jobs=$(get_num_jobs)
   [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
   echo "Starting test run with max $jobs jobs..."
-  parallel -j$jobs --bar --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
+  parallel -j$jobs --bar --timeout 600 --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
 
   slow_jobs=$(cat joblog.txt | \
     awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \

@@ -34,6 +34,11 @@ function build_tests {
   export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
   export GIT_DIRTY=false
   export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
+  # TODO: Move to build image?
+  if ! command -v cargo-binstall &>/dev/null; then
+    denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+  fi
+  denoise cargo-binstall cargo-nextest --version 0.9.67 -y --secure
   cargo nextest list --workspace --locked --release &>/dev/null
 }
 

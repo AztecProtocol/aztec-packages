@@ -40,7 +40,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex
+export tmp_dir key_dir ci3 ivc_regex project_name
 
 function compile {
   set -euo pipefail
