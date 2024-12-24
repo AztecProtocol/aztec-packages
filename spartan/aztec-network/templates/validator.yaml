@@ -12,7 +12,7 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: validator
-  {{- if .Values.storage.localSsd }}
+  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: validator-data
