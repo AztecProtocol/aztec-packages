@@ -150,7 +150,7 @@ For this reason it is encouraged to try to avoid public function calls and inste
 
 Contract functions marked with `#[public]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
 
-Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
+Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is known about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
@@ -186,7 +186,7 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 #### `prove`
 
-This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
+This creates and returns a transaction request, which includes proof of correct private execution and side effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
