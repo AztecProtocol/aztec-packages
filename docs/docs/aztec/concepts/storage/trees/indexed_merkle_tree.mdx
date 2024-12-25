@@ -50,7 +50,7 @@ Data is stored at the leaf index corresponding to its value. E.g. if I have a sp
 
 While sparse Merkle Trees offer a simple and elegant solution, their implementation comes with some drawbacks. A sparse nullifier tree must have an index for $e \in \mathbb{F}_p$, which for the bn254 curve means that the sparse tree will need to have a depth of 254.  
 If you're familiar with hashing in circuits the alarm bells have probably started ringing. A tree of depth 254 means 254 hashes per membership proof.
-In routine nullifier insertions, a non membership check for a value is performed, then an insertion of said value. This amounts to two trips from leaf to root, hashing all the way up. This means that there are $254*2$ hashes per tree insertion. As the tree is sparse, insertions are random and must be performed in sequence. This means the number of hashes performed in the circuit scales linearly with the number of nullifiers being inserted. As a consequence number of constraints in a rollup circuit (where these checks are performed) will sky rocket, leading to long rollup proving times.
+In routine nullifier insertions, a non membership check for a value is performed, then an insertion of said value. This amounts to two trips from leaf to root, hashing all the way up. This means that there are $254*2$ hashes per tree insertion. As the tree is sparse, insertions are random and must be performed in sequence. This means the number of hashes performed in the circuit scales linearly with the number of nullifiers being inserted. As a consequence number of constraints in a rollup circuit (where these checks are performed) will skyrocket, leading to long rollup proving times.
 
 ## Indexed Merkle Tree Constructions
 
@@ -223,7 +223,7 @@ Let's go back over the numbers:
 Insertions into a sparse nullifier tree involve 1 non membership check (254 hashes) and 1 insertion (254 hashes). If we were performing insertion for 4 values that would entail 2032 hashes.
 In the depth 32 indexed tree construction, each subtree insertion costs 1 non membership check (32 hashes), 1 pointer update (32 hashes) for each value as well as the cost of constructing and inserting a subtree (~67 hashes. Which is 327 hashes, an incredible efficiency increase.)
 
-_I am ignoring range check constraint costs as they a negligible compared to the costs of a hash_.
+_I am ignoring range check constraint costs as they are negligible compared to the costs of a hash_.
 
 ## Performing subtree insertions in a circuit context
 
