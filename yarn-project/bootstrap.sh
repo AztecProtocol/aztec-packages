@@ -65,6 +65,7 @@ function build_tests {
     rm -f "$dest_path"
     cp "$snapshot" "$dest_path"
   done
+  cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
 }
 
 function test_cmds {

@@ -4,7 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
-hash=$(cache_content_hash \
+tests_tar=barretenberg-acir-tests-$(cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../noir/.rebuild_patterns_tests).tar.gz
+
+test_flag=barretenberg-acir-tests-$(cache_content_hash \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
     ../../barretenberg/cpp/.rebuild_patterns \
@@ -15,15 +19,19 @@ function build_tests {
 
   github_group "acir_tests build"
 
-  rm -rf acir_tests
-  cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-  # Running these requires extra gluecode so they're skipped.
-  rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-  rm -rf acir_tests/regression_5045
+  if ! cache_download $tests_tar; then
+    rm -rf acir_tests
+    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+    # Running these requires extra gluecode so they're skipped.
+    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
+    rm -rf acir_tests/regression_5045
 
-  # COMPILE=2 only compiles the test.
-  denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+    # COMPILE=2 only compiles the test.
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+
+    cache_upload $tests_tar acir_tests
+  fi
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
@@ -55,14 +63,14 @@ function test {
 
   test_cmds | parallelise 64
 
-  cache_upload_flag barretenberg-acir-tests-$hash &>/dev/null
+  cache_upload_flag $test_flag &>/dev/null
   github_endgroup
 }
 
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
 function test_cmds {
-  test_should_run barretenberg-acir-tests-$hash || return 0
+  test_should_run $test_flag || return 0
 
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|double_verify_honk_proof')
@@ -137,7 +145,7 @@ case "$cmd" in
     build_tests
     ;;
   "hash")
-    hash
+    echo $test_hash
     ;;
   "test")
     test

@@ -198,8 +198,9 @@ build:
   RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
           -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
-  # Install playwright for browser testing.
-  RUN npx -y playwright@1.49 install --with-deps
+  # Install playwright for browser testing. Ensure accessible for other users.
+  RUN npx -y playwright@1.49 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
+  ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
   ARG TARGETARCH
   # NOTE: bump this version when doing non-backwards compatible changes
@@ -278,6 +279,7 @@ basebox:
           inotify-tools \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+  # TODO: Remove.
   # Install earthly.
   RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
       chmod +x /usr/local/bin/earthly
