@@ -13,6 +13,7 @@ import {
   EmptyNestedData,
   type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
@@ -96,9 +97,11 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const emptyNested = new EmptyNestedData(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
       ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
     );
     const kernelInputs = new PrivateKernelEmptyInputs(
@@ -113,7 +116,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     return await this.simulate(
       kernelInputs,
       'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
     );
@@ -157,17 +160,22 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getTubeProof(_tubeInput: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     await this.delay();
-    return makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeHonk());
+    return makeProofAndVerificationKey(
+      makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeRollupHonk(),
+    );
   }
 
   @trackSpan('TestCircuitProver.getPrivateBaseRollupProof')
   public async getPrivateBaseRollupProof(
     inputs: PrivateBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       inputs,
       'PrivateBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPrivateBaseRollupInputsToWitnessMap,
       convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
     );
@@ -176,11 +184,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getPublicBaseRollupProof')
   public async getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       inputs,
       'PublicBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPublicBaseRollupInputsToWitnessMap,
       convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
     );
@@ -194,11 +204,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getMergeRollupProof')
   public async getMergeRollupProof(
     input: MergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'MergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertMergeRollupInputsToWitnessMap,
       convertMergeRollupOutputsFromWitnessMap,
     );
@@ -212,11 +224,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getBlockRootRollupProof')
   public async getBlockRootRollupProof(
     input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'BlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedBlockRootRollupInputsToWitnessMap,
       convertSimulatedBlockRootRollupOutputsFromWitnessMap,
     );
@@ -230,11 +244,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getEmptyBlockRootRollupProof')
   public async getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'EmptyBlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
       convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
@@ -248,11 +264,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getBlockMergeRollupProof')
   public async getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'BlockMergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockMergeRollupInputsToWitnessMap,
       convertBlockMergeRollupOutputsFromWitnessMap,
     );

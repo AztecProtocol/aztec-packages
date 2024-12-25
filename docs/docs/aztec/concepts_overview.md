@@ -10,7 +10,7 @@ This page outlines Aztec's fundamental technical concepts. It is recommended to 
 
 ## What is Aztec?
 
-Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution. 
+Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution.
 
 ## High level view
 
@@ -33,7 +33,7 @@ Private functions are executed first on the user's device in the Private Executi
 
 ### Aztec VM
 
-Public functions are executed by the Aztec Virtual Machine (AVM), which is conceptually similar to the Ethereum Virtual Machine (EVM). To learn more about how it works and its instruction set, go to the [protocol specs](../protocol-specs/public-vm/intro.md).
+Public functions are executed by the Aztec Virtual Machine (AVM), which is conceptually similar to the Ethereum Virtual Machine (EVM).
 
 The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. They are completely separate execution environments. This means:
 
@@ -54,7 +54,7 @@ Aztec [smart contract](./smart_contracts_overview.md) developers should keep in 
 
 ### Account abstraction
 
-Every account in Aztec is a smart contract (account abstraction). This allows implementing different schemes for authorizing transactions, nonce management, and fee payments. 
+Every account in Aztec is a smart contract (account abstraction). This allows implementing different schemes for authorizing transactions, nonce management, and fee payments.
 
 Developers can write their own account contract to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed.
 

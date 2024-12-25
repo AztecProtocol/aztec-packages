@@ -12,6 +12,7 @@ enum class AvmError : uint32_t {
     INVALID_TAG_VALUE,
     CHECK_TAG_ERROR,
     ADDR_RES_TAG_ERROR,
+    MEM_SLICE_OUT_OF_RANGE,
     REL_ADDR_OUT_OF_RANGE,
     DIV_ZERO,
     PARSING_ERROR,

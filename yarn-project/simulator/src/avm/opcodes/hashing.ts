@@ -30,9 +30,10 @@ export class Poseidon2 extends Instruction {
     const operands = [this.inputStateOffset, this.outputStateOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [inputOffset, outputOffset] = addressing.resolve(operands, memory);
-    memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
 
     const inputState = memory.getSlice(inputOffset, Poseidon2.stateSize);
+    memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
+
     const outputState = poseidon2Permutation(inputState);
     memory.setSlice(
       outputOffset,
@@ -68,9 +69,9 @@ export class KeccakF1600 extends Instruction {
     const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
     context.machineState.consumeGas(this.gasCost());
 
+    const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     memory.checkTagsRange(TypeTag.UINT64, inputOffset, inputSize);
 
-    const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     const updatedState = keccakf1600(stateData);
 
     const res = updatedState.map(word => new Uint64(word));
@@ -113,11 +114,12 @@ export class Sha256Compression extends Instruction {
 
     // Note: size of output is same as size of state
     context.machineState.consumeGas(this.gasCost());
+    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
+    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
+
     memory.checkTagsRange(TypeTag.UINT32, inputsOffset, INPUTS_SIZE);
     memory.checkTagsRange(TypeTag.UINT32, stateOffset, STATE_SIZE);
 
-    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
     const output = sha256Compression(state, inputs);
 
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)

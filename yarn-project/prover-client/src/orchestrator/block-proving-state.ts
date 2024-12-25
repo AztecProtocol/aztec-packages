@@ -6,6 +6,7 @@ import {
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
@@ -24,8 +25,8 @@ import { type TxProvingState } from './tx-proving-state.js';
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
   proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
   ];
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
@@ -159,7 +160,7 @@ export class BlockProvingState {
   public storeMergeInputs(
     mergeInputs: [
       BaseOrMergeRollupPublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
     indexWithinMerge: number,

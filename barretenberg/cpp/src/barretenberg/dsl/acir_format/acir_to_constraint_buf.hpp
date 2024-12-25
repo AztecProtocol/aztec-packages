@@ -4,7 +4,7 @@
 
 namespace acir_format {
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
 /**
  * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
@@ -16,13 +16,13 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk
  */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf);
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion);
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf);
 
 #ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
-                                        bool honk_recursion);
+                                        uint32_t honk_recursion);
 #endif
 } // namespace acir_format
