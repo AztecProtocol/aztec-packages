@@ -94,7 +94,7 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-if (output.errors.some((e) => e.type == "Error")) {
+if (output.errors.some((e) => e.severity == "Error")) {
   throw new Error(JSON.stringify(output.errors, null, 2));
 }
 const contract = output.contracts["Test.sol"]["Test"];
