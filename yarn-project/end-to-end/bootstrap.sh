@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+# TODO: skip in ci if previous success
 # hash=$(cache_content_hash ../noir/.rebuild_patterns \
 #   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
 #   ../barretenberg/*/.rebuild_patterns)

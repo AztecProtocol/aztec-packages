@@ -4,6 +4,7 @@
 set -euo pipefail
 # Enable extended bash globs.
 shopt -s extglob
+shopt -s globstar
 
 # Enter our script directory, allowing usage of scripts from any directory.
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"

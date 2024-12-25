@@ -269,6 +269,7 @@ basebox:
           python3-blessed \
           software-properties-common \
           ssh \
+          strace \
           sudo \
           telnet \
           tmux \

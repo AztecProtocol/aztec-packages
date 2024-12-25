@@ -5,6 +5,7 @@
 # Similarly we use tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
 # We mount in aws credentials to leverage the s3 cache.
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
+# We set SSH_CONNECTION to something, to ensure the hostname is shown in our lean prompt.
 # If anything goes wrong during the run, the container will drop into a shell.
 
 root=$(git rev-parse --show-toplevel)
@@ -23,8 +24,10 @@ docker run -ti --rm --privileged \
   -v $HOME/.aws:/home/aztec-dev/.aws:ro \
   -v $HOME/.bb-crs:/home/aztec-dev/.bb-crs:ro \
   --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
+  -e SSH_CONNECTION=' ' \
   -e LOCAL_USER_ID=$(id -u) \
   -e LOCAL_GROUP_ID=$(id -g) \
+  --pids-limit=16384 \
   aztecprotocol/devbox:2.2 bash -c "
     set -e
     git config --global --add safe.directory /aztec-packages-host/.git
