@@ -1,15 +1,14 @@
 #!/bin/bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
-set -eu
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 <flag name>"
+  echo_stderr "Usage: $0 <flag name>"
   exit 1
 fi
 
 if [ "${USE_CACHE:-0}" != 1 ] ; then
   # Don't look if CI isn't set. No need to muddle with dev runs.
-  echo "Running test $1 because USE_CACHE is not 1."
+  echo_stderr "Running test $1 because USE_CACHE is not 1."
   exit 1
 fi
 
@@ -24,5 +23,5 @@ else
   # Default to AWS S3 URL if no custom endpoint is set
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
   # Write the flag file to stdout, return exit success if found
-  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo "Running test $NAME because S3 flag object not found." && exit 1)
+  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo_stderr "Running test $NAME because S3 flag object not found." && exit 1)
 fi

@@ -27,7 +27,7 @@ docker run -ti --rm --privileged \
   -e SSH_CONNECTION=' ' \
   -e LOCAL_USER_ID=$(id -u) \
   -e LOCAL_GROUP_ID=$(id -g) \
-  --pids-limit=16384 \
+  --pids-limit=32768 \
   aztecprotocol/devbox:2.2 bash -c "
     set -e
     git config --global --add safe.directory /aztec-packages-host/.git
