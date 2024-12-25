@@ -82,7 +82,7 @@ The private context provides access to the transaction context as well, which ar
 
 To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application.
 
-The `args_hash` is the result of pedersen hashing all of a function's inputs.
+The `args_hash` is the result of Pedersen hashing all of a function's inputs.
 
 ### Return Values
 
