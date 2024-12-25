@@ -56,8 +56,19 @@ function build {
   github_endgroup
 }
 
+# Copy the snapshot files to dest folder and replace .ts with .js.
+function build_tests {
+  for snapshot in */src/**/__snapshots__/*; do
+    dest_path="${snapshot/\/src\//\/dest\/}"
+    dest_path="${dest_path/.ts./.js.}"
+    mkdir -p $(dirname $dest_path)
+    rm -f "$dest_path"
+    cp "$snapshot" "$dest_path"
+  done
+}
+
 function test_cmds {
-  for test in !(end-to-end|kv-store|bb-prover|prover-client)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
     echo yarn-project/scripts/run_test.sh $test
   done
   # TODO: formatting?
@@ -77,8 +88,12 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "full"|"ci")
+  "full")
     build full
+    ;;
+  "ci")
+    build full
+    build_tests
     ;;
   "fast-only")
     build fast

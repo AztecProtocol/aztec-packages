@@ -22,7 +22,7 @@ function build {
 function test_cmds {
   test_should_run bb.js-tests-$hash || return 0
 
-  for test in src/**/*.test.ts; do
+  for test in dest/**/*.test.js; do
     echo "barretenberg/ts/scripts/run_test.sh $test"
   done
 }

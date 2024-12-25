@@ -47,8 +47,12 @@ function build_tests {
 function test_cmds {
   test_should_run $test_flag || return 0
 
+  export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
+  export GIT_DIRTY=false
+  export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
+
   cd noir-repo
-  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
+  cargo nextest list --workspace --locked --release -Tjson-pretty | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |
