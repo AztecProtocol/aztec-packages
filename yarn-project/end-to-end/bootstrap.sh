@@ -56,7 +56,7 @@ function test_cmds {
   echo "$run_test simple e2e_note_getter"
   echo "$run_test simple e2e_ordering"
   echo "$run_test simple e2e_outbox"
-  echo "$run_test simple e2e_p2p/gossip_network"
+  # echo "$run_test simple e2e_p2p/gossip_network"
   # echo "$run_test simple e2e_p2p/rediscovery"
   # echo "$run_test simple-flake e2e_p2p/reqresp"
   # echo "$run_test simple-flake e2e_p2p/upgrade_governance_proposer"

@@ -2,14 +2,30 @@
 # This runs an individual test from the dest folder.
 # It's the script used by ./bootstrap.sh test-cmds.
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
+# TODO: --forceExit *should not be needed*. Find out what's not being cleaned up.
 set -eu
 
-dir=${1%%/*}
-test=${1#*dest/}
+path=$1
+dir=${path%%/*}
+test=${path#*dest/}
 
-export NODE_OPTIONS="--no-warnings --experimental-vm-modules"
-
-cd $(dirname $0)/../$dir
-
-# TODO: --forceExit *should not be needed*. Find out what's not being cleaned up.
-node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  # Strip leading non alpha numerics and replace / with _ for the container name.
+  name=$(echo "$path" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
+  trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
+  docker run --rm \
+    --name $name \
+    --cpus=2 \
+    --memory 4g \
+    -v$(git rev-parse --show-toplevel):/root/aztec-packages \
+    -v$HOME/.bb-crs:/root/.bb-crs \
+    --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
+    --workdir /root/aztec-packages/yarn-project/$dir \
+    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules" \
+    aztecprotocol/build:2.0 \
+      node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
+else
+  export NODE_OPTIONS="--no-warnings --experimental-vm-modules"
+  cd $(dirname $0)/../$dir
+  node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
+fi

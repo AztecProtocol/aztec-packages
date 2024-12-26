@@ -56,11 +56,7 @@ function build_tests {
 function test {
   github_group "acir_tests testing"
 
-  # TODO: These are some magic numbers that fit our dev/ci environments. They ultimately need to work on lower hardware.
-  # export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
-  # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
-  # local jobs=64
-
+  # TODO: 64 is bit of a magic number for CI/mainframe. Needs to work on lower hardware.
   test_cmds | parallelise 64
 
   cache_upload_flag $test_flag &>/dev/null

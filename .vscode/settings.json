@@ -188,6 +188,7 @@
     "gtest",
     "wasi",
     "memfree",
+    "parallelise",
     "tmpfs"
   ]
 }

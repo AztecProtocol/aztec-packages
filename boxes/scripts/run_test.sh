@@ -3,4 +3,6 @@ set -eu
 
 cd $(dirname $0)/..
 
-BOX=$1 BROWSER=$2 denoise docker compose -p $1-$2 up --exit-code-from=boxes --abort-on-container-exit --force-recreate
+name=$1-$2
+trap "docker compose -p $name down" EXIT
+BOX=$1 BROWSER=$2 docker compose -p $name up --exit-code-from=boxes --abort-on-container-exit --force-recreate

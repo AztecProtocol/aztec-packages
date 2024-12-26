@@ -10,7 +10,8 @@ BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 FLOW=${FLOW:-prove_and_verify}
 RECURSIVE=${RECURSIVE:-false}
-HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
+RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-8}
 
 flow_script=$(realpath ./flows/${FLOW}.sh)
 nargo=$(realpath ../../noir/noir-repo/target/release/nargo)

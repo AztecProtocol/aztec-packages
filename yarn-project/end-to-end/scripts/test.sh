@@ -32,7 +32,9 @@ case "$TYPE" in
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose"|"compose-flake")
-    docker compose -p "${TEST//[\/\.]/_}" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
+    name=${TEST//[\/\.]/_}
+    trap "docker compose -p $name down" EXIT
+    docker compose -p "$name" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;
   "skip")
     echo "Skipping test: $TEST"

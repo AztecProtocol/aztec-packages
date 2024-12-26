@@ -39,7 +39,8 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/boxes
-    entrypoint: "yarn workspace @aztec/$BOX test --project=$BROWSER"
+    entrypoint: ["bash", "-c"]
+    command: "yarn workspace @aztec/$BOX test --project=$BROWSER"
     environment:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"
@@ -48,7 +49,6 @@ services:
       L1_CHAIN_ID: 31337
       PXE_URL: http://aztec:8080
       BOX: ${BOX:-vanilla}
-      CI: ${CI:-}
       BROWSER: ${BROWSER:-chromium}
     depends_on:
       aztec:
