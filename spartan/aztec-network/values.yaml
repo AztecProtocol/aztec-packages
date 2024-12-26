@@ -13,6 +13,8 @@ network:
 
 storage:
   localSsd: false
+  dataStoreMapSize: 134217728 # 128 GB
+  worldStateMapSize: 134217728 # 128 GB
 
 telemetry:
   enabled: false

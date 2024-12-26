@@ -227,6 +227,10 @@ spec:
               value: "{{ .Values.bootNode.peerIdPrivateKey }}"
             - name: DATA_DIRECTORY
               value: "{{ .Values.bootNode.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}

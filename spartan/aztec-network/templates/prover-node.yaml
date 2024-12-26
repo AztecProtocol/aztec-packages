@@ -172,6 +172,10 @@ spec:
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
             - name: DATA_DIRECTORY
               value: "{{ .Values.proverNode.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
