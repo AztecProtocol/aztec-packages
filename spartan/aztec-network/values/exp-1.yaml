@@ -122,7 +122,7 @@ validator:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "300Gi"
+      ephemeral-storage: "275Gi"
   validator:
     disabled: false
   sequencer:
@@ -138,7 +138,7 @@ bootNode:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "300Gi"
+      ephemeral-storage: "275Gi"
 
 proverAgent:
   replicas: 8
@@ -148,14 +148,14 @@ proverBroker:
     requests:
       memory: "12Gi"
       cpu: "3.5"
-      ephemeral-storage: "300Gi"
+      ephemeral-storage: "275Gi"
 
 proverNode:
   resources:
     requests:
       memory: "12Gi"
       cpu: "3.5"
-      ephemeral-storage: "300Gi"
+      ephemeral-storage: "275Gi"
 
 bot:
   replicas: 10
