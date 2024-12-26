@@ -23,5 +23,6 @@ else
   # Default to AWS S3 URL if no custom endpoint is set
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
   # Write the flag file to stdout, return exit success if found
-  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo_stderr "Running test $NAME because S3 flag object not found." && exit 1)
+  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo_stderr "Running test $NAME because cache flag not found." && exit 1)
+  echo_stderr "Skipping test $NAME because cache flag found."
 fi
