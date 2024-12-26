@@ -22,7 +22,7 @@ Barretenberg's source code can be found [here](https://github.com/AztecProtocol/
 
 With `nargo`, you can start new projects, compile, execute, prove, verify, test, generate solidity contracts, and do pretty much all that is available in Noir.
 
-You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/installation/) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
+You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/noir_installation/) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
 ### Noir
 
