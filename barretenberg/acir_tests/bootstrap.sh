@@ -88,10 +88,10 @@ function test_cmds {
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
-  echo BROWSER=chrome THREAD_MODEL=mt PORT=8080 $run_test_browser verify_honk_proof
-  echo BROWSER=chrome THREAD_MODEL=st PORT=8081 $run_test_browser 1_mul
-  echo BROWSER=webkit THREAD_MODEL=mt PORT=8082 $run_test_browser verify_honk_proof
-  echo BROWSER=webkit THREAD_MODEL=st PORT=8083 $run_test_browser 1_mul
+  echo BROWSER=chrome THREAD_MODEL=mt $run_test_browser verify_honk_proof
+  echo BROWSER=chrome THREAD_MODEL=st $run_test_browser 1_mul
+  echo BROWSER=webkit THREAD_MODEL=mt $run_test_browser verify_honk_proof
+  echo BROWSER=webkit THREAD_MODEL=st $run_test_browser 1_mul
   # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.

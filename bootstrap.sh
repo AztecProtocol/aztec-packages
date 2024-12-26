@@ -138,7 +138,7 @@ function test {
   done
 
   echo "Gathering tests to run..."
-  test_cmds $@ | parallelise 96
+  test_cmds $@ | parallelise 64
   github_endgroup
 }
 

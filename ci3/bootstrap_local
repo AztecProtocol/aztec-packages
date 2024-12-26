@@ -7,9 +7,8 @@
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
 # We set SSH_CONNECTION to something, to ensure the hostname is shown in our lean prompt.
 # If anything goes wrong during the run, the container will drop into a shell.
+source $(git rev-parse --show-toplevel)/ci3/source
 
-root=$(git rev-parse --show-toplevel)
-source $root/ci3/source
 cmd=${1:-"./bootstrap.sh ci || exec zsh"}
 
 if ! git diff --quiet; then
@@ -27,6 +26,7 @@ docker run -ti --rm --privileged \
   -e SSH_CONNECTION=' ' \
   -e LOCAL_USER_ID=$(id -u) \
   -e LOCAL_GROUP_ID=$(id -g) \
+  --cpus=$(get_num_cpus) \
   --pids-limit=32768 \
   aztecprotocol/devbox:2.2 bash -c "
     set -e

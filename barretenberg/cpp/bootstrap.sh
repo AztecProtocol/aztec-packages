@@ -63,14 +63,13 @@ function build_tests {
     github_group "bb build tests"
     denoise ./format.sh check
     denoise "cmake --preset $preset && cmake --build --preset $preset"
-
-    # Download ignition transcripts. Only needed for tests.
-    # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
-    # TODO: Use the flattened crs. These old transcripts are a pain.
-    denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
-
     cache_upload barretenberg-tests-$hash.tar.gz build/bin
   fi
+
+  # Download ignition transcripts. Only needed for tests.
+  # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
+  # TODO: Use the flattened crs. These old transcripts are a pain.
+  denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
 }
 
 # Print every individual test command. Can be fed into gnu parallel.

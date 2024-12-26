@@ -49,7 +49,7 @@ function get_num_cpus_max {
 # For running test cmds that are pathed relative to the repo root.
 function parallelise {
   cd $root
-  local jobs=$(get_num_cpus_max $1)
+  local jobs=$(get_num_cpus_max ${1:-})
   echo "Starting test run with max $jobs jobs..."
   parallel -j$jobs --bar --timeout 600 --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
 

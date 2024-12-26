@@ -33,7 +33,7 @@ case "$TYPE" in
   ;;
   "compose"|"compose-flake")
     name=${TEST//[\/\.]/_}
-    trap "docker compose -p $name down" EXIT
+    trap "docker compose -p $name down" SIGINT SIGTERM
     docker compose -p "$name" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;
   "skip")
