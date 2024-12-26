@@ -17,12 +17,11 @@ NAME=$1
 # Read out the build flag as it has the context of the last success.
 # Extract endpoint URL if S3_BUILD_CACHE_AWS_PARAMS is set
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
-  # Write the flag file to stdout, return exit success if found
-  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "s3://aztec-ci-artifacts/build-cache/$NAME.flag" - --quiet --no-progress
+  # Write the flag file to stderr, return exit success if found.
+  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "s3://aztec-ci-artifacts/build-cache/$NAME.flag" - --quiet --no-progress >&2
 else
-  # Default to AWS S3 URL if no custom endpoint is set
+  # Default to AWS S3 URL if no custom endpoint is set.
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
-  # Write the flag file to stdout, return exit success if found
-  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" || (echo_stderr "Running test $NAME because cache flag not found." && exit 1)
-  echo_stderr "Skipping test $NAME because cache flag found."
+  # Write the flag file to stderr, return exit success if found.
+  curl -s -f "$S3_ENDPOINT/build-cache/$NAME.flag" >&2 || (echo_stderr "Running test $NAME because cache flag not found." && exit 1)
 fi
