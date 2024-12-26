@@ -21,6 +21,8 @@ case "$TYPE" in
     trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
     docker run --rm \
       --name $name \
+      --cpus=4 \
+      --memory 8g \
       -v$(git rev-parse --show-toplevel):/root/aztec-packages \
       -v$HOME/.bb-crs:/root/.bb-crs \
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
@@ -30,7 +32,7 @@ case "$TYPE" in
       aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose"|"compose-flake")
-    docker compose -p "${TEST//[\/\.]/_}" up --exit-code-from=end-to-end --force-recreate
+    docker compose -p "${TEST//[\/\.]/_}" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;
   "skip")
     echo "Skipping test: $TEST"
