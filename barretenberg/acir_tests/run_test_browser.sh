@@ -36,6 +36,7 @@ docker run --rm \
   -e BROWSER=${BROWSER:-chrome,webkit} \
   -e THREAD_MODEL=${THREAD_MODEL:-mt} \
   -e TEST=$test \
+  -e VERBOSE=${VERBOSE:-0} \
   aztecprotocol/build:2.0 bash -c '
     git config --global --add safe.directory /root/aztec-packages
     source /root/aztec-packages/ci3/source

@@ -4,7 +4,9 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 case "${1:-}" in
   "ci")
+    # Forces yarn immutability, jest snapshot immutability, etc.
     export CI=1
+    # Being in CI implies use of cache, and enables denoising.
     export USE_CACHE=${USE_CACHE:-1}
     export DENOISE=${DENOISE:-1}
     ;;

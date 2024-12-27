@@ -1,3 +1,4 @@
+import { retry, makeBackoff } from '../retry/index.js';
 /**
  * Downloader for CRS from the web or local.
  */
@@ -28,12 +29,17 @@ export class NetCrs {
 
     const g1End = this.numPoints * 64 - 1;
 
-    const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {
-      headers: {
-        Range: `bytes=0-${g1End}`,
-      },
-      cache: 'force-cache',
-    });
+    const response = await retry(
+      () =>
+        fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {
+          headers: {
+            Range: `bytes=0-${g1End}`,
+          },
+          cache: 'force-cache',
+        }),
+      'downloadG1',
+      makeBackoff([5, 5, 5]),
+    );
 
     return (this.data = new Uint8Array(await response.arrayBuffer()));
   }
@@ -42,9 +48,14 @@ export class NetCrs {
    * Download the G2 points data.
    */
   async downloadG2Data() {
-    const response2 = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat', {
-      cache: 'force-cache',
-    });
+    const response2 = await retry(
+      () =>
+        fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat', {
+          cache: 'force-cache',
+        }),
+      'downloadG2',
+      makeBackoff([5, 5, 5]),
+    );
 
     return (this.g2Data = new Uint8Array(await response2.arrayBuffer()));
   }
