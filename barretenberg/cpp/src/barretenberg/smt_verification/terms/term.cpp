@@ -1,4 +1,5 @@
 #include "barretenberg/smt_verification/terms/term.hpp"
+#include "term.hpp"
 
 namespace smt_terms {
 
@@ -310,6 +311,38 @@ STerm STerm::operator|(const STerm& other) const
         return *this;
     }
     cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::OR), { this->term, other.term });
+    return { res, this->solver, this->type };
+}
+
+void STerm::operator<(const STerm& other) const
+{
+    STerm left = *this;
+    STerm right = other;
+    left = this->type == TermType::FFITerm && left.term.getNumChildren() > 1 ? left.mod() : left;
+    right = this->type == TermType::FFITerm && right.term.getNumChildren() > 1 ? right.mod() : right;
+
+    cvc5::Term eq = this->solver->term_manager.mkTerm(this->operations.at(OpType::LT), { left.term, right.term });
+    this->solver->assertFormula(eq);
+}
+
+void STerm::operator>(const STerm& other) const
+{
+    STerm left = *this;
+    STerm right = other;
+    left = this->type == TermType::FFITerm && left.term.getNumChildren() > 1 ? left.mod() : left;
+    right = this->type == TermType::FFITerm && right.term.getNumChildren() > 1 ? right.mod() : right;
+
+    cvc5::Term eq = this->solver->term_manager.mkTerm(this->operations.at(OpType::GT), { left.term, right.term });
+    this->solver->assertFormula(eq);
+}
+
+STerm STerm::operator~() const
+{
+    if (!this->operations.contains(OpType::NOT)) {
+        info("NOT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::NOT), { this->term });
     return { res, this->solver, this->type };
 }
 

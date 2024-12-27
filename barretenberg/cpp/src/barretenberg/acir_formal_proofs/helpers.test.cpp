@@ -76,8 +76,6 @@ TEST(helpers, buggy_shr)
 
 TEST(helpers, pow2)
 {
-    // using smt solver i found that 1879048194 >> 16 == 0
-    // its strange...
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
 
     STerm x = BVVar("x", &s);

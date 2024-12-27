@@ -1,3 +1,11 @@
+/**
+ * @file acir_loader.test.cpp
+ * @brief Tests for verifying ACIR (Arithmetic Circuit Intermediate Representation) operations
+ *
+ * This test suite verifies the correctness of various arithmetic, logical, and bitwise operations
+ * implemented in ACIR format. It uses SMT solvers to formally verify the operations.
+ */
+
 #include "acir_loader.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
@@ -11,18 +19,30 @@
 #include "helpers.hpp"
 #include <vector>
 
-// defkit/print_assertions TODO delete all print_assertions from tests
+// Path to test artifacts containing ACIR programs and witness files
 const std::string ARTIFACTS_PATH = "../src/barretenberg/acir_formal_proofs/artifacts/";
 
-// saves to ARTIFACTS_PATH/{instruction_name}.witness
+/**
+ * @brief Saves witness data when a bug is found during verification
+ * @param instruction_name Name of the instruction being tested
+ * @param circuit The circuit containing the bug
+ *
+ * Saves witness data to a file named {instruction_name}.witness in the artifacts directory
+ */
 void save_buggy_witness(std::string instruction_name, smt_circuit::UltraCircuit circuit)
 {
-    // stay it empty, dont want to see them in stdout
     std::vector<std::string> special_names;
     info("Saving bug for op ", instruction_name);
     default_model_single(special_names, circuit, ARTIFACTS_PATH + instruction_name + ".witness");
 }
 
+/**
+ * @brief Verifies a previously saved witness file for correctness
+ * @param instruction_name Name of the instruction to verify
+ * @return true if witness is valid, false otherwise
+ *
+ * Loads a witness file and verifies it against the corresponding ACIR program
+ */
 bool verify_buggy_witness(std::string instruction_name)
 {
     std::vector<bb::fr> witness = import_witness_single(ARTIFACTS_PATH + instruction_name + ".witness.pack");
@@ -37,249 +57,356 @@ bool verify_buggy_witness(std::string instruction_name)
     return bb::CircuitChecker::check(builder);
 }
 
+/**
+ * @brief Tests 127-bit unsigned addition
+ * Verifies that the ACIR implementation of addition is correct
+ * Execution time: ~2.8 seconds on SMTBOX
+ */
 TEST(acir_formal_proofs, uint_terms_add)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Add.acir");
+    std::string TESTNAME = "Binary::Add_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_add(&solver, circuit);
     EXPECT_FALSE(res);
 
     if (res) {
-        save_buggy_witness("Binary::Add", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
-TEST(acir_formal_proofs, uint_terms_mul)
-{
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Mul.acir");
-    smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
-    bool res = verify_mul(&solver, circuit);
-    EXPECT_FALSE(res);
-    if (res) {
-        save_buggy_witness("Binary::Mul", circuit);
-    }
-}
-
+/**
+ * @brief Tests 127-bit unsigned bitwise AND
+ * Verifies that the ACIR implementation of AND is correct
+ */
 TEST(acir_formal_proofs, uint_terms_and)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::And.acir");
+    std::string TESTNAME = "Binary::And_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_and(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::And", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
+/**
+ * @brief Tests 126-bit unsigned division
+ * Verifies that the ACIR implementation of division is correct
+ */
 TEST(acir_formal_proofs, uint_terms_div)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Div.acir");
+    std::string TESTNAME = "Binary::Div_Unsigned_126_Unsigned_126";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_div(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Div", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
-// checks to times
-// if a == b c must be 0
-// if a != b must be 1
+/**
+ * @brief Tests 127-bit unsigned equality comparison
+ * Verifies two cases:
+ * 1. When operands are equal, result must be 0
+ * 2. When operands are not equal, result must be 1
+ * Execution time: ~22.8 seconds on SMTBOX
+ */
 TEST(acir_formal_proofs, uint_terms_eq)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Eq.acir");
+    std::string TESTNAME = "Binary::Eq_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver1 = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit1 = loader.get_smt_circuit(&solver1);
+    smt_circuit::UltraCircuit circuit1 = loader.get_bitvec_smt_circuit(&solver1);
 
     bool res1 = verify_eq_on_equlaity(&solver1, circuit1);
     EXPECT_FALSE(res1);
     if (res1) {
-        save_buggy_witness("Binary::Eq", circuit1);
+        save_buggy_witness(TESTNAME, circuit1);
     }
 
     smt_solver::Solver solver2 = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit2 = loader.get_smt_circuit(&solver2);
+    smt_circuit::UltraCircuit circuit2 = loader.get_bitvec_smt_circuit(&solver2);
 
     bool res2 = verify_eq_on_inequlaity(&solver2, circuit2);
     EXPECT_FALSE(res2);
     if (res2) {
-        save_buggy_witness("Binary::Eq", circuit2);
+        save_buggy_witness(TESTNAME, circuit2);
     }
 }
 
-/*TEST(acir_formal_proofs, uint_terms_lt)
+/**
+ * @brief Tests 127-bit unsigned less than comparison
+ * Verifies two cases:
+ * 1. When a < b, result must be 0
+ * 2. When a >= b, result must be 1
+ * Execution time: ~56.7 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, uint_terms_lt)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Lt.acir");
-    smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
-    auto a = smt_circuit::BVVar("a", &solver);
-    auto b = smt_circuit::BVVar("b", &solver);
-    auto c = smt_circuit::BVVar("c", &solver);
-    a < b;
-    c != 1;
-    bool res = solver.check();
-    solver.print_assertions();
-    info(solver.getResult());
-    EXPECT_FALSE(res);
-}*/
+    std::string TESTNAME = "Binary::Lt_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver1 = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit1 = loader.get_bitvec_smt_circuit(&solver1);
 
-/*TEST(acir_formal_proofs, uint_terms_gt)
-{
-    AcirToSmtLoader loader = AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Lt.acir");
-    smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    bool res1 = verify_lt(&solver1, circuit1);
+    EXPECT_FALSE(res1);
+    if (res1) {
+        save_buggy_witness(TESTNAME, circuit1);
+    }
 
-    auto a = circuit["a"];
-    auto b = circuit["b"];
-    auto c = circuit["c"];
-    a > b;
-    c != 0;
-    bool res = solver.check();
-    solver.print_assertions();
-    info(solver.getResult());
-    EXPECT_FALSE(res);
-}*/
+    smt_solver::Solver solver2 = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit2 = loader.get_bitvec_smt_circuit(&solver2);
 
+    bool res2 = verify_gt(&solver2, circuit2);
+    EXPECT_FALSE(res2);
+    if (res2) {
+        save_buggy_witness(TESTNAME, circuit2);
+    }
+}
+
+/**
+ * @brief Tests 126-bit unsigned modulo
+ * Verifies that the ACIR implementation of modulo is correct
+ * Execution time: ~0.354 seconds on SMTBOX
+ */
 TEST(acir_formal_proofs, uint_terms_mod)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Mod.acir");
+    std::string TESTNAME = "Binary::Mod_Unsigned_126_Unsigned_126";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_mod(&solver, circuit);
     solver.print_assertions();
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Mod", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
+/**
+ * @brief Tests 127-bit unsigned multiplication
+ * Verifies that the ACIR implementation of multiplication is correct
+ * Execution time: ~10.0 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, uint_terms_mul)
+{
+    std::string TESTNAME = "Binary::Mul_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_mul(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests 127-bit unsigned bitwise OR
+ * Verifies that the ACIR implementation of OR is correct
+ */
 TEST(acir_formal_proofs, uint_terms_or)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Or.acir");
+    std::string TESTNAME = "Binary::Or_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_or(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Or", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
-/*TEST(acir_formal_proofs, uint_terms_shl64)
+/**
+ * @brief Tests 64-bit left shift
+ * Verifies that the ACIR implementation of left shift is correct
+ * Execution time: ~4588 seconds on SMTBOX
+ * Memory usage: ~30GB RAM
+ */
+TEST(acir_formal_proofs, uint_terms_shl64)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Shl.acir");
+    std::string TESTNAME = "Binary::Shl_Unsigned_32_Unsigned_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
-    bool res = verify_shl32(&solver, circuit);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_shl64(&solver, circuit);
     if (res) {
-        save_buggy_witness("Binary::Shl", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
     EXPECT_FALSE(res);
-}*/
+}
 
+/**
+ * @brief Tests 32-bit left shift
+ * Verifies that the ACIR implementation of left shift is correct
+ * Execution time: ~4574 seconds on SMTBOX
+ * Memory usage: ~30GB RAM
+ */
 TEST(acir_formal_proofs, uint_terms_shl32)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Shl.acir");
+    std::string TESTNAME = "Binary::Shl_Unsigned_32_Unsigned_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_shl32(&solver, circuit);
     if (res) {
-        save_buggy_witness("Binary::Shl", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
     EXPECT_FALSE(res);
 }
 
+/**
+ * @brief Tests right shift operation
+ * Verifies that the ACIR implementation of right shift is correct
+ * Execution time: ~3927.88 seconds on SMTBOX
+ * Memory usage: ~10GB RAM
+ */
 TEST(acir_formal_proofs, uint_terms_shr)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Shr.acir");
+    std::string TESTNAME = "Binary::Shr_Unsigned_64_Unsigned_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_shr(&solver, circuit);
     if (res) {
-        save_buggy_witness("Binary::Shl", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
     EXPECT_FALSE(res);
 }
 
+/**
+ * @brief Tests 127-bit unsigned subtraction
+ * Verifies that the ACIR implementation of subtraction is correct
+ * Execution time: ~2.6 seconds on SMTBOX
+ */
 TEST(acir_formal_proofs, uint_terms_sub)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Sub.acir");
+    std::string TESTNAME = "Binary::Sub_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_sub(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Sub", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
+/**
+ * @brief Tests 127-bit unsigned bitwise XOR
+ * Verifies that the ACIR implementation of XOR is correct
+ */
 TEST(acir_formal_proofs, uint_terms_xor)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Binary::Xor.acir");
+    std::string TESTNAME = "Binary::Xor_Unsigned_127_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_xor(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Xor", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
+/**
+ * @brief Tests 127-bit unsigned bitwise NOT
+ * Verifies that the ACIR implementation of NOT is correct
+ */
 TEST(acir_formal_proofs, uint_terms_not)
 {
-    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + "Not.acir");
+    std::string TESTNAME = "Not_Unsigned_127";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_smt_circuit(&solver);
-    auto a = circuit["a"];
-    auto b = circuit["b"];
-    bool res = verify_not_64(&solver, circuit);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_not_127(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
-        save_buggy_witness("Binary::Not", circuit);
+        save_buggy_witness(TESTNAME, circuit);
     }
 }
 
-// if failed, bug NOT verified
-// fali on file not found or check circuit
-TEST(acir_formal_proofs, uint_terms_and_verify_bug)
+/**
+ * @brief Tests field addition
+ * Verifies that the ACIR implementation of field addition is correct
+ * Execution time: ~0.22 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, field_terms_add)
 {
-    EXPECT_TRUE(verify_buggy_witness("Binary::And"));
+    std::string TESTNAME = "Binary::Add_Field_0_Field_0";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_field_smt_circuit(&solver);
+    bool res = verify_add(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
 }
 
-// if failed, bug NOT verified
-// fali on file not found or check circuit
-TEST(acir_formal_proofs, uint_terms_shr_verify_bug)
+/**
+ * @brief Tests field division
+ * Verifies that the ACIR implementation of field division is correct
+ * Execution time: ~0.22 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, field_terms_div)
 {
-    EXPECT_TRUE(verify_buggy_witness("Binary::Shr"));
+    std::string TESTNAME = "Binary::Div_Field_0_Field_0";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_field_smt_circuit(&solver);
+    bool res = verify_div_field(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
 }
 
-TEST(acir_formal_proofs, uint_terms_shl_verify_bug)
+/**
+ * @brief Tests field multiplication
+ * Verifies that the ACIR implementation of field multiplication is correct
+ * Execution time: ~0.22 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, field_terms_mul)
 {
-    EXPECT_TRUE(verify_buggy_witness("Binary::Shl"));
+    std::string TESTNAME = "Binary::Mul_Field_0_Field_0";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_field_smt_circuit(&solver);
+    bool res = verify_mul(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
 }
 
-/*TEST(acir_circuit_check, uint_terms_add)
+/**
+ * @brief Tests 126-bit signed division
+ * Verifies that the ACIR implementation of signed division is correct
+ * Execution time: >10 DAYS on SMTBOX
+ */
+TEST(acir_formal_proofs, integer_terms_div)
 {
-    AcirToSmtLoader loader =
-        AcirToSmtLoader("../src/barretenberg/acir_formal_proofs/artifacts/Binary::Add.public.acir");
-    bb::UltraCircuitBuilder builder = acir_format::create_circuit(loader.get_constraint_systems(), false);
-    // naming first three variables
-    // for binary noir sets indices as 0 1 2
-    // for unary noir sets indices as 0 1
-    info(builder.public_inputs);
-    info(builder.zero_idx);
-    builder.set_variable_name(0, "a");
-    builder.set_variable_name(1, "b");
-    builder.set_variable_name(2, "c");
-    builder.set_variable_name(3, "d");
-    builder.variables[0] = 1;
-    builder.variables[1] = 1;
-    builder.variables[3] = 2;
-    // builder.variables[4] = 1;
-    EXPECT_TRUE(bb::CircuitChecker::check(builder));
+    std::string TESTNAME = "Binary::Div_Signed_126_Signed_126";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    bool res = verify_div(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
 }
-*/
+
+TEST(acir_formal_proofs, verify_div_bug)
+{
+    std::string name = "Binary::Div_Unsigned_126_Unsigned_126";
+    EXPECT_TRUE(verify_buggy_witness(name));
+}

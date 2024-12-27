@@ -50,8 +50,20 @@ smt_solver::Solver AcirToSmtLoader::get_smt_solver()
     return smt_solver::Solver(circuit_info.modulus, smt_circuit::default_solver_config, 16, 240);
 }
 
-smt_circuit::UltraCircuit AcirToSmtLoader::get_smt_circuit(smt_solver::Solver* solver)
+smt_circuit::UltraCircuit AcirToSmtLoader::get_bitvec_smt_circuit(smt_solver::Solver* solver)
 {
     smt_circuit::CircuitSchema circuit_info = smt_circuit_schema::unpack_from_buffer(this->circuit_buf);
     return smt_circuit::UltraCircuit(circuit_info, solver, smt_terms::TermType::BVTerm);
+}
+
+smt_circuit::UltraCircuit AcirToSmtLoader::get_field_smt_circuit(smt_solver::Solver* solver)
+{
+    smt_circuit::CircuitSchema circuit_info = smt_circuit_schema::unpack_from_buffer(this->circuit_buf);
+    return smt_circuit::UltraCircuit(circuit_info, solver, smt_terms::TermType::FFTerm);
+}
+
+smt_circuit::UltraCircuit AcirToSmtLoader::get_integer_smt_circuit(smt_solver::Solver* solver)
+{
+    smt_circuit::CircuitSchema circuit_info = smt_circuit_schema::unpack_from_buffer(this->circuit_buf);
+    return smt_circuit::UltraCircuit(circuit_info, solver, smt_terms::TermType::ITerm);
 }
