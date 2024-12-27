@@ -58,12 +58,13 @@ function build {
 
 # Copy the snapshot files to dest folder and replace .ts with .js.
 function build_tests {
-  for snapshot in */src/**/__snapshots__/*; do
-    dest_path="${snapshot/\/src\//\/dest\/}"
-    dest_path="${dest_path/.ts./.js.}"
-    mkdir -p $(dirname $dest_path)
-    rm -f "$dest_path"
-    cp "$snapshot" "$dest_path"
+  for snapshot_dir in */src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/\/src\//\/dest\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
   done
   cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
 }

@@ -16,6 +16,17 @@ function build {
   else
     denoise yarn install
   fi
+
+  # We copy snapshot dirs to dest so we can run tests from dest.
+  for snapshot_dir in src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/src\//dest\/node\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
+
   github_endgroup
 }
 
