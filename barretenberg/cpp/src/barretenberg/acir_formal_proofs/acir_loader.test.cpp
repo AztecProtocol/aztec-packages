@@ -173,7 +173,7 @@ TEST(acir_formal_proofs, uint_terms_lt)
 /**
  * @brief Tests 126-bit unsigned modulo
  * Verifies that the ACIR implementation of modulo is correct
- * Execution time: ~0.354 seconds on SMTBOX
+ * Execution time: ??? seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_mod)
 {

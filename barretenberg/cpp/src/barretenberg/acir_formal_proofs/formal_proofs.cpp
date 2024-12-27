@@ -59,10 +59,6 @@ bool verify_mul(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
 
 bool verify_div(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
 {
-    // c = a / b
-    // a - c * b = a mod b
-    // t = a % b
-    // a - c * b == t
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
@@ -98,17 +94,11 @@ bool verify_mod(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
-    // c = a mod b
-    // k * b + c = a
-    // k = (a - c) / b
-    // (a - c) * b + c * b == a * b
-    smt_circuit::STerm c1 = (a - c) * b + c * b;
-    smt_circuit::STerm c2 = a * b;
-    c1 != c2;
+    smt_circuit::STerm c1 = a % b;
+    c != c1;
     bool res = solver->check();
     if (res) {
-        std::unordered_map<std::string, cvc5::Term> terms(
-            { { "a", a }, { "b", b }, { "c", c }, { "c1", c1 }, { "c2", c2 } });
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "c1", c1 } });
         debug_solution(solver, terms);
     }
     return res;

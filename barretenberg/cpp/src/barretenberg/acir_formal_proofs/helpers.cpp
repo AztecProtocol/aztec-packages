@@ -2,7 +2,7 @@
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
 
-// used for base = 2 exp < 256 so its okay
+// used for base = 2; exp <= 8 so its okay
 uint32_t pow_num(uint32_t base, uint32_t exp)
 {
     uint32_t res = 1;
