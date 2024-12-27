@@ -1,6 +1,11 @@
-# Usage 'source ci3/source'
+# Usage: source $(git rev-parse --show-toplevel)/ci3/source
 # This is a basis for shell scripts that use the ci3 framework.
-# Set BASH best practices for early error exit and undefined variables.
+
+# Conditionally print all statements ran in CI scripts.
+# Useful for debugging commands that weren't expected to error out.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+
+# Set best practices for early error exit and undefined variables.
 set -euo pipefail
 # Enable extended bash globs.
 shopt -s extglob
@@ -14,9 +19,8 @@ export root="$(git rev-parse --show-toplevel)"
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
-# Conditionally print all statements ran in CI scripts.
-# Useful for debugging commands that weren't expected to error out.
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+# Our redis cache for tracking e.g. test runs.
+export ci_redis="ci-redis.lzka0i.0001.use2.cache.amazonaws.com"
 
 function hash_str {
   set -eu

@@ -208,6 +208,7 @@ RUN apt update && \
         neovim \
         psmisc \
         python3-blessed \
+        redis-tools \
         software-properties-common \
         ssh \
         strace \
