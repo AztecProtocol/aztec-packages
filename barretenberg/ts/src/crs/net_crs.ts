@@ -37,7 +37,6 @@ export class NetCrs {
           },
           cache: 'force-cache',
         }),
-      'downloadG1',
       makeBackoff([5, 5, 5]),
     );
 
@@ -53,7 +52,6 @@ export class NetCrs {
         fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat', {
           cache: 'force-cache',
         }),
-      'downloadG2',
       makeBackoff([5, 5, 5]),
     );
 
