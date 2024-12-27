@@ -41,4 +41,4 @@ if [ "$CONTENT_HASH" = "$ECHO_BLANK_HASH" ]; then
 fi
 
 # important: include architecture in content hash because we target x86_64 and arm64
-echo "$CONTENT_HASH-$(echo $PLATFORM_TAG)"
+echo $(hash_str $CONTENT_HASH-$PLATFORM_TAG)

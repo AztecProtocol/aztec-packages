@@ -1,6 +1,7 @@
 #!/bin/bash
-# If you want to silence a commands stderr, unless it fails, wrap with a call to this.
-# stdout is output as normal. The caller can redirect to /dev/null if they want to silence that also.
+# If the given command succeeds, only stdout is output.
+# If the given command fails, both stdout and stderr are output.
+# As stdout is output as normal, the caller can redirect to /dev/null if they want to silence that also.
 # This enables use in captures:
 #   my_var=$(dump_fail some_command)
 # Or as a denoiser where you want no output unless the command fails:

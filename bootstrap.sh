@@ -102,19 +102,17 @@ function install_hooks {
 
 function test_cmds {
   if [ "$#" -gt 0 ]; then
-    for arg in "$@"; do
-      "$arg/bootstrap.sh" test-cmds
-    done
+    parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@
   else
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    # TODO: parallelise
-    ./yarn-project/end-to-end/bootstrap.sh test-cmds
-    ./yarn-project/bootstrap.sh test-cmds
-    ./noir-projects/bootstrap.sh test-cmds
-    ./boxes/bootstrap.sh test-cmds
-    ./barretenberg/bootstrap.sh test-cmds
-    ./l1-contracts/bootstrap.sh test-cmds
-    ./noir/bootstrap.sh test-cmds
+    parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: \
+      yarn-project/end-to-end \
+      yarn-project \
+      noir-projects \
+      boxes \
+      barretenberg \
+      l1-contracts \
+      noir
   fi
 }
 

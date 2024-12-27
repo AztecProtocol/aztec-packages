@@ -20,7 +20,7 @@ export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
 # Our redis cache for tracking e.g. test runs.
-export ci_redis="ci-redis.lzka0i.0001.use2.cache.amazonaws.com"
+export ci_redis=${CI_REDIS:-"ci-redis.lzka0i.0001.use2.cache.amazonaws.com"}
 
 function hash_str {
   set -eu
@@ -30,6 +30,8 @@ function hash_str {
 function echo_stderr {
   echo $@ >&2
 }
+
+export -f hash_str echo_stderr
 
 function get_num_cpus {
   if [ -f /sys/fs/cgroup/cpu.max ]; then
@@ -51,11 +53,12 @@ function get_num_cpus_max {
 }
 
 # For running test cmds that are pathed relative to the repo root.
+# Commands are read from functions stdin.
 function parallelise {
   cd $root
   local jobs=$(get_num_cpus_max ${1:-})
   echo "Starting test run with max $jobs jobs..."
-  parallel -j$jobs --bar --timeout 600 --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
+  parallel -j$jobs --bar --timeout 600 --joblog joblog.txt --halt now,fail=1 'run_test_cmd {}'
 
   slow_jobs=$(cat joblog.txt | \
     awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
@@ -65,7 +68,5 @@ function parallelise {
     echo "$slow_jobs"
   fi
 }
-
-export -f hash_str echo_stderr
 
 source $ci3/source_color
