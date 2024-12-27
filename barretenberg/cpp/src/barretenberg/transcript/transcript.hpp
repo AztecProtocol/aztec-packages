@@ -515,4 +515,56 @@ struct KeccakTranscriptParams {
 
 using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
 
+inline bb::fr poseidon_hash_uint256(std::vector<bb::fr> const& data)
+{
+    // cast into uint256_t
+    std::vector<uint8_t> buffer = to_buffer(data);
+
+    // TODO implement poseidon hash
+    std::array<uint8_t, 32> result;
+
+    for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < 8; ++j) {
+            uint8_t byte = 0; // TODO read byte from hash
+            result[i * 8 + j] = byte;
+        }
+    }
+
+    auto result_fr = from_buffer<bb::fr>(result);
+
+    return result_fr;
+}
+
+struct PoseidonTranscriptParams {
+    using Fr = bb::fr;
+    using Proof = HonkProof;
+
+    static inline Fr hash(const std::vector<Fr>& data) { return poseidon_hash_uint256(data); }
+
+    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    {
+        return bb::field_conversion::convert_challenge<T>(challenge);
+    }
+    template <typename T> static constexpr size_t calc_num_bn254_frs()
+    {
+        return bb::field_conversion::calc_num_bn254_frs<T>();
+    }
+    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    {
+        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
+    }
+    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    {
+        // TODO(md): Need to refactor this to be able to NOT just be field elements - Im working about it in the
+        // verifier for keccak resulting in twice as much hashing
+        return bb::field_conversion::convert_to_bn254_frs(element);
+    }
+    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    {
+        return NativeTranscriptParams::split_challenge(challenge);
+    }
+};
+
+using PoseidonTranscript = BaseTranscript<PoseidonTranscriptParams>;
+
 } // namespace bb

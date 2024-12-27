@@ -52,6 +52,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
+using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
 
 } // namespace bb

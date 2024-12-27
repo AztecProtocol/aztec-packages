@@ -9,6 +9,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 
 namespace bb {
 /**

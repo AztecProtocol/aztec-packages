@@ -30,6 +30,7 @@ template <typename Flavor> class UltraVerifier_ {
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor>;
+using UltraStarknetVerifier = UltraVerifier_<UltraStarknetFlavor>;
 using MegaVerifier = UltraVerifier_<MegaFlavor>;
 
 } // namespace bb

@@ -71,6 +71,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+template class DeciderVerifier_<UltraStarknetFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 
 } // namespace bb

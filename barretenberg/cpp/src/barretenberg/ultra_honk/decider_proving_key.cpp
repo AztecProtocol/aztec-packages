@@ -82,6 +82,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
+template class DeciderProvingKey_<UltraStarknetFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;
 
 } // namespace bb
