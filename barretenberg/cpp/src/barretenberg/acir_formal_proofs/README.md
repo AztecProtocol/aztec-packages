@@ -14,6 +14,7 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 
 ## Tests
 
+⚠️ **WARNING**: Do not run these tests on a local machine without sufficient memory (>32GB RAM). The tests can consume large amounts of memory and CPU resources. Some tests like integer division can run for multiple days. It is recommended to run these tests in a controlled environment with adequate resources.
 The test suite verifies correctness of ACIR operations through SMT solving:
 
 ### Arithmetic Tests
@@ -40,6 +41,6 @@ The test suite verifies correctness of ACIR operations through SMT solving:
 - `uint_terms_eq`: Tests 127-bit unsigned equality comparison. Verifies both equal and unequal cases. Execution time: ~22.8s
 - `uint_terms_lt`: Tests 127-bit unsigned less than comparison. Verifies both a < b and a >= b cases. Execution time: ~56.7s
 
-Each test attempts to find counterexamples that violate the expected behavior. A failing test indicates the operation is correctly implemented, while a passing test reveals potential issues.
+Each test attempts to find counterexamples that violate the expected behavior. A passing test indicates the operation is correctly implemented, while a failing test reveals potential issues.
 
 *Note: The bitwise tests are not working yet. (probably because of bug in the SMT solver). It works only for variables with 32 bits.
