@@ -91,7 +91,7 @@ Noir is a zero-knowledge domain specific language used for writing smart contrac
 
 ### Dive deeper into how Aztec works
 
-Explore the Concepts for a deeper understanding into the components that make up Aztec:
+Explore the Concepts for a deeper understanding of the components that make up Aztec:
 
 <div className="card-container">
 
