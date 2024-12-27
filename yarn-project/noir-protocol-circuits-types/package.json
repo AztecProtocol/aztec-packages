@@ -24,7 +24,7 @@
     "generate:vk-hashes": "node --no-warnings --loader ts-node/esm src/scripts/generate_vk_hashes.ts",
     "generate:noir-circuits": "node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
     "generate:reset-data": "node --no-warnings --loader ts-node/esm src/scripts/generate_private_kernel_reset_data.ts && run -T prettier -w src/private_kernel_reset_data.ts",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch"
   },
