@@ -25,7 +25,7 @@ The test suite verifies correctness of ACIR operations through SMT solving:
 - `uint_terms_div`: Tests 126-bit unsigned division
 - `integer_terms_div`: Tests 126-bit signed division. Execution time: >10 days
 - `field_terms_div`: Tests field division. Execution time: ~0.22s
-- `uint_terms_mod`: Tests 126-bit unsigned modulo. Execution time: ???
+- `uint_terms_mod`: Tests 126-bit unsigned modulo. Execution time: ???. Unknown time due to bug found during reviewing.
 
 ### Bitwise Tests
 
