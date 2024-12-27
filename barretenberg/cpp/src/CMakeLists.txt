@@ -98,9 +98,9 @@ add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 add_subdirectory(barretenberg/acir_formal_proofs)
 
-
-add_subdirectory(barretenberg/smt_verification)
-
+if(SMT)
+    add_subdirectory(barretenberg/smt_verification)
+endif()
 
 add_subdirectory(barretenberg/benchmark)
 
