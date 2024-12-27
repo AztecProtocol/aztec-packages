@@ -3,8 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 hash=$(cache_content_hash .rebuild_patterns)
-test_hash=$(hash_str $hash-$(cache_content_hash .rebuild_patterns_tests))
-test_flag=noir-test-$test_hash
+test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
 function build {
   github_group "noir build"
@@ -20,21 +19,17 @@ function build {
 
 function test {
   github_group "noir test"
-  # export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-  # export PATH="$PWD/noir-repo/target/release/:$PATH"
-  # denoise ./scripts/test_native.sh
-  # denoise ./scripts/test_js_packages.sh
+  # TODO: js packages
   test_cmds | parallelise
-  cache_upload_flag $test_flag &>/dev/null
   github_endgroup
 }
 
 function build_tests {
   github_group "noir build tests"
   cd noir-repo
-  export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
-  export GIT_DIRTY=false
   export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
+  export SOURCE_DATE_EPOCH=$(git show -s --format=%ct $GIT_COMMIT)
+  export GIT_DIRTY=false
   # TODO: Move to build image?
   if ! command -v cargo-binstall &>/dev/null; then
     denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
@@ -45,11 +40,9 @@ function build_tests {
 }
 
 function test_cmds {
-  test_should_run $test_flag || return 0
-
-  export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
-  export GIT_DIRTY=false
   export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
+  export SOURCE_DATE_EPOCH=$(git show -s --format=%ct $GIT_COMMIT)
+  export GIT_DIRTY=false
 
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty | \
@@ -63,7 +56,8 @@ function test_cmds {
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
       # TODO: These fail. Figure out why.
-      grep -vE "(test_caches_open|requests)"
+      grep -vE "(test_caches_open|requests)" | \
+      awk "{print \"$test_hash \" \$0 }"
 }
 
 case "$cmd" in

@@ -19,6 +19,11 @@ export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 tmp_dir=./target/tmp
 key_dir=./target/keys
 
+# Hash of the entire protocol circuits.
+# Needed for test hash, as we presently don't have a program hash for each individual test.
+# Means if anything within the dir changes, the tests will rerun.
+circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/")
+
 # Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
 ivc_patterns=(
   "private_kernel_init"
@@ -49,14 +54,13 @@ function compile {
   local filename="$name.json"
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
-  # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
-  # echo_stderr $program_hash_cmd
-  # program_hash=$(dump_fail "$program_hash_cmd")
-  program_hash=$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    "^noir-projects/$project_name/crates/$dir")
+
+  # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
+  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
+
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
@@ -81,7 +85,7 @@ function compile {
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
-  # Change this to add verification_key to original json, like contracts does.
+  # TODO: Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
@@ -122,16 +126,13 @@ function build {
 }
 
 function test_cmds {
-  test_should_run $test_flag || return 0
-
-  $NARGO test --list-tests --silence-warnings | while read -r package test; do
-    echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
 }
 
 function test {
   test_cmds | parallelise
-  cache_upload_flag $test_flag &>/dev/null
 }
 
 case "$cmd" in

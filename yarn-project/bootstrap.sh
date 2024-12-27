@@ -70,24 +70,21 @@ function build_tests {
 }
 
 function test_cmds {
-  test_should_run yarn-project-tests-$hash || return 0
-
   for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node)/dest/**/*.test.js; do
-    echo yarn-project/scripts/run_test.sh $test
+    echo $hash yarn-project/scripts/run_test.sh $test
   done
   # These need isolation due to network stack usage.
   for test in prover-node/dest/**/*.test.js; do
-    echo "ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
   # Uses mocha - so we have to treat it differently...
   # echo "cd yarn-project/kv-store && yarn test"
-  echo "cd yarn-project && yarn formatting"
+  echo "$hash cd yarn-project && yarn formatting"
 }
 
 function test {
   github_group "yarn-project test"
   test_cmds | parallelise
-  cache_upload_flag yarn-project-tests-$hash
   github_endgroup
 }
 

@@ -31,19 +31,15 @@ function build {
 }
 
 function test_cmds {
-  test_should_run bb.js-tests-$hash || return 0
-
   cd dest/node
   for test in **/*.test.js; do
-    echo "barretenberg/ts/scripts/run_test.sh $test"
+    echo "$hash barretenberg/ts/scripts/run_test.sh $test"
   done
 }
 
 function test {
   github_group "bb.js test"
-  # denoise yarn test
   test_cmds | parallelise
-  cache_upload_flag bb.js-tests-$hash &>/dev/null
   github_endgroup
 }
 

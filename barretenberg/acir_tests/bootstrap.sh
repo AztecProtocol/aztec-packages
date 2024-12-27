@@ -8,15 +8,13 @@ tests_tar=barretenberg-acir-tests-$(cache_content_hash \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests).tar.gz
 
-test_flag=barretenberg-acir-tests-$(cache_content_hash \
+tests_hash=$(cache_content_hash \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
     ../../barretenberg/cpp/.rebuild_patterns \
     ../../barretenberg/ts/.rebuild_patterns)
 
 function build_tests {
-  set -eu
-
   github_group "acir_tests build"
 
   if ! cache_download $tests_tar; then
@@ -55,19 +53,18 @@ function build_tests {
 
 function test {
   github_group "acir_tests testing"
-
   # TODO: 64 is bit of a magic number for CI/mainframe. Needs to work on lower hardware.
   test_cmds | parallelise 64
-
-  cache_upload_flag $test_flag &>/dev/null
   github_endgroup
+}
+
+function test_cmds {
+  test_cmds_internal | awk "{ print \"$tests_hash \" \$0 }"
 }
 
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
-function test_cmds {
-  test_should_run $test_flag || return 0
-
+function test_cmds_internal {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|double_verify_honk_proof')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
@@ -141,7 +138,7 @@ case "$cmd" in
     build_tests
     ;;
   "hash")
-    echo $test_hash
+    echo $tests_hash
     ;;
   "test")
     test

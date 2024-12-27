@@ -7,12 +7,6 @@ cmd=${1:-}
 function build {
   github_group "noir-projects build"
 
-  # TODO: Move the build image, or better, just use devcontainer as our build container.
-  # Or just normalize the protocol circuit keys to be added to the contract artifact, base64 encoded instead of hex.
-  if ! command -v xxd &> /dev/null; then
-    denoise "apt update && apt install -y xxd"
-  fi
-
   # Use fmt as a trick to download dependencies.
   # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
   # Also doubles up as our formatting check.
@@ -40,14 +34,10 @@ case "$cmd" in
     build
     ;;
   "test-cmds")
-    ./noir-protocol-circuits/bootstrap.sh test-cmds
-    ./noir-contracts/bootstrap.sh test-cmds
-    ./aztec-nr/bootstrap.sh test-cmds
-    exit
+    parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
     ;;
   "hash")
     cache_content_hash .rebuild_patterns
-    exit
     ;;
   *)
     echo_stderr "Unknown command: $CMD"

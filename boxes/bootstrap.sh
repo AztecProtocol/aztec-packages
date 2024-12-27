@@ -27,16 +27,13 @@ function build {
 function test {
   github_group "boxes"
   test_cmds | parallelise
-  cache_upload_flag boxes-test-$hash &>/dev/null
   github_endgroup
 }
 
 function test_cmds {
-  test_should_run "boxes-test-$hash" || return 0
-
   for browser in chromium webkit; do
     for box in vanilla react; do
-      echo "boxes/scripts/run_test.sh $box $browser"
+      echo "$hash boxes/scripts/run_test.sh $box $browser"
     done
   done
 }

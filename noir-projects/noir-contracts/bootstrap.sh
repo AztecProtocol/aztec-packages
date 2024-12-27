@@ -87,6 +87,20 @@ function process_function() {
 }
 export -f process_function
 
+# Compute hash for a given contract.
+declare -A cache
+function get_contract_hash {
+  if [ -z "${cache[$1]:-}" ]; then
+    cache[$1]=$(cache_content_hash \
+      ../../noir/.rebuild_patterns \
+      ../../avm-transpiler/.rebuild_patterns \
+      "^noir-projects/noir-contracts/contracts/$1/" \
+      "^noir-projects/aztec-nr/")
+  fi
+  echo -n "${cache[$1]}"
+}
+export -f get_contract_hash
+
 # This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
 # $1 is the input package name, and on exit it's fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
@@ -99,12 +113,7 @@ function compile {
   contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash="$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../avm-transpiler/.rebuild_patterns \
-    "^noir-projects/noir-contracts/contracts/$contract/" \
-    "^noir-projects/aztec-nr/" \
-  )"
+  contract_hash=$(get_contract_hash $contract)
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
     $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
@@ -144,22 +153,21 @@ function build {
 }
 
 function test_cmds {
-  test_should_run $test_flag || return 0
-
   i=0
-  $NARGO test --list-tests --silence-warnings | while read -r package test; do
-    # We assume there are 8 txe's running.
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    echo "noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    # This must be called within *this* shell, not within $(), else the cache won't work.
+    get_contract_hash $package
+    echo " noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
 
 function test {
   # Starting txe servers with incrementing port numbers.
   NUM_TXES=8
-  trap 'kill $(jobs -p)' EXIT
+  trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &>/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -168,8 +176,6 @@ function test {
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | parallelise
-
-  cache_upload_flag $test_flag &>/dev/null
 }
 
 case "$cmd" in

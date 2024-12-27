@@ -1,10 +1,10 @@
 #!/bin/bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-# The entire command is in arg1. This splits it back out into positional args.
-eval set -- "$1"
+cmd=$1
+test_cmd="${cmd#* }"
 
-key=$(hash_str "$*")
+key=$(hash_str "$cmd")
 # Discard the content hash.
 shift
 
@@ -13,7 +13,7 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $ci_redis EXISTS 
 fi
 
 set +e
-output=$(dump_fail "$*")
+output=$(dump_fail "$test_cmd")
 code=$?
 
 if [ $? -ne 0 ]; then

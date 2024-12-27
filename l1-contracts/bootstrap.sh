@@ -27,23 +27,18 @@ function build {
 }
 
 function test_cmds {
-  test_should_run l1-contracts-test-$hash || return 0
-  echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
+  echo "$hash cd l1-contracts && forge fmt --check"
+  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
 }
 
 function test {
-  set -eu
-  local test_flag=l1-contracts-test-$hash
-  test_should_run $test_flag || return 0
-
   github_group "l1-contracts test"
   solhint --config ./.solhint.json "src/**/*.sol"
   forge fmt --check
   forge test --no-match-contract UniswapPortalTest
-  cache_upload_flag $test_flag
   github_endgroup
 }
-export -f test
 
 case "$cmd" in
   "clean")
