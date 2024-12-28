@@ -127,7 +127,7 @@ validator:
   validator:
     disabled: false
   sequencer:
-    maxTxsPerBlock: 36
+    maxTxsPerBlock: 40
     enforceTimeTable: true
 
 bootNode:
