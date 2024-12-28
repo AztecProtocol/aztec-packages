@@ -139,7 +139,7 @@ case "$cmd" in
     ;;
   "dlog")
     pager=${PAGER:-less}
-    [ -t 0 ] && pager=cat
+    [ ! -t 0 ] && pager=cat
     redis-cli --raw GET $1 | $pager
     ;;
   "shell-host")
