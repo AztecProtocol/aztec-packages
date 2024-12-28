@@ -11,7 +11,10 @@ export async function createAndStartProvingBroker(
   client: TelemetryClient,
 ): Promise<ProvingBroker> {
   const database = config.proverBrokerDataDirectory
-    ? new KVBrokerDatabase(AztecLmdbStore.open(config.proverBrokerDataDirectory), client)
+    ? new KVBrokerDatabase(
+        AztecLmdbStore.open(config.proverBrokerDataDirectory, config.proverBrokerDataMapSizeKB),
+        client,
+      )
     : new InMemoryBrokerDatabase();
 
   const broker = new ProvingBroker(database, client, {
