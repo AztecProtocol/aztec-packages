@@ -64,6 +64,7 @@ bootNode:
     requests:
       memory: "4Gi"
       cpu: "1"
+  maxOldSpaceSize: "4096"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -120,6 +121,7 @@ validator:
     requests:
       memory: "4Gi"
       cpu: "1"
+  maxOldSpaceSize: "4096"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   attestationPollingInterval: 1000
@@ -151,6 +153,7 @@ proverNode:
     requests:
       memory: "4Gi"
       cpu: "1"
+  maxOldSpaceSize: "4096"
   storage: "8Gi"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -264,6 +267,7 @@ proverBroker:
     requests:
       memory: "4Gi"
       cpu: "1"
+  maxOldSpaceSize: "4096"
 
 jobs:
   deployL1Verifier:

@@ -123,6 +123,7 @@ validator:
       memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "5120"
   validator:
     disabled: false
   sequencer:
@@ -139,6 +140,7 @@ bootNode:
       memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "5120"
 
 proverAgent:
   replicas: 8
@@ -149,6 +151,7 @@ proverBroker:
       memory: "12Gi"
       cpu: "3.5"
       ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "12288"
 
 proverNode:
   resources:
@@ -156,6 +159,7 @@ proverNode:
       memory: "12Gi"
       cpu: "3.5"
       ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "12288"
 
 bot:
   replicas: 10

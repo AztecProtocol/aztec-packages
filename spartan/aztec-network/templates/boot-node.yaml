@@ -179,6 +179,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.bootNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL

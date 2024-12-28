@@ -124,6 +124,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.proverNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL

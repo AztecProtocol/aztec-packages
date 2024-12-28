@@ -75,6 +75,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
