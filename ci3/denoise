@@ -23,23 +23,26 @@ export FORCE_COLOR=1
 # Create a new file descriptor for capturing output
 exec 3>&1
 
-# If stdout is connected to a terminal, print singular dots in realtime.
+# If stdout is connected to a terminal, print singular dots for each line.
 [ -t 1 ] && realtime=1 || realtime=0
 
 # Execute the command and process the output
-echo "Executing: $1"
+if [ -n "$CI_REDIS" ]; then
+  key=$(uuid)
+  echo "Executing: $1 ($key)"
+else
+  echo "Executing: $1"
+fi
 echo -n "   0 "
 output=$(
-  bash -c "$1" 2>&1 | while IFS= read -r -d '' -n 1 char; do
-    if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
-      ((dot_count++))
-      [ $realtime -eq 1 ] && >&3 printf "."
-      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-        [ $realtime -eq 0 ] && >&3 printf '%.s.' $(seq 1 "$dots_per_line")
-        >&3 printf "\n%4s " "$dot_count"
-      fi
+  bash -c "$1" 2>&1 | while IFS= read -r line; do
+    ((dot_count++))
+    [ $realtime -eq 1 ] && >&3 printf "."
+    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+      [ $realtime -eq 0 ] && >&3 printf '%.s.' $(seq 1 "$dots_per_line")
+      >&3 printf "\n%4s " "$dot_count"
     fi
-    printf "%s" "$char"  # Send each character to the captured output
+    printf "%s\n" "$line"
   done;
 )
 
@@ -52,6 +55,13 @@ if [ "$status" -ne 0 ]; then
   echo -e "$output"
 else
   echo ". done (${SECONDS}s)"
+fi
+
+if [ -n "$CI_REDIS" ]; then
+  {
+    echo "Command: $1 (exit: $status)"
+    echo "$output"
+  } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
 fi
 
 exit $status

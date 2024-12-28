@@ -75,6 +75,7 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v /tmp:/tmp \
     --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
     -e USE_TEST_CACHE=${USE_TEST_CACHE:-1} \
+    -e CI_REDIS='ci-redis.lzka0i.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \

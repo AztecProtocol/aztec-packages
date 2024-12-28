@@ -8,7 +8,7 @@ key=$(hash_str "$cmd")
 # Discard the content hash.
 shift
 
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $ci_redis EXISTS $key)" == "1" ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS $key)" == "1" ]; then
   exit 0
 fi
 
@@ -20,9 +20,9 @@ if [ $? -ne 0 ]; then
   echo "$output"
 elif [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   {
-    echo "Command: $*"
+    echo "Command: $1"
     echo "$output"
-  } | redis-cli -h $ci_redis -x SETEX $key 604800 &>/dev/null
+  } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
 fi
 
 exit $code

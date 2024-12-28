@@ -19,8 +19,8 @@ export root="$(git rev-parse --show-toplevel)"
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
-# Our redis cache for tracking e.g. test runs.
-export ci_redis=${CI_REDIS:-"ci-redis.lzka0i.0001.use2.cache.amazonaws.com"}
+# Our redis cache for e.g. test run tracking, denoised.
+export CI_REDIS=${CI_REDIS:-}
 
 function hash_str {
   set -eu
@@ -31,7 +31,11 @@ function echo_stderr {
   echo $@ >&2
 }
 
-export -f hash_str echo_stderr
+function uuid {
+  dd if=/dev/urandom count=8 bs=1 status=none | xxd -p
+}
+
+export -f hash_str echo_stderr uuid
 
 function get_num_cpus {
   if [ -f /sys/fs/cgroup/cpu.max ]; then

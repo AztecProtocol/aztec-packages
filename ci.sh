@@ -59,7 +59,7 @@ case "$cmd" in
     # "./bootstrap.sh ci" but disable the test cache, and repeat it over arg1 instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered "denoise 'USE_TEST_CACHE=0 bootstrap_ec2 \"./bootstrap.sh ci\" {}'"
+    seq 0 $((num - 1)) | parallel --tag --line-buffered "denoise 'bootstrap_ec2 \"USE_TEST_CACHE=0 ./bootstrap.sh ci\" {}'"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -87,7 +87,7 @@ case "$cmd" in
     gh pr edit "$pr_number" --add-label "trigger-workflow" &> /dev/null
     sleep 5
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
-    ;&
+    ;;
   "ga-log")
     # Get workflow id of most recent CI3 run for this given branch.
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
@@ -121,31 +121,29 @@ case "$cmd" in
       job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
       PAGER= gh run view -j $job_id --log
     fi
-    exit 0
     ;;
   "shell")
     get_ip_for_instance ${1:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it --user aztec-dev aztec_build zsh'
-    exit 0
     ;;
   "attach")
     get_ip_for_instance ${1:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
-    exit 0
    ;;
   "log")
     get_ip_for_instance ${1:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
-    exit 0
+    ;;
+  "dlog")
+    redis-cli --raw GET $1
     ;;
   "shell-host")
     get_ip_for_instance ${1:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-    exit 0
     ;;
   "draft")
     pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
@@ -155,7 +153,6 @@ case "$cmd" in
     else
       echo "No pull request found for branch $BRANCH."
     fi
-    exit 0
     ;;
   "ready")
     pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
@@ -165,7 +162,6 @@ case "$cmd" in
     else
       echo "No pull request found for branch $BRANCH."
     fi
-    exit 0
     ;;
   "test-kind-network")
     test=${1:-transfer.test.ts}
@@ -173,12 +169,10 @@ case "$cmd" in
     ./bootstrap.sh image-e2e
     cd yarn-project/end-to-end
     NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-    exit 0
     ;;
   "test-network")
     shift 1
     scripts/run_native_testnet.sh -i $@
-    exit 0
     ;;
   "gha-url")
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
@@ -188,11 +182,9 @@ case "$cmd" in
       exit 1
     fi
     echo "$run_url"
-    exit 0
     ;;
   "help"|"")
     print_usage
-    exit 0
     ;;
   *)
     echo "Unknown command: $cmd"
