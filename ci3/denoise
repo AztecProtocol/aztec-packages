@@ -64,13 +64,4 @@ else
   echo
 fi
 
-if [ -n "$CI_REDIS" ]; then
-  {
-    echo "Command: $1 (exit: $status)"
-    echo "$output"
-  } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
-
-  [ "$status" -ne 0 ] && echo_stderr -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
-fi
-
 exit $status
